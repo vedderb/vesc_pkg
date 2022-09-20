@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+rcc -binary res_all.qrc -o vesc_pkg_all.rcc
+
