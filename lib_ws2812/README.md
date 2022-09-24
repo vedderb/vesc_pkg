@@ -1,4 +1,4 @@
-# WS2812 Library
+# WS2812 Driver
 
 This is a library for driving WS2812 and similar addressable LEDs. You can use it from your LispBM-scripts by importing it and loading it as a native library:
 

@@ -3,6 +3,7 @@
    <qresource prefix="/vesc_packages">
         <file>euc/euc.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
+        <file>lib_nau7802/nau7802.vescpkg</file>
    </qresource>
 </RCC>
 
