@@ -14,7 +14,7 @@ Now you can read the ADC with
 (nau-read-adc)
 ```
 
-By default the init-function sets the PGA-gain to 1.0, the LDO to 3.0V and the conversion rate to 80 Hz. You can change all register values from the datasheet with this driver too. For example, to change the sample rate you can use
+By default the init-function sets the PGA-gain to 128.0, the LDO to 3.0V and the conversion rate to 80 Hz. You can change all register values from the datasheet with this driver too. For example, to change the sample rate you can use
 
 ```clj
 (nau-reg-update-write nau-reg-ctrl2 'CRS 7) ; 320 SPS
@@ -105,6 +105,15 @@ Address  : 0x12
 Length   : 3 bytes
 ------FIELDS------
 ADC      : 16768606 (24 bit, offset 0)
+
+Reg Name : nau-reg-adc-conf
+Address  : 0x15
+Length   : 1 bytes
+------FIELDS------
+REG-CHP  : 0 (2 bit, offset 0)
+ADC-VCM  : 0 (2 bit, offset 2)
+REG-CHPS : 3 (2 bit, offset 4)
+UNKNOWN  : 0 (2 bit, offset 6)
  
 Reg Name : nau-reg-pga
 Address  : 0x1B
@@ -149,6 +158,59 @@ The following example imports the driver, loads it and reads the ADC at 100 Hz t
 (loopwhile t
     (progn
         (def adc (nau-read-adc))
+        (sleep 0.01)
+))
+```
+
+## Example: Measure Microamps
+
+This example uses the NAU7802 to measure microamps using a 2 ohm shunt resistor. This is convenient when testing the sleep power consumption of devices. Compared to most multimeters this gives a very large range of measurement due to the 24 bits resolution, so you can measure values from a few microamps up to about 1A.
+
+```clj
+(import "pkg@://vesc_packages/lib_nau7802/nau7802.vescpkg" 'nau7802)
+(eval-program (read-program nau7802))
+(nau-init)
+
+; 3.0V LDO
+(nau-reg-update-write nau-reg-ctrl1 'VLDO 5)
+
+; 80 Hz sampling
+(nau-reg-update-write nau-reg-ctrl2 'CRS 3)
+
+; Bypass PGA
+(nau-reg-update-write nau-reg-pga 'BYPASS 1)
+
+; Shunt resistor value
+(def shunt-res 2.0)
+
+(defun lpf (val sample)
+    (- val (* 0.03 (- val sample)))
+)
+
+(defun zero-offset ()
+    (progn
+        (def adc-ofs 0.0)
+        (looprange i 0 99
+            (progn
+                (def adc-ofs (+ adc-ofs (nau-read-adc)))
+                (sleep 0.01)
+        ))
+        (def adc-ofs (/ adc-ofs 100.0))
+))
+
+(def milli-amps 0.0)
+(def micro-amps 0.0)
+(def adc-ofs 0.0)
+
+(sleep 0.5)
+(zero-offset)
+
+(loopwhile t
+    (progn
+        (def adc (nau-read-adc))
+        (def volts (* (- adc adc-ofs) 1.5))
+        (def micro-amps (lpf micro-amps (* 1.0e6 (/ volts shunt-res))))
+        (def milli-amps (/ micro-amps 1000.0))
         (sleep 0.01)
 ))
 ```

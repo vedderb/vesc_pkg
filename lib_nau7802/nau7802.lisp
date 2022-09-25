@@ -208,9 +208,16 @@
     nau-reg-gcal2
     nau-reg-i2c
     nau-reg-adc
+    nau-reg-adc-conf
     nau-reg-pga
     nau-reg-pwr
 ))
+
+(defun nau-reg-read-all ()
+    (loopforeach r nau-regs
+        (progn
+            (nau-reg-read (eval r))
+)))
 
 (defun nau-reg-read-print-all ()
     (loopforeach r nau-regs
@@ -237,7 +244,7 @@
 (defun nau-init ()
     (progn
         (i2c-start)
-        
+
         ; Reset sequence
         (nau-reg-update-write nau-reg-pu-ctrl 'RR 1)
         (sleep 0.001)
@@ -247,19 +254,27 @@
         (nau-reg-update nau-reg-pu-ctrl 'PUA 1)
         (nau-reg-write nau-reg-pu-ctrl)
         (sleep 0.001)
-        
+
         ; Configuration
         (nau-reg-update-write nau-reg-pu-ctrl 'AVDDS 1)
-        
-        (nau-reg-update nau-reg-ctrl1 'GAINS 0) ; 1x gain
+
+        (nau-reg-update nau-reg-ctrl1 'GAINS 7) ; 128x gain
         (nau-reg-update nau-reg-ctrl1 'VLDO 5) ; 3.0V LDO
         (nau-reg-write nau-reg-ctrl1)
-        
+
         (nau-reg-update-write nau-reg-ctrl2 'CRS 3) ; 80 SPS
         
         ; Disable chopper. Leaving the default causes noise for
         ; some reason.
         (nau-reg-update-write nau-reg-adc-conf 'REG-CHPS 3)
+        
+        (nau-reg-update-write nau-reg-pu-ctrl 'CS 1)
+        (sleep 0.5)
+
+        ; Clear calibration
+        (nau-reg-update nau-reg-ocal1 'OFFSET 0)
+        (nau-reg-update nau-reg-ocal1 'NEG 0)
+        (nau-reg-write nau-reg-ocal1)
 ))
 
 (def adc-buf (array-create 3))
@@ -270,5 +285,5 @@
     (progn
         (i2c-tx-rx nau-i2c-addr (list 0x12) adc-buf)
         (bufcpy adc-buf2 0 adc-buf 0 3)
-        (/ (bufget-i32 adc-buf2 0) 2147483648.0)    
+        (/ (bufget-i32 adc-buf2 0) 2147483648.0)
 ))
