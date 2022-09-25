@@ -95,6 +95,17 @@
     (ADC 0 24 0) ; ADC conversion result
 )))
 
+(def nau-reg-adc-conf '(
+    0x15 ; Address
+    1    ; Length
+    (
+    ; Name Offset Bits Value
+    (REG-CHP  0 2 0) ; Delay between ADC and chopper clocks
+    (ADC-VCM  2 2 0) ; Common mode for unipolar configuration
+    (REG-CHPS 4 2 0) ; Chopper clock frequency
+    (UNKNOWN  6 2 0) ; Not described in datasheet
+)))
+
 (def nau-reg-pga '(
     0x1B ; Address
     1    ; Length
@@ -245,6 +256,10 @@
         (nau-reg-write nau-reg-ctrl1)
         
         (nau-reg-update-write nau-reg-ctrl2 'CRS 3) ; 80 SPS
+        
+        ; Disable chopper. Leaving the default causes noise for
+        ; some reason.
+        (nau-reg-update-write nau-reg-adc-conf 'REG-CHPS 3)
 ))
 
 (def adc-buf (array-create 3))
