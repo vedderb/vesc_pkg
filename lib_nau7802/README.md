@@ -146,6 +146,16 @@ The function
 
 can be used to change any value of any of the registers above. Note that the field name is a symbol, you you must use a single quote on it (e.g. 'BIAS)
 
+## Heap Usage
+
+All of the register and init code takes space on the LBM heap. If that is an issue the following function can be used to free up the heap
+
+```clj
+(nau-free-heap)
+```
+
+Note that this removes all function except (nau-read-adc), so use it after you are done with initialization.
+
 ## Example
 
 The following example imports the driver, loads it and reads the ADC at 100 Hz to a binding that shows up in the binding table. You can click on it and go to the plot to see the voltage in real-time if poll status is active in VESC Tool.

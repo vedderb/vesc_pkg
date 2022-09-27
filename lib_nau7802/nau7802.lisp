@@ -277,6 +277,27 @@
         (nau-reg-write nau-reg-ocal1)
 ))
 
+; This can be used to remove all init-code and free up the heap
+(defun nau-free-heap ()
+    (progn
+        (loopforeach r nau-regs
+            (undefine r)
+        )
+        (undefine 'nau-regs)
+        (undefine 'nau-reg-read)
+        (undefine 'nau-reg-write)
+        (undefine 'nau-pad-str)
+        (undefine 'nau-reg-print)
+        (undefine 'nau-reg-read-print)
+        (undefine 'nau-reg-read-all)
+        (undefine 'nau-reg-read-print-all)
+        (undefine 'nau-reg-update)
+        (undefine 'nau-reg-update-write)
+        (undefine 'nau-init)
+        (undefine 'nau-free-heap)
+        (gc)
+))
+
 (def adc-buf (array-create 3))
 (def adc-buf2 (array-create 4))
 (bufclear adc-buf2)
