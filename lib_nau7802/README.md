@@ -172,6 +172,67 @@ The following example imports the driver, loads it and reads the ADC at 100 Hz t
 ))
 ```
 
+## Example: Scale with Load Cell
+
+```clj
+(import "pkg@://vesc_packages/lib_nau7802/nau7802.vescpkg" 'nau7802)
+(eval-program (read-program nau7802))
+(nau-init)
+
+; Run this function without any weight to calibrate the zero offset
+(defun zero-offset ()
+    (progn
+        (def adc-ofs 0.0)
+        (looprange i 0 100
+            (progn
+                (def adc-ofs (+ adc-ofs (nau-read-adc)))
+                (sleep 0.01)
+        ))
+        (def adc-ofs (/ adc-ofs 100.0))
+))
+
+(defun read-avg (samples)
+    (progn
+        (let ((avg 0))
+            (progn
+                (looprange it 0 samples
+                    (progn
+                        (setvar 'avg (+ avg (- (nau-read-adc) adc-ofs)))
+                        (sleep 0.01)
+                ))
+            (/ avg samples)
+))))
+
+; Used to calibrate scale. Put a known weight on the scale
+; and use this function with the weight as an argument.
+; zero-offset has to be run first.
+(defun cal-with-weight (weight)
+    (setvar 'scale (/ weight (read-avg 100)))
+)
+
+(defun read-grams ()
+    (* (- (nau-read-adc) adc-ofs) scale)
+)
+
+(defun lpf (val sample)
+    (- val (* 0.03 (- val sample)))
+)
+
+(def scale 21572.6) ; Factor to convert voltage to grams
+(def grams 0)       ; Weight in grams
+(def gramsf 0)      ; Filtered weight
+
+(zero-offset)
+
+(loopwhile t
+    (progn
+        (def adc (nau-read-adc))
+        (def grams (read-grams))
+        (def gramsf (lpf gramsf grams))
+        (sleep 0.01)
+))
+```
+
 ## Example: Measure Microamps
 
 This example uses the NAU7802 to measure microamps using a 2 ohm shunt resistor. This is convenient when testing the sleep power consumption of devices. Compared to most multimeters this gives a very large range of measurement due to the 24 bits resolution, so you can measure values from a few microamps up to about 1A.
