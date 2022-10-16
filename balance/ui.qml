@@ -111,7 +111,7 @@ Item {
                 "pitch  : " + pitch.toFixed(2) + "°\n" +
                 "roll   : " + roll.toFixed(2) + "°\n" +
                 "time   : " + (1/time_diff).toFixed(0) + "hz\n" +
-                "current: " + motor_current + "A\n" +
+                "current: " + motor_current.toFixed(2) + "A\n" +
                 "debug1 : " + debug1.toFixed(2) + "\n" +
                 "state  : " + stateString + "\n" +
                 "switch : " + switchString + "\n" +

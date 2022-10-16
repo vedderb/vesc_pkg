@@ -935,6 +935,7 @@ static void stop(void *arg) {
 	data *d = (data*)arg;
 	VESC_IF->conf_custom_clear_configs();
 	VESC_IF->request_terminate(d->thread);
+	VESC_IF->request_terminate(d->thread2);
 	VESC_IF->printf("EUC Terminated");
 	VESC_IF->free(d);
 }
