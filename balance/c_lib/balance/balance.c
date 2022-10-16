@@ -23,6 +23,7 @@
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
 #include "conf/confxml.h"
+#include "conf/buffer.h"
 
 #include <math.h>
 #include <string.h>
@@ -85,6 +86,7 @@ typedef enum {
 // loading applications in runtime, but it is not too bad to work around.
 typedef struct {
 	lib_thread thread; // Balance Thread
+	lib_thread thread2; // Realtime Data Broadcasts
 
 	balance_config balance_conf;
 
@@ -831,6 +833,34 @@ static float app_balance_get_debug(int index) {
 	}
 }
 
+
+static void send_realtime_data(data *d){
+	int32_t ind = 0;
+	uint8_t send_buffer[50];
+//	send_buffer[ind++] = COMM_GET_DECODED_BALANCE;
+	buffer_append_float32_auto(send_buffer, d->pid_value, &ind);
+	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
+	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
+	buffer_append_float32_auto(send_buffer, d->diff_time, &ind);
+	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
+	buffer_append_float32_auto(send_buffer, app_balance_get_debug(d->debug_render_1), &ind);
+	buffer_append_uint16(send_buffer, d->state, &ind);
+	buffer_append_uint16(send_buffer, d->switch_state, &ind);
+	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
+	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
+	buffer_append_float32_auto(send_buffer, app_balance_get_debug(d->debug_render_2), &ind);
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+static void realtime_data_thd(void *arg) {
+	data *d = (data*)arg;
+
+	while (!VESC_IF->should_terminate()) {
+		VESC_IF->sleep_ms(10);
+		send_realtime_data(d);
+	}
+}
+
 // Register get_debug as a lisp extension
 static lbm_value ext_bal_dbg(lbm_value *args, lbm_uint argn) {
 	if (argn != 1 || !VESC_IF->lbm_is_number(args[0])) {
@@ -952,9 +982,11 @@ INIT_FUN(lib_info *info) {
 
 	configure(d);
 
-	d->thread = VESC_IF->spawn(balance_thd, 2048, "EUC Main", d);
+	d->thread = VESC_IF->spawn(balance_thd, 2048, "Balance Main", d);
 
-	VESC_IF->lbm_add_extension("ext-euc-dbg", ext_bal_dbg);
+	d->thread2 = VESC_IF->spawn(realtime_data_thd, 2048, "Balance Realtime Data", d);
+
+	VESC_IF->lbm_add_extension("ext-balance-dbg", ext_bal_dbg);
 
 	return true;
 }
