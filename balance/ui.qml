@@ -45,6 +45,20 @@ Item {
 //        params.addEditorCustom("fault_delay_pitch", 0)
     }
     
+    Timer {
+        running: true
+        repeat: true
+        interval: 100
+        
+        onTriggered: {
+            var buffer = new ArrayBuffer(1)
+            var dv = new DataView(buffer)
+            var ind = 0
+            dv.setUint8(ind, 0x01); ind += 1
+            mCommands.sendCustomAppData(buffer)
+        }
+    }
+    
     Connections {
         target: mCommands
         
@@ -149,7 +163,7 @@ Item {
                     Layout.margins: 0
                     Layout.leftMargin: 5
                     Layout.preferredWidth: parent.width/3
-                    text: "adc1 = asdf"
+                    text: "App not connected"
                 }
             }
             

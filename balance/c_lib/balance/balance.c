@@ -86,7 +86,6 @@ typedef enum {
 // loading applications in runtime, but it is not too bad to work around.
 typedef struct {
 	lib_thread thread; // Balance Thread
-	lib_thread thread2; // Realtime Data Broadcasts
 
 	balance_config balance_conf;
 
@@ -833,7 +832,6 @@ static float app_balance_get_debug(int index) {
 	}
 }
 
-
 static void send_realtime_data(data *d){
 	int32_t ind = 0;
 	uint8_t send_buffer[50];
@@ -852,12 +850,17 @@ static void send_realtime_data(data *d){
 	VESC_IF->send_app_data(send_buffer, ind);
 }
 
-static void realtime_data_thd(void *arg) {
-	data *d = (data*)arg;
+// Handler for incoming app commands
+static void on_command_recieved(unsigned char *buffer, unsigned int len) {
+	data *d = (data*)ARG;
 
-	while (!VESC_IF->should_terminate()) {
-		VESC_IF->sleep_ms(10);
-		send_realtime_data(d);
+	if(len > 0){
+		uint8_t command = buffer[0];
+		if(command == 0x01){
+			send_realtime_data(d);
+		}else{
+			VESC_IF->printf("Unknown command received %d", command);
+		}
 	}
 }
 
@@ -935,8 +938,7 @@ static void stop(void *arg) {
 	data *d = (data*)arg;
 	VESC_IF->conf_custom_clear_configs();
 	VESC_IF->request_terminate(d->thread);
-	VESC_IF->request_terminate(d->thread2);
-	VESC_IF->printf("EUC Terminated");
+	VESC_IF->printf("Balance App Terminated");
 	VESC_IF->free(d);
 }
 
@@ -985,8 +987,7 @@ INIT_FUN(lib_info *info) {
 
 	d->thread = VESC_IF->spawn(balance_thd, 2048, "Balance Main", d);
 
-	d->thread2 = VESC_IF->spawn(realtime_data_thd, 2048, "Balance Realtime Data", d);
-
+	VESC_IF->set_app_data_handler(on_command_recieved);
 	VESC_IF->lbm_add_extension("ext-balance-dbg", ext_bal_dbg);
 
 	return true;
