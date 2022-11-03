@@ -1,4 +1,4 @@
-(import "c_lib/balance/balance.bin" 'balancelib)
+(import "balance/balance.bin" 'balancelib)
 
 (load-native-lib balancelib)
 
