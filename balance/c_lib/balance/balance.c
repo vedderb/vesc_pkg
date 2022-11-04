@@ -936,6 +936,7 @@ static int get_cfg_xml(uint8_t **buffer) {
 // Called when code is stopped
 static void stop(void *arg) {
 	data *d = (data*)arg;
+	VESC_IF->set_app_data_handler(NULL);
 	VESC_IF->conf_custom_clear_configs();
 	VESC_IF->request_terminate(d->thread);
 	VESC_IF->printf("Balance App Terminated");
