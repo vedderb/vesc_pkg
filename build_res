@@ -1,6 +1,40 @@
 #!/bin/bash
 
+VT=/usr/local/bin/vesc_tool
+
 set -e
+
+# Build all packages here. Note:
+# the buildPkg flag has an argument with 4 or 6 comma-separated flags. When
+# 4 flags are used the description and name is taken from the existing VESC
+# package. When 6 flags are used a markdown-file and a package name can be
+# passed. When using 4 flags a package-file must exist beforehand (e.g. by
+# creating it from the editor in VESC tool).
+
+# Balance
+cd balance/balance/
+make clean
+make
+cd ../
+$VT --buildPkg 'balance.vescpkg:balance.lisp:ui.qml:0:README.md:Balance'
+cd balance
+make clean
+cd ../../
+
+# WS2812
+cd lib_ws2812/ws2812/
+make clean
+make
+cd ../
+$VT --buildPkg 'ws2812.vescpkg:ws2812.lisp::0'
+cd ws2812
+make clean
+cd ../../
+
+# NAU7802
+cd lib_nau7802/
+$VT --buildPkg 'nau7802.vescpkg:nau7802.lisp::0'
+cd ../
 
 rcc -binary res_all.qrc -o vesc_pkg_all.rcc
 

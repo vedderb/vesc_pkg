@@ -1,2 +1,2 @@
-(import "c_lib/ws2812/ws2812.bin" 'ws2812)
+(import "ws2812/ws2812.bin" 'ws2812)
 
