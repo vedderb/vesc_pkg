@@ -146,6 +146,19 @@ typedef enum {
 	CAN_BAUD_100K
 } CAN_BAUD;
 
+typedef struct {
+	double lat;
+	double lon;
+	float height;
+	float speed;
+	float hdop;
+	int32_t ms_today;
+	int8_t yy;
+	int8_t mo;
+	int8_t dd;
+	systime_t last_update;
+} gnss_data;
+
 // LBM
 typedef uint32_t lbm_value;
 typedef uint32_t lbm_type;
@@ -162,11 +175,15 @@ typedef struct {
 } lbm_array_header_t;
 
 typedef lbm_value (*extension_fptr)(lbm_value*,lbm_uint);
+
+// For double precision literals
+#define D(x) 				((double)x##L)
 #endif
 
 typedef bool (*load_extension_fptr)(char*,extension_fptr);
 
 typedef void* lib_thread;
+typedef void* lib_mutex;
 
 typedef enum {
 	VESC_PIN_COMM_RX = 0,
@@ -458,6 +475,26 @@ typedef struct {
 	bool (*set_cfg_float)(CFG_PARAM p, float value);
 	bool (*set_cfg_int)(CFG_PARAM p, int value);
 	bool (*store_cfg)(void);
+
+	// GNSS-struct that can be both read and updated
+	volatile gnss_data* (*mc_gnss)(void);
+
+	// Mutex
+	lib_mutex (*mutex_create)(void);
+	void (*mutex_lock)(lib_mutex);
+	void (*mutex_unlock)(lib_mutex);
+
+	// Get ST io-pin from lbm symbol (this is only safe from extensions)
+	bool (*lbm_symbol_to_io)(lbm_uint sym, void **gpio, uint32_t *pin);
+
+	// High resolution timer for short busy-wait sleeps and time measurement
+	uint32_t (*timer_time_now)(void);
+	float (*timer_seconds_elapsed_since)(uint32_t time);
+	void (*timer_sleep)(float seconds);
+
+	// System lock (with counting)
+	void (*sys_lock)(void);
+	void (*sys_unlock)(void);
 } vesc_c_if;
 
 typedef struct {
