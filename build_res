@@ -21,6 +21,13 @@ cd balance
 make clean
 cd ../../
 
+# logui
+cd logui/
+$VT --buildPkg 'logui.vescpkg:logger.lisp:ui.qml:0:README.md:LogUI'
+cd ../
+
+## Libraries
+
 # WS2812
 cd lib_ws2812/ws2812/
 make clean
