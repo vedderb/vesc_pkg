@@ -21,6 +21,32 @@ cd balance
 make clean
 cd ../../
 
+# Float
+cd float/float/
+make clean
+make
+cd ../
+cp README.md READMEx.md
+echo "- Version: v" >> READMEx.md
+truncate -s-1 READMEx.md
+cd float/conf
+# Get version number out of settings.xml - assumes that valDouble is exactly 8 lines after the parameter name:
+LINENUMBER=$(grep -n APPCONF_FLOAT_VERSION settings.xml | tr -dc '0-9')
+head -$(($LINENUMBER + 8)) settings.xml | tail -1 | tr -dc '[.[:digit:]]' >> ../../READMEx.md
+cd ../..
+echo "" >> READMEx.md
+echo "- Build Date: " >> READMEx.md
+truncate -s-1 READMEx.md
+date +'%D %T' >> READMEx.md
+echo "- Git Commit: #" >> READMEx.md
+truncate -s-1 READMEx.md
+git rev-parse --short HEAD >> READMEx.md
+$VT --buildPkg 'float.vescpkg:float.lisp:ui.qml:0:READMEx.md:Float'
+rm READMEx.md
+cd float
+make clean
+cd ../../
+
 # logui
 cd logui/
 $VT --buildPkg 'logui.vescpkg:logger.lisp:ui.qml:0:README.md:LogUI'
