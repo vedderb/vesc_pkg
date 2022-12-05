@@ -556,6 +556,9 @@ typedef struct {
 
 	// Store backup data
 	bool (*store_backup_data)(void);
+
+	// PPM
+	float (*app_ppm_get_servo_val)(void);
 } vesc_c_if;
 
 typedef struct {
