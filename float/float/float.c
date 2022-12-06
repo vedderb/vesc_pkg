@@ -937,7 +937,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 
 	switch (d->float_conf.inputtilt_remote_type) {
 	case (PPM):
-		servo_val = VESC_IF->app_ppm_get_servo_val(); break;
+		servo_val = VESC_IF->get_ppm(); break;
 	case (UART):
 	case (NONE):
 		break;
