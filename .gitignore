@@ -54,3 +54,7 @@ dkms.conf
 # Eclipse
 .cproject
 .settings
+
+# Compiled resources
+*.rcc
+
