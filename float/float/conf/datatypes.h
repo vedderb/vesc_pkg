@@ -75,6 +75,7 @@ typedef struct {
 	float inputtilt_speed;
 	float inputtilt_angle_limit;
 	bool inputtilt_invert_throttle;
+	float inputtilt_deadband;
 	float noseangling_speed;
 	float startup_pitch_tolerance;
 	float startup_roll_tolerance;
@@ -98,8 +99,6 @@ typedef struct {
 	float atr_strength;
 	float atr_torque_offset;
 	float atr_speed_boost;
-	float atr_uphill_tilt;
-	float atr_downhill_tilt;
 	float atr_angle_limit;
 	float atr_on_speed;
 	float atr_off_speed;
