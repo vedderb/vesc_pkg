@@ -100,7 +100,7 @@
 
 // Duty Cycle
 #ifndef APPCONF_FLOAT_TILTBACK_DUTY
-#define APPCONF_FLOAT_TILTBACK_DUTY 0.75
+#define APPCONF_FLOAT_TILTBACK_DUTY 0.8
 #endif
 
 // Angle
@@ -115,7 +115,7 @@
 
 // High Voltage Threshold
 #ifndef APPCONF_FLOAT_TILTBACK_HV
-#define APPCONF_FLOAT_TILTBACK_HV 64
+#define APPCONF_FLOAT_TILTBACK_HV 64.5
 #endif
 
 // Angle
@@ -181,6 +181,11 @@
 // Invert Throttle
 #ifndef APPCONF_FLOAT_INPUTTILT_INVERT_THROTTLE
 #define APPCONF_FLOAT_INPUTTILT_INVERT_THROTTLE 1
+#endif
+
+// Input Deadband
+#ifndef APPCONF_FLOAT_INPUTTILT_DEADBAND
+#define APPCONF_FLOAT_INPUTTILT_DEADBAND 0.1
 #endif
 
 // Startup Pitch Axis Angle Tolerance
@@ -308,16 +313,6 @@
 #define APPCONF_FLOAT_ATR_STRENGTH 1.2
 #endif
 
-// Uphill Tilt Factor
-#ifndef APPCONF_FLOAT_ATR_UPHILL_TILT
-#define APPCONF_FLOAT_ATR_UPHILL_TILT 0.9
-#endif
-
-// Downhill Tilt Factor
-#ifndef APPCONF_FLOAT_ATR_DOWNHILL_TILT
-#define APPCONF_FLOAT_ATR_DOWNHILL_TILT 0.2
-#endif
-
 // Torque Offset
 #ifndef APPCONF_FLOAT_ATR_TORQUE_OFFSET
 #define APPCONF_FLOAT_ATR_TORQUE_OFFSET 7
@@ -350,7 +345,7 @@
 
 // Tiltback Transition Boost
 #ifndef APPCONF_FLOAT_ATR_TRANSITION_BOOST
-#define APPCONF_FLOAT_ATR_TRANSITION_BOOST 3
+#define APPCONF_FLOAT_ATR_TRANSITION_BOOST 2.5
 #endif
 
 // Current Filter
@@ -360,7 +355,7 @@
 
 // Amps to Acceleration Ratio
 #ifndef APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO
-#define APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO 12
+#define APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO 11
 #endif
 
 // Amps to Deceleration Ratio
@@ -385,7 +380,7 @@
 
 // Package Version
 #ifndef APPCONF_FLOAT_VERSION
-#define APPCONF_FLOAT_VERSION 0.1
+#define APPCONF_FLOAT_VERSION 0.3
 #endif
 
 // CONF_DEFAULT_H_

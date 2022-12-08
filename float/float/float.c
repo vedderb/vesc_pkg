@@ -934,17 +934,40 @@ static void apply_noseangling(data *d){
 static void apply_inputtilt(data *d){ // Input Tiltback
 	float input_tiltback_target;
 	float servo_val = 0;
+	bool connected = false;
 
 	switch (d->float_conf.inputtilt_remote_type) {
 	case (PPM):
-		servo_val = VESC_IF->get_ppm(); break;
-	case (UART):
+		servo_val = VESC_IF->get_ppm();
+		connected = VESC_IF->get_ppm_age() < 1;
+		break;
+	case (UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
+		remote_state remote = VESC_IF->get_remote_state();
+		servo_val = remote.js_y;
+		connected = remote.age_s < 1;
+		break;
 	case (NONE):
 		break;
 	}
+	
+	if (!connected) {
+		d->inputtilt_interpolated = 0;
+		servo_val = 0;
+		return;
+	}
 
+	// Apply Deadband
+	float deadband = d->float_conf.inputtilt_deadband;
+	if (fabsf(servo_val) < deadband) {
+		servo_val = 0.0;
+	} else {
+		servo_val = SIGN(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
+	}
+
+	// Invert Throttle
 	servo_val *= d->float_conf.inputtilt_invert_throttle ? -1.0 : 1.0;
 	 
+	// Scale by Max Angle
 	input_tiltback_target = servo_val * d->float_conf.inputtilt_angle_limit;
 
 	// // Default Behavior: Nose Tilt at any speed, does not invert for reverse (Safer for slow climbs/descents & jumps)
@@ -1600,29 +1623,6 @@ static void float_thd(void *arg) {
 			// Resume real PID maths
 			d->integral = d->integral + d->proportional;
 
-			if (d->atr_enabled) {
-				// Produce controlled nose/tail lift with increased torque
-				float tt_impact;
-				if (d->torqueresponse_interpolated < 0)
-					// Downhill tail lift doesn't need to be as high as uphill nose lift
-					tt_impact = d->float_conf.atr_downhill_tilt;
-				else {
-					tt_impact = d->float_conf.atr_uphill_tilt;
-
-					if (tt_impact > 0) {
-						const float max_impact_erpm = 2500;
-						const float starting_impact = 0.5;
-						if (d->abs_erpm < max_impact_erpm) {
-							// Reduced nose lift at lower speeds
-							// Creates a value between 0.5 and 1.0
-							float erpm_scaling = fmaxf(starting_impact, d->abs_erpm / max_impact_erpm);
-							tt_impact = (1.0 - (tt_impact * erpm_scaling));
-						}
-					}
-				}
-				d->integral -= d->torqueresponse_interpolated * tt_impact;
-			}
-
 			if (d->setpointAdjustmentType == REVERSESTOP) {
 				d->integral = d->integral * 0.9;
 			}
@@ -1972,7 +1972,6 @@ INIT_FUN(lib_info *info) {
 		return false;
 	}
 
-	buzzer_init();
 
 	// Read config from EEPROM if signature is correct
 	eeprom_var v;
@@ -2013,6 +2012,10 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->conf_custom_add_config(get_cfg, set_cfg, get_cfg_xml);
 
 	configure(d);
+
+	if ((d->float_conf.is_buzzer_enabled) || (d->float_conf.inputtilt_remote_type != PPM)) {
+		buzzer_init();
+	}
 
 	VESC_IF->ahrs_init_attitude_info(&d->m_att_ref);
 	d->m_att_ref.acc_confidence_decay = 0.1;
