@@ -8,19 +8,19 @@
 #define APPCONF_FLOAT_KP 20
 #endif
 
-// Angle I
-#ifndef APPCONF_FLOAT_KI
-#define APPCONF_FLOAT_KI 0.005
-#endif
-
 // Rate P
 #ifndef APPCONF_FLOAT_KP2
 #define APPCONF_FLOAT_KP2 0.6
 #endif
 
-// Rate I
-#ifndef APPCONF_FLOAT_KI2
-#define APPCONF_FLOAT_KI2 0
+// Angle I
+#ifndef APPCONF_FLOAT_KI
+#define APPCONF_FLOAT_KI 0.005
+#endif
+
+// Mahony KP
+#ifndef APPCONF_FLOAT_MAHONY_KP
+#define APPCONF_FLOAT_MAHONY_KP 2
 #endif
 
 // Loop Hertz
@@ -258,14 +258,9 @@
 #define APPCONF_FLOAT_TORQUETILT_STRENGTH 0
 #endif
 
-// Current Filter
-#ifndef APPCONF_FLOAT_TORQUETILT_FILTER
-#define APPCONF_FLOAT_TORQUETILT_FILTER 5
-#endif
-
-// Turn Tiltback Mode
-#ifndef APPCONF_FLOAT_TURNTILT_MODE
-#define APPCONF_FLOAT_TURNTILT_MODE 1
+// Strength (Regen)
+#ifndef APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN
+#define APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN 0
 #endif
 
 // Strength
@@ -308,9 +303,14 @@
 #define APPCONF_FLOAT_TURNTILT_YAW_AGGREGATE 90
 #endif
 
-// ATR Strength
-#ifndef APPCONF_FLOAT_ATR_STRENGTH
-#define APPCONF_FLOAT_ATR_STRENGTH 1.2
+// ATR Uphill Strength
+#ifndef APPCONF_FLOAT_ATR_UPHILL_STRENGTH
+#define APPCONF_FLOAT_ATR_UPHILL_STRENGTH 1
+#endif
+
+// ATR Downhill Strength
+#ifndef APPCONF_FLOAT_ATR_DOWNHILL_STRENGTH
+#define APPCONF_FLOAT_ATR_DOWNHILL_STRENGTH 1
 #endif
 
 // Torque Offset
@@ -380,7 +380,7 @@
 
 // Package Version
 #ifndef APPCONF_FLOAT_VERSION
-#define APPCONF_FLOAT_VERSION 0.3
+#define APPCONF_FLOAT_VERSION 0.5
 #endif
 
 // CONF_DEFAULT_H_

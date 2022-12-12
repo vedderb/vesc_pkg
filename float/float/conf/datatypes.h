@@ -24,11 +24,6 @@
 #include <stdbool.h>
 
 typedef enum {
-	ROLL_BASED_TURNTILT = 0,
-	YAW_BASED_TURNTILT
-} FLOAT_TURNTILT_MODE;
-
-typedef enum {
 	NONE = 0,
 	UART,
 	PPM
@@ -40,10 +35,8 @@ typedef struct {
 	float ki;
 	float kd;
 	float kp2;
-	float ki2;
-	float kd2;
+	float mahony_kp;
 	uint16_t hertz;
-	uint16_t loop_time_filter;
 	float fault_pitch;
 	float fault_roll;
 	float fault_duty;
@@ -83,7 +76,6 @@ typedef struct {
 	float startup_click_current;
 	float deadzone;
 	float brake_current;
-	uint16_t brake_timeout;
 	float ki_limit;
 	uint16_t kd_pt1_lowpass_frequency;
 	uint16_t kd_pt1_highpass_frequency;
@@ -95,8 +87,9 @@ typedef struct {
 	float torquetilt_on_speed;
 	float torquetilt_off_speed;
 	float torquetilt_strength;
-	float torquetilt_filter;
-	float atr_strength;
+	float torquetilt_strength_regen;
+	float atr_strength_up;
+	float atr_strength_down;
 	float atr_torque_offset;
 	float atr_speed_boost;
 	float atr_angle_limit;
@@ -109,7 +102,6 @@ typedef struct {
 	float atr_amps_decel_ratio;
 	float braketilt_strength;
 	float braketilt_lingering;
-	FLOAT_TURNTILT_MODE turntilt_mode;
 	float turntilt_strength;
 	float turntilt_angle_limit;
 	float turntilt_start_angle;

@@ -152,10 +152,9 @@ typedef struct {
 	float applied_booster_current;
 	float noseangling_interpolated, inputtilt_interpolated;
 	float filtered_current;
-	float torquetilt_filtered_current, torquetilt_target, torquetilt_interpolated;
+	float torquetilt_target, torquetilt_interpolated;
 	float atr_filtered_current, atr_target, atr_interpolated;
 	float torqueresponse_interpolated;
-	Biquad torquetilt_current_biquad;
 	Biquad atr_current_biquad;
 	float braketilt_factor, braketilt_target, braketilt_interpolated;
 	float turntilt_target, turntilt_interpolated;
@@ -175,7 +174,7 @@ typedef struct {
 	bool is_upside_down;			// the board is upside down
 	bool is_upside_down_started;	// dark ride has been engaged
 	bool enable_upside_down;		// dark ride mode is enabled (10 seconds after fault)
-	bool allow_upside_down;			// dark ride mode feature is ON (roll=180) 
+	bool allow_upside_down;			// dark ride mode feature is ON
 	float delay_upside_down_fault;
 
 	// Feature: Reverse Stop
@@ -326,6 +325,11 @@ static void configure(data *d) {
 	d->start_click_current = d->float_conf.startup_click_current;
 	d->start_counter_clicks_max = 3;
 
+	// Overwrite App CFG Mahony KP to Float CFG Value
+	if (VESC_IF->get_cfg_float(CFG_PARAM_IMU_mahony_kp) != d->float_conf.mahony_kp) {
+		VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp, d->float_conf.mahony_kp);
+	}
+
 	d->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
 	d->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
 
@@ -381,18 +385,13 @@ static void configure(data *d) {
 				loop_time_filter / (2.0 * M_PI * (1.0 / (float)d->float_conf.hertz) *
 						loop_time_filter + 1.0);
 
-	if (d->float_conf.torquetilt_filter > 0) { // Torquetilt Current Biquad
-		float Fc = d->float_conf.torquetilt_filter / d->float_conf.hertz;
-		biquad_config(&d->torquetilt_current_biquad, BQ_LOWPASS, Fc);
-	}
-
 	if (d->float_conf.atr_filter > 0) { // ATR Current Biquad
 		float Fc = d->float_conf.atr_filter / d->float_conf.hertz;
 		biquad_config(&d->atr_current_biquad, BQ_LOWPASS, Fc);
 	}
 
 	// Feature: ATR:
-	d->atr_enabled = (d->float_conf.atr_strength > 0);
+	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
 	d->float_acc_diff = 0;
 
 	/* INSERT OG TT LOGIC? */
@@ -432,7 +431,6 @@ static void configure(data *d) {
 	d->filtered_loop_overshoot = 0.0;
 
 	d->buzzer_enabled = d->float_conf.is_buzzer_enabled;
-	VESC_IF->printf("Config written\n");
 	beep_alert(d, 1, false);
 }
 
@@ -448,11 +446,8 @@ static void reset_vars(data *d) {
 	d->applied_booster_current = 0;
 	d->noseangling_interpolated = 0;
 	d->inputtilt_interpolated = 0;
-	d->filtered_current = 0;
 	d->torquetilt_target = 0;
 	d->torquetilt_interpolated = 0;
-	d->torquetilt_filtered_current = 0;
-	biquad_reset(&d->torquetilt_current_biquad);
 	d->atr_target = 0;
 	d->atr_interpolated = 0;
 	d->atr_filtered_current = 0;
@@ -1015,22 +1010,13 @@ static void apply_torquetilt(data *d) {
 	float expected_acc;
 
 	// Filter current (Biquad)
-	if (d->float_conf.torquetilt_filter > 0) {
-		d->torquetilt_filtered_current = biquad_process(&d->torquetilt_current_biquad, d->motor_current);
-	} else {
-		d->torquetilt_filtered_current = d->motor_current;
-	}
-
-	// Filter current (Biquad)
 	if (d->float_conf.atr_filter > 0) {
 		d->atr_filtered_current = biquad_process(&d->atr_current_biquad, d->motor_current);
 	} else {
 		d->atr_filtered_current = d->motor_current;
 	}
 
-	d->filtered_current = d->atr_enabled ? d->atr_filtered_current : d->torquetilt_filtered_current;
-
-	torque_sign = SIGN(d->filtered_current);
+	torque_sign = SIGN(d->atr_filtered_current);
 
 	if ((d->abs_erpm > 250) && (torque_sign != SIGN(d->erpm))) {
 		// current is negative, so we are braking or going downhill
@@ -1084,12 +1070,14 @@ static void apply_torquetilt(data *d) {
 
 	// CLASSIC TORQUE TILT /////////////////////////////////
 
+	float tt_strength = d->atr_filtered_current > 0 ? d->float_conf.torquetilt_strength : d->float_conf.torquetilt_strength_regen;
+
 	// Do stock FW torque tilt: (comment from Mitch Lustig)
 	// Take abs motor current, subtract start offset, and take the max of that with 0 to get the current above our start threshold (absolute).
 	// Then multiply it by "power" to get our desired angle, and min with the limit to respect boundaries.
 	// Finally multiply it by sign motor current to get directionality back
-	d->torquetilt_target = fminf(fmaxf((fabsf(d->torquetilt_filtered_current) - d->float_conf.torquetilt_start_current), 0) *
-			d->float_conf.torquetilt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->torquetilt_filtered_current);
+	d->torquetilt_target = fminf(fmaxf((fabsf(d->atr_filtered_current) - d->float_conf.torquetilt_start_current), 0) *
+			tt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->atr_filtered_current);
 
 	if ((d->torquetilt_interpolated - d->torquetilt_target > 0 && d->torquetilt_target > 0) ||
 			(d->torquetilt_interpolated - d->torquetilt_target < 0 && d->torquetilt_target < 0)) {
@@ -1106,14 +1094,6 @@ static void apply_torquetilt(data *d) {
 		torque_offset = d->float_conf.atr_torque_offset;
 		accel_factor = d->braking ? d->float_conf.atr_amps_decel_ratio : d->float_conf.atr_amps_accel_ratio;
 		accel_factor2 = accel_factor * 1.3;
-
-		float atr_strength = d->float_conf.atr_strength;
-		// from 3000 to 6000 erpm gradually crank up the torque response
-		if ((d->abs_erpm > 3000) && (!d->braking)) {
-			float speedboost = (d->abs_erpm - 3000) / 3000;
-			speedboost = fminf(1, speedboost) * d->float_conf.atr_speed_boost;
-			atr_strength += d->float_conf.atr_strength * speedboost;
-		}
 
 		// compare measured acceleration to expected acceleration
 		float measured_acc = fmaxf(d->acceleration, -5);
@@ -1148,6 +1128,14 @@ static void apply_torquetilt(data *d) {
 			d->accel_gap = 0.98 * d->accel_gap + 0.02 * acc_diff;
 		else {
 			d->accel_gap = 0;
+		}
+
+		float atr_strength = (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
+		// from 3000 to 6000 erpm gradually crank up the torque response
+		if ((d->abs_erpm > 3000) && (!d->braking)) {
+			float speedboost = (d->abs_erpm - 3000) / 3000;
+			speedboost = fminf(1, speedboost) * d->float_conf.atr_speed_boost;
+			atr_strength += atr_strength * speedboost;
 		}
 
 		// now torquetilt target is purely based on gap between expected and actual acceleration
@@ -1320,10 +1308,8 @@ static void apply_turntilt(data *d) {
 		return;
 	}
 
-	float is_yaw_based = d->float_conf.turntilt_mode == YAW_BASED_TURNTILT;
-
 	float abs_yaw_scaled = d->abs_yaw_change * 100;
-	float turn_angle = is_yaw_based ? abs_yaw_scaled : d->abs_roll_angle; 
+	float turn_angle = abs_yaw_scaled; 
 
 	// Apply cutzone
 	if ((turn_angle < d->float_conf.turntilt_start_angle) || (d->state != RUNNING)) {
@@ -1331,7 +1317,7 @@ static void apply_turntilt(data *d) {
 	}
 	else {
 		// Calculate desired angle
-		float turn_change = is_yaw_based ? d->abs_yaw_change : d->abs_roll_angle_sin;
+		float turn_change = d->abs_yaw_change;
 		d->turntilt_target = turn_change * d->turntilt_strength;
 
 		// Apply speed scaling
@@ -1343,16 +1329,14 @@ static void apply_turntilt(data *d) {
 		}
 		d->turntilt_target *= boost;
 
-		if (is_yaw_based) {
-			// Increase turntilt based on aggregate yaw change (at most: double it)
-			float aggregate_damper = 1.0;
-			if (d->abs_erpm < 2000) {
-				aggregate_damper = 0.5;
-			}
-			boost = 1 + aggregate_damper * fabsf(d->yaw_aggregate) / d->yaw_aggregate_target;
-			boost = fminf(boost, 2);
-			d->turntilt_target *= boost;
+		// Increase turntilt based on aggregate yaw change (at most: double it)
+		float aggregate_damper = 1.0;
+		if (d->abs_erpm < 2000) {
+			aggregate_damper = 0.5;
 		}
+		boost = 1 + aggregate_damper * fabsf(d->yaw_aggregate) / d->yaw_aggregate_target;
+		boost = fminf(boost, 2);
+		d->turntilt_target *= boost;
 
 		// Limit angle to max angle
 		if (d->turntilt_target > 0) {
@@ -1463,10 +1447,9 @@ static void float_thd(void *arg) {
 		d->filtered_diff_time = 0.03 * d->diff_time + 0.97 * d->filtered_diff_time; // Purely a metric
 		d->last_time = d->current_time;
 
-		if (d->float_conf.loop_time_filter > 0) {
-			d->loop_overshoot = d->diff_time - (d->loop_time_seconds - roundf(d->filtered_loop_overshoot));
-			d->filtered_loop_overshoot = d->loop_overshoot_alpha * d->loop_overshoot + (1.0 - d->loop_overshoot_alpha) * d->filtered_loop_overshoot;
-		}
+		// Loop Time Filter (Hard Coded to 3Hz)
+		d->loop_overshoot = d->diff_time - (d->loop_time_seconds - roundf(d->filtered_loop_overshoot));
+		d->filtered_loop_overshoot = d->loop_overshoot_alpha * d->loop_overshoot + (1.0 - d->loop_overshoot_alpha) * d->filtered_loop_overshoot;
 
 		// Read values for GUI
 		d->motor_current = VESC_IF->mc_get_tot_current_directional_filtered();
@@ -1639,17 +1622,9 @@ static void float_thd(void *arg) {
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
-				// Rate PID (Angle + Rate, rather than Angle-Rate Cascading)
+				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
 				d->proportional2 = -d->gyro[1];
-				d->integral2 = d->integral2 + d->proportional2;
-
-				// Apply I term Filter
-				if (d->float_conf.ki_limit > 0 && fabsf(d->integral2 * d->float_conf.ki2) > d->float_conf.ki_limit) {
-					d->integral2 = d->float_conf.ki_limit / d->float_conf.ki2 * SIGN(d->integral2);
-				}
-
-				new_pid_value += (d->float_conf.kp2 * d->proportional2) +
-						(d->float_conf.ki2 * d->integral2);
+				new_pid_value += (d->float_conf.kp2 * d->proportional2);
 
 
 				// Apply Booster (Now based on True Pitch)
@@ -1694,7 +1669,7 @@ static void float_thd(void *arg) {
 			}
 			else {
 				// Over continuous current for more than 3 seconds? Just beep, don't actually limit currents
-				if (fabsf(d->filtered_current) < d->max_continuous_current) {
+				if (fabsf(d->atr_filtered_current) < d->max_continuous_current) {
 					d->overcurrent_timer = d->current_time;
 					if (d->current_beeping) {
 						d->current_beeping = false;
@@ -1797,7 +1772,7 @@ static float app_float_get_debug(int index) {
 		case(2):
 			return d->float_setpoint;
 		case(3):
-			return d->filtered_current;
+			return d->atr_filtered_current;
 		case(4):
 			return d->float_atr;
 		case(5):
@@ -1825,7 +1800,7 @@ static float app_float_get_debug(int index) {
 		case(16):
 			return d->integral2;
 		case(17):
-			return d->integral2 * d->float_conf.ki2;
+			return 0;
 		default:
 			return 0;
 	}
@@ -1834,16 +1809,16 @@ static float app_float_get_debug(int index) {
 static void send_realtime_data(data *d){
 	int32_t ind = 0;
 	uint8_t send_buffer[50];
-//	send_buffer[ind++] = COMM_GET_DECODED_BALANCE;
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = 1;	 //FLOATCOMM_RTSTATS
 
 	// RT Data
 	buffer_append_float32_auto(send_buffer, d->pid_value, &ind);
 	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->diff_time, &ind);
-	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
-	buffer_append_uint16(send_buffer, d->state, &ind);
-	buffer_append_uint16(send_buffer, d->switch_state, &ind);
+
+	send_buffer[ind++] = d->state;
+	send_buffer[ind++] = d->switch_state;
 	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
 	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
 
@@ -1857,9 +1832,10 @@ static void send_realtime_data(data *d){
 	
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->filtered_current, &ind);
+	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
 	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
+	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
 
 	// buffer_append_float32_auto(send_buffer, app_float_get_debug(d->debug_render_1), &ind);
 	// buffer_append_float32_auto(send_buffer, app_float_get_debug(d->debug_render_2), &ind);
@@ -1871,12 +1847,36 @@ static void send_realtime_data(data *d){
 static void on_command_received(unsigned char *buffer, unsigned int len) {
 	data *d = (data*)ARG;
 
-	if(len > 0){
-		uint8_t command = buffer[0];
+	if(len > 1){
+		uint8_t magicnr = buffer[0];
+		uint8_t command = buffer[1];
+
+		if (magicnr != 101) {
+			if (!VESC_IF->app_is_output_disabled()) {
+				VESC_IF->printf("Float App: Wrong magic number %d\n", magicnr);
+			}
+			return;
+		}
 		if(command == 0x01){
 			send_realtime_data(d);
+			return;
+		}else if (command == 0x0){
+			int32_t ind = 0;
+			uint8_t send_buffer[10];
+			send_buffer[ind++] = 101;	// magic nr.
+			send_buffer[ind++] = 0x0;	// command ID
+			send_buffer[ind++] = (uint8_t) (10 * APPCONF_FLOAT_VERSION);
+			VESC_IF->send_app_data(send_buffer, ind);
+			return;
 		}else{
-			VESC_IF->printf("Float App: Unknown command received %d", command);
+			if (!VESC_IF->app_is_output_disabled()) {
+				VESC_IF->printf("Float App: Unknown command received %d\n", command);
+			}
+		}
+	}
+	else {
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("Float App: Command too short %d\n", len);
 		}
 	}
 }
@@ -1957,18 +1957,24 @@ static void stop(void *arg) {
 	VESC_IF->set_app_data_handler(NULL);
 	VESC_IF->conf_custom_clear_configs();
 	VESC_IF->request_terminate(d->thread);
-	VESC_IF->printf("Float App Terminated");
+	if (!VESC_IF->app_is_output_disabled()) {
+		VESC_IF->printf("Float App Terminated");
+	}
 	VESC_IF->free(d);
 }
 
 INIT_FUN(lib_info *info) {
 	INIT_START
-	VESC_IF->printf("Init Float v%.1f\n", (double)APPCONF_FLOAT_VERSION);
+	if (!VESC_IF->app_is_output_disabled()) {
+		VESC_IF->printf("Init Float v%.1f\n", (double)APPCONF_FLOAT_VERSION);
+	}
 
 	data *d = VESC_IF->malloc(sizeof(data));
 	memset(d, 0, sizeof(data));
 	if (!d) {
-		VESC_IF->printf("Float App: Out of memory, startup failed!");
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("Float App: Out of memory, startup failed!");
+		}
 		return false;
 	}
 
@@ -1994,14 +2000,18 @@ INIT_FUN(lib_info *info) {
 		memcpy(&(d->float_conf), buffer, sizeof(float_config));
 
 		if (d->float_conf.float_version != APPCONF_FLOAT_VERSION) {
-			VESC_IF->printf("Version change since last config write (%.1f vs %.1f) !",
-							(double)d->float_conf.float_version,
-							(double)APPCONF_FLOAT_VERSION);
+			if (!VESC_IF->app_is_output_disabled()) {
+				VESC_IF->printf("Version change since last config write (%.1f vs %.1f) !",
+								(double)d->float_conf.float_version,
+								(double)APPCONF_FLOAT_VERSION);
+			}
 			d->float_conf.float_version = APPCONF_FLOAT_VERSION;
 		}
 	} else {
 		confparser_set_defaults_float_config(&(d->float_conf));
-		VESC_IF->printf("Float Package Error: Reverting to default config!\n");
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("Float Package Error: Reverting to default config!\n");
+		}
 	}
 	
 	VESC_IF->free(buffer);

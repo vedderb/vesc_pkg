@@ -51,10 +51,11 @@ Item {
         interval: 100
         
         onTriggered: {
-            var buffer = new ArrayBuffer(1)
+            var buffer = new ArrayBuffer(2)
             var dv = new DataView(buffer)
             var ind = 0
-            dv.setUint8(ind, 0x01); ind += 1
+            dv.setUint8(ind, 101); ind += 1
+            dv.setUint8(ind, 0x1); ind += 1
             mCommands.sendCustomAppData(buffer)
         }
     }
@@ -69,94 +70,98 @@ Item {
             // Ints and floats can be extracted like this from the data
             var dv = new DataView(data, 0)
             var ind = 0
-            var pid_value = dv.getFloat32(ind); ind += 4;
-            var pitch = dv.getFloat32(ind); ind += 4;
-            var roll = dv.getFloat32(ind); ind += 4;
-            var time_diff = dv.getFloat32(ind); ind += 4;
-            var motor_current = dv.getFloat32(ind); ind += 4;
-            var state = dv.getInt16(ind); ind += 2;
-            var switch_state = dv.getInt16(ind); ind += 2;
-            var adc1 = dv.getFloat32(ind); ind += 4;
-            var adc2 = dv.getFloat32(ind); ind += 4;
+            var magicnr = dv.getUint8(ind); ind += 1;
+            var msgtype = dv.getUint8(ind); ind += 1;
 
-            var float_setpoint = dv.getFloat32(ind); ind += 4;
-            var float_atr = dv.getFloat32(ind); ind += 4;
-            var float_braketilt = dv.getFloat32(ind); ind += 4;
-            var float_torquetilt = dv.getFloat32(ind); ind += 4;
-            var float_turntilt = dv.getFloat32(ind); ind += 4;
-            var float_inputtilt = dv.getFloat32(ind); ind += 4;
-
-            var true_pitch = dv.getFloat32(ind); ind += 4;
-            var filtered_current = dv.getFloat32(ind); ind += 4;
-            var float_acc_diff = dv.getFloat32(ind); ind += 4;
-            var applied_booster_current = dv.getFloat32(ind); ind += 4;
-
-            // var debug1 = dv.getFloat32(ind); ind += 4;
-            // var debug2 = dv.getFloat32(ind); ind += 4;
-
-            var stateString
-            if(state == 0){
-                stateString = "STARTUP"
-            }else if(state == 1){
-                stateString = "RUNNING"
-            }else if(state == 2){
-                stateString = "RUNNING_TILTBACK"
-            }else if(state == 3){
-                stateString = "RUNNING_WHEELSLIP"
-            }else if(state == 4){
-                stateString = "RUNNING_UPSIDEDOWN"
-            }else if(state == 5){
-                stateString = "FAULT_ANGLE_PITCH"
-            }else if(state == 6){
-                stateString = "FAULT_ANGLE_ROLL"
-            }else if(state == 7){
-                stateString = "FAULT_SWITCH_HALF"
-            }else if(state == 8){
-                stateString = "FAULT_SWITCH_FULL"
-            }else if(state == 9){
-                stateString = "FAULT_STARTUP"
-            }else if(state == 10){
-                stateString = "FAULT_REVERSE"
-            }else if(state == 11){
-                stateString = "FAULT_QUICKSTOP"
-            }else{     
-                stateString = "UNKNOWN"
+            if (magicnr != 101) {
+                return;
             }
-            
-            var switchString
-            if(switch_state == 0){
-                switchString = "Off"
-            }else if(switch_state == 1){
-                switchString = "Half"
-            }else{
-                switchString = "On"
+            if (msgtype == 1) {
+                var pid_value = dv.getFloat32(ind); ind += 4;
+                var pitch = dv.getFloat32(ind); ind += 4;
+                var roll = dv.getFloat32(ind); ind += 4;
+                var state = dv.getInt8(ind); ind += 1;
+                var switch_state = dv.getInt8(ind); ind += 1;
+                var adc1 = dv.getFloat32(ind); ind += 4;
+                var adc2 = dv.getFloat32(ind); ind += 4;
+
+                var float_setpoint = dv.getFloat32(ind); ind += 4;
+                var float_atr = dv.getFloat32(ind); ind += 4;
+                var float_braketilt = dv.getFloat32(ind); ind += 4;
+                var float_torquetilt = dv.getFloat32(ind); ind += 4;
+                var float_turntilt = dv.getFloat32(ind); ind += 4;
+                var float_inputtilt = dv.getFloat32(ind); ind += 4;
+
+                var true_pitch = dv.getFloat32(ind); ind += 4;
+                var filtered_current = dv.getFloat32(ind); ind += 4;
+                var float_acc_diff = dv.getFloat32(ind); ind += 4;
+                var applied_booster_current = dv.getFloat32(ind); ind += 4;
+                var motor_current = dv.getFloat32(ind); ind += 4;
+
+                // var debug1 = dv.getFloat32(ind); ind += 4;
+                // var debug2 = dv.getFloat32(ind); ind += 4;
+
+                var stateString
+                if(state == 0){
+                    stateString = "STARTUP"
+                }else if(state == 1){
+                    stateString = "RUNNING"
+                }else if(state == 2){
+                    stateString = "RUNNING_TILTBACK"
+                }else if(state == 3){
+                    stateString = "RUNNING_WHEELSLIP"
+                }else if(state == 4){
+                    stateString = "RUNNING_UPSIDEDOWN"
+                }else if(state == 5){
+                    stateString = "FAULT_ANGLE_PITCH"
+                }else if(state == 6){
+                    stateString = "FAULT_ANGLE_ROLL"
+                }else if(state == 7){
+                    stateString = "FAULT_SWITCH_HALF"
+                }else if(state == 8){
+                    stateString = "FAULT_SWITCH_FULL"
+                }else if(state == 9){
+                    stateString = "FAULT_STARTUP"
+                }else if(state == 10){
+                    stateString = "FAULT_REVERSE"
+                }else if(state == 11){
+                    stateString = "FAULT_QUICKSTOP"
+                }else{
+                    stateString = "UNKNOWN"
+                }
+
+                var switchString
+                if(switch_state == 0){
+                    switchString = "Off"
+                }else if(switch_state == 1){
+                    switchString = "Half"
+                }else{
+                    switchString = "On"
+                }
+
+                rt_data.text =
+                    "Current (Requested) : " + pid_value.toFixed(2) + "A\n" +
+                    "Current (Motor)     : " + motor_current.toFixed(2) + "A\n" +
+                    "Pitch               : " + pitch.toFixed(2) + "°\n" +
+                    "Roll                : " + roll.toFixed(2) + "°\n" +
+                    "State               : " + stateString + "\n" +
+                    "Switch              : " + switchString + "\n" +
+                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n"
+
+                setpoints.text =
+                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
+                    "ATR Setpoint        : " + float_atr.toFixed(2) + "°\n" +
+                    "BrakeTilt Setpoint  : " + float_braketilt.toFixed(2) + "°\n" +
+                    "TorqueTilt Setpoint : " + float_torquetilt.toFixed(2) + "°\n" +
+                    "TurnTilt Setpoint   : " + float_turntilt.toFixed(2) + "°\n" +
+                    "InputTilt Setpoint  : " + float_inputtilt.toFixed(2) + "°\n"
+
+                debug.text =
+                    "True Pitch          : " + true_pitch.toFixed(2) + "°\n" +
+                    "Torque              : " + filtered_current.toFixed(2) + "A\n" +
+                    "Acc. Diff.          : " + float_acc_diff.toFixed(2) + "\n" +
+                    "Booster Current     : " + applied_booster_current.toFixed(2) + "A\n"
             }
-            
-            
-            rt_data.text =
-                "PID                 : " + pid_value.toFixed(2) + "A\n" +
-                "Pitch               : " + pitch.toFixed(2) + "°\n" +
-                "Roll                : " + roll.toFixed(2) + "°\n" +
-                "Loop Time           : " + (1/time_diff).toFixed(0) + "hz\n" +
-                "Current (Motor)     : " + motor_current.toFixed(2) + "A\n" +
-                "State               : " + stateString + "\n" +
-                "Switch              : " + switchString + "\n" +
-                "ADC1                : " + adc1.toFixed(2) + "V\n" +
-                "ADC2                : " + adc2.toFixed(2) + "V\n"
-
-            setpoints.text =
-                "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
-                "ATR Setpoint        : " + float_atr.toFixed(2) + "°\n" +
-                "BrakeTilt Setpoint  : " + float_braketilt.toFixed(2) + "°\n" +
-                "TorqueTilt Setpoint : " + float_torquetilt.toFixed(2) + "°\n" +
-                "TurnTilt Setpoint   : " + float_turntilt.toFixed(2) + "°\n" +
-                "InputTilt Setpoint  : " + float_inputtilt.toFixed(2) + "°\n"
-
-            debug.text =
-                "True Pitch          : " + true_pitch.toFixed(2) + "°\n" +
-                "Torque              : " + filtered_current.toFixed(2) + "A\n" +
-                "Acc. Diff.          : " + float_acc_diff.toFixed(2) + "\n" +
-                "Booster Current     : " + applied_booster_current.toFixed(2) + "A\n"
         }
     }
 
