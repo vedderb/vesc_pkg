@@ -11,9 +11,8 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_uint32(buffer, FLOAT_CONFIG_SIGNATURE, &ind);
 
 	buffer_append_float32_auto(buffer, conf->kp, &ind);
-	buffer_append_float32_auto(buffer, conf->ki, &ind);
 	buffer_append_float32_auto(buffer, conf->kp2, &ind);
-	buffer_append_float32_auto(buffer, conf->ki2, &ind);
+	buffer_append_float32_auto(buffer, conf->ki, &ind);
 	buffer_append_float32_auto(buffer, conf->mahony_kp, &ind);
 	buffer_append_uint16(buffer, conf->hertz, &ind);
 	buffer_append_float32_auto(buffer, conf->fault_pitch, &ind);
@@ -63,7 +62,6 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float32_auto(buffer, conf->torquetilt_off_speed, &ind);
 	buffer_append_float32_auto(buffer, conf->torquetilt_strength, &ind);
 	buffer_append_float32_auto(buffer, conf->torquetilt_strength_regen, &ind);
-	buffer_append_float32_auto(buffer, conf->torquetilt_filter, &ind);
 	buffer_append_float32_auto(buffer, conf->turntilt_strength, &ind);
 	buffer_append_float32_auto(buffer, conf->turntilt_angle_limit, &ind);
 	buffer_append_float32_auto(buffer, conf->turntilt_start_angle, &ind);
@@ -101,9 +99,8 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	}
 
 	conf->kp = buffer_get_float32_auto(buffer, &ind);
-	conf->ki = buffer_get_float32_auto(buffer, &ind);
 	conf->kp2 = buffer_get_float32_auto(buffer, &ind);
-	conf->ki2 = buffer_get_float32_auto(buffer, &ind);
+	conf->ki = buffer_get_float32_auto(buffer, &ind);
 	conf->mahony_kp = buffer_get_float32_auto(buffer, &ind);
 	conf->hertz = buffer_get_uint16(buffer, &ind);
 	conf->fault_pitch = buffer_get_float32_auto(buffer, &ind);
@@ -153,7 +150,6 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->torquetilt_off_speed = buffer_get_float32_auto(buffer, &ind);
 	conf->torquetilt_strength = buffer_get_float32_auto(buffer, &ind);
 	conf->torquetilt_strength_regen = buffer_get_float32_auto(buffer, &ind);
-	conf->torquetilt_filter = buffer_get_float32_auto(buffer, &ind);
 	conf->turntilt_strength = buffer_get_float32_auto(buffer, &ind);
 	conf->turntilt_angle_limit = buffer_get_float32_auto(buffer, &ind);
 	conf->turntilt_start_angle = buffer_get_float32_auto(buffer, &ind);
@@ -184,9 +180,8 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 
 void confparser_set_defaults_float_config(float_config *conf) {
 	conf->kp = APPCONF_FLOAT_KP;
-	conf->ki = APPCONF_FLOAT_KI;
 	conf->kp2 = APPCONF_FLOAT_KP2;
-	conf->ki2 = APPCONF_FLOAT_KI2;
+	conf->ki = APPCONF_FLOAT_KI;
 	conf->mahony_kp = APPCONF_FLOAT_MAHONY_KP;
 	conf->hertz = APPCONF_FLOAT_HERTZ;
 	conf->fault_pitch = APPCONF_FLOAT_FAULT_PITCH;
@@ -236,7 +231,6 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->torquetilt_off_speed = APPCONF_FLOAT_TORQUETILT_OFF_SPEED;
 	conf->torquetilt_strength = APPCONF_FLOAT_TORQUETILT_STRENGTH;
 	conf->torquetilt_strength_regen = APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN;
-	conf->torquetilt_filter = APPCONF_FLOAT_TORQUETILT_FILTER;
 	conf->turntilt_strength = APPCONF_FLOAT_TURNTILT_STRENGTH;
 	conf->turntilt_angle_limit = APPCONF_FLOAT_TURNTILT_ANGLE_LIMIT;
 	conf->turntilt_start_angle = APPCONF_FLOAT_TURNTILT_START_ANGLE;

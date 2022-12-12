@@ -152,10 +152,9 @@ typedef struct {
 	float applied_booster_current;
 	float noseangling_interpolated, inputtilt_interpolated;
 	float filtered_current;
-	float torquetilt_filtered_current, torquetilt_target, torquetilt_interpolated;
+	float torquetilt_target, torquetilt_interpolated;
 	float atr_filtered_current, atr_target, atr_interpolated;
 	float torqueresponse_interpolated;
-	Biquad torquetilt_current_biquad;
 	Biquad atr_current_biquad;
 	float braketilt_factor, braketilt_target, braketilt_interpolated;
 	float turntilt_target, turntilt_interpolated;
@@ -386,11 +385,6 @@ static void configure(data *d) {
 				loop_time_filter / (2.0 * M_PI * (1.0 / (float)d->float_conf.hertz) *
 						loop_time_filter + 1.0);
 
-	if (d->float_conf.torquetilt_filter > 0) { // Torquetilt Current Biquad
-		float Fc = d->float_conf.torquetilt_filter / d->float_conf.hertz;
-		biquad_config(&d->torquetilt_current_biquad, BQ_LOWPASS, Fc);
-	}
-
 	if (d->float_conf.atr_filter > 0) { // ATR Current Biquad
 		float Fc = d->float_conf.atr_filter / d->float_conf.hertz;
 		biquad_config(&d->atr_current_biquad, BQ_LOWPASS, Fc);
@@ -452,11 +446,8 @@ static void reset_vars(data *d) {
 	d->applied_booster_current = 0;
 	d->noseangling_interpolated = 0;
 	d->inputtilt_interpolated = 0;
-	d->filtered_current = 0;
 	d->torquetilt_target = 0;
 	d->torquetilt_interpolated = 0;
-	d->torquetilt_filtered_current = 0;
-	biquad_reset(&d->torquetilt_current_biquad);
 	d->atr_target = 0;
 	d->atr_interpolated = 0;
 	d->atr_filtered_current = 0;
@@ -1019,22 +1010,13 @@ static void apply_torquetilt(data *d) {
 	float expected_acc;
 
 	// Filter current (Biquad)
-	if (d->float_conf.torquetilt_filter > 0) {
-		d->torquetilt_filtered_current = biquad_process(&d->torquetilt_current_biquad, d->motor_current);
-	} else {
-		d->torquetilt_filtered_current = d->motor_current;
-	}
-
-	// Filter current (Biquad)
 	if (d->float_conf.atr_filter > 0) {
 		d->atr_filtered_current = biquad_process(&d->atr_current_biquad, d->motor_current);
 	} else {
 		d->atr_filtered_current = d->motor_current;
 	}
 
-	d->filtered_current = d->atr_enabled ? d->atr_filtered_current : d->torquetilt_filtered_current;
-
-	torque_sign = SIGN(d->filtered_current);
+	torque_sign = SIGN(d->atr_filtered_current);
 
 	if ((d->abs_erpm > 250) && (torque_sign != SIGN(d->erpm))) {
 		// current is negative, so we are braking or going downhill
@@ -1088,14 +1070,14 @@ static void apply_torquetilt(data *d) {
 
 	// CLASSIC TORQUE TILT /////////////////////////////////
 
-	float tt_strength = d->torquetilt_filtered_current > 0 ? d->float_conf.torquetilt_strength : d->float_conf.torquetilt_strength_regen;
+	float tt_strength = d->atr_filtered_current > 0 ? d->float_conf.torquetilt_strength : d->float_conf.torquetilt_strength_regen;
 
 	// Do stock FW torque tilt: (comment from Mitch Lustig)
 	// Take abs motor current, subtract start offset, and take the max of that with 0 to get the current above our start threshold (absolute).
 	// Then multiply it by "power" to get our desired angle, and min with the limit to respect boundaries.
 	// Finally multiply it by sign motor current to get directionality back
-	d->torquetilt_target = fminf(fmaxf((fabsf(d->torquetilt_filtered_current) - d->float_conf.torquetilt_start_current), 0) *
-			tt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->torquetilt_filtered_current);
+	d->torquetilt_target = fminf(fmaxf((fabsf(d->atr_filtered_current) - d->float_conf.torquetilt_start_current), 0) *
+			tt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->atr_filtered_current);
 
 	if ((d->torquetilt_interpolated - d->torquetilt_target > 0 && d->torquetilt_target > 0) ||
 			(d->torquetilt_interpolated - d->torquetilt_target < 0 && d->torquetilt_target < 0)) {
@@ -1465,10 +1447,9 @@ static void float_thd(void *arg) {
 		d->filtered_diff_time = 0.03 * d->diff_time + 0.97 * d->filtered_diff_time; // Purely a metric
 		d->last_time = d->current_time;
 
-		if (d->float_conf.loop_time_filter > 0) {
-			d->loop_overshoot = d->diff_time - (d->loop_time_seconds - roundf(d->filtered_loop_overshoot));
-			d->filtered_loop_overshoot = d->loop_overshoot_alpha * d->loop_overshoot + (1.0 - d->loop_overshoot_alpha) * d->filtered_loop_overshoot;
-		}
+		// Loop Time Filter (Hard Coded to 3Hz)
+		d->loop_overshoot = d->diff_time - (d->loop_time_seconds - roundf(d->filtered_loop_overshoot));
+		d->filtered_loop_overshoot = d->loop_overshoot_alpha * d->loop_overshoot + (1.0 - d->loop_overshoot_alpha) * d->filtered_loop_overshoot;
 
 		// Read values for GUI
 		d->motor_current = VESC_IF->mc_get_tot_current_directional_filtered();
@@ -1641,17 +1622,9 @@ static void float_thd(void *arg) {
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
-				// Rate PID (Angle + Rate, rather than Angle-Rate Cascading)
+				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
 				d->proportional2 = -d->gyro[1];
-				d->integral2 = d->integral2 + d->proportional2;
-
-				// Apply I term Filter
-				if (d->float_conf.ki_limit > 0 && fabsf(d->integral2 * d->float_conf.ki2) > d->float_conf.ki_limit) {
-					d->integral2 = d->float_conf.ki_limit / d->float_conf.ki2 * SIGN(d->integral2);
-				}
-
-				new_pid_value += (d->float_conf.kp2 * d->proportional2) +
-						(d->float_conf.ki2 * d->integral2);
+				new_pid_value += (d->float_conf.kp2 * d->proportional2);
 
 
 				// Apply Booster (Now based on True Pitch)
@@ -1696,7 +1669,7 @@ static void float_thd(void *arg) {
 			}
 			else {
 				// Over continuous current for more than 3 seconds? Just beep, don't actually limit currents
-				if (fabsf(d->filtered_current) < d->max_continuous_current) {
+				if (fabsf(d->atr_filtered_current) < d->max_continuous_current) {
 					d->overcurrent_timer = d->current_time;
 					if (d->current_beeping) {
 						d->current_beeping = false;
@@ -1799,7 +1772,7 @@ static float app_float_get_debug(int index) {
 		case(2):
 			return d->float_setpoint;
 		case(3):
-			return d->filtered_current;
+			return d->atr_filtered_current;
 		case(4):
 			return d->float_atr;
 		case(5):
@@ -1827,7 +1800,7 @@ static float app_float_get_debug(int index) {
 		case(16):
 			return d->integral2;
 		case(17):
-			return d->integral2 * d->float_conf.ki2;
+			return 0;
 		default:
 			return 0;
 	}
@@ -1859,7 +1832,7 @@ static void send_realtime_data(data *d){
 	
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->filtered_current, &ind);
+	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
 	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);

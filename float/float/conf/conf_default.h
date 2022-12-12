@@ -8,19 +8,14 @@
 #define APPCONF_FLOAT_KP 20
 #endif
 
-// Angle I
-#ifndef APPCONF_FLOAT_KI
-#define APPCONF_FLOAT_KI 0.005
-#endif
-
 // Rate P
 #ifndef APPCONF_FLOAT_KP2
 #define APPCONF_FLOAT_KP2 0.6
 #endif
 
-// Rate I
-#ifndef APPCONF_FLOAT_KI2
-#define APPCONF_FLOAT_KI2 0
+// Angle I
+#ifndef APPCONF_FLOAT_KI
+#define APPCONF_FLOAT_KI 0.005
 #endif
 
 // Mahony KP
@@ -266,11 +261,6 @@
 // Strength (Regen)
 #ifndef APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN
 #define APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN 0
-#endif
-
-// Current Filter
-#ifndef APPCONF_FLOAT_TORQUETILT_FILTER
-#define APPCONF_FLOAT_TORQUETILT_FILTER 5
 #endif
 
 // Strength
