@@ -3,7 +3,7 @@
 (def last-can-id -1)
 
 ; Minimum input voltage, stop logging when voltage drops lower
-(def vin-min 9)
+(def vin-min 11)
 
 ; Local data to log
 ;
@@ -215,15 +215,16 @@
 (event-enable 'event-shutdown)
 
 ; Voltage monitor thread that stops logging if the voltage drops too low
-(spawn 30 (fn ()
-        (progn
-            (if (< (get-vin) vin-min)
-                (progn
-                    (stop-log last-can-id)
-                    (sleep 1)
-            ))
-            (sleep 0.01)
-)))
+(spawn 50 (fn ()
+        (loopwhile t
+            (progn
+                (if (< (get-vin) vin-min)
+                    (progn
+                        (stop-log last-can-id)
+                        (sleep 1)
+                ))
+                (sleep 0.01)
+))))
 
 ; Persistent settings
 ; Format: (label . (offset type))

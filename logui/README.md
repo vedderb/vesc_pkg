@@ -2,7 +2,7 @@
 
 This package can be used for logging data to CAN-connected log devices such as the VESC Express. When installed it provides a QML-page in VESC Tool where logging can be configured, started and stopped. There is also a lisp-script that handles the logging.
 
-After a log is started it can be stopped with the stop-button or when a shutdown even it detected (from e.g. a power button). The log will also be stopped if the input voltage drops below 9V. The automatic stop is done in order to prevent data corruption on the SD-card when the power goes down.
+After a log is started it can be stopped with the stop-button or when a shutdown even it detected (from e.g. a power button). The log will also be stopped if the input voltage drops below 11V. The automatic stop is done in order to prevent data corruption on the SD-card when the power goes down.
 
 ## Data Selection
 
@@ -40,3 +40,7 @@ Stop the ongoing log if any.
 ### Save Config
 
 Save the log settings. If "Start logging at boot" is checked a log will be started automatically every boot with the settings above.
+
+## Other Log Data
+
+If you want to log different fields it is quite straight forward to customize the log script. After installing this package you can go to VESC Dev Tools -> Lisp and click the Read Existing-button. Then you can edit the loglist in the beginning and upload the edited script using the upload-button.
