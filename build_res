@@ -69,5 +69,15 @@ cd lib_nau7802/
 $VT --buildPkg 'nau7802.vescpkg:nau7802.lisp::0'
 cd ../
 
+# Interpolation
+cd lib_interpolation/interpolation/
+make clean
+make
+cd ../
+$VT --buildPkg 'interpolation.vescpkg:interpolation.lisp::0:README.md:Interpolation'
+cd interpolation
+make clean
+cd ../../
+
 rcc -binary res_all.qrc -o vesc_pkg_all.rcc
 
