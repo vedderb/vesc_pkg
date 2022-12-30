@@ -79,8 +79,10 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 		method = DEC_I(args[2]);
 	}
 
+	float x0 = 0.0;
 	float x1 = 0.0;
 	float x2 = 0.0;
+	float x3 = 0.0;
 	float y0 = 0.0;
 	float y1 = 0.0;
 	float y2 = 0.0;
@@ -95,8 +97,10 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 		float y = DEC_F(SECOND(arg));
 
 		if (cnt == 0) {
+			x0 = x;
 			x1 = x;
 			x2 = x;
+			x3 = x;
 			y0 = y;
 			y1 = y;
 			y2 = y;
@@ -104,14 +108,17 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 		} else if (cnt == 1) {
 			x1 = x;
 			x2 = x;
+			x3 = x;
 			y1 = y;
 			y2 = y;
 			y3 = y;
 		} else if (cnt == 2) {
 			x2 = x;
+			x3 = x;
 			y2 = y;
 			y3 = y;
 		} else if (cnt == 3) {
+			x3 = x;
 			y3 = y;
 		} else {
 			break;
@@ -124,14 +131,25 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 
 	curr = args[1];
 	bool passed = false;
+	cnt = 0;
 	while (IS_CONS(curr)) {
 		lbm_value  arg = CAR(curr);
 		curr = CDR(curr);
 		float x = DEC_F(FIRST(arg));
 		float y = DEC_F(SECOND(arg));
 
-		y0 = y1;
-		y1 = y2;
+		if (cnt >= 3) {
+			x0 = x1;
+			y0 = y1;
+		}
+
+		if (cnt >= 2) {
+			x1 = x2;
+			y1 = y2;
+		}
+
+		x2 = x3;
+		x3 = x;
 		y2 = y3;
 		y3 = y;
 
@@ -139,8 +157,10 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 			if (!passed) {
 				passed = true;
 
+				x0 = x1;
 				x1 = x2;
-				x2 = x;
+				x2 = x3;
+				x3 = x;
 
 				y0 = y1;
 				y1 = y2;
@@ -163,6 +183,38 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 					}
 				}
 
+				// Linear interpolation to approximate uniform point distribution
+				if (x3 != x2) {
+					float k = (y3 - y2) / (x3 - x2);
+					y3 = y2 + k * (x2 - x1);
+				}
+				if (x1 != x0) {
+					float k = (y0 - y1) / (x1 - x0);
+					y0 = y1 + k * (x2 - x1);
+				}
+
+//				VESC_IF->printf(
+//						"Done!\n"
+//						"mu: %.2f\n"
+//						"x0: %.2f\n"
+//						"x1: %.2f\n"
+//						"x2: %.2f\n"
+//						"x3: %.2f\n"
+//						"y0: %.2f\n"
+//						"y1: %.2f\n"
+//						"y2: %.2f\n"
+//						"y3: %.2f",
+//						(double)mu,
+//						(double)x0,
+//						(double)x1,
+//						(double)x2,
+//						(double)x3,
+//						(double)y0,
+//						(double)y1,
+//						(double)y2,
+//						(double)y3
+//				);
+
 				if (method == 0) {
 					res = fun_linear(y0, y1, y2, y3, mu);
 				} else if (method == 1) {
@@ -178,8 +230,7 @@ static lbm_value ext_interpolate(lbm_value *args, lbm_uint argn) {
 			}
 		}
 
-		x1 = x2;
-		x2 = x;
+		cnt++;
 	}
 
 	return ENC_F(res);
