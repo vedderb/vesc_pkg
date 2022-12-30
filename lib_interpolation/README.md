@@ -38,7 +38,7 @@ Note: Outside of the table all points are set to the same value as the last poin
 ))
 
 (ext-interpolate 1220 int-tab 3)
-> {92.144386}
+> {92.216660}
 ```
 
 ## Example: Plotting
@@ -54,22 +54,10 @@ Note: Outside of the table all points are set to the same value as the last poin
         (500.0 82.0)
         (1000.0 90.0)
         (1500.0 94.0)
+        (1960.0 80.6)
         (3000.0 96.0)
         (5000.0 100.0)
 ))
-
-(defun plot-range (start end points tab method)
-    (looprange i 0 points
-        (let (
-                (val (+ (* (/ i (to-float points)) (- end start)) start))
-            )
-            (plot-send-points val (ext-interpolate val tab method))
-)))
-
-
-(def val-start -1000.0)
-(def val-end 5500.0)
-(def points 500)
 
 (plot-init "Val" "Output")
 (plot-add-graph "Linear")
@@ -77,15 +65,10 @@ Note: Outside of the table all points are set to the same value as the last poin
 (plot-add-graph "Cubic")
 (plot-add-graph "Catmull-Rom")
 
-(plot-set-graph 0)
-(plot-range val-start val-end points int-tab 0)
-
-(plot-set-graph 1)
-(plot-range val-start val-end points int-tab 1)
-
-(plot-set-graph 2)
-(plot-range val-start val-end points int-tab 2)
-
-(plot-set-graph 3)
-(plot-range val-start val-end points int-tab 3)
+(looprange i 0 4
+    (progn
+        (plot-set-graph i)
+        (loopfor j -1000 (< j 7000) (+ j 10)
+            (plot-send-points j (ext-interpolate j int-tab i))
+)))
 ```
