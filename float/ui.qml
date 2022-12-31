@@ -113,19 +113,24 @@ Item {
                 }else if(state == 4){
                     stateString = "RUNNING_UPSIDEDOWN"
                 }else if(state == 5){
-                    stateString = "FAULT_ANGLE_PITCH"
+                    stateString = "STOP_ANGLE_PITCH"
                 }else if(state == 6){
-                    stateString = "FAULT_ANGLE_ROLL"
+                    stateString = "STOP_ANGLE_ROLL"
                 }else if(state == 7){
-                    stateString = "FAULT_SWITCH_HALF"
+                    stateString = "STOP_SWITCH_HALF"
                 }else if(state == 8){
-                    stateString = "FAULT_SWITCH_FULL"
+                    stateString = "STOP_SWITCH_FULL"
                 }else if(state == 9){
-                    stateString = "FAULT_STARTUP"
+                    if ((roll > 120) || (roll < -120)) {
+                        stateString = "STARTUP UPSIDEDOWN"
+                    }
+                    else {
+                        stateString = "STARTUP"
+                    }
                 }else if(state == 10){
-                    stateString = "FAULT_REVERSE"
+                    stateString = "STOP_REVERSE"
                 }else if(state == 11){
-                    stateString = "FAULT_QUICKSTOP"
+                    stateString = "STOP_QUICKSTOP"
                 }else{
                     stateString = "UNKNOWN"
                 }
@@ -135,17 +140,28 @@ Item {
                     switchString = "Off"
                 }else if(switch_state == 1){
                     switchString = "Half"
+                    /*HOW TO ACCESS CONFIG FROM QML???
+                    if (adc1 >= VescIf.mcConfig().fault_adc1)
+                        switchString += " [On|"
+                    else
+                        switchString += " [Off|"
+                    if (adc2 >= VescIf.mcConfig().fault_adc2)
+                        switchString += "On]"
+                    else
+                        switchString += "Off]"*/
                 }else{
                     switchString = "On"
                 }
+
+                rt_state.text =
+                    "State               : " + stateString + "\n" +
+                    "Switch              : " + switchString + "\n"
 
                 rt_data.text =
                     "Current (Requested) : " + pid_value.toFixed(2) + "A\n" +
                     "Current (Motor)     : " + motor_current.toFixed(2) + "A\n" +
                     "Pitch               : " + pitch.toFixed(2) + "°\n" +
                     "Roll                : " + roll.toFixed(2) + "°\n" +
-                    "State               : " + stateString + "\n" +
-                    "Switch              : " + switchString + "\n" +
                     "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n"
 
                 setpoints.text =
@@ -176,6 +192,27 @@ Item {
             
             ColumnLayout {
                 Text {
+                    id: header0
+                    color: Utility.getAppHexColor("lightText")
+                    font.family: "DejaVu Sans Mono"
+                    Layout.margins: 0
+                    Layout.leftMargin: 0
+                    Layout.fillWidth: true
+                    text: "Float App State"
+                    font.underline: true
+                    font.weight: Font.Black
+                    font.pointSize: 14
+                }
+                Text {
+                    id: rt_state
+                    color: Utility.getAppHexColor("lightText")
+                    font.family: "DejaVu Sans Mono"
+                    Layout.margins: 0
+                    Layout.leftMargin: 5
+                    Layout.preferredWidth: parent.width/3
+                    text: "Waiting for RT Data"
+                }
+                Text {
                     id: header1
                     color: Utility.getAppHexColor("lightText")
                     font.family: "DejaVu Sans Mono"
@@ -185,6 +222,7 @@ Item {
                     text: "Float App RT Data"
                     font.underline: true
                     font.weight: Font.Black
+                    font.pointSize: 14
                 }
                 Text {
                     id: rt_data
@@ -193,7 +231,7 @@ Item {
                     Layout.margins: 0
                     Layout.leftMargin: 5
                     Layout.preferredWidth: parent.width/3
-                    text: "App not connected"
+                    text: "-\n"
                 }
                 Text {
                     id: header2
@@ -205,6 +243,7 @@ Item {
                     text: "Setpoints"
                     font.underline: true
                     font.weight: Font.Black
+                    font.pointSize: 14
                 }
                 Text {
                     id: setpoints
@@ -213,7 +252,7 @@ Item {
                     Layout.margins: 0
                     Layout.leftMargin: 5
                     Layout.preferredWidth: parent.width/3
-                    text: "App not connected"
+                    text: "-\n"
                 }
                 Text {
                     id: header3
@@ -233,7 +272,7 @@ Item {
                     Layout.margins: 0
                     Layout.leftMargin: 5
                     Layout.preferredWidth: parent.width/3
-                    text: "App not connected"
+                    text: "-"
                 }
             }
             
