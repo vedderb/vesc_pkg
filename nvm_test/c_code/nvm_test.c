@@ -50,24 +50,46 @@ static void gscan(const char* str, uint8_t* vin) {
 	return;
 }
 
-static void terminal_wipe_nvm(int argc, const char **argv) {
+
+static void terminal_wipe_nvm(int argc, const char **argv, data* nd) {
 	(void) argc;
 	(void) argv;
+	VESC_IF->printf("ENTERED WIPE FUNCTION");
+
+	static data* d = NULL;
+	if (nd != NULL && argc == 0) {
+		d = nd;
+		VESC_IF->printf("Defined data structure: d = %x for wipe \n", d);
+		return;
+	}
+
 	int res = VESC_IF->wipe_nvm();
 	VESC_IF->printf("%d", res);
 }
 
 static void terminal_write_nvm(int argc, const char **argv, data* nd) {
 	static data* d = NULL;
-	if (nd != NULL) {
+	VESC_IF->printf("ENTERED WRITE FUNCTION\n");
+	if (nd != NULL && argc == 0) {
 		d = nd;
+		VESC_IF->printf("Defined data structure: d = %x for write (stored at %x) \n", d, &d);
 		return;
 	}
 	if (argc >= 2) {
+		int argo = 1;
+		int offset = 0;
+		if (argc > 4 && argv[1][0] == '-' && argv[1][1] == 'i') {
+			gscan(argv[2], &offset);
+			argo = 3;
+		}
+			
+		VESC_IF->printf("Reading %d arguments. Starting processing...\n", argc);
 		uint8_t w = 0;
-		for (int i = 0; i < argc-1; i++) {
-			gscan(argv[1], &w);
-			if (VESC_IF->write_nvm(&w, 1, d->top_address++)) {
+		for (int i = 0; i < argc-argo; i++) {
+			gscan(argv[i+argo], &w);
+			VESC_IF->printf("\tTRYING TO WRITE AT %x (from data structure %x)\n", offset, d);
+			if (VESC_IF->write_nvm(&w, 1, offset++)) {
+				VESC_IF->printf("\tentry %d: %x", i, w);
 				continue;
 			}
 			return;
@@ -78,16 +100,20 @@ static void terminal_write_nvm(int argc, const char **argv, data* nd) {
 }
 
 static void terminal_read_nvm(int argc, const char **argv) {
+	VESC_IF->printf("ENTERED READ FUNCTION\n");
 	if (argc == 2) {
-		int d = -1;
+		VESC_IF->printf("Reading %d arguments. Starting processing...\n", argc);
+		uint8_t d = 0;
 		gscan(argv[1], &d);
-		if (d <= 0) {
+		VESC_IF->printf("\t%d reads requested!\n", d);
+		if (d == 0) {
 			return;
 		}
 
+
 		uint8_t *v = (uint8_t*)VESC_IF->malloc(d);
 		if (VESC_IF->read_nvm(v, d, 0)) {
-			for (int i = 0; i < d; i++) VESC_IF->printf("entry %d = %d\n", i, v[i]);
+			for (int i = 0; i < d; i++) VESC_IF->printf("entry %d of %d = %d\n", i, d, v[i]);
 		}
 		return;
 	} else {
@@ -97,11 +123,18 @@ static void terminal_read_nvm(int argc, const char **argv) {
 
 // First start only, set initial state
 static void app_init(data *d) {
+	
+	if (VESC_IF->write_nvm == NULL || VESC_IF->read_nvm == NULL || VESC_IF->wipe_nvm == NULL) {
+		VESC_IF->printf("/!\ This version of the VESC firmware does not provide NVM manipulation operations! /!\ "); 
+		return;
+	}
+
 	VESC_IF->terminal_register_command_callback(
 			"wipe_nvm",
 			"Erases content of sector 8 of NVM.",
 			"",
-			terminal_wipe_nvm);
+			(void(*)(int, const char**))terminal_wipe_nvm);
+
 	VESC_IF->terminal_register_command_callback( "write_nvm",
 			"Appends one byte to NVM.",
 			"[d]",
@@ -113,7 +146,10 @@ static void app_init(data *d) {
 			"[d]",
 			terminal_read_nvm);
 
-
+	d->top_address = 0;
+	VESC_IF->printf("Start address: %d\n", d->top_address);
+	terminal_write_nvm(0, NULL, d);
+	terminal_wipe_nvm(0, NULL, d);
 }
 
 static void nvm_test_thd(void *arg) {
@@ -128,6 +164,12 @@ static void nvm_test_thd(void *arg) {
 
 // Called when code is stopped
 static void stop(void *arg) {
+	VESC_IF->terminal_unregister_callback( (void(*)(int, const char**))terminal_wipe_nvm);
+
+	VESC_IF->terminal_unregister_callback( (void(*)(int, const char**))terminal_write_nvm);
+
+	VESC_IF->terminal_unregister_callback( terminal_read_nvm);
+
 	data *d = (data*)arg;
 	VESC_IF->imu_set_read_callback(NULL);
 	VESC_IF->set_app_data_handler(NULL);
