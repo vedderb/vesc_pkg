@@ -1,5 +1,4 @@
 /*
-    Copyright 2019 - 2022 Mitch Lustig
 	Copyright 2022 Benjamin Vedder	benjamin@vedder.se
 
 	This file is part of the VESC firmware.
@@ -51,30 +50,15 @@ static void gscan(const char* str, uint8_t* vin) {
 }
 
 
-static void terminal_wipe_nvm(int argc, const char **argv, data* nd) {
+static void terminal_wipe_nvm(int argc, const char **argv) {
 	(void) argc;
 	(void) argv;
-	VESC_IF->printf("ENTERED WIPE FUNCTION");
-
-	static data* d = NULL;
-	if (nd != NULL && argc == 0) {
-		d = nd;
-		VESC_IF->printf("Defined data structure: d = %x for wipe \n", d);
-		return;
-	}
 
 	int res = VESC_IF->wipe_nvm();
 	VESC_IF->printf("%d", res);
 }
 
-static void terminal_write_nvm(int argc, const char **argv, data* nd) {
-	static data* d = NULL;
-	VESC_IF->printf("ENTERED WRITE FUNCTION\n");
-	if (nd != NULL && argc == 0) {
-		d = nd;
-		VESC_IF->printf("Defined data structure: d = %x for write (stored at %x) \n", d, &d);
-		return;
-	}
+static void terminal_write_nvm(int argc, const char **argv) {
 	if (argc >= 2) {
 		int argo = 1;
 		int offset = 0;
@@ -100,16 +84,12 @@ static void terminal_write_nvm(int argc, const char **argv, data* nd) {
 }
 
 static void terminal_read_nvm(int argc, const char **argv) {
-	VESC_IF->printf("ENTERED READ FUNCTION\n");
 	if (argc == 2) {
-		VESC_IF->printf("Reading %d arguments. Starting processing...\n", argc);
 		uint8_t d = 0;
 		gscan(argv[1], &d);
-		VESC_IF->printf("\t%d reads requested!\n", d);
 		if (d == 0) {
 			return;
 		}
-
 
 		uint8_t *v = (uint8_t*)VESC_IF->malloc(d);
 		if (VESC_IF->read_nvm(v, d, 0)) {
@@ -125,7 +105,9 @@ static void terminal_read_nvm(int argc, const char **argv) {
 static void app_init(data *d) {
 	
 	if (VESC_IF->write_nvm == NULL || VESC_IF->read_nvm == NULL || VESC_IF->wipe_nvm == NULL) {
-		VESC_IF->printf("/!\ This version of the VESC firmware does not provide NVM manipulation operations! /!\ "); 
+		VESC_IF->lbm_set_error_reason("Firmware doesn't support NVM manipulation operations.");
+		VESC_IF->printf("!! This version of the VESC firmware does not provide NVM manipulation operations! !!\n
+				Try flashing a more recent version on your board."); 
 		return;
 	}
 
@@ -133,12 +115,12 @@ static void app_init(data *d) {
 			"wipe_nvm",
 			"Erases content of sector 8 of NVM.",
 			"",
-			(void(*)(int, const char**))terminal_wipe_nvm);
+			terminal_wipe_nvm);
 
 	VESC_IF->terminal_register_command_callback( "write_nvm",
-			"Appends one byte to NVM.",
-			"[d]",
-			(void(*)(int, const char**))terminal_write_nvm);
+			"Appends a list of bytes to NVM.",
+			"[-i start index] ... bytes ..",
+			terminal_write_nvm);
 
 	VESC_IF->terminal_register_command_callback(
 			"read_nvm",
@@ -164,9 +146,9 @@ static void nvm_test_thd(void *arg) {
 
 // Called when code is stopped
 static void stop(void *arg) {
-	VESC_IF->terminal_unregister_callback( (void(*)(int, const char**))terminal_wipe_nvm);
+	VESC_IF->terminal_unregister_callback( terminal_wipe_nvm);
 
-	VESC_IF->terminal_unregister_callback( (void(*)(int, const char**))terminal_write_nvm);
+	VESC_IF->terminal_unregister_callback( terminal_write_nvm);
 
 	VESC_IF->terminal_unregister_callback( terminal_read_nvm);
 
