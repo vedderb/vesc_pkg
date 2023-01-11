@@ -1726,11 +1726,11 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>0.6</maxDouble>
-            <minDouble>0.6</minDouble>
+            <maxDouble>0.7</maxDouble>
+            <minDouble>0.7</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>0.6</valDouble>
+            <valDouble>0.7</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>9</vTx>
