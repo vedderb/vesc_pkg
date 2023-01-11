@@ -49,13 +49,14 @@ typedef enum {
 	RUNNING_TILTBACK = 2,
 	RUNNING_WHEELSLIP = 3,
 	RUNNING_UPSIDEDOWN = 4,
-	FAULT_ANGLE_PITCH = 5,
-	FAULT_ANGLE_ROLL = 6,
-	FAULT_SWITCH_HALF = 7,
-	FAULT_SWITCH_FULL = 8,
-	FAULT_STARTUP = 9,
-	FAULT_REVERSE = 10,
-	FAULT_QUICKSTOP = 11
+	FAULT_ANGLE_PITCH = 6,	// skipped 5 for compatibility
+	FAULT_ANGLE_ROLL = 7,
+	FAULT_SWITCH_HALF = 8,
+	FAULT_SWITCH_FULL = 9,
+	FAULT_DUTY = 10, 		// unused but kept for compatibility
+	FAULT_STARTUP = 11,
+	FAULT_REVERSE = 12,
+	FAULT_QUICKSTOP = 13
 } FloatState;
 
 typedef enum {
@@ -102,7 +103,7 @@ typedef struct {
 
 	// Config values
 	float loop_time_seconds;
-	unsigned int start_counter_clicks, start_counter_clicks_max, start_click_current;
+	unsigned int start_counter_clicks, start_counter_clicks_max;
 	float startup_step_size;
 	float tiltback_duty_step_size, tiltback_hv_step_size, tiltback_lv_step_size, tiltback_return_step_size;
 	float torquetilt_on_step_size, torquetilt_off_step_size, turntilt_step_size;
@@ -174,15 +175,28 @@ typedef struct {
 	bool is_upside_down;			// the board is upside down
 	bool is_upside_down_started;	// dark ride has been engaged
 	bool enable_upside_down;		// dark ride mode is enabled (10 seconds after fault)
-	bool allow_upside_down;			// dark ride mode feature is ON
 	float delay_upside_down_fault;
 
 	// Feature: Reverse Stop
 	float reverse_stop_step_size, reverse_tolerance, reverse_total_erpm;
 	float reverse_timer;
 
+	// Feature: Simple start
+	bool enable_simple_start;
+
 	// Brake Amp Rate Limiting:
 	float pid_brake_increment;
+
+	// Odometer
+	float odo_timer;
+	int odometer_dirty;
+	uint64_t odometer;
+
+	// Feature: RC Move (control via app while idle)
+	int rc_steps;
+	int rc_counter;
+	float rc_current_target;
+	float rc_current;
 
 	// Log values
 	float float_setpoint, float_atr, float_braketilt, float_torquetilt, float_turntilt, float_inputtilt;
@@ -194,6 +208,8 @@ typedef struct {
 	int debug_experiment_1, debug_experiment_2, debug_experiment_3, debug_experiment_4, debug_experiment_5, debug_experiment_6;
 } data;
 
+static void brake(data *d);
+static void set_current(data *d, float current);
 
 /**
  * BUZZER / BEEPER on Servo Pin
@@ -295,8 +311,8 @@ static void app_init(data *d) {
 	d->buzzer_enabled = true;
 	
 	// Allow saving of odometer
-	//odometer_dirty = 0;
-	//odometer = mc_interface_get_odometer();
+	d->odometer_dirty = 0;
+	d->odometer = VESC_IF->mc_get_odometer();
 }
 
 static void configure(data *d) {
@@ -322,7 +338,6 @@ static void configure(data *d) {
 	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
 
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
-	d->start_click_current = d->float_conf.startup_click_current;
 	d->start_counter_clicks_max = 3;
 
 	// Overwrite App CFG Mahony KP to Float CFG Value
@@ -379,6 +394,9 @@ static void configure(data *d) {
 	d->reverse_tolerance = 50000;
 	d->reverse_stop_step_size = 100.0 / d->float_conf.hertz;
 
+	// Feature: Simple start
+	d->enable_simple_start = true;
+		
 	// Init Filters
 	float loop_time_filter = 3.0; // Originally Parameter, now hard-coded to 3Hz
 	d->loop_overshoot_alpha = 2.0 * M_PI * ((float)1.0 / (float)d->float_conf.hertz) *
@@ -408,7 +426,6 @@ static void configure(data *d) {
 	d->turntilt_strength = d->float_conf.turntilt_strength;
 
 	// Feature: Darkride
-	d->allow_upside_down = (d->float_conf.fault_darkride_enabled);
 	d->enable_upside_down = false;
 	d->is_upside_down = false;
 
@@ -481,6 +498,57 @@ static void reset_vars(data *d) {
 
 	// Feature: click on start
 	d->start_counter_clicks = d->start_counter_clicks_max;
+
+	// RC Move:
+	d->rc_steps = 0;
+	d->rc_current = 0;
+}
+
+
+/**
+ *	check_odometer: see if we need to write back the odometer during fault state
+ */
+static void check_odometer(data *d)
+{
+	// Make odometer persistent if we've gone 200m or more
+	if (d->odometer_dirty > 0) {
+		if (VESC_IF->mc_get_odometer() > d->odometer + 200) {
+			if (d->odometer_dirty == 1) {
+				// Wait 10 seconds before writing to avoid writing if immediately continuing to ride
+				d->odo_timer = d->current_time;
+				d->odometer_dirty++;
+			}
+			else if ((d->current_time - d->odo_timer) > 10) {
+				VESC_IF->store_backup_data();
+				d->odometer = VESC_IF->mc_get_odometer();
+				d->odometer_dirty = 0;
+			}
+		}
+	}
+}
+
+/**
+ *  do_rc_move: perform motor movement while board is idle
+ */
+static void do_rc_move(data *d)
+{
+	if (d->rc_steps > 0) {
+		d->rc_current = d->rc_current * 0.95 + d->rc_current_target * 0.05;
+		if (d->abs_erpm > 800)
+			d->rc_current = 0;
+		set_current(d, d->rc_current);
+		d->rc_steps--;
+		d->rc_counter++;
+		if ((d->rc_counter == 500) && (d->rc_current_target > 2)) {
+			d->rc_current_target /= 2;
+		}
+	}
+	else {
+		d->rc_current = 0;
+		d->rc_counter = 0;
+		// Disable output
+		brake(d);
+	}
 }
 
 static float get_setpoint_adjustment_step_size(data *d) {
@@ -529,7 +597,7 @@ static SwitchState check_adcs(data *d) {
 		}else if(d->adc1 > d->float_conf.fault_adc1 || d->adc2 > d->float_conf.fault_adc2){
 			// 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
 			bool is_simple_start = d->current_time - d->disengage_timer > 5;
-			if (d->float_conf.fault_is_dual_switch || is_simple_start)
+			if (d->float_conf.fault_is_dual_switch || (d->enable_simple_start && is_simple_start))
 				sw_state = ON;
 			else
 				sw_state = HALF;
@@ -669,7 +737,7 @@ static bool check_faults(data *d, bool ignoreTimers){
 		} else {
 			d->fault_angle_roll_timer = d->current_time;
 
-			if (d->allow_upside_down) {
+			if (d->float_conf.fault_darkride_enabled) {
 				if((fabsf(d->roll_angle) > 100) && (fabsf(d->roll_angle) < 135)) {
 					d->state = FAULT_ANGLE_ROLL;
 					return true;
@@ -1461,7 +1529,7 @@ static void float_thd(void *arg) {
 		d->abs_roll_angle_sin = sinf(DEG2RAD_f(d->abs_roll_angle));
 
 		// Darkride:
-		if (d->allow_upside_down) {
+		if (d->float_conf.fault_darkride_enabled) {
 			if (d->is_upside_down) {
 				if (d->abs_roll_angle < 120) {
 					d->is_upside_down = false;
@@ -1585,7 +1653,8 @@ static void float_thd(void *arg) {
 			if (check_faults(d, false)) {
 				break;
 			}
-
+			d->odometer_dirty = 1;
+			
 			d->enable_upside_down = true;
 			d->disengage_timer = d->current_time;
 
@@ -1621,7 +1690,7 @@ static void float_thd(void *arg) {
 
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
-			if (d->start_counter_clicks == 0) {
+			if ((d->start_counter_clicks == 0) && (d->setpointAdjustmentType != CENTERING)) {
 				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
 				d->proportional2 = -d->gyro[1];
 				new_pid_value += (d->float_conf.kp2 * d->proportional2);
@@ -1707,9 +1776,9 @@ static void float_thd(void *arg) {
 				// Generate alternate pulses to produce distinct "click"
 				d->start_counter_clicks--;
 				if ((d->start_counter_clicks & 0x1) == 0)
-					set_current(d, d->pid_value - d->start_click_current);
+					set_current(d, d->pid_value - d->float_conf.startup_click_current);
 				else
-					set_current(d, d->pid_value + d->start_click_current);
+					set_current(d, d->pid_value + d->float_conf.startup_click_current);
 			}
 			else {
 				set_current(d, d->pid_value);
@@ -1732,7 +1801,9 @@ static void float_thd(void *arg) {
 				d->enable_upside_down = false;
 				d->is_upside_down = false;
 			}
-			
+
+			check_odometer(d);
+
 			// Check for valid startup position and switch state
 			if (fabsf(d->pitch_angle) < d->float_conf.startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->float_conf.startup_roll_tolerance && 
@@ -1749,9 +1820,11 @@ static void float_thd(void *arg) {
 				}
 				break;
 			}
-			// Disable output
-			brake(d);
+
+			// Set RC current or maintain brake current (and keep WDT happy!)
+			do_rc_move(d);
 			break;
+		default:;
 		}
 
 		// Debug outputs
@@ -1915,6 +1988,8 @@ enum {
 	FLOAT_COMMAND_TUNE_DEFAULTS = 3,// set tune to defaults (no eeprom)
 	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
 	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
+	FLOAT_COMMAND_TUNE_OTHER = 6,	// make runtime changes to startup/etc
+	FLOAT_COMMAND_RC_MOVE = 7		// move motor while board is idle
 } float_commands;
 
 static void split(unsigned char byte, int* h1, int* h2)
@@ -1924,9 +1999,9 @@ static void split(unsigned char byte, int* h1, int* h2)
 }
 
 /**
- * runtime_tune		Extract tune info from 20byte message but don't write to EEPROM!
+ * cmd_runtime_tune		Extract tune info from 20byte message but don't write to EEPROM!
  */
-static void runtime_tune(data *d, unsigned char *cfg)
+static void cmd_runtime_tune(data *d, unsigned char *cfg)
 {
 	int h1, h2;
 	split(cfg[0], &h1, &h2);
@@ -1949,7 +2024,7 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	if (h1 == 0)
 		d->float_conf.booster_current = 0;
 	else
-		d->float_conf.booster_current = 18 + h1 * 2;
+		d->float_conf.booster_current = 8 + h1 * 2;
 	d->float_conf.turntilt_strength = h2;
 
 	split(cfg[4], &h1, &h2);
@@ -2012,7 +2087,7 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	d->turntilt_strength = d->float_conf.turntilt_strength;
 }
 
-static void tune_defaults(data *d){
+static void cmd_tune_defaults(data *d){
 	d->float_conf.kp = APPCONF_FLOAT_KP;
 	d->float_conf.kp2 = APPCONF_FLOAT_KP2;
 	d->float_conf.ki = APPCONF_FLOAT_KI;
@@ -2043,6 +2118,100 @@ static void tune_defaults(data *d){
 	d->float_conf.atr_amps_decel_ratio = APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO;
 	d->float_conf.braketilt_strength = APPCONF_FLOAT_BRAKETILT_STRENGTH;
 	d->float_conf.braketilt_lingering = APPCONF_FLOAT_BRAKETILT_LINGERING;
+
+	d->float_conf.startup_pitch_tolerance = APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE;
+	d->float_conf.startup_roll_tolerance = APPCONF_FLOAT_STARTUP_ROLL_TOLERANCE;
+	d->float_conf.startup_speed = APPCONF_FLOAT_STARTUP_SPEED;
+	d->float_conf.startup_click_current = APPCONF_FLOAT_STARTUP_CLICK_CURRENT;
+	d->float_conf.brake_current = APPCONF_FLOAT_BRAKE_CURRENT;
+	d->float_conf.is_buzzer_enabled = APPCONF_FLOAT_IS_BUZZER_ENABLED;
+	d->float_conf.tiltback_constant = APPCONF_FLOAT_TILTBACK_CONSTANT;
+	d->float_conf.tiltback_constant_erpm = APPCONF_FLOAT_TILTBACK_CONSTANT_ERPM;
+	d->float_conf.tiltback_variable = APPCONF_FLOAT_TILTBACK_VARIABLE;
+	d->float_conf.tiltback_variable_max = APPCONF_FLOAT_TILTBACK_VARIABLE_MAX;
+	d->float_conf.noseangling_speed = APPCONF_FLOAT_NOSEANGLING_SPEED;
+}
+
+/**
+ * cmd_runtime_tune_other		Extract settings from 20byte message but don't write to EEPROM!
+ */
+static void cmd_runtime_tune_other(data *d, unsigned char *cfg)
+{
+	unsigned int flags = cfg[0];
+	d->buzzer_enabled = ((flags & 0x2) == 2);
+	d->float_conf.fault_reversestop_enabled = ((flags & 0x4) == 4);
+	d->float_conf.fault_is_dual_switch = ((flags & 0x8) == 8);
+	d->float_conf.fault_darkride_enabled = ((flags & 0x10) == 0x10);
+	d->enable_simple_start = ((flags & 0x40) == 40);
+	d->float_conf.is_buzzer_enabled = d->buzzer_enabled;
+
+	// startup
+	float ctrspeed = cfg[1];
+	float pitchtolerance = cfg[2];
+	float rolltolerance = cfg[3];
+	float brakecurrent = cfg[4];
+	float clickcurrent = cfg[5];
+
+	d->startup_step_size = ctrspeed / d->float_conf.hertz;
+	d->float_conf.startup_speed = ctrspeed;
+	d->float_conf.startup_pitch_tolerance = pitchtolerance / 10;
+	d->float_conf.startup_roll_tolerance = rolltolerance;
+	d->float_conf.brake_current = brakecurrent / 2;
+	d->float_conf.startup_click_current = clickcurrent;
+
+	// nose angling
+	float tiltconst = cfg[6] - 100;
+	float tiltspeed = cfg[7];
+	int tilterpm = cfg[8] * 100;
+	float tiltvarrate = cfg[9];
+	float tiltvarmax = cfg[10];
+
+	if (fabsf(tiltconst <= 20)) {
+		d->float_conf.tiltback_constant = tiltconst / 2;
+		d->float_conf.tiltback_constant_erpm = tilterpm;
+		d->noseangling_step_size = tiltspeed / 10 / d->float_conf.hertz;
+		d->float_conf.noseangling_speed = tiltspeed / 10;
+		d->float_conf.tiltback_variable = tiltvarrate / 100;
+		d->float_conf.tiltback_variable_max = tiltvarmax / 10;
+
+		d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
+		if (d->tiltback_variable > 0) {
+			d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+		} else {
+			d->tiltback_variable_max_erpm = 100000;
+		}
+	}
+}
+
+void cmd_rc_move(data *d, unsigned char *cfg)//int amps, int time)
+{
+	int ind = 0;
+	int direction = cfg[ind++];
+	int current = cfg[ind++];
+	int time = cfg[ind++];
+	int sum = cfg[ind++];
+	if (sum != time+current) {
+		current = 0;
+	}
+	else if (direction == 0) {
+		current = -current;
+	}
+
+	if (d->state >= FAULT_ANGLE_PITCH) {
+		d->rc_counter = 0;
+		if (current == 0) {
+			d->rc_steps = 1;
+			d->rc_current_target = 0;
+			d->rc_current = 0;
+		}
+		else {
+			d->rc_steps = time * 100;
+			d->rc_current_target = current / 10.0;
+			if (d->rc_current_target > 8) {
+				d->rc_current_target = 2;
+			}
+		}
+	}
 }
 
 // Handler for incoming app commands
@@ -2080,11 +2249,33 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		}
 		case FLOAT_COMMAND_RT_TUNE: {
 			if (len == 14) {
-				runtime_tune(d, &buffer[2]);
+				cmd_runtime_tune(d, &buffer[2]);
 			}
 			else {
 				if (!VESC_IF->app_is_output_disabled()) {
-					VESC_IF->printf("Float App: Command too short %d\n", len);
+					VESC_IF->printf("Float App: Command too short (%d)\n", len);
+				}
+			}
+			return;
+		}
+		case FLOAT_COMMAND_TUNE_OTHER: {
+			if (len == 13) {
+				cmd_runtime_tune_other(d, &buffer[2]);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
+				}
+			}
+			return;
+		}
+		case FLOAT_COMMAND_RC_MOVE: {
+			if (len == 6) {
+				cmd_rc_move(d, &buffer[2]);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
 				}
 			}
 			return;
@@ -2095,7 +2286,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			return;
 		}
 		case FLOAT_COMMAND_TUNE_DEFAULTS: {
-			tune_defaults(d);
+			cmd_tune_defaults(d);
 			VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->float_conf.mahony_kp);
 			return;
 		}

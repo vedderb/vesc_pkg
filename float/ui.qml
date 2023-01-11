@@ -112,24 +112,24 @@ Item {
                     stateString = "RUNNING_WHEELSLIP"
                 }else if(state == 4){
                     stateString = "RUNNING_UPSIDEDOWN"
-                }else if(state == 5){
-                    stateString = "STOP_ANGLE_PITCH"
                 }else if(state == 6){
-                    stateString = "STOP_ANGLE_ROLL"
+                    stateString = "STOP_ANGLE_PITCH"
                 }else if(state == 7){
-                    stateString = "STOP_SWITCH_HALF"
+                    stateString = "STOP_ANGLE_ROLL"
                 }else if(state == 8){
-                    stateString = "STOP_SWITCH_FULL"
+                    stateString = "STOP_SWITCH_HALF"
                 }else if(state == 9){
+                    stateString = "STOP_SWITCH_FULL"
+                }else if(state == 11){
                     if ((roll > 120) || (roll < -120)) {
                         stateString = "STARTUP UPSIDEDOWN"
                     }
                     else {
                         stateString = "STARTUP"
                     }
-                }else if(state == 10){
+                }else if(state == 12){
                     stateString = "STOP_REVERSE"
-                }else if(state == 11){
+                }else if(state == 13){
                     stateString = "STOP_QUICKSTOP"
                 }else{
                     stateString = "UNKNOWN"
