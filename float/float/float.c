@@ -1690,7 +1690,7 @@ static void float_thd(void *arg) {
 
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
-			if ((d->start_counter_clicks == 0) && (d->setpointAdjustmentType != CENTERING)) {
+			if (d->start_counter_clicks == 0) {// && (d->setpointAdjustmentType != CENTERING)) {
 				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
 				d->proportional2 = -d->gyro[1];
 				new_pid_value += (d->float_conf.kp2 * d->proportional2);
