@@ -49,13 +49,14 @@ typedef enum {
 	RUNNING_TILTBACK = 2,
 	RUNNING_WHEELSLIP = 3,
 	RUNNING_UPSIDEDOWN = 4,
-	FAULT_ANGLE_PITCH = 5,
-	FAULT_ANGLE_ROLL = 6,
-	FAULT_SWITCH_HALF = 7,
-	FAULT_SWITCH_FULL = 8,
-	FAULT_STARTUP = 9,
-	FAULT_REVERSE = 10,
-	FAULT_QUICKSTOP = 11
+	FAULT_ANGLE_PITCH = 6,	// skipped 5 for compatibility
+	FAULT_ANGLE_ROLL = 7,
+	FAULT_SWITCH_HALF = 8,
+	FAULT_SWITCH_FULL = 9,
+	FAULT_DUTY = 10, 		// unused but kept for compatibility
+	FAULT_STARTUP = 11,
+	FAULT_REVERSE = 12,
+	FAULT_QUICKSTOP = 13
 } FloatState;
 
 typedef enum {
@@ -102,7 +103,8 @@ typedef struct {
 
 	// Config values
 	float loop_time_seconds;
-	unsigned int start_counter_clicks, start_counter_clicks_max, start_click_current;
+	unsigned int start_counter_clicks, start_counter_clicks_max;
+	float startup_pitch_trickmargin, startup_pitch_tolerance;
 	float startup_step_size;
 	float tiltback_duty_step_size, tiltback_hv_step_size, tiltback_lv_step_size, tiltback_return_step_size;
 	float torquetilt_on_step_size, torquetilt_off_step_size, turntilt_step_size;
@@ -160,7 +162,7 @@ typedef struct {
 	float turntilt_target, turntilt_interpolated;
 	SetpointAdjustmentType setpointAdjustmentType;
 	float current_time, last_time, diff_time, loop_overshoot; // Seconds
-	float disengage_timer; // Seconds
+	float disengage_timer, nag_timer; // Seconds
 	float filtered_loop_overshoot, loop_overshoot_alpha, filtered_diff_time;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
 	float motor_timeout_seconds;
@@ -174,15 +176,31 @@ typedef struct {
 	bool is_upside_down;			// the board is upside down
 	bool is_upside_down_started;	// dark ride has been engaged
 	bool enable_upside_down;		// dark ride mode is enabled (10 seconds after fault)
-	bool allow_upside_down;			// dark ride mode feature is ON
 	float delay_upside_down_fault;
 
 	// Feature: Reverse Stop
 	float reverse_stop_step_size, reverse_tolerance, reverse_total_erpm;
 	float reverse_timer;
 
+	// Feature: Simple start
+	bool enable_simple_start;
+
+	// Feature: Soft Start
+	float softstart_pid_limit, softstart_ramp_step_size;
+
 	// Brake Amp Rate Limiting:
 	float pid_brake_increment;
+
+	// Odometer
+	float odo_timer;
+	int odometer_dirty;
+	uint64_t odometer;
+
+	// Feature: RC Move (control via app while idle)
+	int rc_steps;
+	int rc_counter;
+	float rc_current_target;
+	float rc_current;
 
 	// Log values
 	float float_setpoint, float_atr, float_braketilt, float_torquetilt, float_turntilt, float_inputtilt;
@@ -194,6 +212,8 @@ typedef struct {
 	int debug_experiment_1, debug_experiment_2, debug_experiment_3, debug_experiment_4, debug_experiment_5, debug_experiment_6;
 } data;
 
+static void brake(data *d);
+static void set_current(data *d, float current);
 
 /**
  * BUZZER / BEEPER on Servo Pin
@@ -295,13 +315,16 @@ static void app_init(data *d) {
 	d->buzzer_enabled = true;
 	
 	// Allow saving of odometer
-	//odometer_dirty = 0;
-	//odometer = mc_interface_get_odometer();
+	d->odometer_dirty = 0;
+	d->odometer = VESC_IF->mc_get_odometer();
 }
 
 static void configure(data *d) {
 	d->debug_render_1 = 2;
 	d->debug_render_2 = 4;
+
+	// This timer is used to determine how long the board has been disengaged / idle
+	d->disengage_timer = d->current_time;
 
 	// Set calculated values from config
 	d->loop_time_seconds = 1.0 / d->float_conf.hertz;
@@ -322,8 +345,11 @@ static void configure(data *d) {
 	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
 
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
-	d->start_click_current = d->float_conf.startup_click_current;
 	d->start_counter_clicks_max = 3;
+	// Feature: Soft Start
+	d->softstart_ramp_step_size = 500 / d->float_conf.hertz;
+	// Feature: Dirty Landings
+	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
 
 	// Overwrite App CFG Mahony KP to Float CFG Value
 	if (VESC_IF->get_cfg_float(CFG_PARAM_IMU_mahony_kp) != d->float_conf.mahony_kp) {
@@ -341,7 +367,7 @@ static void configure(data *d) {
 		// less than 60 peak amps makes no sense though so I'm not allowing it
 		d->mc_current_max = fmaxf(mc_max_reduce * d->mc_current_max, 60);
 	}
-    
+
 	// min current is a positive value here!
 	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
 	mcm = d->mc_current_min;
@@ -408,7 +434,6 @@ static void configure(data *d) {
 	d->turntilt_strength = d->float_conf.turntilt_strength;
 
 	// Feature: Darkride
-	d->allow_upside_down = (d->float_conf.fault_darkride_enabled);
 	d->enable_upside_down = false;
 	d->is_upside_down = false;
 
@@ -420,11 +445,7 @@ static void configure(data *d) {
 
 	// Variable nose angle adjustment / tiltback (setting is per 1000erpm, convert to per erpm)
 	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
-	if (d->tiltback_variable > 0) {
-		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
-	} else {
-		d->tiltback_variable_max_erpm = 100000;
-	}
+	d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
 
 	// Reset loop time variables
 	d->last_time = 0.0;
@@ -465,6 +486,8 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->traction_control = false;
 	d->pid_value = 0;
+	d->softstart_pid_limit = 0;
+	d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance;
 
 	// ATR:
 	d->accel_gap = 0;
@@ -481,6 +504,57 @@ static void reset_vars(data *d) {
 
 	// Feature: click on start
 	d->start_counter_clicks = d->start_counter_clicks_max;
+
+	// RC Move:
+	d->rc_steps = 0;
+	d->rc_current = 0;
+}
+
+
+/**
+ *	check_odometer: see if we need to write back the odometer during fault state
+ */
+static void check_odometer(data *d)
+{
+	// Make odometer persistent if we've gone 200m or more
+	if (d->odometer_dirty > 0) {
+		if (VESC_IF->mc_get_odometer() > d->odometer + 200) {
+			if (d->odometer_dirty == 1) {
+				// Wait 10 seconds before writing to avoid writing if immediately continuing to ride
+				d->odo_timer = d->current_time;
+				d->odometer_dirty++;
+			}
+			else if ((d->current_time - d->odo_timer) > 10) {
+				VESC_IF->store_backup_data();
+				d->odometer = VESC_IF->mc_get_odometer();
+				d->odometer_dirty = 0;
+			}
+		}
+	}
+}
+
+/**
+ *  do_rc_move: perform motor movement while board is idle
+ */
+static void do_rc_move(data *d)
+{
+	if (d->rc_steps > 0) {
+		d->rc_current = d->rc_current * 0.95 + d->rc_current_target * 0.05;
+		if (d->abs_erpm > 800)
+			d->rc_current = 0;
+		set_current(d, d->rc_current);
+		d->rc_steps--;
+		d->rc_counter++;
+		if ((d->rc_counter == 500) && (d->rc_current_target > 2)) {
+			d->rc_current_target /= 2;
+		}
+	}
+	else {
+		d->rc_current = 0;
+		d->rc_counter = 0;
+		// Disable output
+		brake(d);
+	}
 }
 
 static float get_setpoint_adjustment_step_size(data *d) {
@@ -528,7 +602,9 @@ static SwitchState check_adcs(data *d) {
 			sw_state = ON;
 		}else if(d->adc1 > d->float_conf.fault_adc1 || d->adc2 > d->float_conf.fault_adc2){
 			// 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
-			bool is_simple_start = d->current_time - d->disengage_timer > 5;
+			bool is_simple_start = d->float_conf.startup_simplestart_enabled &&
+				(d->current_time - d->disengage_timer > 5);
+
 			if (d->float_conf.fault_is_dual_switch || is_simple_start)
 				sw_state = ON;
 			else
@@ -558,7 +634,7 @@ static SwitchState check_adcs(data *d) {
 }
 
 // Fault checking order does not really matter. From a UX perspective, switch should be before angle.
-static bool check_faults(data *d, bool ignoreTimers){
+static bool check_faults(data *d){
 	// Aggressive reverse stop in case the board runs off when upside down
 	if (d->is_upside_down) {
 		if (d->erpm > 1000) {
@@ -596,20 +672,27 @@ static bool check_faults(data *d, bool ignoreTimers){
 		}
 	}
 	else {
+		bool disable_switch_faults = d->float_conf.fault_moving_fault_disabled &&
+									 d->erpm > (d->float_conf.fault_adc_half_erpm * 2) && // Rolling forward (not backwards!)
+									 fabsf(d->roll_angle) < 40; // Not tipped over
+
 		// Check switch
 		// Switch fully open
 		if (d->switch_state == OFF) {
-			if((1000.0 * (d->current_time - d->fault_switch_timer)) > d->float_conf.fault_delay_switch_full || ignoreTimers){
-				d->state = FAULT_SWITCH_FULL;
-				return true;
+			if (!disable_switch_faults) {
+				if((1000.0 * (d->current_time - d->fault_switch_timer)) > d->float_conf.fault_delay_switch_full){
+					d->state = FAULT_SWITCH_FULL;
+					return true;
+				}
+				// low speed (below 6 x half-fault threshold speed):
+				else if ((d->abs_erpm < d->float_conf.fault_adc_half_erpm * 6)
+					&& (1000.0 * (d->current_time - d->fault_switch_timer) > d->float_conf.fault_delay_switch_half)){
+					d->state = FAULT_SWITCH_FULL;
+					return true;
+				}
 			}
-			// low speed (below 6 x half-fault threshold speed):
-			else if ((d->abs_erpm < d->float_conf.fault_adc_half_erpm * 6)
-				&& (1000.0 * (d->current_time - d->fault_switch_timer) > d->float_conf.fault_delay_switch_half)){
-				d->state = FAULT_SWITCH_FULL;
-				return true;
-			}
-			else if ((d->abs_erpm < d->quickstop_erpm) && (fabsf(d->true_pitch_angle) > 14) && (SIGN(d->true_pitch_angle) == SIGN(d->erpm))) {
+			
+			if ((d->abs_erpm < d->quickstop_erpm) && (fabsf(d->true_pitch_angle) > 14) && (SIGN(d->true_pitch_angle) == SIGN(d->erpm))) {
 				// QUICK STOP
 				d->state = FAULT_QUICKSTOP;
 				return true;
@@ -651,7 +734,7 @@ static bool check_faults(data *d, bool ignoreTimers){
 		// Switch partially open and stopped
 		if(!d->float_conf.fault_is_dual_switch) {
 			if((d->switch_state == HALF || d->switch_state == OFF) && d->abs_erpm < d->float_conf.fault_adc_half_erpm){
-				if ((1000.0 * (d->current_time - d->fault_switch_half_timer)) > d->float_conf.fault_delay_switch_half || ignoreTimers){
+				if ((1000.0 * (d->current_time - d->fault_switch_half_timer)) > d->float_conf.fault_delay_switch_half){
 					d->state = FAULT_SWITCH_HALF;
 					return true;
 				}
@@ -662,14 +745,14 @@ static bool check_faults(data *d, bool ignoreTimers){
 
 		// Check roll angle
 		if (fabsf(d->roll_angle) > d->float_conf.fault_roll) {
-			if ((1000.0 * (d->current_time - d->fault_angle_roll_timer)) > d->float_conf.fault_delay_roll || ignoreTimers) {
+			if ((1000.0 * (d->current_time - d->fault_angle_roll_timer)) > d->float_conf.fault_delay_roll) {
 				d->state = FAULT_ANGLE_ROLL;
 				return true;
 			}
 		} else {
 			d->fault_angle_roll_timer = d->current_time;
 
-			if (d->allow_upside_down) {
+			if (d->float_conf.fault_darkride_enabled) {
 				if((fabsf(d->roll_angle) > 100) && (fabsf(d->roll_angle) < 135)) {
 					d->state = FAULT_ANGLE_ROLL;
 					return true;
@@ -680,7 +763,7 @@ static bool check_faults(data *d, bool ignoreTimers){
 
 	// Check pitch angle
 	if (fabsf(d->true_pitch_angle) > d->float_conf.fault_pitch) {
-		if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) > d->float_conf.fault_delay_pitch || ignoreTimers) {
+		if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) > d->float_conf.fault_delay_pitch) {
 			d->state = FAULT_ANGLE_PITCH;
 			return true;
 		}
@@ -903,15 +986,13 @@ static void apply_noseangling(data *d){
 		// Nose angle adjustment, add variable then constant tiltback
 		float noseangling_target = 0;
 		if (fabsf(d->erpm) > d->tiltback_variable_max_erpm) {
-			noseangling_target = fabsf(d->float_conf.tiltback_variable_max) * SIGN(d->erpm);
+			noseangling_target = d->float_conf.tiltback_variable_max * SIGN(d->erpm);
 		} else {
-			noseangling_target = d->tiltback_variable * d->erpm;
+			noseangling_target = d->tiltback_variable * d->erpm * SIGN(d->float_conf.tiltback_variable_max);
 		}
 
-		if (d->erpm > d->float_conf.tiltback_constant_erpm) {
-			noseangling_target += d->float_conf.tiltback_constant;
-		} else if (d->erpm < -d->float_conf.tiltback_constant_erpm){
-			noseangling_target += -d->float_conf.tiltback_constant;
+		if (fabsf(d->erpm) > d->float_conf.tiltback_constant_erpm) {
+			noseangling_target += d->float_conf.tiltback_constant * SIGN(d->erpm);
 		}
 
 		if (fabsf(noseangling_target - d->noseangling_interpolated) < d->noseangling_step_size) {
@@ -932,16 +1013,16 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 	bool connected = false;
 
 	switch (d->float_conf.inputtilt_remote_type) {
-	case (PPM):
+	case (INPUTTILT_PPM):
 		servo_val = VESC_IF->get_ppm();
 		connected = VESC_IF->get_ppm_age() < 1;
 		break;
-	case (UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
+	case (INPUTTILT_UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
 		remote_state remote = VESC_IF->get_remote_state();
 		servo_val = remote.js_y;
 		connected = remote.age_s < 1;
 		break;
-	case (NONE):
+	case (INPUTTILT_NONE):
 		break;
 	}
 	
@@ -960,7 +1041,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 	}
 
 	// Invert Throttle
-	servo_val *= d->float_conf.inputtilt_invert_throttle ? -1.0 : 1.0;
+	servo_val *= (d->float_conf.inputtilt_invert_throttle != d->is_upside_down) ? -1.0 : 1.0;
 	 
 	// Scale by Max Angle
 	input_tiltback_target = servo_val * d->float_conf.inputtilt_angle_limit;
@@ -1461,7 +1542,7 @@ static void float_thd(void *arg) {
 		d->abs_roll_angle_sin = sinf(DEG2RAD_f(d->abs_roll_angle));
 
 		// Darkride:
-		if (d->allow_upside_down) {
+		if (d->float_conf.fault_darkride_enabled) {
 			if (d->is_upside_down) {
 				if (d->abs_roll_angle < 120) {
 					d->is_upside_down = false;
@@ -1582,10 +1663,16 @@ static void float_thd(void *arg) {
 		case (RUNNING_WHEELSLIP):
 		case (RUNNING_UPSIDEDOWN):
 			// Check for faults
-			if (check_faults(d, false)) {
+			if (check_faults(d)) {
+				if ((d->state == FAULT_SWITCH_FULL) && !d->is_upside_down) {
+					// dirty landings: add extra margin when rightside up
+					d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance + d->startup_pitch_trickmargin;
+					d->fault_angle_pitch_timer = d->current_time;
+				}
 				break;
 			}
-
+			d->odometer_dirty = 1;
+			
 			d->enable_upside_down = true;
 			d->disengage_timer = d->current_time;
 
@@ -1593,9 +1680,9 @@ static void float_thd(void *arg) {
 			calculate_setpoint_target(d);
 			calculate_setpoint_interpolated(d);
 			d->setpoint = d->setpoint_target_interpolated;
+			apply_inputtilt(d); // Allow Input Tilt for Darkride
 			if (!d->is_upside_down) {
 				apply_noseangling(d);
-				apply_inputtilt(d);
 				apply_torquetilt(d);
 				apply_turntilt(d);
 			}
@@ -1624,36 +1711,43 @@ static void float_thd(void *arg) {
 			if (d->start_counter_clicks == 0) {
 				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
 				d->proportional2 = -d->gyro[1];
-				new_pid_value += (d->float_conf.kp2 * d->proportional2);
+				float pid_mod = (d->float_conf.kp2 * d->proportional2);
 
 
 				// Apply Booster (Now based on True Pitch)
 				float true_proportional = d->setpoint - d->true_pitch_angle;
 				d->abs_proportional = fabsf(true_proportional);
 
-				float booster_current = d->float_conf.booster_current;
+				d->applied_booster_current = d->float_conf.booster_current;
 
 				// Make booster a bit stronger at higher speed (up to 2x stronger when braking)
 				const float boost_min_erpm = 3000;
 				if (d->abs_erpm > boost_min_erpm) {
 					float speedstiffness = fminf(1, (d->abs_erpm - boost_min_erpm) / 10000);
 					if (d->braking)
-						booster_current += booster_current * speedstiffness;
+						d->applied_booster_current += d->applied_booster_current * speedstiffness;
 					else
-						booster_current += booster_current * speedstiffness / 2;
+						d->applied_booster_current += d->applied_booster_current * speedstiffness / 2;
 				}
 
 
 				if (d->abs_proportional > d->float_conf.booster_angle) {
 					if (d->abs_proportional - d->float_conf.booster_angle < d->float_conf.booster_ramp) {
-						d->applied_booster_current = (d->float_conf.booster_current * SIGN(true_proportional)) *
+						d->applied_booster_current *= SIGN(true_proportional) *
 								((d->abs_proportional - d->float_conf.booster_angle) / d->float_conf.booster_ramp);
 					} else {
-						d->applied_booster_current = d->float_conf.booster_current * SIGN(true_proportional);
+						d->applied_booster_current *= SIGN(true_proportional);
 					}
 				}
 
-				new_pid_value += d->applied_booster_current;
+				pid_mod += d->applied_booster_current;
+
+				if (d->float_conf.startup_softstart_enabled && (d->softstart_pid_limit < d->mc_current_max)) {
+					pid_mod = fminf(pid_mod, d->softstart_pid_limit);
+					d->softstart_pid_limit += d->softstart_ramp_step_size;
+				}
+
+				new_pid_value += pid_mod;
 			}
 			
 			// Current Limiting!
@@ -1707,9 +1801,9 @@ static void float_thd(void *arg) {
 				// Generate alternate pulses to produce distinct "click"
 				d->start_counter_clicks--;
 				if ((d->start_counter_clicks & 0x1) == 0)
-					set_current(d, d->pid_value - d->start_click_current);
+					set_current(d, d->pid_value - d->float_conf.startup_click_current);
 				else
-					set_current(d, d->pid_value + d->start_click_current);
+					set_current(d, d->pid_value + d->float_conf.startup_click_current);
 			}
 			else {
 				set_current(d, d->pid_value);
@@ -1731,27 +1825,50 @@ static void float_thd(void *arg) {
 				}
 				d->enable_upside_down = false;
 				d->is_upside_down = false;
+			}	
+			if (d->current_time - d->disengage_timer > 1800) {	// alert user after 30 minutes
+				if (d->current_time - d->nag_timer > 60) {		// beep every 60 seconds
+					d->nag_timer = d->current_time;
+					beep_alert(d, 2, 1);						// 2 long beeps
+				}
 			}
-			
+			else {
+				d->nag_timer = d->current_time;
+			}
+
+			if ((d->current_time - d->fault_angle_pitch_timer) > 1) {
+				// 1 second after disengaging - set startup tolerance back to normal (aka tighter)
+				d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance;
+			}
+
+			check_odometer(d);
+
 			// Check for valid startup position and switch state
-			if (fabsf(d->pitch_angle) < d->float_conf.startup_pitch_tolerance &&
+			if (fabsf(d->pitch_angle) < d->startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->float_conf.startup_roll_tolerance && 
 				d->switch_state == ON) {
 				reset_vars(d);
 				break;
 			}
 			// Ignore roll while it's upside down
-			if(d->is_upside_down && (fabsf(d->pitch_angle) < d->float_conf.startup_pitch_tolerance)) {
+			if(d->is_upside_down && (fabsf(d->pitch_angle) < d->startup_pitch_tolerance)) {
 				if ((d->state != FAULT_REVERSE) ||
 					// after a reverse fault, wait at least 1 second before allowing to re-engage
 					(d->current_time - d->disengage_timer) > 1) {
 					reset_vars(d);
+					break;
 				}
+			}
+			// Push-start aka dirty landing Part II
+			if(d->float_conf.startup_pushstart_enabled && (d->abs_erpm > 1000) && (d->switch_state == ON)) {
+				reset_vars(d);
 				break;
 			}
-			// Disable output
-			brake(d);
+
+			// Set RC current or maintain brake current (and keep WDT happy!)
+			do_rc_move(d);
 			break;
+		default:;
 		}
 
 		// Debug outputs
@@ -1895,6 +2012,11 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->float_turntilt, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
 	
+	float landings = d->startup_pitch_trickmargin;
+	if (d->float_conf.startup_pushstart_enabled) {
+		landings += 1000;
+	}
+
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
@@ -1915,6 +2037,8 @@ enum {
 	FLOAT_COMMAND_TUNE_DEFAULTS = 3,// set tune to defaults (no eeprom)
 	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
 	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
+	FLOAT_COMMAND_TUNE_OTHER = 6,	// make runtime changes to startup/etc
+	FLOAT_COMMAND_RC_MOVE = 7		// move motor while board is idle
 } float_commands;
 
 static void split(unsigned char byte, int* h1, int* h2)
@@ -1924,9 +2048,9 @@ static void split(unsigned char byte, int* h1, int* h2)
 }
 
 /**
- * runtime_tune		Extract tune info from 20byte message but don't write to EEPROM!
+ * cmd_runtime_tune		Extract tune info from 20byte message but don't write to EEPROM!
  */
-static void runtime_tune(data *d, unsigned char *cfg)
+static void cmd_runtime_tune(data *d, unsigned char *cfg)
 {
 	int h1, h2;
 	split(cfg[0], &h1, &h2);
@@ -1949,7 +2073,7 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	if (h1 == 0)
 		d->float_conf.booster_current = 0;
 	else
-		d->float_conf.booster_current = 18 + h1 * 2;
+		d->float_conf.booster_current = 8 + h1 * 2;
 	d->float_conf.turntilt_strength = h2;
 
 	split(cfg[4], &h1, &h2);
@@ -1962,11 +2086,11 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	if (h1 == 0)
 		d->float_conf.atr_strength_up = 0;
 	else
-		d->float_conf.atr_strength_up = ((float)h1) / 10.0 + 0.9;
+		d->float_conf.atr_strength_up = ((float)h1) / 10.0 + 0.5;
 	if (h2 == 0)
 		d->float_conf.atr_strength_down = 0;
 	else
-		d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.9;
+		d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.5;
 
 	split(cfg[6], &h1, &h2);
 	d->float_conf.atr_torque_offset = h1 + 5;
@@ -1999,7 +2123,6 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
 	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
 	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
-
 	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
 
 	// Feature: Braketilt
@@ -2012,7 +2135,7 @@ static void runtime_tune(data *d, unsigned char *cfg)
 	d->turntilt_strength = d->float_conf.turntilt_strength;
 }
 
-static void tune_defaults(data *d){
+static void cmd_tune_defaults(data *d){
 	d->float_conf.kp = APPCONF_FLOAT_KP;
 	d->float_conf.kp2 = APPCONF_FLOAT_KP2;
 	d->float_conf.ki = APPCONF_FLOAT_KI;
@@ -2043,6 +2166,123 @@ static void tune_defaults(data *d){
 	d->float_conf.atr_amps_decel_ratio = APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO;
 	d->float_conf.braketilt_strength = APPCONF_FLOAT_BRAKETILT_STRENGTH;
 	d->float_conf.braketilt_lingering = APPCONF_FLOAT_BRAKETILT_LINGERING;
+
+	d->float_conf.startup_pitch_tolerance = APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE;
+	d->float_conf.startup_roll_tolerance = APPCONF_FLOAT_STARTUP_ROLL_TOLERANCE;
+	d->float_conf.startup_speed = APPCONF_FLOAT_STARTUP_SPEED;
+	d->float_conf.startup_click_current = APPCONF_FLOAT_STARTUP_CLICK_CURRENT;
+	d->float_conf.brake_current = APPCONF_FLOAT_BRAKE_CURRENT;
+	d->float_conf.is_buzzer_enabled = APPCONF_FLOAT_IS_BUZZER_ENABLED;
+	d->float_conf.tiltback_constant = APPCONF_FLOAT_TILTBACK_CONSTANT;
+	d->float_conf.tiltback_constant_erpm = APPCONF_FLOAT_TILTBACK_CONSTANT_ERPM;
+	d->float_conf.tiltback_variable = APPCONF_FLOAT_TILTBACK_VARIABLE;
+	d->float_conf.tiltback_variable_max = APPCONF_FLOAT_TILTBACK_VARIABLE_MAX;
+	d->float_conf.noseangling_speed = APPCONF_FLOAT_NOSEANGLING_SPEED;
+	d->float_conf.startup_pushstart_enabled = APPCONF_PUSHSTART_ENABLED;
+	d->float_conf.startup_simplestart_enabled = APPCONF_SIMPLESTART_ENABLED;
+	d->float_conf.startup_dirtylandings_enabled = APPCONF_DIRTYLANDINGS_ENABLED;
+
+	// Update values normally done in configure()
+	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
+	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
+	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
+	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
+
+	d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
+	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
+	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
+	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
+	d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+}
+
+/**
+ * cmd_runtime_tune_other		Extract settings from 20byte message but don't write to EEPROM!
+ */
+static void cmd_runtime_tune_other(data *d, unsigned char *cfg)
+{
+	unsigned int flags = cfg[0];
+	d->buzzer_enabled = ((flags & 0x2) == 2);
+	d->float_conf.fault_reversestop_enabled = ((flags & 0x4) == 4);
+	d->float_conf.fault_is_dual_switch = ((flags & 0x8) == 8);
+	d->float_conf.fault_darkride_enabled = ((flags & 0x10) == 0x10);
+	bool dirty_landings = ((flags & 0x20) == 20);
+	d->float_conf.startup_simplestart_enabled = ((flags & 0x40) == 40);
+	d->float_conf.startup_pushstart_enabled = ((flags & 0x80) == 80);
+
+	d->float_conf.is_buzzer_enabled = d->buzzer_enabled;
+	d->startup_pitch_trickmargin = dirty_landings ? 10 : 0;
+	d->float_conf.startup_dirtylandings_enabled = dirty_landings;
+
+	// startup
+	float ctrspeed = cfg[1];
+	float pitchtolerance = cfg[2];
+	float rolltolerance = cfg[3];
+	float brakecurrent = cfg[4];
+	float clickcurrent = cfg[5];
+
+	d->startup_step_size = ctrspeed / d->float_conf.hertz;
+	d->float_conf.startup_speed = ctrspeed;
+	d->float_conf.startup_pitch_tolerance = pitchtolerance / 10;
+	d->float_conf.startup_roll_tolerance = rolltolerance;
+	d->float_conf.brake_current = brakecurrent / 2;
+	d->float_conf.startup_click_current = clickcurrent;
+
+	// nose angling
+	float tiltconst = cfg[6] - 100;
+	float tiltspeed = cfg[7];
+	int tilterpm = cfg[8] * 100;
+	float tiltvarrate = cfg[9];
+	float tiltvarmax = cfg[10];
+
+	if (fabsf(tiltconst <= 20)) {
+		d->float_conf.tiltback_constant = tiltconst / 2;
+		d->float_conf.tiltback_constant_erpm = tilterpm;
+		d->noseangling_step_size = tiltspeed / 10 / d->float_conf.hertz;
+		d->float_conf.noseangling_speed = tiltspeed / 10;
+		d->float_conf.tiltback_variable = tiltvarrate / 100;
+		d->float_conf.tiltback_variable_max = tiltvarmax / 10;
+
+		d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
+		d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
+		d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
+		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+	}
+
+	int inputtilt = cfg[11];
+	if (inputtilt == 0) {
+		d->float_conf.inputtilt_remote_type = INPUTTILT_NONE;
+	}
+}
+
+void cmd_rc_move(data *d, unsigned char *cfg)//int amps, int time)
+{
+	int ind = 0;
+	int direction = cfg[ind++];
+	int current = cfg[ind++];
+	int time = cfg[ind++];
+	int sum = cfg[ind++];
+	if (sum != time+current) {
+		current = 0;
+	}
+	else if (direction == 0) {
+		current = -current;
+	}
+
+	if (d->state >= FAULT_ANGLE_PITCH) {
+		d->rc_counter = 0;
+		if (current == 0) {
+			d->rc_steps = 1;
+			d->rc_current_target = 0;
+			d->rc_current = 0;
+		}
+		else {
+			d->rc_steps = time * 100;
+			d->rc_current_target = current / 10.0;
+			if (d->rc_current_target > 8) {
+				d->rc_current_target = 2;
+			}
+		}
+	}
 }
 
 // Handler for incoming app commands
@@ -2080,11 +2320,33 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		}
 		case FLOAT_COMMAND_RT_TUNE: {
 			if (len == 14) {
-				runtime_tune(d, &buffer[2]);
+				cmd_runtime_tune(d, &buffer[2]);
 			}
 			else {
 				if (!VESC_IF->app_is_output_disabled()) {
-					VESC_IF->printf("Float App: Command too short %d\n", len);
+					VESC_IF->printf("Float App: Command too short (%d)\n", len);
+				}
+			}
+			return;
+		}
+		case FLOAT_COMMAND_TUNE_OTHER: {
+			if (len >= 14) {
+				cmd_runtime_tune_other(d, &buffer[2]);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
+				}
+			}
+			return;
+		}
+		case FLOAT_COMMAND_RC_MOVE: {
+			if (len == 6) {
+				cmd_rc_move(d, &buffer[2]);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
 				}
 			}
 			return;
@@ -2095,7 +2357,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			return;
 		}
 		case FLOAT_COMMAND_TUNE_DEFAULTS: {
-			tune_defaults(d);
+			cmd_tune_defaults(d);
 			VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->float_conf.mahony_kp);
 			return;
 		}
@@ -2197,7 +2459,7 @@ INIT_FUN(lib_info *info) {
 
 	configure(d);
 
-	if ((d->float_conf.is_buzzer_enabled) || (d->float_conf.inputtilt_remote_type != PPM)) {
+	if ((d->float_conf.is_buzzer_enabled) || (d->float_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
 		buzzer_init();
 	}
 

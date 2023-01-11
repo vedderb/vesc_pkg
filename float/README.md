@@ -3,6 +3,8 @@ Based on Mitch Lustig's original Balance Package, but specifically tailored for 
 
 Removes unneeded parameters, adds new features and behaviors, and has a more user-friendly configuration menu with usable default/min/max values and informative Help text.
 
+<H3><font color=yellow>NEW USERS: DO NOT LOAD UNTIL YOU'VE CONFIGURED MOTOR AND IMU!!!</font></H3>
+
 <H2>DISCLAIMER</H2>
 
 This package is not endorsed by the vesc-project. Use at your own risk.
