@@ -48,9 +48,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>20</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </kp>
         <kp2>
             <longName>Rate P</longName>
@@ -78,9 +78,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
             <valDouble>0.6</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </kp2>
         <ki>
             <longName>Angle I</longName>
@@ -103,9 +103,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.005</stepDouble>
             <valDouble>0.005</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100000</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </ki>
         <mahony_kp>
             <longName>Mahony KP</longName>
@@ -118,7 +118,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;KP value for Mahony IMU Filter&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Decides how heavily the accelerometer is used in &amp;quot;estimating&amp;quot; IMU data. For our purpose, this filter is a bit abused in order to achieve desirable ride behavior.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;In practice, increasing this value will loosen up the board, specifically in the center of the board and in how quickly it rebounds to level. If you want a snappier board, drop this down a bit. If you want things a bit looser, with increased board angle control, pump it up a notch or two.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;In practice, increasing this value will loosen up the board, specifically in the center of the board and in how quickly it rebounds to level. If you want a snappier board, drop this down a bit. If you want things a bit looser, with increased board angle control, bump it up a notch or two.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Recommended Values: 1.5 - 2.5 (Caution with higher values!!)&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
@@ -132,9 +132,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
             <valDouble>2</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </mahony_kp>
         <hertz>
             <longName>Loop Hertz</longName>
@@ -178,9 +178,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>90</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </fault_pitch>
         <fault_roll>
             <longName>Roll Axis Fault Cutoff</longName>
@@ -200,9 +200,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>90</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </fault_roll>
         <fault_adc1>
             <longName>ADC1 Switch Voltage</longName>
@@ -226,7 +226,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>3</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </fault_adc1>
         <fault_adc2>
             <longName>ADC2 Switch Voltage</longName>
@@ -250,7 +250,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>3</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </fault_adc2>
         <fault_delay_pitch>
             <longName>Pitch Fault Delay</longName>
@@ -368,6 +368,20 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_FLOAT_FAULT_IS_DUAL_SWITCH</cDefine>
             <valInt>0</valInt>
         </fault_is_dual_switch>
+        <fault_moving_fault_disabled>
+            <longName>Disable Moving Faults</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Disables ADC Faults completely as long as ERPM is positive (moving forward) and above the Half State Fault ERPM x2, as well as the Roll angle being within 40° of level. Outside of the threshold, the board will not disengage on its own, but rather just default to allowing ADC Faults to disengage the board.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*DISCLAIMER: Requires correct speed calibration and Tail Heavy Board!! The board &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;WILL&lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt; ghost for sure if your normal speeds read as negative or if your board is nose heavy!!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_FAULT_MOVING_FAULT_DISABLED</cDefine>
+            <valInt>0</valInt>
+        </fault_moving_fault_disabled>
         <fault_darkride_enabled>
             <longName>Enable Darkride</longName>
             <type>5</type>
@@ -532,9 +546,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>64.5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> V</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </tiltback_hv>
         <tiltback_lv_angle>
             <longName>Angle</longName>
@@ -604,9 +618,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>45</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> V</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </tiltback_lv>
         <tiltback_return_speed>
             <longName>Return To Level Speed</longName>
@@ -650,9 +664,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>0</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </tiltback_constant>
         <tiltback_constant_erpm>
             <longName>Constant Tiltback ERPM</longName>
@@ -675,26 +689,26 @@ p, li { white-space: pre-wrap; }
             <vTx>3</vTx>
         </tiltback_constant_erpm>
         <tiltback_variable>
-            <longName>Variable Tiltback</longName>
+            <longName>Variable Tiltback Rate</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nose Angle adjustment that will be applied depending on speed, specified in degrees per 1000 ERPM, applied linearly up to a maximum set in Variable Tiltback Maximum. Can be downwards (negative) too. Applies in addition to Constant Tiltback.&lt;br /&gt;&lt;br /&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*Note: ERPM = RPM * (Motor Poles / 2)&lt;br /&gt;For an 11&amp;quot; Tire on a Hypercore Motor (30 Poles):&lt;br /&gt;1000 ERPM ≈ 2.2 mph ≈ 3.5 km/h&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Nose Angle adjustment that will be applied depending on speed, specified in degrees per 1000 ERPM, applied linearly as the rate at which you approach Variable Tiltback Maximum. Applies in addition to Constant Tiltback.&lt;br /&gt;&lt;br /&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*Note: ERPM = RPM * (Motor Poles / 2)&lt;br /&gt;For an 11&amp;quot; Tire on a Hypercore Motor (30 Poles):&lt;br /&gt;1000 ERPM ≈ 2.2 mph ≈ 3.5 km/h&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_FLOAT_TILTBACK_VARIABLE</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>1</maxDouble>
-            <minDouble>-1</minDouble>
+            <maxDouble>5</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.05</stepDouble>
             <valDouble>0.1</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/1000 ERPM</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </tiltback_variable>
         <tiltback_variable_max>
             <longName>Variable Tiltback Maximum</longName>
@@ -704,7 +718,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum angle which Variable Tiltback is permitted to add (in addition to Constant Tiltback). Does not affect or prevent alert tiltbacks.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Target Angle that Variable Tiltback approaches at the specified rate (Variable Tiltback Rate). Can be negative (nose down) as well. Added in addition to Constant Tiltback and does not affect or prevent alert tiltbacks.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_FLOAT_TILTBACK_VARIABLE_MAX</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -714,9 +728,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>0</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </tiltback_variable_max>
         <noseangling_speed>
             <longName>Nose Angling Speed</longName>
@@ -726,7 +740,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum Rate at which nose will tilt to the desired angle during Constant and/or Variable Tiltback&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum Rate at which nose will tilt to the desired angle during Constant and/or Variable Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_FLOAT_NOSEANGLING_SPEED</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -777,9 +791,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>10</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </inputtilt_angle_limit>
         <inputtilt_speed>
             <longName>Tiltback Speed</longName>
@@ -799,9 +813,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>2</stepDouble>
             <valDouble>20</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </inputtilt_speed>
         <inputtilt_invert_throttle>
             <longName>Invert Throttle</longName>
@@ -841,9 +855,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>0.1</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>10000</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </inputtilt_deadband>
         <startup_pitch_tolerance>
             <longName>Startup Pitch Axis Angle Tolerance</longName>
@@ -863,9 +877,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </startup_pitch_tolerance>
         <startup_roll_tolerance>
             <longName>Startup Roll Axis Angle Tolerance</longName>
@@ -885,9 +899,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>45</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </startup_roll_tolerance>
         <startup_speed>
             <longName>Startup Centering Speed</longName>
@@ -907,9 +921,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
             <valDouble>60</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </startup_speed>
         <startup_click_current>
             <longName>Startup Click Current</longName>
@@ -933,6 +947,56 @@ p, li { white-space: pre-wrap; }
             <suffix> A</suffix>
             <vTx>1</vTx>
         </startup_click_current>
+        <startup_softstart_enabled>
+            <longName>Enable Soft Start</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Smoothens startup by ramping in Rate P and Booster, rather than enabling their full effect immediately. This eliminates the initial jerk and momentary nose high riding that could be triggered when mounting quickly. &lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you would like some response/feedback for when the board engages while still having a smooth startup, consider using Startup Click Current in addition to Soft Start.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_STARTUP_SOFTSTART_ENABLED</cDefine>
+            <valInt>1</valInt>
+        </startup_softstart_enabled>
+        <startup_simplestart_enabled>
+            <longName>Enable Simple Start</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allow starting with a single sensor, while still allowing heel-lift dismounts. To avoid accidental re-engagement when heel-lift dismounting, this feature is disabled for 5 seconds from the last disengagement.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_SIMPLESTART_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </startup_simplestart_enabled>
+        <startup_pushstart_enabled>
+            <longName>Enable Push Start</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allow starting the board by jumping onto it, regardless of pitch angle, as long as the speed is 1000 ERPM (~2 mph) or higher. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_PUSHSTART_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </startup_pushstart_enabled>
+        <startup_dirtylandings_enabled>
+            <longName>Enable Dirty Landings</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allow landing with an extra 10 degrees pitch tilt within 1 second of disengaging both sensors (not active after heel-lift dismount).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_DIRTYLANDINGS_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </startup_dirtylandings_enabled>
         <brake_current>
             <longName>Brake Current</longName>
             <type>1</type>
@@ -951,9 +1015,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>2</stepDouble>
             <valDouble>6</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </brake_current>
         <ki_limit>
             <longName>I Term Limit</longName>
@@ -980,9 +1044,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>2</stepDouble>
             <valDouble>30</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </ki_limit>
         <booster_angle>
             <longName>Start Angle</longName>
@@ -1004,9 +1068,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>8</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </booster_angle>
         <booster_ramp>
             <longName>Ramp Up</longName>
@@ -1028,9 +1092,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>4</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </booster_ramp>
         <booster_current>
             <longName>Current Boost</longName>
@@ -1050,9 +1114,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>2</stepDouble>
             <valDouble>0</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </booster_current>
         <torquetilt_start_current>
             <longName>Start Current Threshold</longName>
@@ -1072,9 +1136,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>15</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_start_current>
         <torquetilt_angle_limit>
             <longName>Tilitback Angle Limit</longName>
@@ -1094,9 +1158,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>8</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_angle_limit>
         <torquetilt_on_speed>
             <longName>Max Tiltback Speed</longName>
@@ -1116,9 +1180,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_on_speed>
         <torquetilt_off_speed>
             <longName>Max Tiltback Release Speed</longName>
@@ -1138,9 +1202,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>3</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_off_speed>
         <torquetilt_strength>
             <longName>Strength</longName>
@@ -1164,7 +1228,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>0</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_strength>
         <torquetilt_strength_regen>
             <longName>Strength (Regen)</longName>
@@ -1188,7 +1252,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>0</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </torquetilt_strength_regen>
         <atr_strength_up>
             <longName>ATR Uphill Strength</longName>
@@ -1214,7 +1278,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_strength_up>
         <atr_strength_down>
             <longName>ATR Downhill Strength</longName>
@@ -1241,7 +1305,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_strength_down>
         <atr_torque_offset>
             <longName>Torque Offset</longName>
@@ -1261,9 +1325,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>7</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_torque_offset>
         <atr_speed_boost>
             <longName>Speed Boost</longName>
@@ -1283,9 +1347,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>10</stepDouble>
             <valDouble>0.3</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>10000</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_speed_boost>
         <atr_angle_limit>
             <longName>Tilitback Angle Limit</longName>
@@ -1305,9 +1369,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>8</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_angle_limit>
         <atr_on_speed>
             <longName>Max Tiltback Speed</longName>
@@ -1327,9 +1391,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>4</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_on_speed>
         <atr_off_speed>
             <longName>Max Tiltback Release Speed</longName>
@@ -1349,9 +1413,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>3</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_off_speed>
         <atr_response_boost>
             <longName>Tiltback Response Boost</longName>
@@ -1377,7 +1441,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>1.5</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix>x</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_response_boost>
         <atr_transition_boost>
             <longName>Tiltback Transition Boost</longName>
@@ -1399,7 +1463,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>2.5</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix>x</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_transition_boost>
         <atr_filter>
             <longName>Current Filter</longName>
@@ -1419,9 +1483,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> Hz</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_filter>
         <atr_amps_accel_ratio>
             <longName>Amps to Acceleration Ratio</longName>
@@ -1447,9 +1511,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>11</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_amps_accel_ratio>
         <atr_amps_decel_ratio>
             <longName>Amps to Deceleration Ratio</longName>
@@ -1475,9 +1539,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>10</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </atr_amps_decel_ratio>
         <braketilt_strength>
             <longName>Brake Tilt Strength</longName>
@@ -1499,9 +1563,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>0</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </braketilt_strength>
         <braketilt_lingering>
             <longName>Brake Tilt Lingering</longName>
@@ -1525,7 +1589,7 @@ p, li { white-space: pre-wrap; }
             <valDouble>2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </braketilt_lingering>
         <turntilt_strength>
             <longName>Strength</longName>
@@ -1545,9 +1609,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>6</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> </suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </turntilt_strength>
         <turntilt_angle_limit>
             <longName>Tilitback Angle Limit</longName>
@@ -1567,9 +1631,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>3</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </turntilt_angle_limit>
         <turntilt_start_angle>
             <longName>Turn Angle Threshold</longName>
@@ -1589,9 +1653,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>2</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </turntilt_start_angle>
         <turntilt_start_erpm>
             <longName>ERPM Threshold</longName>
@@ -1633,9 +1697,9 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </turntilt_speed>
         <turntilt_erpm_boost>
             <longName>Speed Boost %</longName>
@@ -1726,14 +1790,14 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>0.6</maxDouble>
-            <minDouble>0.6</minDouble>
+            <maxDouble>0.8</maxDouble>
+            <minDouble>0.8</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>0.6</valDouble>
+            <valDouble>0.8</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>9</vTx>
+            <vTx>7</vTx>
         </float_version>
     </Params>
     <SerOrder>
@@ -1752,6 +1816,7 @@ p, li { white-space: pre-wrap; }
         <ser>fault_delay_switch_full</ser>
         <ser>fault_adc_half_erpm</ser>
         <ser>fault_is_dual_switch</ser>
+        <ser>fault_moving_fault_disabled</ser>
         <ser>fault_darkride_enabled</ser>
         <ser>fault_reversestop_enabled</ser>
         <ser>tiltback_duty_angle</ser>
@@ -1778,6 +1843,10 @@ p, li { white-space: pre-wrap; }
         <ser>startup_roll_tolerance</ser>
         <ser>startup_speed</ser>
         <ser>startup_click_current</ser>
+        <ser>startup_softstart_enabled</ser>
+        <ser>startup_simplestart_enabled</ser>
+        <ser>startup_pushstart_enabled</ser>
+        <ser>startup_dirtylandings_enabled</ser>
         <ser>brake_current</ser>
         <ser>ki_limit</ser>
         <ser>booster_angle</ser>
@@ -1892,9 +1961,33 @@ p, li { white-space: pre-wrap; }
                     <param>startup_roll_tolerance</param>
                     <param>::sep::Centering</param>
                     <param>startup_speed</param>
+                    <param>::sep::Start Options</param>
                     <param>startup_click_current</param>
+                    <param>startup_softstart_enabled</param>
+                    <param>startup_simplestart_enabled</param>
+                    <param>startup_pushstart_enabled</param>
+                    <param>startup_dirtylandings_enabled</param>
                     <param>::sep::Holding</param>
                     <param>brake_current</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Stop</subgroupName>
+                <subgroupParams>
+                    <param>::sep::Angle Faults</param>
+                    <param>fault_pitch</param>
+                    <param>fault_delay_pitch</param>
+                    <param>fault_roll</param>
+                    <param>fault_delay_roll</param>
+                    <param>::sep::Switches</param>
+                    <param>fault_delay_switch_half</param>
+                    <param>fault_delay_switch_full</param>
+                    <param>fault_adc_half_erpm</param>
+                    <param>fault_is_dual_switch</param>
+                    <param>fault_moving_fault_disabled</param>
+                    <param>::sep::Features</param>
+                    <param>fault_darkride_enabled</param>
+                    <param>fault_reversestop_enabled</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -1912,24 +2005,6 @@ p, li { white-space: pre-wrap; }
                     <param>::sep::Low Voltage Tiltback</param>
                     <param>tiltback_lv_angle</param>
                     <param>tiltback_lv_speed</param>
-                </subgroupParams>
-            </subgroup>
-            <subgroup>
-                <subgroupName>Fault</subgroupName>
-                <subgroupParams>
-                    <param>::sep::Angle Faults</param>
-                    <param>fault_pitch</param>
-                    <param>fault_delay_pitch</param>
-                    <param>fault_roll</param>
-                    <param>fault_delay_roll</param>
-                    <param>::sep::Switches</param>
-                    <param>fault_delay_switch_half</param>
-                    <param>fault_delay_switch_full</param>
-                    <param>fault_adc_half_erpm</param>
-                    <param>fault_is_dual_switch</param>
-                    <param>::sep::Features</param>
-                    <param>fault_darkride_enabled</param>
-                    <param>fault_reversestop_enabled</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>

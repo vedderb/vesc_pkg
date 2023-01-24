@@ -24,9 +24,9 @@
 #include <stdbool.h>
 
 typedef enum {
-	NONE = 0,
-	UART,
-	PPM
+	INPUTTILT_NONE = 0,
+	INPUTTILT_UART,
+	INPUTTILT_PPM
 } FLOAT_INPUTTILT_REMOTE_TYPE;
 
 typedef struct {
@@ -39,7 +39,6 @@ typedef struct {
 	uint16_t hertz;
 	float fault_pitch;
 	float fault_roll;
-	float fault_duty;
 	float fault_adc1;
 	float fault_adc2;
 	uint16_t fault_delay_pitch;
@@ -48,6 +47,7 @@ typedef struct {
 	uint16_t fault_delay_switch_full;
 	uint16_t fault_adc_half_erpm;
 	bool fault_is_dual_switch;
+	bool fault_moving_fault_disabled;
 	bool fault_darkride_enabled;
 	bool fault_reversestop_enabled;
 	float tiltback_duty_angle;
@@ -74,11 +74,12 @@ typedef struct {
 	float startup_roll_tolerance;
 	float startup_speed;
 	float startup_click_current;
-	float deadzone;
+	bool startup_softstart_enabled;
+	bool startup_simplestart_enabled;
+	bool startup_pushstart_enabled;
+	bool startup_dirtylandings_enabled;
 	float brake_current;
 	float ki_limit;
-	uint16_t kd_pt1_lowpass_frequency;
-	uint16_t kd_pt1_highpass_frequency;
 	float booster_angle;
 	float booster_ramp;
 	float booster_current;
