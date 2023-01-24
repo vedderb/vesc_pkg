@@ -1724,6 +1724,7 @@ static void float_thd(void *arg) {
 
 				d->applied_booster_current = d->float_conf.booster_current;
 
+				/* SPEED STIFFNESS - Disabled for now; needs to be ramped in to avoid sudden jolts when applying/removing added booster current
 				// Make booster a bit stronger at higher speed (up to 2x stronger when braking)
 				const float boost_min_erpm = 3000;
 				if (d->abs_erpm > boost_min_erpm) {
@@ -1733,7 +1734,7 @@ static void float_thd(void *arg) {
 					else
 						d->applied_booster_current += d->applied_booster_current * speedstiffness / 2;
 				}
-
+				*/
 
 				if (d->abs_proportional > d->float_conf.booster_angle) {
 					if (d->abs_proportional - d->float_conf.booster_angle < d->float_conf.booster_ramp) {
