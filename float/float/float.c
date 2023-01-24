@@ -445,7 +445,11 @@ static void configure(data *d) {
 
 	// Variable nose angle adjustment / tiltback (setting is per 1000erpm, convert to per erpm)
 	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
-	d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+	if (d->tiltback_variable > 0) {
+		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+	} else {
+		d->tiltback_variable_max_erpm = 100000;
+	}
 
 	// Reset loop time variables
 	d->last_time = 0.0;
@@ -2024,9 +2028,6 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
 
-	// buffer_append_float32_auto(send_buffer, app_float_get_debug(d->debug_render_1), &ind);
-	// buffer_append_float32_auto(send_buffer, app_float_get_debug(d->debug_render_2), &ind);
-
 	VESC_IF->send_app_data(send_buffer, ind);
 }
 
@@ -2063,7 +2064,9 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg)
 		d->float_conf.ki = 0.005;
 	else if (h1 > 1)
 		d->float_conf.ki = ((float)(h1 - 1)) / 100;
-	d->float_conf.ki_limit = h2 + 20;
+	d->float_conf.ki_limit = h2 + 19;
+	if (h2 == 0)
+        d->float_conf.ki_limit = 0;
 
 	split(cfg[2], &h1, &h2);
 	d->float_conf.booster_angle = h1 + 5;
@@ -2192,7 +2195,11 @@ static void cmd_tune_defaults(data *d){
 	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
 	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
 	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
-	d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+	if (d->tiltback_variable > 0) {
+		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+	} else {
+		d->tiltback_variable_max_erpm = 100000;
+	}
 }
 
 /**
@@ -2245,7 +2252,11 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg)
 		d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
 		d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
 		d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
-		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+		if (d->tiltback_variable > 0) {
+			d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+		} else {
+			d->tiltback_variable_max_erpm = 100000;
+		}
 	}
 
 	int inputtilt = cfg[11];
