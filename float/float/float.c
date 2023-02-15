@@ -56,17 +56,18 @@ typedef enum {
 	FAULT_DUTY = 10, 		// unused but kept for compatibility
 	FAULT_STARTUP = 11,
 	FAULT_REVERSE = 12,
-	FAULT_QUICKSTOP = 13
+	FAULT_QUICKSTOP = 13,
+	DISABLED = 15
 } FloatState;
 
 typedef enum {
 	CENTERING = 0,
 	REVERSESTOP,
+        TILTBACK_NONE,
 	TILTBACK_DUTY,
 	TILTBACK_HV,
 	TILTBACK_LV,
-	TILTBACK_TEMP,
-	TILTBACK_NONE
+	TILTBACK_TEMP
 } SetpointAdjustmentType;
 
 typedef enum {
@@ -126,6 +127,7 @@ typedef struct {
 	float motor_current;
 	float motor_position;
 	float adc1, adc2;
+	float throttle_val;
 	float max_duty_with_margin;
 	SwitchState switch_state;
 
@@ -138,7 +140,6 @@ typedef struct {
 	int accelidx;
 	int direction_counter;
 	bool braking;
-	bool atr_enabled;
 
 	// Feature: Turntilt
 	float last_yaw_angle, yaw_angle, abs_yaw_change, last_yaw_change, yaw_change, yaw_aggregate;
@@ -163,6 +164,7 @@ typedef struct {
 	SetpointAdjustmentType setpointAdjustmentType;
 	float current_time, last_time, diff_time, loop_overshoot; // Seconds
 	float disengage_timer, nag_timer; // Seconds
+	float idle_voltage;
 	float filtered_loop_overshoot, loop_overshoot_alpha, filtered_diff_time;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
 	float motor_timeout_seconds;
@@ -177,6 +179,7 @@ typedef struct {
 	bool is_upside_down_started;	// dark ride has been engaged
 	bool enable_upside_down;		// dark ride mode is enabled (10 seconds after fault)
 	float delay_upside_down_fault;
+	float darkride_setpoint_correction;
 
 	// Feature: Reverse Stop
 	float reverse_stop_step_size, reverse_tolerance, reverse_total_erpm;
@@ -417,7 +420,6 @@ static void configure(data *d) {
 	}
 
 	// Feature: ATR:
-	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
 	d->float_acc_diff = 0;
 
 	/* INSERT OG TT LOGIC? */
@@ -436,6 +438,7 @@ static void configure(data *d) {
 	// Feature: Darkride
 	d->enable_upside_down = false;
 	d->is_upside_down = false;
+	d->darkride_setpoint_correction = d->float_conf.dark_pitch_offset;
 
 	// Speed at which to warn users about an impending full switch fault
 	d->switch_warn_buzz_erpm = 2000;
@@ -456,7 +459,14 @@ static void configure(data *d) {
 	d->filtered_loop_overshoot = 0.0;
 
 	d->buzzer_enabled = d->float_conf.is_buzzer_enabled;
-	beep_alert(d, 1, false);
+	if (d->float_conf.float_disable) {
+		d->state = DISABLED;
+		beep_alert(d, 3, false);
+	}
+	else {
+		d->state = STARTUP;
+		beep_alert(d, 1, false);
+	}
 }
 
 static void reset_vars(data *d) {
@@ -554,10 +564,19 @@ static void do_rc_move(data *d)
 		}
 	}
 	else {
-		d->rc_current = 0;
 		d->rc_counter = 0;
-		// Disable output
-		brake(d);
+		
+		if ((d->float_conf.remote_throttle_current_max > 0) && (d->current_time - d->disengage_timer > d->float_conf.remote_throttle_grace_period) && (fabs(d->throttle_val) > (double)0.02)) { // Throttle must be greater than 2% (Help mitigate lingering throttle)
+			float servo_val = d->throttle_val;
+			servo_val *= (d->float_conf.inputtilt_invert_throttle ? -1.0 : 1.0);
+			d->rc_current = d->rc_current * 0.95 + (d->float_conf.remote_throttle_current_max * servo_val) * 0.05;
+			set_current(d, d->rc_current);
+		}
+		else {
+			d->rc_current = 0;
+			// Disable output
+			brake(d);
+		}
 	}
 }
 
@@ -1013,42 +1032,12 @@ static void apply_noseangling(data *d){
 
 static void apply_inputtilt(data *d){ // Input Tiltback
 	float input_tiltback_target;
-	float servo_val = 0;
-	bool connected = false;
-
-	switch (d->float_conf.inputtilt_remote_type) {
-	case (INPUTTILT_PPM):
-		servo_val = VESC_IF->get_ppm();
-		connected = VESC_IF->get_ppm_age() < 1;
-		break;
-	case (INPUTTILT_UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
-		remote_state remote = VESC_IF->get_remote_state();
-		servo_val = remote.js_y;
-		connected = remote.age_s < 1;
-		break;
-	case (INPUTTILT_NONE):
-		break;
-	}
-	
-	if (!connected) {
-		d->inputtilt_interpolated = 0;
-		servo_val = 0;
-		return;
-	}
-
-	// Apply Deadband
-	float deadband = d->float_conf.inputtilt_deadband;
-	if (fabsf(servo_val) < deadband) {
-		servo_val = 0.0;
-	} else {
-		servo_val = SIGN(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
-	}
-
-	// Invert Throttle
-	servo_val *= (d->float_conf.inputtilt_invert_throttle != d->is_upside_down) ? -1.0 : 1.0;
 	 
 	// Scale by Max Angle
-	input_tiltback_target = servo_val * d->float_conf.inputtilt_angle_limit;
+	input_tiltback_target = d->throttle_val * d->float_conf.inputtilt_angle_limit;
+
+	// Invert for Darkride
+	input_tiltback_target *= (d->is_upside_down ? -1.0 : 1.0);
 
 	// // Default Behavior: Nose Tilt at any speed, does not invert for reverse (Safer for slow climbs/descents & jumps)
 	// // Alternate Behavior (Negative Tilt Speed): Nose Tilt only while moving, invert to match direction of travel
@@ -1155,7 +1144,7 @@ static void apply_torquetilt(data *d) {
 
 	// CLASSIC TORQUE TILT /////////////////////////////////
 
-	float tt_strength = d->atr_filtered_current > 0 ? d->float_conf.torquetilt_strength : d->float_conf.torquetilt_strength_regen;
+	float tt_strength = d->braking ? d->float_conf.torquetilt_strength_regen : d->float_conf.torquetilt_strength;
 
 	// Do stock FW torque tilt: (comment from Mitch Lustig)
 	// Take abs motor current, subtract start offset, and take the max of that with 0 to get the current above our start threshold (absolute).
@@ -1174,179 +1163,163 @@ static void apply_torquetilt(data *d) {
 	
 	// ADAPTIVE TORQUE RESPONSE ////////////////////////////
 
-	if (d->atr_enabled) { // ATR Enabled
-		abs_torque = fabsf(d->atr_filtered_current);
-		torque_offset = d->float_conf.atr_torque_offset;
-		accel_factor = d->braking ? d->float_conf.atr_amps_decel_ratio : d->float_conf.atr_amps_accel_ratio;
-		accel_factor2 = accel_factor * 1.3;
+	abs_torque = fabsf(d->atr_filtered_current);
+	torque_offset = d->float_conf.atr_torque_offset;
+	accel_factor = d->braking ? d->float_conf.atr_amps_decel_ratio : d->float_conf.atr_amps_accel_ratio;
+	accel_factor2 = accel_factor * 1.3;
 
-		// compare measured acceleration to expected acceleration
-		float measured_acc = fmaxf(d->acceleration, -5);
-		measured_acc = fminf(d->acceleration, 5);
+	// compare measured acceleration to expected acceleration
+	float measured_acc = fmaxf(d->acceleration, -5);
+	measured_acc = fminf(d->acceleration, 5);
 
-		// expected acceleration is proportional to current (minus an offset, required to balance/maintain speed)
-		//XXXXXfloat expected_acc;
-		if (abs_torque < 25) {
-			expected_acc = (d->atr_filtered_current - SIGN(d->erpm) * torque_offset) / accel_factor;
-		}
-		else {
-			// primitive linear approximation of non-linear torque-accel relationship
-			expected_acc = (torque_sign * 25 - SIGN(d->erpm) * torque_offset) / accel_factor;
-			expected_acc += torque_sign * (abs_torque - 25) / accel_factor2;
-		}
+	// expected acceleration is proportional to current (minus an offset, required to balance/maintain speed)
+	//XXXXXfloat expected_acc;
+	if (abs_torque < 25) {
+		expected_acc = (d->atr_filtered_current - SIGN(d->erpm) * torque_offset) / accel_factor;
+	}
+	else {
+		// primitive linear approximation of non-linear torque-accel relationship
+		expected_acc = (torque_sign * 25 - SIGN(d->erpm) * torque_offset) / accel_factor;
+		expected_acc += torque_sign * (abs_torque - 25) / accel_factor2;
+	}
 
-		bool forward = (d->erpm > 0);
-		if ((d->abs_erpm < 250) && (abs_torque > 30)) {
-			forward = (expected_acc > 0);
-		}
+	bool forward = (d->erpm > 0);
+	if ((d->abs_erpm < 250) && (abs_torque > 30)) {
+		forward = (expected_acc > 0);
+	}
 
-		float acc_diff = expected_acc - measured_acc;
-		d->float_expected_acc = expected_acc;
-		d->float_measured_acc = measured_acc;
-		d->float_acc_diff = acc_diff;
+	float acc_diff = expected_acc - measured_acc;
+	d->float_expected_acc = expected_acc;
+	d->float_measured_acc = measured_acc;
+	d->float_acc_diff = acc_diff;
 
-		if (d->abs_erpm > 2000)
-			d->accel_gap = 0.9 * d->accel_gap + 0.1 * acc_diff;
-		else if (d->abs_erpm > 1000)
-			d->accel_gap = 0.95 * d->accel_gap + 0.05 * acc_diff;
-		else if (d->abs_erpm > 250)
-			d->accel_gap = 0.98 * d->accel_gap + 0.02 * acc_diff;
-		else {
-			d->accel_gap = 0;
-		}
+	if (d->abs_erpm > 2000)
+		d->accel_gap = 0.9 * d->accel_gap + 0.1 * acc_diff;
+	else if (d->abs_erpm > 1000)
+		d->accel_gap = 0.95 * d->accel_gap + 0.05 * acc_diff;
+	else if (d->abs_erpm > 250)
+		d->accel_gap = 0.98 * d->accel_gap + 0.02 * acc_diff;
+	else {
+		d->accel_gap = 0;
+	}
 
-		float atr_strength = (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
-		// from 3000 to 6000 erpm gradually crank up the torque response
-		if ((d->abs_erpm > 3000) && (!d->braking)) {
-			float speedboost = (d->abs_erpm - 3000) / 3000;
-			speedboost = fminf(1, speedboost) * d->float_conf.atr_speed_boost;
-			atr_strength += atr_strength * speedboost;
-		}
+	float atr_strength = (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
+	// from 3000 to 6000 erpm gradually crank up the torque response
+	if ((d->abs_erpm > 3000) && (!d->braking)) {
+		float speedboost = (d->abs_erpm - 3000) / 3000;
+		speedboost = fminf(1, speedboost) * d->float_conf.atr_speed_boost;
+		atr_strength += atr_strength * speedboost;
+	}
 
-		// now torquetilt target is purely based on gap between expected and actual acceleration
-		float new_atr_target = atr_strength * d->accel_gap;
+	// now ATR target is purely based on gap between expected and actual acceleration
+	float new_atr_target = atr_strength * d->accel_gap;
 
-		/* OG TT LOGIC
-		if (!braking && (abs_erpm > 250))  {
-			float og_tt_angle_limit = 3;
-			float og_tt_start_current = 15;
-			og_tt_target = (abs_torque - og_tt_start_current) * og_tt_strength;
-			og_tt_target = fminf(fmaxf(og_tt_target, 0), og_tt_angle_limit);
-			if (og_tt_target > fabsf(new_atr_target)) {
-				new_atr_target = og_tt_target * torque_sign;
-			}
-		} else if (abs_erpm <= 250) {
-			// TODO: fall back to og_tt!
-		}
-		*/
+	d->atr_target = d->atr_target * 0.95 + 0.05 * new_atr_target;
+	d->atr_target = fminf(d->atr_target, d->float_conf.atr_angle_limit);
+	d->atr_target = fmaxf(d->atr_target, -d->float_conf.atr_angle_limit);
 
-		d->atr_target = d->atr_target * 0.95 + 0.05 * new_atr_target;
-		d->atr_target = fminf(d->atr_target, d->float_conf.atr_angle_limit);
-		d->atr_target = fmaxf(d->atr_target, -d->float_conf.atr_angle_limit);
+	float response_boost = 1;
+	if (d->abs_erpm > 2500) {
+		response_boost = d->float_conf.atr_response_boost;
+	}
+	if (d->abs_erpm > 6000) {
+		response_boost *= d->float_conf.atr_response_boost;
+	}
 
-		float response_boost = 1;
-		if (d->abs_erpm > 2500) {
-			response_boost = d->float_conf.atr_response_boost;
-		}
-		if (d->abs_erpm > 6000) {
-			response_boost *= d->float_conf.atr_response_boost;
-		}
-
-		// Key to keeping the board level and consistent is to determine the appropriate step size!
-		// We want to react quickly to changes, but we don't want to overreact to glitches in acceleration data
-		// or trigger oscillations...
-		const float TT_BOOST_MARGIN = 2;
-		if (forward) {
-			if (d->atr_interpolated < 0) {
-				// downhill
-				if (d->atr_interpolated < d->atr_target) {
-					// to avoid oscillations we go down slower than we go up
-					atr_step_size = d->atr_off_step_size;
-					if ((d->atr_target > 0)
-						&& ((d->atr_target - d->atr_interpolated) > TT_BOOST_MARGIN)
-						&& (d->abs_erpm > 2000))
-					{
-						// boost the speed if tilt target has reversed (and if there's a significant margin)
-						atr_step_size = d->atr_off_step_size * d->float_conf.atr_transition_boost;
-					}
-				}
-				else {
-					// torquetilt is increasing
-					atr_step_size = d->atr_on_step_size * response_boost;
+	// Key to keeping the board level and consistent is to determine the appropriate step size!
+	// We want to react quickly to changes, but we don't want to overreact to glitches in acceleration data
+	// or trigger oscillations...
+	const float TT_BOOST_MARGIN = 2;
+	if (forward) {
+		if (d->atr_interpolated < 0) {
+			// downhill
+			if (d->atr_interpolated < d->atr_target) {
+				// to avoid oscillations we go down slower than we go up
+				atr_step_size = d->atr_off_step_size;
+				if ((d->atr_target > 0)
+					&& ((d->atr_target - d->atr_interpolated) > TT_BOOST_MARGIN)
+					&& (d->abs_erpm > 2000))
+				{
+					// boost the speed if tilt target has reversed (and if there's a significant margin)
+					atr_step_size = d->atr_off_step_size * d->float_conf.atr_transition_boost;
 				}
 			}
 			else {
-				// uphill or other heavy resistance (grass, mud, etc)
-				if ((d->atr_target > -3) && (d->atr_interpolated > d->atr_target)) {
-					// torquetilt winding down (current torquetilt is bigger than the target)
-					// normal wind down case: to avoid oscillations we go down slower than we go up
-					atr_step_size = d->atr_off_step_size;
-				}else{
-					// standard case of increasing torquetilt
-					atr_step_size = d->atr_on_step_size * response_boost;
-				}
+				// ATR is increasing
+				atr_step_size = d->atr_on_step_size * response_boost;
 			}
 		}
 		else {
-			if (d->atr_interpolated > 0) {
-				// downhill
-				if (d->atr_interpolated > d->atr_target) {
-					// to avoid oscillations we go down slower than we go up
-					atr_step_size = d->atr_off_step_size;
-					if ((d->atr_target < 0)
-						&& ((d->atr_interpolated - d->atr_target) > TT_BOOST_MARGIN)
-						&& (d->abs_erpm > 2000)) {
-						// boost the speed if tilt target has reversed (and if there's a significant margin)
-						atr_step_size = d->atr_off_step_size * d->float_conf.atr_transition_boost;
-					}
-				}
-				else {
-					// torquetilt is increasing
-					atr_step_size = d->atr_on_step_size * response_boost;
+			// uphill or other heavy resistance (grass, mud, etc)
+			if ((d->atr_target > -3) && (d->atr_interpolated > d->atr_target)) {
+				// ATR winding down (current ATR is bigger than the target)
+				// normal wind down case: to avoid oscillations we go down slower than we go up
+				atr_step_size = d->atr_off_step_size;
+			}else{
+				// standard case of increasing ATR
+				atr_step_size = d->atr_on_step_size * response_boost;
+			}
+		}
+	}
+	else {
+		if (d->atr_interpolated > 0) {
+			// downhill
+			if (d->atr_interpolated > d->atr_target) {
+				// to avoid oscillations we go down slower than we go up
+				atr_step_size = d->atr_off_step_size;
+				if ((d->atr_target < 0)
+					&& ((d->atr_interpolated - d->atr_target) > TT_BOOST_MARGIN)
+					&& (d->abs_erpm > 2000)) {
+					// boost the speed if tilt target has reversed (and if there's a significant margin)
+					atr_step_size = d->atr_off_step_size * d->float_conf.atr_transition_boost;
 				}
 			}
 			else {
-				// uphill or other heavy resistance (grass, mud, etc)
-				if ((d->atr_target < 3) && (d->atr_interpolated < d->atr_target)) {
-					// normal wind down case: to avoid oscillations we go down slower than we go up
-					atr_step_size = d->atr_off_step_size;
-				}else{
-					// standard case of increasing torquetilt
-					atr_step_size = d->atr_on_step_size * response_boost;
-				}
-			}
-		}
-
-		// Feature: Brake Tiltback
-
-		// braking also should cause setpoint change lift, causing a delayed lingering nose lift
-		if ((d->braketilt_factor < 0) && d->braking && (d->abs_erpm > 2000)) {
-			// negative currents alone don't necessarily consitute active braking, look at proportional:
-			if (SIGN(d->proportional) != SIGN(d->erpm)) {
-				float downhill_damper = 1;
-				// if we're braking on a downhill we don't want braking to lift the setpoint quite as much
-				if (((d->erpm > 1000) && (d->accel_gap < -1)) ||
-					((d->erpm < -1000) && (d->accel_gap > 1))) {
-					downhill_damper += fabsf(d->accel_gap) / 2;
-				}
-				d->braketilt_target = d->proportional / d->braketilt_factor / downhill_damper;
-				if (downhill_damper > 2) {
-					// steep downhills, we don't enable this feature at all!
-					d->braketilt_target = 0;
-				}
+				// ATR is increasing
+				atr_step_size = d->atr_on_step_size * response_boost;
 			}
 		}
 		else {
-			d->braketilt_target = 0;
+			// uphill or other heavy resistance (grass, mud, etc)
+			if ((d->atr_target < 3) && (d->atr_interpolated < d->atr_target)) {
+				// normal wind down case: to avoid oscillations we go down slower than we go up
+				atr_step_size = d->atr_off_step_size;
+			}else{
+				// standard case of increasing torquetilt
+				atr_step_size = d->atr_on_step_size * response_boost;
+			}
 		}
+	}
 
-		braketilt_step_size = d->atr_off_step_size / d->float_conf.braketilt_lingering;
-		if(fabsf(d->braketilt_target) > fabsf(d->braketilt_interpolated)) {
-			braketilt_step_size = d->atr_on_step_size * 1.5;
+	// Feature: Brake Tiltback
+
+	// braking also should cause setpoint change lift, causing a delayed lingering nose lift
+	if ((d->braketilt_factor < 0) && d->braking && (d->abs_erpm > 2000)) {
+		// negative currents alone don't necessarily consitute active braking, look at proportional:
+		if (SIGN(d->proportional) != SIGN(d->erpm)) {
+			float downhill_damper = 1;
+			// if we're braking on a downhill we don't want braking to lift the setpoint quite as much
+			if (((d->erpm > 1000) && (d->accel_gap < -1)) ||
+				((d->erpm < -1000) && (d->accel_gap > 1))) {
+				downhill_damper += fabsf(d->accel_gap) / 2;
+			}
+			d->braketilt_target = d->proportional / d->braketilt_factor / downhill_damper;
+			if (downhill_damper > 2) {
+				// steep downhills, we don't enable this feature at all!
+				d->braketilt_target = 0;
+			}
 		}
-		else if (d->abs_erpm < 800) {
-			braketilt_step_size = d->atr_on_step_size;
-		}
+	}
+	else {
+		d->braketilt_target = 0;
+	}
+
+	braketilt_step_size = d->atr_off_step_size / d->float_conf.braketilt_lingering;
+	if(fabsf(d->braketilt_target) > fabsf(d->braketilt_interpolated)) {
+		braketilt_step_size = d->atr_on_step_size * 1.5;
+	}
+	else if (d->abs_erpm < 800) {
+		braketilt_step_size = d->atr_on_step_size;
 	}
 
 	// when slow then erpm data is especially choppy, causing fake spikes in acceleration
@@ -1440,14 +1413,14 @@ static void apply_turntilt(data *d) {
 		// ATR interference: Reduce turntilt_target during moments of high torque response
 		float atr_min = 2;
 		float atr_max = 5;
-		if (SIGN(d->torquetilt_target) != SIGN(d->turntilt_target)) {
+		if (SIGN(d->atr_target) != SIGN(d->turntilt_target)) {
 			// further reduced turntilt during moderate to steep downhills
 			atr_min = 1;
 			atr_max = 4;
 		}
-		if (fabsf(d->torquetilt_target) > atr_min) {
+		if (fabsf(d->atr_target) > atr_min) {
 			// Start scaling turntilt when ATR>2, down to 0 turntilt for ATR > 5 degrees
-			float atr_scaling = (atr_max - fabsf(d->torquetilt_target)) / (atr_max-atr_min);
+			float atr_scaling = (atr_max - fabsf(d->atr_target)) / (atr_max-atr_min);
 			if (atr_scaling < 0) {
 				atr_scaling = 0;
 				// during heavy torque response clear the yaw aggregate too
@@ -1566,8 +1539,8 @@ static void float_thd(void *arg) {
 		d->true_pitch_angle = RAD2DEG_f(VESC_IF->ahrs_get_pitch(&d->m_att_ref));
 		d->pitch_angle = RAD2DEG_f(VESC_IF->imu_get_pitch());
 		if (d->is_upside_down) {
-			d->pitch_angle = -d->pitch_angle;
-			d->true_pitch_angle = -d->true_pitch_angle;
+			d->pitch_angle = -d->pitch_angle - d->darkride_setpoint_correction;;
+			d->true_pitch_angle = -d->true_pitch_angle - d->darkride_setpoint_correction;
 		}
 		
 		d->last_gyro_y = d->gyro[1];
@@ -1583,6 +1556,43 @@ static void float_thd(void *arg) {
 		if (d->adc2 < 0.0) {
 			d->adc2 = 0.0;
 		}
+
+		// UART/PPM Remote Throttle ///////////////////////
+		bool remote_connected = false;
+		float servo_val = 0;
+
+		switch (d->float_conf.inputtilt_remote_type) {
+		case (INPUTTILT_PPM):
+			servo_val = VESC_IF->get_ppm();
+			remote_connected = VESC_IF->get_ppm_age() < 1;
+			break;
+		case (INPUTTILT_UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
+			remote_state remote = VESC_IF->get_remote_state();
+			servo_val = remote.js_y;
+			remote_connected = remote.age_s < 1;
+			break;
+		case (INPUTTILT_NONE):
+			break;
+		}
+		
+		if (!remote_connected) {
+			servo_val = 0;
+		} else {
+			// Apply Deadband
+			float deadband = d->float_conf.inputtilt_deadband;
+			if (fabsf(servo_val) < deadband) {
+				servo_val = 0.0;
+			} else {
+				servo_val = SIGN(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
+			}
+
+			// Invert Throttle
+			servo_val *= (d->float_conf.inputtilt_invert_throttle ? -1.0 : 1.0);
+		}
+
+		d->throttle_val = servo_val;
+		///////////////////////////////////////////////////
+
 
 		// Torque Tilt:
 
@@ -1721,30 +1731,50 @@ static void float_thd(void *arg) {
 				// Apply Booster (Now based on True Pitch)
 				float true_proportional = d->setpoint - d->true_pitch_angle;
 				d->abs_proportional = fabsf(true_proportional);
+				bool boostbraking = SIGN(d->proportional) != SIGN(d->erpm);
 
-				d->applied_booster_current = d->float_conf.booster_current;
+				float booster_current, booster_angle, booster_ramp;
+				if (boostbraking) {
+					booster_current = d->float_conf.brkbooster_current;
+					booster_angle = d->float_conf.brkbooster_angle;
+					booster_ramp = d->float_conf.brkbooster_ramp;
+				}
+				else {
+					booster_current = d->float_conf.booster_current;
+					booster_angle = d->float_conf.booster_angle;
+					booster_ramp = d->float_conf.booster_ramp;
+				}
 
-				/* SPEED STIFFNESS - Disabled for now; needs to be ramped in to avoid sudden jolts when applying/removing added booster current
 				// Make booster a bit stronger at higher speed (up to 2x stronger when braking)
-				const float boost_min_erpm = 3000;
+				const int boost_min_erpm = 3000;
 				if (d->abs_erpm > boost_min_erpm) {
 					float speedstiffness = fminf(1, (d->abs_erpm - boost_min_erpm) / 10000);
-					if (d->braking)
-						d->applied_booster_current += d->applied_booster_current * speedstiffness;
-					else
-						d->applied_booster_current += d->applied_booster_current * speedstiffness / 2;
-				}
-				*/
-
-				if (d->abs_proportional > d->float_conf.booster_angle) {
-					if (d->abs_proportional - d->float_conf.booster_angle < d->float_conf.booster_ramp) {
-						d->applied_booster_current *= SIGN(true_proportional) *
-								((d->abs_proportional - d->float_conf.booster_angle) / d->float_conf.booster_ramp);
-					} else {
-						d->applied_booster_current *= SIGN(true_proportional);
+					if (boostbraking) {
+						// use higher current at speed when braking
+						booster_current += booster_current * speedstiffness;
+					}
+					else {
+						// when accelerating, we reduce the booster start angle as we get faster
+						// strength remains unchanged
+						float angledivider = 1 + speedstiffness;
+						booster_angle /= angledivider;
 					}
 				}
 
+				if (d->abs_proportional > booster_angle) {
+					if (d->abs_proportional - booster_angle < booster_ramp) {
+						booster_current *= SIGN(true_proportional) *
+								((d->abs_proportional - booster_angle) / booster_ramp);
+					} else {
+						booster_current *= SIGN(true_proportional);
+					}
+				}
+				else {
+					booster_current = 0;
+				}
+
+				// No harsh changes in booster current (effective delay <= 100ms)
+				d->applied_booster_current = 0.01 * booster_current + 0.99 * d->applied_booster_current;
 				pid_mod += d->applied_booster_current;
 
 				if (d->float_conf.startup_softstart_enabled && (d->softstart_pid_limit < d->mc_current_max)) {
@@ -1834,11 +1864,19 @@ static void float_thd(void *arg) {
 			if (d->current_time - d->disengage_timer > 1800) {	// alert user after 30 minutes
 				if (d->current_time - d->nag_timer > 60) {		// beep every 60 seconds
 					d->nag_timer = d->current_time;
-					beep_alert(d, 2, 1);						// 2 long beeps
+					float input_voltage = VESC_IF->mc_get_input_voltage_filtered();
+					if (input_voltage > d->idle_voltage) {
+						// don't beep if the voltage keeps increasing (board is charging)
+						d->idle_voltage = input_voltage;
+					}
+					else {
+						beep_alert(d, 2, 1);						// 2 long beeps
+					}
 				}
 			}
 			else {
 				d->nag_timer = d->current_time;
+				d->idle_voltage = 0;
 			}
 
 			if ((d->current_time - d->fault_angle_pitch_timer) > 1) {
@@ -1866,13 +1904,19 @@ static void float_thd(void *arg) {
 			}
 			// Push-start aka dirty landing Part II
 			if(d->float_conf.startup_pushstart_enabled && (d->abs_erpm > 1000) && (d->switch_state == ON)) {
-				reset_vars(d);
-				break;
+				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
+					// 45 to prevent board engaging when upright or laying sideways
+					// 45 degree tolerance is more than plenty for tricks / extreme mounts
+					reset_vars(d);
+					break;
+				}
 			}
 
 			// Set RC current or maintain brake current (and keep WDT happy!)
 			do_rc_move(d);
 			break;
+		case (DISABLED):;
+			// no set_current, no brake_current
 		default:;
 		}
 
@@ -1994,8 +2038,9 @@ static float app_float_get_debug(int index) {
 }
 
 static void send_realtime_data(data *d){
+	#define BUFSIZE 72
+	uint8_t send_buffer[BUFSIZE];
 	int32_t ind = 0;
-	uint8_t send_buffer[50];
 	send_buffer[ind++] = 101;//Magic Number
 	send_buffer[ind++] = 1;	 //FLOATCOMM_RTSTATS
 
@@ -2004,7 +2049,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
 
-	send_buffer[ind++] = d->state;
+	send_buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
 	send_buffer[ind++] = d->switch_state;
 	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
 	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
@@ -2017,18 +2062,17 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->float_turntilt, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
 	
-	float landings = d->startup_pitch_trickmargin;
-	if (d->float_conf.startup_pushstart_enabled) {
-		landings += 1000;
-	}
-
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
 	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
+	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
 
+	if (ind > BUFSIZE) {
+		VESC_IF->printf("BUFSIZE too small...\n");
+	}
 	VESC_IF->send_app_data(send_buffer, ind);
 }
 
@@ -2040,13 +2084,46 @@ enum {
 	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
 	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
 	FLOAT_COMMAND_TUNE_OTHER = 6,	// make runtime changes to startup/etc
-	FLOAT_COMMAND_RC_MOVE = 7		// move motor while board is idle
+	FLOAT_COMMAND_RC_MOVE = 7,		// move motor while board is idle
+	FLOAT_COMMAND_BOOSTER = 8,		// change booster settings
+	FLOAT_COMMAND_PRINT_INFO = 9,	// print verbose info
 } float_commands;
 
 static void split(unsigned char byte, int* h1, int* h2)
 {
 	*h1 = byte & 0xF;
 	*h2 = byte >> 4;
+}
+
+static void cmd_print_info(data *d)
+{
+	VESC_IF->printf("n/a\n");
+}
+
+static void cmd_booster(data *d, unsigned char *cfg)
+{
+	int h1, h2;
+	split(cfg[0], &h1, &h2);
+	d->float_conf.booster_angle = h1 + 5;
+	d->float_conf.booster_ramp = h2 + 2;
+
+	split(cfg[1], &h1, &h2);
+	if (h1 == 0)
+		d->float_conf.booster_current = 0;
+	else
+		d->float_conf.booster_current = 8 + h1 * 2;
+
+	split(cfg[2], &h1, &h2);
+	d->float_conf.brkbooster_angle = h1 + 5;
+	d->float_conf.brkbooster_ramp = h2 + 2;
+
+	split(cfg[3], &h1, &h2);
+	if (h1 == 0)
+		d->float_conf.brkbooster_current = 0;
+	else
+		d->float_conf.brkbooster_current = 8 + h1 * 2;
+
+	beep_alert(d, 1, false);
 }
 
 /**
@@ -2127,7 +2204,6 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg)
 	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
 	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
 	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
-	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
 
 	// Feature: Braketilt
 	d->braketilt_factor = d->float_conf.braketilt_strength;
@@ -2148,6 +2224,9 @@ static void cmd_tune_defaults(data *d){
 	d->float_conf.booster_angle = APPCONF_FLOAT_BOOSTER_ANGLE;
 	d->float_conf.booster_ramp = APPCONF_FLOAT_BOOSTER_RAMP;
 	d->float_conf.booster_current = APPCONF_FLOAT_BOOSTER_CURRENT;
+	d->float_conf.brkbooster_angle = APPCONF_FLOAT_BRKBOOSTER_ANGLE;
+	d->float_conf.brkbooster_ramp = APPCONF_FLOAT_BRKBOOSTER_RAMP;
+	d->float_conf.brkbooster_current = APPCONF_FLOAT_BRKBOOSTER_CURRENT;
 	d->float_conf.turntilt_strength = APPCONF_FLOAT_TURNTILT_STRENGTH;
 	d->float_conf.turntilt_angle_limit = APPCONF_FLOAT_TURNTILT_ANGLE_LIMIT;
 	d->float_conf.turntilt_start_angle = APPCONF_FLOAT_TURNTILT_START_ANGLE;
@@ -2189,7 +2268,6 @@ static void cmd_tune_defaults(data *d){
 	// Update values normally done in configure()
 	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
 	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
-	d->atr_enabled = ((d->float_conf.atr_strength_up + d->float_conf.atr_strength_down) > 0);
 	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
 
 	d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
@@ -2213,9 +2291,9 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg)
 	d->float_conf.fault_reversestop_enabled = ((flags & 0x4) == 4);
 	d->float_conf.fault_is_dual_switch = ((flags & 0x8) == 8);
 	d->float_conf.fault_darkride_enabled = ((flags & 0x10) == 0x10);
-	bool dirty_landings = ((flags & 0x20) == 20);
-	d->float_conf.startup_simplestart_enabled = ((flags & 0x40) == 40);
-	d->float_conf.startup_pushstart_enabled = ((flags & 0x80) == 80);
+	bool dirty_landings = ((flags & 0x20) == 0x20);
+	d->float_conf.startup_simplestart_enabled = ((flags & 0x40) == 0x40);
+	d->float_conf.startup_pushstart_enabled = ((flags & 0x80) == 0x80);
 
 	d->float_conf.is_buzzer_enabled = d->buzzer_enabled;
 	d->startup_pitch_trickmargin = dirty_landings ? 10 : 0;
@@ -2377,9 +2455,24 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			write_cfg_to_eeprom(d);
 			return;
 		}
+		case FLOAT_COMMAND_PRINT_INFO: {
+			cmd_print_info(d);
+			return;
+		}
+		case FLOAT_COMMAND_BOOSTER: {
+			if (len == 6) {
+				cmd_booster(d, &buffer[2]);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
+				}
+			}
+			return;
+		}
 		default: {
 			if (!VESC_IF->app_is_output_disabled()) {
-				VESC_IF->printf("Float App: Unknown command received %d\n", command);
+				VESC_IF->printf("Float App: Unknown command received %d vs %d\n", command, FLOAT_COMMAND_PRINT_INFO);
 			}
 		}
 	}
