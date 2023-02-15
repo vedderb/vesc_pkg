@@ -48,6 +48,8 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->inputtilt_speed, 100, &ind);
 	buffer[ind++] = conf->inputtilt_invert_throttle;
 	buffer_append_float16(buffer, conf->inputtilt_deadband, 10000, &ind);
+	buffer_append_float16(buffer, conf->remote_throttle_current_max, 10, &ind);
+	buffer_append_float16(buffer, conf->remote_throttle_grace_period, 10, &ind);
 	buffer_append_float16(buffer, conf->startup_pitch_tolerance, 100, &ind);
 	buffer_append_float16(buffer, conf->startup_roll_tolerance, 100, &ind);
 	buffer_append_float16(buffer, conf->startup_speed, 100, &ind);
@@ -61,6 +63,9 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->booster_angle, 100, &ind);
 	buffer_append_float16(buffer, conf->booster_ramp, 100, &ind);
 	buffer_append_float16(buffer, conf->booster_current, 100, &ind);
+	buffer_append_float16(buffer, conf->brkbooster_angle, 100, &ind);
+	buffer_append_float16(buffer, conf->brkbooster_ramp, 100, &ind);
+	buffer_append_float16(buffer, conf->brkbooster_current, 100, &ind);
 	buffer_append_float16(buffer, conf->torquetilt_start_current, 100, &ind);
 	buffer_append_float16(buffer, conf->torquetilt_angle_limit, 100, &ind);
 	buffer_append_float16(buffer, conf->torquetilt_on_speed, 100, &ind);
@@ -89,7 +94,9 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->atr_amps_decel_ratio, 100, &ind);
 	buffer_append_float16(buffer, conf->braketilt_strength, 100, &ind);
 	buffer_append_float16(buffer, conf->braketilt_lingering, 1000, &ind);
+	buffer_append_float16(buffer, conf->dark_pitch_offset, 10, &ind);
 	buffer[ind++] = conf->is_buzzer_enabled;
+	buffer[ind++] = conf->float_disable;
 	buffer_append_float16(buffer, conf->float_version, 1000, &ind);
 
 	return ind;
@@ -141,6 +148,8 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->inputtilt_speed = buffer_get_float16(buffer, 100, &ind);
 	conf->inputtilt_invert_throttle = buffer[ind++];
 	conf->inputtilt_deadband = buffer_get_float16(buffer, 10000, &ind);
+	conf->remote_throttle_current_max = buffer_get_float16(buffer, 10, &ind);
+	conf->remote_throttle_grace_period = buffer_get_float16(buffer, 10, &ind);
 	conf->startup_pitch_tolerance = buffer_get_float16(buffer, 100, &ind);
 	conf->startup_roll_tolerance = buffer_get_float16(buffer, 100, &ind);
 	conf->startup_speed = buffer_get_float16(buffer, 100, &ind);
@@ -154,6 +163,9 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->booster_angle = buffer_get_float16(buffer, 100, &ind);
 	conf->booster_ramp = buffer_get_float16(buffer, 100, &ind);
 	conf->booster_current = buffer_get_float16(buffer, 100, &ind);
+	conf->brkbooster_angle = buffer_get_float16(buffer, 100, &ind);
+	conf->brkbooster_ramp = buffer_get_float16(buffer, 100, &ind);
+	conf->brkbooster_current = buffer_get_float16(buffer, 100, &ind);
 	conf->torquetilt_start_current = buffer_get_float16(buffer, 100, &ind);
 	conf->torquetilt_angle_limit = buffer_get_float16(buffer, 100, &ind);
 	conf->torquetilt_on_speed = buffer_get_float16(buffer, 100, &ind);
@@ -182,7 +194,9 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->atr_amps_decel_ratio = buffer_get_float16(buffer, 100, &ind);
 	conf->braketilt_strength = buffer_get_float16(buffer, 100, &ind);
 	conf->braketilt_lingering = buffer_get_float16(buffer, 1000, &ind);
+	conf->dark_pitch_offset = buffer_get_float16(buffer, 10, &ind);
 	conf->is_buzzer_enabled = buffer[ind++];
+	conf->float_disable = buffer[ind++];
 	conf->float_version = buffer_get_float16(buffer, 1000, &ind);
 
 	return true;
@@ -227,6 +241,8 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->inputtilt_speed = APPCONF_FLOAT_INPUTTILT_SPEED;
 	conf->inputtilt_invert_throttle = APPCONF_FLOAT_INPUTTILT_INVERT_THROTTLE;
 	conf->inputtilt_deadband = APPCONF_FLOAT_INPUTTILT_DEADBAND;
+	conf->remote_throttle_current_max = APPCONF_FLOAT_REMOTE_THROTTLE_CURRENT_MAX;
+	conf->remote_throttle_grace_period = APPCONF_FLOAT_REMOTE_THROTTLE_GRACE_PERIOD;
 	conf->startup_pitch_tolerance = APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE;
 	conf->startup_roll_tolerance = APPCONF_FLOAT_STARTUP_ROLL_TOLERANCE;
 	conf->startup_speed = APPCONF_FLOAT_STARTUP_SPEED;
@@ -240,6 +256,9 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->booster_angle = APPCONF_FLOAT_BOOSTER_ANGLE;
 	conf->booster_ramp = APPCONF_FLOAT_BOOSTER_RAMP;
 	conf->booster_current = APPCONF_FLOAT_BOOSTER_CURRENT;
+	conf->brkbooster_angle = APPCONF_FLOAT_BRKBOOSTER_ANGLE;
+	conf->brkbooster_ramp = APPCONF_FLOAT_BRKBOOSTER_RAMP;
+	conf->brkbooster_current = APPCONF_FLOAT_BRKBOOSTER_CURRENT;
 	conf->torquetilt_start_current = APPCONF_FLOAT_TORQUETILT_START_CURRENT;
 	conf->torquetilt_angle_limit = APPCONF_FLOAT_TORQUETILT_ANGLE_LIMIT;
 	conf->torquetilt_on_speed = APPCONF_FLOAT_TORQUETILT_ON_SPEED;
@@ -268,7 +287,9 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->atr_amps_decel_ratio = APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO;
 	conf->braketilt_strength = APPCONF_FLOAT_BRAKETILT_STRENGTH;
 	conf->braketilt_lingering = APPCONF_FLOAT_BRAKETILT_LINGERING;
+	conf->dark_pitch_offset = APPCONF_FLOAT_DARK_PITCH_OFFSET;
 	conf->is_buzzer_enabled = APPCONF_FLOAT_IS_BUZZER_ENABLED;
+	conf->float_disable = APPCONF_FLOAT_DISABLE;
 	conf->float_version = APPCONF_FLOAT_VERSION;
 }
 

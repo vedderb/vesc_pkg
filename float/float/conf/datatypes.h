@@ -31,6 +31,7 @@ typedef enum {
 
 typedef struct {
 	float float_version;
+	float float_disable;
 	float kp;
 	float ki;
 	float kd;
@@ -69,6 +70,8 @@ typedef struct {
 	float inputtilt_angle_limit;
 	bool inputtilt_invert_throttle;
 	float inputtilt_deadband;
+	float remote_throttle_current_max;
+	float remote_throttle_grace_period;
 	float noseangling_speed;
 	float startup_pitch_tolerance;
 	float startup_roll_tolerance;
@@ -83,6 +86,9 @@ typedef struct {
 	float booster_angle;
 	float booster_ramp;
 	float booster_current;
+	float brkbooster_angle;
+	float brkbooster_ramp;
+	float brkbooster_current;
 	float torquetilt_start_current;
 	float torquetilt_angle_limit;
 	float torquetilt_on_speed;
@@ -111,6 +117,7 @@ typedef struct {
 	uint16_t turntilt_erpm_boost;
 	uint16_t turntilt_erpm_boost_end;
 	int turntilt_yaw_aggregate;
+	float dark_pitch_offset;
 	bool is_buzzer_enabled;
 } float_config;
 
