@@ -13,6 +13,12 @@ Item {
     
     property Commands mCommands: VescIf.commands()
     
+    Component.onCompleted: {
+        if (VescIf.getLastFwRxParams().hw.includes("Express")) {
+            canId.value = -2
+        }
+    }
+    
     ColumnLayout {
         anchors.fill: parent
         
@@ -67,7 +73,7 @@ Item {
             SpinBox {
                 id: canId
                 Layout.fillWidth: true
-                from: -1
+                from: -2
                 to: 254
                 value: 2
             }

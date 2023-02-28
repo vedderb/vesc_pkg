@@ -3,7 +3,7 @@
 (def last-can-id -1)
 
 ; Minimum input voltage, stop logging when voltage drops lower
-(def vin-min 11)
+(def vin-min 18)
 
 ; Local data to log
 ;
@@ -47,6 +47,12 @@
 ))
 
 (defun merge-lists (list-with-lists) (foldl append () list-with-lists))
+
+(def fw-num (+ (first (sysinfo 'fw-ver)) (* (second (sysinfo 'fw-ver)) 0.01)))
+(if (>= fw-num 6.02)
+    (def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
+    (def is-esc true)
+)
 
 ; Scan CAN-bus and make loglists for all devices
 (defun canlist-create ()
@@ -159,7 +165,7 @@
         
         (def loglist (merge-lists 
                 (list
-                    (if log-local loglist-local ())
+                    (if (and is-esc log-local) loglist-local ())
                     (if log-can (canlist-create) ())
                     (if log-bms (bmslist-create) ())
         )))
@@ -212,13 +218,21 @@
 
 (event-register-handler (spawn event-handler))
 (event-enable 'event-data-rx)
-(event-enable 'event-shutdown)
+(if is-esc
+    (event-enable 'event-shutdown)
+)
+
+(defun vin-hw ()
+    (if is-esc
+        (get-vin)
+        (canget-vin (first (can-list-devs)))
+))
 
 ; Voltage monitor thread that stops logging if the voltage drops too low
 (spawn 50 (fn ()
         (loopwhile t
             (progn
-                (if (< (get-vin) vin-min)
+                (if (< (vin-hw) vin-min)
                     (progn
                         (stop-log last-can-id)
                         (sleep 1)

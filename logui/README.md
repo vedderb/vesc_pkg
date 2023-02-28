@@ -19,7 +19,7 @@ The following data can be selected for logging:
 
 ### Logger CAN ID
 
-The ID of the logger on the CAN-bus. Setting id to -1 will send log data to the log analysis page in the desktop version of VESC Tool.
+The ID of the logger on the CAN-bus. Setting id to -1 will send log data to the log analysis page in the desktop version of VESC Tool. If LOGUI runs on the express directly (supported from firmware 6.02+) setting id to -2 logs to the local VESC Express.
 
 ### Log Rate
 
