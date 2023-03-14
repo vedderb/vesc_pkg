@@ -1,4 +1,6 @@
 (def nau-i2c-addr 0x2A)
+(def nau-pin-sda 'pin-rx)
+(def nau-pin-scl 'pin-tx)
 
 (def nau-reg-pu-ctrl '(
     0x00 ; Address
@@ -243,7 +245,7 @@
 
 (defun nau-init ()
     (progn
-        (i2c-start)
+        (i2c-start 'rate-100k nau-pin-sda nau-pin-scl)
 
         ; Reset sequence
         (nau-reg-update-write nau-reg-pu-ctrl 'RR 1)
