@@ -79,5 +79,10 @@ cd interpolation
 make clean
 cd ../../
 
+# Files
+cd lib_files/
+$VT --buildPkg 'files.vescpkg:files.lisp::0:README.md:Files'
+cd ../
+
 rcc -binary res_all.qrc -o vesc_pkg_all.rcc
 
