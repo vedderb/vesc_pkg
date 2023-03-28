@@ -84,5 +84,10 @@ cd lib_files/
 $VT --buildPkg 'files.vescpkg:files.lisp::0:README.md:Files'
 cd ../
 
+# PN532
+cd lib_pn532/
+$VT --buildPkg 'pn532.vescpkg:pn532.lisp::0:README.md:PN532'
+cd ../
+
 rcc -binary res_all.qrc -o vesc_pkg_all.rcc
 
