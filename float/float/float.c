@@ -425,10 +425,12 @@ static void configure(data *d) {
 	/* INSERT OG TT LOGIC? */
 
 	// Feature: Braketilt
-	d->braketilt_factor = d->float_conf.braketilt_strength;
-	d->braketilt_factor = 20 - d->braketilt_factor;
-	// incorporate negative sign into braketilt factor instead of adding it each balance loop
-	d->braketilt_factor = -(0.5 + d->braketilt_factor / 5.0);
+	if (d->float_conf.braketilt_strength == 0) {
+		d->braketilt_factor = 0;
+	} else {
+		// incorporate negative sign into braketilt factor instead of adding it each balance loop
+		d->braketilt_factor = -(0.5 + (20 - d->float_conf.braketilt_strength)/ 5.0);
+	}
 
 	// Feature: Turntilt
 	d->yaw_aggregate_target = fmaxf(50, d->float_conf.turntilt_yaw_aggregate);
@@ -1170,7 +1172,7 @@ static void apply_torquetilt(data *d) {
 
 	// compare measured acceleration to expected acceleration
 	float measured_acc = fmaxf(d->acceleration, -5);
-	measured_acc = fminf(d->acceleration, 5);
+	measured_acc = fminf(measured_acc, 5);
 
 	// expected acceleration is proportional to current (minus an offset, required to balance/maintain speed)
 	//XXXXXfloat expected_acc;
