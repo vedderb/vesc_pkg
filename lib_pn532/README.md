@@ -24,7 +24,7 @@ Initialize and start the driver on the i2c-pins pins. If the pins are nil (an em
 
 The function return true if initialization was successful and false otherwise.
 
-### pn532-init
+### pn532-read-fwversion
 
 ```clj
 (pn532-read-fwversion)
