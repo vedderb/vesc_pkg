@@ -65,9 +65,11 @@ typedef struct {
 	uint16_t tiltback_constant_erpm;
 	float tiltback_variable;
 	float tiltback_variable_max;
+	uint16_t tiltback_variable_erpm;
 	FLOAT_INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
 	float inputtilt_speed;
 	float inputtilt_angle_limit;
+	uint16_t inputtilt_smoothing_factor;
 	bool inputtilt_invert_throttle;
 	float inputtilt_deadband;
 	float remote_throttle_current_max;
@@ -77,7 +79,6 @@ typedef struct {
 	float startup_roll_tolerance;
 	float startup_speed;
 	float startup_click_current;
-	bool startup_softstart_enabled;
 	bool startup_simplestart_enabled;
 	bool startup_pushstart_enabled;
 	bool startup_dirtylandings_enabled;
@@ -97,6 +98,8 @@ typedef struct {
 	float torquetilt_strength_regen;
 	float atr_strength_up;
 	float atr_strength_down;
+	float atr_threshold_up;
+	float atr_threshold_down;
 	float atr_torque_offset;
 	float atr_speed_boost;
 	float atr_angle_limit;
@@ -119,6 +122,11 @@ typedef struct {
 	int turntilt_yaw_aggregate;
 	float dark_pitch_offset;
 	bool is_buzzer_enabled;
+	bool is_dutybuzz_enabled;
+	bool is_footbuzz_enabled;
+	bool is_surgebuzz_enabled;
+	float surge_duty_start;
+	float surge_angle;
 } float_config;
 
 // DATATYPES_H_

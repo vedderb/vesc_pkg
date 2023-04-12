@@ -19,6 +19,7 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->fault_roll, 10, &ind);
 	buffer_append_float16(buffer, conf->fault_adc1, 1000, &ind);
 	buffer_append_float16(buffer, conf->fault_adc2, 1000, &ind);
+	buffer[ind++] = conf->is_footbuzz_enabled;
 	buffer_append_uint16(buffer, conf->fault_delay_pitch, &ind);
 	buffer_append_uint16(buffer, conf->fault_delay_roll, &ind);
 	buffer_append_uint16(buffer, conf->fault_delay_switch_half, &ind);
@@ -31,6 +32,10 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->tiltback_duty_angle, 100, &ind);
 	buffer_append_float16(buffer, conf->tiltback_duty_speed, 100, &ind);
 	buffer_append_float16(buffer, conf->tiltback_duty, 1000, &ind);
+	buffer[ind++] = conf->is_dutybuzz_enabled;
+	buffer_append_float16(buffer, conf->surge_angle, 100, &ind);
+	buffer_append_float16(buffer, conf->surge_duty_start, 1000, &ind);
+	buffer[ind++] = conf->is_surgebuzz_enabled;
 	buffer_append_float16(buffer, conf->tiltback_hv_angle, 100, &ind);
 	buffer_append_float16(buffer, conf->tiltback_hv_speed, 100, &ind);
 	buffer_append_float16(buffer, conf->tiltback_hv, 10, &ind);
@@ -42,10 +47,12 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_uint16(buffer, conf->tiltback_constant_erpm, &ind);
 	buffer_append_float16(buffer, conf->tiltback_variable, 1000, &ind);
 	buffer_append_float16(buffer, conf->tiltback_variable_max, 100, &ind);
+	buffer_append_uint16(buffer, conf->tiltback_variable_erpm, &ind);
 	buffer_append_float16(buffer, conf->noseangling_speed, 100, &ind);
 	buffer[ind++] = conf->inputtilt_remote_type;
 	buffer_append_float16(buffer, conf->inputtilt_angle_limit, 100, &ind);
 	buffer_append_float16(buffer, conf->inputtilt_speed, 100, &ind);
+	buffer[ind++] = (uint8_t)conf->inputtilt_smoothing_factor;
 	buffer[ind++] = conf->inputtilt_invert_throttle;
 	buffer_append_float16(buffer, conf->inputtilt_deadband, 10000, &ind);
 	buffer_append_float16(buffer, conf->remote_throttle_current_max, 10, &ind);
@@ -54,7 +61,6 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer_append_float16(buffer, conf->startup_roll_tolerance, 100, &ind);
 	buffer_append_float16(buffer, conf->startup_speed, 100, &ind);
 	buffer[ind++] = (uint8_t)conf->startup_click_current;
-	buffer[ind++] = conf->startup_softstart_enabled;
 	buffer[ind++] = conf->startup_simplestart_enabled;
 	buffer[ind++] = conf->startup_pushstart_enabled;
 	buffer[ind++] = conf->startup_dirtylandings_enabled;
@@ -82,7 +88,8 @@ int32_t confparser_serialize_float_config(uint8_t *buffer, const float_config *c
 	buffer[ind++] = (uint8_t)conf->turntilt_yaw_aggregate;
 	buffer_append_float16(buffer, conf->atr_strength_up, 1000, &ind);
 	buffer_append_float16(buffer, conf->atr_strength_down, 1000, &ind);
-	buffer_append_float16(buffer, conf->atr_torque_offset, 100, &ind);
+	buffer_append_float16(buffer, conf->atr_threshold_up, 100, &ind);
+	buffer_append_float16(buffer, conf->atr_threshold_down, 100, &ind);
 	buffer_append_float16(buffer, conf->atr_speed_boost, 10000, &ind);
 	buffer_append_float16(buffer, conf->atr_angle_limit, 100, &ind);
 	buffer_append_float16(buffer, conf->atr_on_speed, 100, &ind);
@@ -119,6 +126,7 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->fault_roll = buffer_get_float16(buffer, 10, &ind);
 	conf->fault_adc1 = buffer_get_float16(buffer, 1000, &ind);
 	conf->fault_adc2 = buffer_get_float16(buffer, 1000, &ind);
+	conf->is_footbuzz_enabled = buffer[ind++];
 	conf->fault_delay_pitch = buffer_get_uint16(buffer, &ind);
 	conf->fault_delay_roll = buffer_get_uint16(buffer, &ind);
 	conf->fault_delay_switch_half = buffer_get_uint16(buffer, &ind);
@@ -131,6 +139,10 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->tiltback_duty_angle = buffer_get_float16(buffer, 100, &ind);
 	conf->tiltback_duty_speed = buffer_get_float16(buffer, 100, &ind);
 	conf->tiltback_duty = buffer_get_float16(buffer, 1000, &ind);
+	conf->is_dutybuzz_enabled = buffer[ind++];
+	conf->surge_angle = buffer_get_float16(buffer, 100, &ind);
+	conf->surge_duty_start = buffer_get_float16(buffer, 1000, &ind);
+	conf->is_surgebuzz_enabled = buffer[ind++];
 	conf->tiltback_hv_angle = buffer_get_float16(buffer, 100, &ind);
 	conf->tiltback_hv_speed = buffer_get_float16(buffer, 100, &ind);
 	conf->tiltback_hv = buffer_get_float16(buffer, 10, &ind);
@@ -142,10 +154,12 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->tiltback_constant_erpm = buffer_get_uint16(buffer, &ind);
 	conf->tiltback_variable = buffer_get_float16(buffer, 1000, &ind);
 	conf->tiltback_variable_max = buffer_get_float16(buffer, 100, &ind);
+	conf->tiltback_variable_erpm = buffer_get_uint16(buffer, &ind);
 	conf->noseangling_speed = buffer_get_float16(buffer, 100, &ind);
 	conf->inputtilt_remote_type = buffer[ind++];
 	conf->inputtilt_angle_limit = buffer_get_float16(buffer, 100, &ind);
 	conf->inputtilt_speed = buffer_get_float16(buffer, 100, &ind);
+	conf->inputtilt_smoothing_factor = buffer[ind++];
 	conf->inputtilt_invert_throttle = buffer[ind++];
 	conf->inputtilt_deadband = buffer_get_float16(buffer, 10000, &ind);
 	conf->remote_throttle_current_max = buffer_get_float16(buffer, 10, &ind);
@@ -154,7 +168,6 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->startup_roll_tolerance = buffer_get_float16(buffer, 100, &ind);
 	conf->startup_speed = buffer_get_float16(buffer, 100, &ind);
 	conf->startup_click_current = buffer[ind++];
-	conf->startup_softstart_enabled = buffer[ind++];
 	conf->startup_simplestart_enabled = buffer[ind++];
 	conf->startup_pushstart_enabled = buffer[ind++];
 	conf->startup_dirtylandings_enabled = buffer[ind++];
@@ -182,7 +195,8 @@ bool confparser_deserialize_float_config(const uint8_t *buffer, float_config *co
 	conf->turntilt_yaw_aggregate = buffer[ind++];
 	conf->atr_strength_up = buffer_get_float16(buffer, 1000, &ind);
 	conf->atr_strength_down = buffer_get_float16(buffer, 1000, &ind);
-	conf->atr_torque_offset = buffer_get_float16(buffer, 100, &ind);
+	conf->atr_threshold_up = buffer_get_float16(buffer, 100, &ind);
+	conf->atr_threshold_down = buffer_get_float16(buffer, 100, &ind);
 	conf->atr_speed_boost = buffer_get_float16(buffer, 10000, &ind);
 	conf->atr_angle_limit = buffer_get_float16(buffer, 100, &ind);
 	conf->atr_on_speed = buffer_get_float16(buffer, 100, &ind);
@@ -212,6 +226,7 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->fault_roll = APPCONF_FLOAT_FAULT_ROLL;
 	conf->fault_adc1 = APPCONF_FLOAT_FAULT_ADC1;
 	conf->fault_adc2 = APPCONF_FLOAT_FAULT_ADC2;
+	conf->is_footbuzz_enabled = APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED;
 	conf->fault_delay_pitch = APPCONF_FLOAT_FAULT_DELAY_PITCH;
 	conf->fault_delay_roll = APPCONF_FLOAT_FAULT_DELAY_ROLL;
 	conf->fault_delay_switch_half = APPCONF_FLOAT_FAULT_DELAY_SWITCH_HALF;
@@ -224,6 +239,10 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->tiltback_duty_angle = APPCONF_FLOAT_TILTBACK_DUTY_ANGLE;
 	conf->tiltback_duty_speed = APPCONF_FLOAT_TILTBACK_DUTY_SPEED;
 	conf->tiltback_duty = APPCONF_FLOAT_TILTBACK_DUTY;
+	conf->is_dutybuzz_enabled = APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED;
+	conf->surge_angle = APPCONF_FLOAT_SURGE_ANGLE;
+	conf->surge_duty_start = APPCONF_FLOAT_SURGE_DUTY_START;
+	conf->is_surgebuzz_enabled = APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED;
 	conf->tiltback_hv_angle = APPCONF_FLOAT_TILTBACK_HV_ANGLE;
 	conf->tiltback_hv_speed = APPCONF_FLOAT_TILTBACK_HV_SPEED;
 	conf->tiltback_hv = APPCONF_FLOAT_TILTBACK_HV;
@@ -235,10 +254,12 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->tiltback_constant_erpm = APPCONF_FLOAT_TILTBACK_CONSTANT_ERPM;
 	conf->tiltback_variable = APPCONF_FLOAT_TILTBACK_VARIABLE;
 	conf->tiltback_variable_max = APPCONF_FLOAT_TILTBACK_VARIABLE_MAX;
+	conf->tiltback_variable_erpm = APPCONF_FLOAT_TILTBACK_VARIABLE_ERPM;
 	conf->noseangling_speed = APPCONF_FLOAT_NOSEANGLING_SPEED;
 	conf->inputtilt_remote_type = APPCONF_FLOAT_INPUTTILT_REMOTE_TYPE;
 	conf->inputtilt_angle_limit = APPCONF_FLOAT_INPUTTILT_ANGLE_LIMIT;
 	conf->inputtilt_speed = APPCONF_FLOAT_INPUTTILT_SPEED;
+	conf->inputtilt_smoothing_factor = APPCONF_FLOAT_INPUTTILT_SMOOTHING_FACTOR;
 	conf->inputtilt_invert_throttle = APPCONF_FLOAT_INPUTTILT_INVERT_THROTTLE;
 	conf->inputtilt_deadband = APPCONF_FLOAT_INPUTTILT_DEADBAND;
 	conf->remote_throttle_current_max = APPCONF_FLOAT_REMOTE_THROTTLE_CURRENT_MAX;
@@ -247,7 +268,6 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->startup_roll_tolerance = APPCONF_FLOAT_STARTUP_ROLL_TOLERANCE;
 	conf->startup_speed = APPCONF_FLOAT_STARTUP_SPEED;
 	conf->startup_click_current = APPCONF_FLOAT_STARTUP_CLICK_CURRENT;
-	conf->startup_softstart_enabled = APPCONF_FLOAT_STARTUP_SOFTSTART_ENABLED;
 	conf->startup_simplestart_enabled = APPCONF_SIMPLESTART_ENABLED;
 	conf->startup_pushstart_enabled = APPCONF_PUSHSTART_ENABLED;
 	conf->startup_dirtylandings_enabled = APPCONF_DIRTYLANDINGS_ENABLED;
@@ -275,7 +295,8 @@ void confparser_set_defaults_float_config(float_config *conf) {
 	conf->turntilt_yaw_aggregate = APPCONF_FLOAT_TURNTILT_YAW_AGGREGATE;
 	conf->atr_strength_up = APPCONF_FLOAT_ATR_UPHILL_STRENGTH;
 	conf->atr_strength_down = APPCONF_FLOAT_ATR_DOWNHILL_STRENGTH;
-	conf->atr_torque_offset = APPCONF_FLOAT_ATR_TORQUE_OFFSET;
+	conf->atr_threshold_up = APPCONF_FLOAT_ATR_THRESHOLD_UP;
+	conf->atr_threshold_down = APPCONF_FLOAT_ATR_THRESHOLD_DOWN;
 	conf->atr_speed_boost = APPCONF_FLOAT_ATR_SPEED_BOOST;
 	conf->atr_angle_limit = APPCONF_FLOAT_ATR_ANGLE_LIMIT;
 	conf->atr_on_speed = APPCONF_FLOAT_ATR_ON_SPEED;
