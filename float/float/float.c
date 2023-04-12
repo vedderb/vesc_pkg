@@ -96,6 +96,9 @@ typedef struct {
 
 	float_config float_conf;
 
+	// Firmware version, passed in from Lisp
+	int fw_version_major, fw_version_minor, fw_version_beta;
+
 	// Buzzer
 	int beep_num_left;
 	int beep_duration;
@@ -109,9 +112,11 @@ typedef struct {
 	float startup_step_size;
 	float tiltback_duty_step_size, tiltback_hv_step_size, tiltback_lv_step_size, tiltback_return_step_size;
 	float torquetilt_on_step_size, torquetilt_off_step_size, turntilt_step_size;
-	float tiltback_variable, tiltback_variable_max_erpm, noseangling_step_size, inputtilt_step_size;
+	float tiltback_variable, tiltback_variable_max_erpm, noseangling_step_size, inputtilt_ramped_step_size, inputtilt_step_size;
 	float mc_max_temp_fet, mc_max_temp_mot;
 	float mc_current_max, mc_current_min, max_continuous_current;
+	float surge_angle, surge_angle2, surge_angle3, surge_adder;
+	bool surge_enable;
 	bool current_beeping;
 	bool duty_beeping;
 
@@ -122,10 +127,9 @@ typedef struct {
 	float pitch_angle, last_pitch_angle, roll_angle, abs_roll_angle, abs_roll_angle_sin, last_gyro_y;
  	float true_pitch_angle;
 	float gyro[3];
-	float duty_cycle, abs_duty_cycle;
+	float duty_cycle, abs_duty_cycle, duty_smooth;
 	float erpm, abs_erpm, avg_erpm;
 	float motor_current;
-	float motor_position;
 	float adc1, adc2;
 	float throttle_val;
 	float max_duty_with_margin;
@@ -144,11 +148,11 @@ typedef struct {
 	// Feature: Turntilt
 	float last_yaw_angle, yaw_angle, abs_yaw_change, last_yaw_change, yaw_change, yaw_aggregate;
 	float turntilt_boost_per_erpm, yaw_aggregate_target;
-	float turntilt_strength;
 
 	// Rumtime state values
 	FloatState state;
-	float proportional, integral, proportional2, integral2, pid_rate;
+	float proportional, integral;
+	float pid_prop, pid_integral, pid_rate, pid_mod;
 	float last_proportional, abs_proportional;
 	float pid_value;
 	float setpoint, setpoint_target, setpoint_target_interpolated;
@@ -314,7 +318,9 @@ static void biquad_reset(Biquad *biquad) {
 
 // First start only, set initial state
 static void app_init(data *d) {
-	d->state = STARTUP;
+	if (d->state != DISABLED) {
+		d->state = STARTUP;
+	}
 	d->buzzer_enabled = true;
 	
 	// Allow saving of odometer
@@ -346,6 +352,11 @@ static void configure(data *d) {
 	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
 	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
 	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
+
+	d->surge_angle = d->float_conf.surge_angle;
+	d->surge_angle2 = d->float_conf.surge_angle * 2;
+	d->surge_angle3 = d->float_conf.surge_angle * 3;
+	d->surge_enable = d->surge_angle > 0;
 
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
@@ -435,15 +446,17 @@ static void configure(data *d) {
 	// Feature: Turntilt
 	d->yaw_aggregate_target = fmaxf(50, d->float_conf.turntilt_yaw_aggregate);
 	d->turntilt_boost_per_erpm = (float)d->float_conf.turntilt_erpm_boost / 100.0 / (float)d->float_conf.turntilt_erpm_boost_end;
-	d->turntilt_strength = d->float_conf.turntilt_strength;
 
 	// Feature: Darkride
 	d->enable_upside_down = false;
 	d->is_upside_down = false;
 	d->darkride_setpoint_correction = d->float_conf.dark_pitch_offset;
 
-	// Speed at which to warn users about an impending full switch fault
-	d->switch_warn_buzz_erpm = 2000;
+	// Allows smoothing of Remote Tilt
+	d->inputtilt_ramped_step_size = 0;
+
+	// Speed above which to warn users about an impending full switch fault
+	d->switch_warn_buzz_erpm = d->float_conf.is_footbuzz_enabled ? 2000 : 100000;
 
 	// Speed below which we check for quickstop conditions
 	d->quickstop_erpm = 200;
@@ -475,7 +488,6 @@ static void reset_vars(data *d) {
 	// Clear accumulated values.
 	d->integral = 0;
 	d->last_proportional = 0;
-	d->integral2 = 0;
 	// Set values for startup
 	d->setpoint = d->pitch_angle;
 	d->setpoint_target_interpolated = d->pitch_angle;
@@ -502,8 +514,12 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->traction_control = false;
 	d->pid_value = 0;
+	d->pid_mod = 0;
+	d->pid_prop = 0;
+	d->pid_integral = 0;
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance;
+	d->surge_adder = 0;
 
 	// ATR:
 	d->accel_gap = 0;
@@ -568,7 +584,7 @@ static void do_rc_move(data *d)
 	else {
 		d->rc_counter = 0;
 		
-		if ((d->float_conf.remote_throttle_current_max > 0) && (d->current_time - d->disengage_timer > d->float_conf.remote_throttle_grace_period) && (fabs(d->throttle_val) > (double)0.02)) { // Throttle must be greater than 2% (Help mitigate lingering throttle)
+		if ((d->float_conf.remote_throttle_current_max > 0) && (d->current_time - d->disengage_timer > d->float_conf.remote_throttle_grace_period) && (fabsf(d->throttle_val) > 0.02)) { // Throttle must be greater than 2% (Help mitigate lingering throttle)
 			float servo_val = d->throttle_val;
 			servo_val *= (d->float_conf.inputtilt_invert_throttle ? -1.0 : 1.0);
 			d->rc_current = d->rc_current * 0.95 + (d->float_conf.remote_throttle_current_max * servo_val) * 0.05;
@@ -717,7 +733,7 @@ static bool check_faults(data *d){
 				}
 			}
 			
-			if ((d->abs_erpm < d->quickstop_erpm) && (fabsf(d->true_pitch_angle) > 14) && (SIGN(d->true_pitch_angle) == SIGN(d->erpm))) {
+			if ((d->abs_erpm < d->quickstop_erpm) && (fabsf(d->true_pitch_angle) > 14) && (fabsf(d->inputtilt_interpolated) < 30) && (SIGN(d->true_pitch_angle) == SIGN(d->erpm))) {
 				// QUICK STOP
 				d->state = FAULT_QUICKSTOP;
 				return true;
@@ -787,7 +803,7 @@ static bool check_faults(data *d){
 	}
 
 	// Check pitch angle
-	if (fabsf(d->true_pitch_angle) > d->float_conf.fault_pitch) {
+	if ((fabsf(d->true_pitch_angle) > d->float_conf.fault_pitch) && (fabsf(d->inputtilt_interpolated) < 30)) {
 		if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) > d->float_conf.fault_delay_pitch) {
 			d->state = FAULT_ANGLE_PITCH;
 			return true;
@@ -828,10 +844,10 @@ static void calculate_setpoint_target(data *d) {
 				}
 			}
 		}
-	} else if ((fabs(d->acceleration) > 10) &&					// this isn't normal, either wheelslip or wheel getting stuck
+	} else if ((fabsf(d->acceleration) > 15) &&					// this isn't normal, either wheelslip or wheel getting stuck
 			  (SIGN(d->acceleration) == SIGN(d->erpm)) &&		// we only act on wheelslip, not when the wheel gets stuck
 			  (d->abs_duty_cycle > 0.3) &&
-			  (d->abs_erpm > 1500))								// acceleration can jump a lot at very low speeds
+			  (d->abs_erpm > 2000))								// acceleration can jump a lot at very low speeds
 	{
 		d->state = RUNNING_WHEELSLIP;
 		d->setpointAdjustmentType = TILTBACK_NONE;
@@ -968,7 +984,7 @@ static void calculate_setpoint_target(data *d) {
 	}
 
 	if (d->setpointAdjustmentType == TILTBACK_DUTY) {
-		if (d->float_conf.tiltback_duty_angle == 0) {
+		if (d->float_conf.is_dutybuzz_enabled || (d->float_conf.tiltback_duty_angle == 0)) {
 			beep_on(d, true);
 			d->duty_beeping = true;
 		}
@@ -993,6 +1009,42 @@ static void calculate_setpoint_interpolated(data *d) {
 	}
 }
 
+static void add_surge(data *d) {
+	if (d->surge_enable) {
+		float abs_duty_smooth = fabsf(d->duty_smooth);
+		float surge_now = 0;
+
+		if (abs_duty_smooth > d->float_conf.surge_duty_start + 0.04) {
+			surge_now = d->surge_angle3;
+			beep_alert(d, 3, 1);
+		}
+		else if (abs_duty_smooth > d->float_conf.surge_duty_start + 0.02) {
+			surge_now = d->surge_angle2;
+			beep_alert(d, 2, 1);
+		}
+		else if (abs_duty_smooth > d->float_conf.surge_duty_start) {
+			surge_now = d->surge_angle;
+			beep_alert(d, 1, 1);
+		}
+		if (surge_now >= d->surge_adder) {
+			// kick in instantly
+			d->surge_adder = surge_now;
+		}
+		else {
+			// release less harshly
+			d->surge_adder = d->surge_adder * 0.98 + surge_now * 0.02;
+		}
+
+		// Add surge angle to setpoint
+		if (d->erpm > 0) {
+			d->setpoint += d->surge_adder;
+		}
+		else {
+			d->setpoint -= d->surge_adder;
+		}
+	}
+}
+
 static void calculate_torqueresponse_interpolated(data *d) {
 	float atr_brake_interpolated = d->atr_interpolated + d->braketilt_interpolated;
 
@@ -1010,10 +1062,12 @@ static void apply_noseangling(data *d){
 	if (d->state != RUNNING_WHEELSLIP) {
 		// Nose angle adjustment, add variable then constant tiltback
 		float noseangling_target = 0;
-		if (fabsf(d->erpm) > d->tiltback_variable_max_erpm) {
+
+		float variable_erpm = fmaxf(0, fabsf(d->erpm) - d->float_conf.tiltback_variable_erpm); // Variable Tiltback looks at ERPM from the reference point of the set minimum ERPM
+		if (variable_erpm > d->tiltback_variable_max_erpm) {
 			noseangling_target = d->float_conf.tiltback_variable_max * SIGN(d->erpm);
 		} else {
-			noseangling_target = d->tiltback_variable * d->erpm * SIGN(d->float_conf.tiltback_variable_max);
+			noseangling_target = d->tiltback_variable * variable_erpm * SIGN(d->erpm) * SIGN(d->float_conf.tiltback_variable_max);
 		}
 
 		if (fabsf(d->erpm) > d->float_conf.tiltback_constant_erpm) {
@@ -1063,12 +1117,33 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 	// 	}
 	// }
 
-	if (fabsf(input_tiltback_target - d->inputtilt_interpolated) < d->inputtilt_step_size){
+	float input_tiltback_target_diff = input_tiltback_target - d->inputtilt_interpolated;
+
+	if (d->float_conf.inputtilt_smoothing_factor > 0) { // Smoothen changes in tilt angle by ramping the step size
+		float smoothing_factor = 0.02;
+		for (int i = 1; i < d->float_conf.inputtilt_smoothing_factor; i++) {
+			smoothing_factor /= 2;
+		}
+
+		float smooth_center_window = 1.5 + (0.5 * d->float_conf.inputtilt_smoothing_factor); // Sets the angle away from Target that step size begins ramping down
+		if (fabsf(input_tiltback_target_diff) < smooth_center_window) { // Within X degrees of Target Angle, start ramping down step size
+			d->inputtilt_ramped_step_size = (smoothing_factor * d->inputtilt_step_size * (input_tiltback_target_diff / 2)) + ((1 - smoothing_factor) * d->inputtilt_ramped_step_size); // Target step size is reduced the closer to center you are (needed for smoothly transitioning away from center)
+			float centering_step_size = fminf(fabsf(d->inputtilt_ramped_step_size), fabsf(input_tiltback_target_diff / 2) * d->inputtilt_step_size) * SIGN(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
+			if (fabsf(input_tiltback_target_diff) < fabsf(centering_step_size)) {
+				d->inputtilt_interpolated = input_tiltback_target;
+			} else {
+				d->inputtilt_interpolated += centering_step_size;
+			}
+		} else { // Ramp up step size until the configured tilt speed is reached
+			d->inputtilt_ramped_step_size = (smoothing_factor * d->inputtilt_step_size * SIGN(input_tiltback_target_diff)) + ((1 - smoothing_factor) * d->inputtilt_ramped_step_size);
+			d->inputtilt_interpolated += d->inputtilt_ramped_step_size;
+		}
+	} else { // Constant step size; no smoothing
+		if (fabsf(input_tiltback_target_diff) < d->inputtilt_step_size){
 		d->inputtilt_interpolated = input_tiltback_target;
-	} else if (input_tiltback_target - d->inputtilt_interpolated > 0){
-		d->inputtilt_interpolated += d->inputtilt_step_size;
 	} else {
-		d->inputtilt_interpolated -= d->inputtilt_step_size;
+		d->inputtilt_interpolated += d->inputtilt_step_size * SIGN(input_tiltback_target_diff);
+	}
 	}
 
 	d->setpoint += d->inputtilt_interpolated;
@@ -1080,6 +1155,7 @@ static void apply_torquetilt(data *d) {
 	float braketilt_step_size = 0;
 	int torque_sign;
 	float abs_torque;
+	float atr_threshold;
 	float torque_offset;
 	float accel_factor;
 	float accel_factor2;
@@ -1119,6 +1195,7 @@ static void apply_torquetilt(data *d) {
 		return;
 	}
 	else {
+		/*
 		if ((d->current_time - d->wheelslip_end_timer) * 1000 < 100) {
 			// for 100ms after wheelslip we still don't do ATR to allow the wheel to decelerate
 			d->torquetilt_interpolated *= 0.998;
@@ -1141,7 +1218,7 @@ static void apply_torquetilt(data *d) {
 			calculate_torqueresponse_interpolated(d);
 			d->setpoint += d->torqueresponse_interpolated;
 			return;
-		}
+			}*/
 	}
 
 	// CLASSIC TORQUE TILT /////////////////////////////////
@@ -1166,7 +1243,8 @@ static void apply_torquetilt(data *d) {
 	// ADAPTIVE TORQUE RESPONSE ////////////////////////////
 
 	abs_torque = fabsf(d->atr_filtered_current);
-	torque_offset = d->float_conf.atr_torque_offset;
+	torque_offset = 8;// hard-code to 8A for now (shouldn't really be changed much anyways)
+	atr_threshold = d->braking ? d->float_conf.atr_threshold_down : d->float_conf.atr_threshold_up;
 	accel_factor = d->braking ? d->float_conf.atr_amps_decel_ratio : d->float_conf.atr_amps_accel_ratio;
 	accel_factor2 = accel_factor * 1.3;
 
@@ -1215,6 +1293,12 @@ static void apply_torquetilt(data *d) {
 
 	// now ATR target is purely based on gap between expected and actual acceleration
 	float new_atr_target = atr_strength * d->accel_gap;
+	if (fabsf(new_atr_target) < atr_threshold) {
+		new_atr_target = 0;
+	}
+	else {
+		new_atr_target -= SIGN(new_atr_target) * atr_threshold;
+	}
 
 	d->atr_target = d->atr_target * 0.95 + 0.05 * new_atr_target;
 	d->atr_target = fminf(d->atr_target, d->float_conf.atr_angle_limit);
@@ -1364,21 +1448,27 @@ static void apply_torquetilt(data *d) {
 }
 
 static void apply_turntilt(data *d) {
-	if (d->turntilt_strength == 0) {
+	if (d->float_conf.turntilt_strength == 0) {
 		return;
 	}
 
-	float abs_yaw_scaled = d->abs_yaw_change * 100;
-	float turn_angle = abs_yaw_scaled; 
+	float abs_yaw_aggregate = fabsf(d->yaw_aggregate);
+	
+	// incremental turn increment since the last iteration
+	float turn_increment = d->abs_yaw_change;
 
-	// Apply cutzone
-	if ((turn_angle < d->float_conf.turntilt_start_angle) || (d->state != RUNNING)) {
+	// Minimum threshold based on
+	// a) minimum degrees per second (yaw/turn increment)
+	// b) minimum yaw aggregate (to filter out wiggling on uneven road)
+	if ((abs_yaw_aggregate < d->float_conf.turntilt_start_angle) ||
+		(turn_increment < 0.04) ||
+		(d->state != RUNNING)) {
 		d->turntilt_target = 0;
 	}
 	else {
 		// Calculate desired angle
 		float turn_change = d->abs_yaw_change;
-		d->turntilt_target = turn_change * d->turntilt_strength;
+		d->turntilt_target = turn_change * d->float_conf.turntilt_strength;
 
 		// Apply speed scaling
 		float boost;
@@ -1394,7 +1484,7 @@ static void apply_turntilt(data *d) {
 		if (d->abs_erpm < 2000) {
 			aggregate_damper = 0.5;
 		}
-		boost = 1 + aggregate_damper * fabsf(d->yaw_aggregate) / d->yaw_aggregate_target;
+		boost = 1 + aggregate_damper * abs_yaw_aggregate / d->yaw_aggregate_target;
 		boost = fminf(boost, 2);
 		d->turntilt_target *= boost;
 
@@ -1513,7 +1603,6 @@ static void float_thd(void *arg) {
 
 		// Read values for GUI
 		d->motor_current = VESC_IF->mc_get_tot_current_directional_filtered();
-		d->motor_position = VESC_IF->mc_get_pid_pos_now();
 
 		// Get the IMU Values
 		d->roll_angle = RAD2DEG_f(VESC_IF->ahrs_get_roll(&d->m_att_ref));
@@ -1548,7 +1637,7 @@ static void float_thd(void *arg) {
 		d->last_gyro_y = d->gyro[1];
 		VESC_IF->imu_get_gyro(d->gyro);
 
-		// Get the values we want
+		// Get the motor values we want
 		d->duty_cycle = VESC_IF->mc_get_duty_cycle_now();
 		d->abs_duty_cycle = fabsf(d->duty_cycle);
 		d->erpm = VESC_IF->mc_get_rpm();
@@ -1558,6 +1647,7 @@ static void float_thd(void *arg) {
 		if (d->adc2 < 0.0) {
 			d->adc2 = 0.0;
 		}
+		d->duty_smooth = d->duty_smooth * 0.9 + d->duty_cycle * 0.1;
 
 		// UART/PPM Remote Throttle ///////////////////////
 		bool remote_connected = false;
@@ -1696,6 +1786,7 @@ static void float_thd(void *arg) {
 			calculate_setpoint_target(d);
 			calculate_setpoint_interpolated(d);
 			d->setpoint = d->setpoint_target_interpolated;
+			add_surge(d);
 			apply_inputtilt(d); // Allow Input Tilt for Darkride
 			if (!d->is_upside_down) {
 				apply_noseangling(d);
@@ -1718,7 +1809,9 @@ static void float_thd(void *arg) {
 				d->integral = d->float_conf.ki_limit / d->float_conf.ki * SIGN(d->integral);
 			}
 
-			new_pid_value = (d->float_conf.kp * d->proportional) + (d->float_conf.ki * d->integral);
+			d->pid_prop = d->float_conf.kp * d->proportional;
+			d->pid_integral = d->float_conf.ki * d->integral;
+			new_pid_value = d->pid_prop + d->pid_integral;
 
 			d->last_proportional = d->proportional;
 
@@ -1726,12 +1819,11 @@ static void float_thd(void *arg) {
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
 				// Rate P (Angle + Rate, rather than Angle-Rate Cascading)
-				d->proportional2 = -d->gyro[1];
-				float pid_mod = (d->float_conf.kp2 * d->proportional2);
-
+				float rate_prop = -d->gyro[1];
+				d->pid_mod = d->float_conf.kp2 * rate_prop;
 
 				// Apply Booster (Now based on True Pitch)
-				float true_proportional = d->setpoint - d->true_pitch_angle;
+				float true_proportional = (d->setpoint - d->braketilt_interpolated) - d->true_pitch_angle; // Braketilt excluded to allow for soft brakes that strengthen when near tail-drag
 				d->abs_proportional = fabsf(true_proportional);
 				bool boostbraking = SIGN(d->proportional) != SIGN(d->erpm);
 
@@ -1777,16 +1869,19 @@ static void float_thd(void *arg) {
 
 				// No harsh changes in booster current (effective delay <= 100ms)
 				d->applied_booster_current = 0.01 * booster_current + 0.99 * d->applied_booster_current;
-				pid_mod += d->applied_booster_current;
+				d->pid_mod += d->applied_booster_current;
 
-				if (d->float_conf.startup_softstart_enabled && (d->softstart_pid_limit < d->mc_current_max)) {
-					pid_mod = fminf(pid_mod, d->softstart_pid_limit);
+				if (d->softstart_pid_limit < d->mc_current_max) {
+					d->pid_mod = fminf(d->pid_mod, d->softstart_pid_limit);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
 				}
 
-				new_pid_value += pid_mod;
+				new_pid_value += d->pid_mod;
 			}
-			
+			else {
+				d->pid_mod = 0;
+			}
+
 			// Current Limiting!
 			float current_limit;
 			if (d->braking) {
@@ -2031,7 +2126,7 @@ static float app_float_get_debug(int index) {
 		case(15):
 			return d->integral * d->float_conf.ki;
 		case(16):
-			return d->integral2;
+			return 0;
 		case(17):
 			return 0;
 		default:
@@ -2039,12 +2134,27 @@ static float app_float_get_debug(int index) {
 	}
 }
 
+enum {
+	FLOAT_COMMAND_GET_INFO = 0,		// get version / package info
+	FLOAT_COMMAND_GET_RTDATA = 1,	// get rt data
+	FLOAT_COMMAND_RT_TUNE = 2,		// runtime tuning (don't write to eeprom)
+	FLOAT_COMMAND_TUNE_DEFAULTS = 3,// set tune to defaults (no eeprom)
+	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
+	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
+	FLOAT_COMMAND_TUNE_OTHER = 6,	// make runtime changes to startup/etc
+	FLOAT_COMMAND_RC_MOVE = 7,		// move motor while board is idle
+	FLOAT_COMMAND_BOOSTER = 8,		// change booster settings
+	FLOAT_COMMAND_PRINT_INFO = 9,	// print verbose info
+	FLOAT_COMMAND_GET_ALLDATA = 10,	// send all data, compact
+	FLOAT_COMMAND_EXPERIMENT = 11,  // generic cmd for sending data, used for testing/tuning new features
+} float_commands;
+
 static void send_realtime_data(data *d){
 	#define BUFSIZE 72
 	uint8_t send_buffer[BUFSIZE];
 	int32_t ind = 0;
 	send_buffer[ind++] = 101;//Magic Number
-	send_buffer[ind++] = 1;	 //FLOATCOMM_RTSTATS
+	send_buffer[ind++] = FLOAT_COMMAND_GET_RTDATA;
 
 	// RT Data
 	buffer_append_float32_auto(send_buffer, d->pid_value, &ind);
@@ -2063,7 +2173,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->float_torquetilt, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_turntilt, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
-	
+
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
@@ -2078,18 +2188,81 @@ static void send_realtime_data(data *d){
 	VESC_IF->send_app_data(send_buffer, ind);
 }
 
-enum {
-	FLOAT_COMMAND_GET_INFO = 0,		// get version / package info
-	FLOAT_COMMAND_GET_RTDATA = 1,	// get rt data
-	FLOAT_COMMAND_RT_TUNE = 2,		// runtime tuning (don't write to eeprom)
-	FLOAT_COMMAND_TUNE_DEFAULTS = 3,// set tune to defaults (no eeprom)
-	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
-	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
-	FLOAT_COMMAND_TUNE_OTHER = 6,	// make runtime changes to startup/etc
-	FLOAT_COMMAND_RC_MOVE = 7,		// move motor while board is idle
-	FLOAT_COMMAND_BOOSTER = 8,		// change booster settings
-	FLOAT_COMMAND_PRINT_INFO = 9,	// print verbose info
-} float_commands;
+static void cmd_send_all_data(data *d, unsigned char mode){
+	#define SNDBUFSIZE 60
+	uint8_t send_buffer[SNDBUFSIZE];
+	int32_t ind = 0;
+	mc_fault_code fault = VESC_IF->mc_get_fault();
+
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_GET_ALLDATA;
+
+	if (fault != FAULT_CODE_NONE) {
+		send_buffer[ind++] = 69;
+		send_buffer[ind++] = fault;
+	}
+	else {
+		send_buffer[ind++] = mode;
+
+		// RT Data
+		buffer_append_float16(send_buffer, d->pid_value, 10, &ind);
+		buffer_append_float16(send_buffer, d->pitch_angle, 10, &ind);
+		buffer_append_float16(send_buffer, d->roll_angle, 10, &ind);
+
+		send_buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
+		send_buffer[ind++] = d->switch_state;
+		send_buffer[ind++] = d->adc1 * 50;
+		send_buffer[ind++] = d->adc2 * 50;
+
+		// Setpoints (can be positive or negative)
+		send_buffer[ind++] = d->float_setpoint * 5 + 128;
+		send_buffer[ind++] = d->float_atr * 5 + 128;
+		send_buffer[ind++] = d->float_braketilt * 5 + 128;
+		send_buffer[ind++] = d->float_torquetilt * 5 + 128;
+		send_buffer[ind++] = d->float_turntilt * 5 + 128;
+		send_buffer[ind++] = d->float_inputtilt * 5 + 128;
+	
+		buffer_append_float16(send_buffer, d->true_pitch_angle, 10, &ind);
+		send_buffer[ind++] = d->applied_booster_current + 128;
+
+		// Now send motor stuff:
+		buffer_append_float16(send_buffer, VESC_IF->mc_get_input_voltage_filtered(), 10, &ind);
+		buffer_append_int16(send_buffer, VESC_IF->mc_get_rpm(), &ind);
+		buffer_append_float16(send_buffer, VESC_IF->mc_get_speed(), 10, &ind);
+		buffer_append_float16(send_buffer, VESC_IF->mc_get_tot_current(), 10, &ind);
+		buffer_append_float16(send_buffer, VESC_IF->mc_get_tot_current_in(), 10, &ind);
+		send_buffer[ind++] = VESC_IF->mc_get_duty_cycle_now() * 100 + 128;
+		if (VESC_IF->foc_get_id != NULL)
+			send_buffer[ind++] = fabsf(VESC_IF->foc_get_id()) * 3;
+		else
+			send_buffer[ind++] = 222;	// using 222 as magic number to avoid false positives with 255
+		// ind = 35!
+
+		if (mode >= 2) {
+			// data not required as fast as possible
+			buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_distance_abs(), &ind);
+			send_buffer[ind++] = fmaxf(0, VESC_IF->mc_temp_fet_filtered() * 2);
+			send_buffer[ind++] = fmaxf(0, VESC_IF->mc_temp_motor_filtered() * 2);
+			send_buffer[ind++] = 0;//fmaxf(VESC_IF->mc_batt_temp() * 2);
+			// ind = 42
+		}
+		if (mode >= 3) {
+			// data required even less frequently
+			buffer_append_uint32(send_buffer, VESC_IF->mc_get_odometer(), &ind);
+			buffer_append_float16(send_buffer, VESC_IF->mc_get_amp_hours(false), 10, &ind);
+			buffer_append_float16(send_buffer, VESC_IF->mc_get_amp_hours_charged(false), 10, &ind);
+			buffer_append_float16(send_buffer, VESC_IF->mc_get_watt_hours(false), 1, &ind);
+			buffer_append_float16(send_buffer, VESC_IF->mc_get_watt_hours_charged(false), 1, &ind);
+			send_buffer[ind++] = fmaxf(0, fminf(125, VESC_IF->mc_get_battery_level(NULL))) * 2;
+			// ind = 55
+		}
+	}
+
+	if (ind > SNDBUFSIZE) {
+		VESC_IF->printf("BUFSIZE too small...\n");
+	}
+	VESC_IF->send_app_data(send_buffer, ind);
+}
 
 static void split(unsigned char byte, int* h1, int* h2)
 {
@@ -2099,7 +2272,29 @@ static void split(unsigned char byte, int* h1, int* h2)
 
 static void cmd_print_info(data *d)
 {
-	VESC_IF->printf("n/a\n");
+	//VESC_IF->printf("A:%.1f, D:%.2f\n", d->surge_angle, d->float_conf.surge_duty_start);
+}
+
+static void cmd_experiment(data *d, unsigned char *cfg)
+{
+	d->surge_angle = cfg[0];
+	d->surge_angle /= 10;
+	d->float_conf.surge_duty_start = cfg[1];
+	d->float_conf.surge_duty_start /= 100;
+	if ((d->surge_angle > 1) || (d->float_conf.surge_duty_start < 0.85)) {
+		d->float_conf.surge_duty_start = 0.85;
+		d->surge_angle = 0.6;
+	}
+	else {
+		d->surge_enable = true;
+		beep_alert(d, 2, 0);
+	}
+	d->surge_angle2 = d->surge_angle * 2;
+	d->surge_angle3 = d->surge_angle * 3;
+
+	if (d->surge_angle == 0) {
+		d->surge_enable = false;
+	}
 }
 
 static void cmd_booster(data *d, unsigned char *cfg)
@@ -2131,90 +2326,115 @@ static void cmd_booster(data *d, unsigned char *cfg)
 /**
  * cmd_runtime_tune		Extract tune info from 20byte message but don't write to EEPROM!
  */
-static void cmd_runtime_tune(data *d, unsigned char *cfg)
+static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 {
 	int h1, h2;
-	split(cfg[0], &h1, &h2);
-	d->float_conf.kp = h1 + 15;
-	d->float_conf.kp2 = ((float)h2) / 10;
+	if (len >= 12) {
+		split(cfg[0], &h1, &h2);
+		d->float_conf.kp = h1 + 15;
+		d->float_conf.kp2 = ((float)h2) / 10;
 
-	split(cfg[1], &h1, &h2);
-	d->float_conf.ki = h1;
-	if (h1 == 1)
-		d->float_conf.ki = 0.005;
-	else if (h1 > 1)
-		d->float_conf.ki = ((float)(h1 - 1)) / 100;
-	d->float_conf.ki_limit = h2 + 19;
-	if (h2 == 0)
-        d->float_conf.ki_limit = 0;
+		split(cfg[1], &h1, &h2);
+		d->float_conf.ki = h1;
+		if (h1 == 1)
+			d->float_conf.ki = 0.005;
+		else if (h1 > 1)
+			d->float_conf.ki = ((float)(h1 - 1)) / 100;
+		d->float_conf.ki_limit = h2 + 19;
+		if (h2 == 0)
+			d->float_conf.ki_limit = 0;
 
-	split(cfg[2], &h1, &h2);
-	d->float_conf.booster_angle = h1 + 5;
-	d->float_conf.booster_ramp = h2 + 2;
+		split(cfg[2], &h1, &h2);
+		d->float_conf.booster_angle = h1 + 5;
+		d->float_conf.booster_ramp = h2 + 2;
 
-	split(cfg[3], &h1, &h2);
-	if (h1 == 0)
-		d->float_conf.booster_current = 0;
-	else
-		d->float_conf.booster_current = 8 + h1 * 2;
-	d->float_conf.turntilt_strength = h2;
+		split(cfg[3], &h1, &h2);
+		if (h1 == 0)
+			d->float_conf.booster_current = 0;
+		else
+			d->float_conf.booster_current = 8 + h1 * 2;
+		d->float_conf.turntilt_strength = h2;
 
-	split(cfg[4], &h1, &h2);
-	d->float_conf.turntilt_angle_limit = (h1 & 0x3) + 2;
-	d->float_conf.turntilt_start_erpm = (float)(h1 >> 2) * 500 + 1000;
-	d->float_conf.mahony_kp = ((float)h2) / 10 + 1.5;
-	VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->float_conf.mahony_kp);
+		split(cfg[4], &h1, &h2);
+		d->float_conf.turntilt_angle_limit = (h1 & 0x3) + 2;
+		d->float_conf.turntilt_start_erpm = (float)(h1 >> 2) * 500 + 1000;
+		d->float_conf.mahony_kp = ((float)h2) / 10 + 1.5;
+		VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->float_conf.mahony_kp);
 
-	split(cfg[5], &h1, &h2);
-	if (h1 == 0)
-		d->float_conf.atr_strength_up = 0;
-	else
-		d->float_conf.atr_strength_up = ((float)h1) / 10.0 + 0.5;
-	if (h2 == 0)
-		d->float_conf.atr_strength_down = 0;
-	else
-		d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.5;
+		split(cfg[5], &h1, &h2);
+		if (h1 == 0)
+			d->float_conf.atr_strength_up = 0;
+		else
+			d->float_conf.atr_strength_up = ((float)h1) / 10.0 + 0.5;
+		if (h2 == 0)
+			d->float_conf.atr_strength_down = 0;
+		else
+			d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.5;
 
-	split(cfg[6], &h1, &h2);
-	d->float_conf.atr_torque_offset = h1 + 5;
-	d->float_conf.atr_speed_boost = ((float)(h2 * 5)) / 100;
+		split(cfg[6], &h1, &h2);
+		d->float_conf.atr_torque_offset = h1 + 5;
+		d->float_conf.atr_speed_boost = ((float)(h2 * 5)) / 100;
 
-	split(cfg[7], &h1, &h2);
-	d->float_conf.atr_angle_limit = h1 + 5;
-	d->float_conf.atr_on_speed = (h2 & 0x3) + 3;
-	d->float_conf.atr_off_speed = (h2 >> 2) + 2;
+		split(cfg[7], &h1, &h2);
+		d->float_conf.atr_angle_limit = h1 + 5;
+		d->float_conf.atr_on_speed = (h2 & 0x3) + 3;
+		d->float_conf.atr_off_speed = (h2 >> 2) + 2;
 
-	split(cfg[8], &h1, &h2);
-	d->float_conf.atr_response_boost = ((float)h1) / 10 + 1;
-	d->float_conf.atr_transition_boost = ((float)h2) / 5 + 1;
+		split(cfg[8], &h1, &h2);
+		d->float_conf.atr_response_boost = ((float)h1) / 10 + 1;
+		d->float_conf.atr_transition_boost = ((float)h2) / 5 + 1;
 
-	split(cfg[9], &h1, &h2);
-	d->float_conf.atr_amps_accel_ratio = h1 + 5;
-	d->float_conf.atr_amps_decel_ratio = h2 + 5;
+		split(cfg[9], &h1, &h2);
+		d->float_conf.atr_amps_accel_ratio = h1 + 5;
+		d->float_conf.atr_amps_decel_ratio = h2 + 5;
 
-	split(cfg[10], &h1, &h2);
-	d->float_conf.braketilt_strength = h1;
-	d->float_conf.braketilt_lingering = h2;
+		split(cfg[10], &h1, &h2);
+		d->float_conf.braketilt_strength = h1;
+		d->float_conf.braketilt_lingering = h2;
 
-	split(cfg[11], &h1, &h2);
-	d->mc_current_max = h1 * 5 + 55;
-	d->mc_current_min = h2 * 5 + 55;
-	if (h1 == 0) d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-	if (h2 == 0) d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
+		split(cfg[11], &h1, &h2);
+		d->mc_current_max = h1 * 5 + 55;
+		d->mc_current_min = h2 * 5 + 55;
+		if (h1 == 0) d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
+		if (h2 == 0) d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
 
-	// Update values normally done in configure()
-	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
-	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
-	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
+		// Update values normally done in configure()
+		d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
+		d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
+		d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
 
-	// Feature: Braketilt
-	d->braketilt_factor = d->float_conf.braketilt_strength;
-	d->braketilt_factor = 20 - d->braketilt_factor;
-	// incorporate negative sign into braketilt factor instead of adding it each balance loop
-	d->braketilt_factor = -(0.5 + d->braketilt_factor / 5.0);
+		// Feature: Braketilt
+		d->braketilt_factor = d->float_conf.braketilt_strength;
+		d->braketilt_factor = 20 - d->braketilt_factor;
+		// incorporate negative sign into braketilt factor instead of adding it each balance loop
+		d->braketilt_factor = -(0.5 + d->braketilt_factor / 5.0);
+	}
+	if (len >= 16) {
+		split(cfg[12], &h1, &h2);
+		float thup = h1;
+		float thdown = h2;
+		d->float_conf.atr_threshold_up = thup / 2;
+		d->float_conf.atr_threshold_down = thdown / 2;
 
-	// Feature: Turntilt
-	d->turntilt_strength = d->float_conf.turntilt_strength;
+		split(cfg[13], &h1, &h2);
+		float ttup = h1;
+		float ttdn = h2;
+		d->float_conf.torquetilt_strength = ttup / 10 * 0.3;
+		d->float_conf.torquetilt_strength_regen = ttdn / 10 * 0.3;
+
+		split(cfg[14], &h1, &h2);
+		float maxangle = h1;
+		d->float_conf.torquetilt_start_current = h2 + 15;
+		d->float_conf.torquetilt_angle_limit = maxangle / 2;
+
+		split(cfg[15], &h1, &h2);
+		float onspd = h1;
+		float offspd = h2;
+		d->float_conf.torquetilt_on_speed = onspd / 2;
+		d->float_conf.torquetilt_off_speed = offspd + 3;
+		d->torquetilt_on_step_size = d->float_conf.torquetilt_on_speed / d->float_conf.hertz;
+		d->torquetilt_off_step_size = d->float_conf.torquetilt_off_speed / d->float_conf.hertz;
+	}
 }
 
 static void cmd_tune_defaults(data *d){
@@ -2239,7 +2459,8 @@ static void cmd_tune_defaults(data *d){
 	d->float_conf.turntilt_yaw_aggregate = APPCONF_FLOAT_TURNTILT_YAW_AGGREGATE;
 	d->float_conf.atr_strength_up = APPCONF_FLOAT_ATR_UPHILL_STRENGTH;
 	d->float_conf.atr_strength_down = APPCONF_FLOAT_ATR_DOWNHILL_STRENGTH;
-	d->float_conf.atr_torque_offset = APPCONF_FLOAT_ATR_TORQUE_OFFSET;
+	d->float_conf.atr_threshold_up = APPCONF_FLOAT_ATR_THRESHOLD_UP;
+	d->float_conf.atr_threshold_down = APPCONF_FLOAT_ATR_THRESHOLD_DOWN;
 	d->float_conf.atr_speed_boost = APPCONF_FLOAT_ATR_SPEED_BOOST;
 	d->float_conf.atr_angle_limit = APPCONF_FLOAT_ATR_ANGLE_LIMIT;
 	d->float_conf.atr_on_speed = APPCONF_FLOAT_ATR_ON_SPEED;
@@ -2386,8 +2607,8 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 	if(len < 2){
 		if (!VESC_IF->app_is_output_disabled()) {
 			VESC_IF->printf("Float App: Missing Args\n");
-			return;
 		}
+		return;
 	}
 	if (magicnr != 101) {
 		if (!VESC_IF->app_is_output_disabled()) {
@@ -2403,6 +2624,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			send_buffer[ind++] = 101;	// magic nr.
 			send_buffer[ind++] = 0x0;	// command ID
 			send_buffer[ind++] = (uint8_t) (10 * APPCONF_FLOAT_VERSION);
+			send_buffer[ind++] = 1;
 			VESC_IF->send_app_data(send_buffer, ind);
 			return;
 		}
@@ -2411,14 +2633,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			return;
 		}
 		case FLOAT_COMMAND_RT_TUNE: {
-			if (len == 14) {
-				cmd_runtime_tune(d, &buffer[2]);
-			}
-			else {
-				if (!VESC_IF->app_is_output_disabled()) {
-					VESC_IF->printf("Float App: Command too short (%d)\n", len);
-				}
-			}
+			cmd_runtime_tune(d, &buffer[2], len - 2);
 			return;
 		}
 		case FLOAT_COMMAND_TUNE_OTHER: {
@@ -2461,6 +2676,21 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			cmd_print_info(d);
 			return;
 		}
+		case FLOAT_COMMAND_GET_ALLDATA: {
+			if (len == 3) {
+				cmd_send_all_data(d, buffer[2]);
+			}
+                        else {
+                                if (!VESC_IF->app_is_output_disabled()) {
+                                        VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
+                                }
+                        }
+			return;
+		}
+		case FLOAT_COMMAND_EXPERIMENT: {
+			cmd_experiment(d, &buffer[2]);
+			return;
+		}
 		case FLOAT_COMMAND_BOOSTER: {
 			if (len == 6) {
 				cmd_booster(d, &buffer[2]);
@@ -2487,6 +2717,18 @@ static lbm_value ext_bal_dbg(lbm_value *args, lbm_uint argn) {
 	}
 
 	return VESC_IF->lbm_enc_float(app_float_get_debug(VESC_IF->lbm_dec_as_i32(args[0])));
+}
+
+// Called from Lisp on init to pass in the version info of the firmware
+static lbm_value ext_set_fw_version(lbm_value *args, lbm_uint argn) {
+	data *d = (data*)ARG;
+	if (argn > 2) {
+		d->fw_version_major = VESC_IF->lbm_dec_as_i32(args[0]);
+		d->fw_version_minor = VESC_IF->lbm_dec_as_i32(args[1]);
+		d->fw_version_beta = VESC_IF->lbm_dec_as_i32(args[2]);
+	}
+	//VESC_IF->printf("Version is set: %d.%d [%d]\n", d->fw_version_major, d->fw_version_minor, d->fw_version_beta);
+	return VESC_IF->lbm_enc_sym_true;
 }
 
 // These functions are used to send the config page to VESC Tool
@@ -2545,7 +2787,7 @@ static void stop(void *arg) {
 INIT_FUN(lib_info *info) {
 	INIT_START
 	if (!VESC_IF->app_is_output_disabled()) {
-		VESC_IF->printf("Init Float v%.1f\n", (double)APPCONF_FLOAT_VERSION);
+		VESC_IF->printf("Init Float v%.1f - Surge3\n", (double)APPCONF_FLOAT_VERSION);
 	}
 
 	data *d = VESC_IF->malloc(sizeof(data));
@@ -2580,6 +2822,7 @@ INIT_FUN(lib_info *info) {
 
 	VESC_IF->set_app_data_handler(on_command_received);
 	VESC_IF->lbm_add_extension("ext-float-dbg", ext_bal_dbg);
+	VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
 
 	return true;
 }

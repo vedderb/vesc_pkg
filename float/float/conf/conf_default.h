@@ -48,6 +48,11 @@
 #define APPCONF_FLOAT_FAULT_ADC2 3
 #endif
 
+// Beep on Sensor Fault
+#ifndef APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED
+#define APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED 1
+#endif
+
 // Pitch Fault Delay
 #ifndef APPCONF_FLOAT_FAULT_DELAY_PITCH
 #define APPCONF_FLOAT_FAULT_DELAY_PITCH 1000
@@ -108,6 +113,26 @@
 #define APPCONF_FLOAT_TILTBACK_DUTY 0.8
 #endif
 
+// Beep on Duty Tiltback
+#ifndef APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED
+#define APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED 0
+#endif
+
+// Surge Angle Increment
+#ifndef APPCONF_FLOAT_SURGE_ANGLE
+#define APPCONF_FLOAT_SURGE_ANGLE 0
+#endif
+
+// Surge Duty Cycle Start
+#ifndef APPCONF_FLOAT_SURGE_DUTY_START
+#define APPCONF_FLOAT_SURGE_DUTY_START 0.88
+#endif
+
+// Beep when Surging
+#ifndef APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED
+#define APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED 1
+#endif
+
 // Angle
 #ifndef APPCONF_FLOAT_TILTBACK_HV_ANGLE
 #define APPCONF_FLOAT_TILTBACK_HV_ANGLE 8
@@ -163,6 +188,11 @@
 #define APPCONF_FLOAT_TILTBACK_VARIABLE_MAX 0
 #endif
 
+// Variable Tiltback Start ERPM
+#ifndef APPCONF_FLOAT_TILTBACK_VARIABLE_ERPM
+#define APPCONF_FLOAT_TILTBACK_VARIABLE_ERPM 0
+#endif
+
 // Nose Angling Speed
 #ifndef APPCONF_FLOAT_NOSEANGLING_SPEED
 #define APPCONF_FLOAT_NOSEANGLING_SPEED 5
@@ -180,7 +210,12 @@
 
 // Tiltback Speed
 #ifndef APPCONF_FLOAT_INPUTTILT_SPEED
-#define APPCONF_FLOAT_INPUTTILT_SPEED 20
+#define APPCONF_FLOAT_INPUTTILT_SPEED 25
+#endif
+
+// Tiltback Smoothing Factor
+#ifndef APPCONF_FLOAT_INPUTTILT_SMOOTHING_FACTOR
+#define APPCONF_FLOAT_INPUTTILT_SMOOTHING_FACTOR 1
 #endif
 
 // Invert Throttle
@@ -221,11 +256,6 @@
 // Startup Click Current
 #ifndef APPCONF_FLOAT_STARTUP_CLICK_CURRENT
 #define APPCONF_FLOAT_STARTUP_CLICK_CURRENT 0
-#endif
-
-// Enable Soft Start
-#ifndef APPCONF_FLOAT_STARTUP_SOFTSTART_ENABLED
-#define APPCONF_FLOAT_STARTUP_SOFTSTART_ENABLED 1
 #endif
 
 // Enable Simple Start
@@ -323,7 +353,7 @@
 #define APPCONF_FLOAT_TURNTILT_ANGLE_LIMIT 3
 #endif
 
-// Turn Angle Threshold
+// Turn Aggregate Threshold
 #ifndef APPCONF_FLOAT_TURNTILT_START_ANGLE
 #define APPCONF_FLOAT_TURNTILT_START_ANGLE 2
 #endif
@@ -348,7 +378,7 @@
 #define APPCONF_FLOAT_TURNTILT_ERPM_BOOST_END 5000
 #endif
 
-// Yaw Aggregate Target
+// Turn Aggregate Target
 #ifndef APPCONF_FLOAT_TURNTILT_YAW_AGGREGATE
 #define APPCONF_FLOAT_TURNTILT_YAW_AGGREGATE 90
 #endif
@@ -363,9 +393,14 @@
 #define APPCONF_FLOAT_ATR_DOWNHILL_STRENGTH 1
 #endif
 
-// Torque Offset
-#ifndef APPCONF_FLOAT_ATR_TORQUE_OFFSET
-#define APPCONF_FLOAT_ATR_TORQUE_OFFSET 7
+// Threshold Angle Up
+#ifndef APPCONF_FLOAT_ATR_THRESHOLD_UP
+#define APPCONF_FLOAT_ATR_THRESHOLD_UP 0.5
+#endif
+
+// Threshold Angle Down
+#ifndef APPCONF_FLOAT_ATR_THRESHOLD_DOWN
+#define APPCONF_FLOAT_ATR_THRESHOLD_DOWN 0.5
 #endif
 
 // Speed Boost
@@ -395,7 +430,7 @@
 
 // Tiltback Transition Boost
 #ifndef APPCONF_FLOAT_ATR_TRANSITION_BOOST
-#define APPCONF_FLOAT_ATR_TRANSITION_BOOST 2.5
+#define APPCONF_FLOAT_ATR_TRANSITION_BOOST 3
 #endif
 
 // Current Filter
@@ -405,12 +440,12 @@
 
 // Amps to Acceleration Ratio
 #ifndef APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO
-#define APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO 11
+#define APPCONF_FLOAT_ATR_AMPS_ACCEL_RATIO 9
 #endif
 
 // Amps to Deceleration Ratio
 #ifndef APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO
-#define APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO 10
+#define APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO 8
 #endif
 
 // Brake Tilt Strength
@@ -440,7 +475,7 @@
 
 // Package Version
 #ifndef APPCONF_FLOAT_VERSION
-#define APPCONF_FLOAT_VERSION 0.9
+#define APPCONF_FLOAT_VERSION 1
 #endif
 
 // CONF_DEFAULT_H_
