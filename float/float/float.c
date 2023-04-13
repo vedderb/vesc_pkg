@@ -361,7 +361,7 @@ static void configure(data *d) {
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
 	// Feature: Soft Start
-	d->softstart_ramp_step_size = 500 / d->float_conf.hertz;
+	d->softstart_ramp_step_size = (float)100 / d->float_conf.hertz;
 	// Feature: Dirty Landings
 	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
 
@@ -1872,7 +1872,7 @@ static void float_thd(void *arg) {
 				d->pid_mod += d->applied_booster_current;
 
 				if (d->softstart_pid_limit < d->mc_current_max) {
-					d->pid_mod = fminf(d->pid_mod, d->softstart_pid_limit);
+					d->pid_mod = fminf(fabs(d->pid_mod), d->softstart_pid_limit) * SIGN(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
 				}
 
