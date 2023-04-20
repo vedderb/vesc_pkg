@@ -1632,6 +1632,62 @@ static void set_dutycycle(data *d, float dutycycle){
 	VESC_IF->mc_set_duty_noramp(dutycycle);
 }
 
+static void check_surge(data *d, float new_pid_value){
+	//Start Surge Code
+	d->surge_period = 0.75; 		//.75	//Period between each surge, in seconds. Prevents runaway and instability. 
+	d->surge_cycle = 0.30; 			//.30	//Length of surge, in seconds
+	d->surge_startanglespeed = 50 //fmaxf(10, (float)d->float_conf.turntilt_start_erpm/10); 	//50	//Nose speed that can initiate a surge
+	d->surge_difflimit = 3 //fmaxf(0.1, d->float_conf.turntilt_speed);				//2	//Pitch required at start angle speed to initiate surge
+	d->surge_currentmargin = 1.3 //fmaxf(0.5, (float)d->float_conf.turntilt_erpm_boost/100);	//1.5	//Higher current margin ends surge later
+
+	//Counter for high nose angle speed
+	if (d->differential * SIGN(d->erpm) > d->surge_startanglespeed / d->float_conf.hertz){
+		d->surge_diffcount += d->differential * SIGN(d->erpm);	
+		// Add until diff limit. Differntial scaled by start angle to provide more counter for higher speeds
+	} else if (d->differential * SIGN(d->erpm) < 0) { 	//Pitch is travelling back to center
+		d->surge_diffcount = 0;				// reset
+	}
+
+	//Initialize Surge Cycle
+	if ((d->surge_diffcount >= d->surge_difflimit) && 		//Nose dip condition 
+	     (SIGN(d->erpm) * d->proportional - d->surge_difflimit > 0) &&	//Minimum angle for acceleration
+	     (!d->braking) && 						//Not braking
+	     (d->current_time - d->surge_timer > d->surge_period) &&	//Not during an active surge period
+	     (d->setpointAdjustmentType != CENTERING)) { 		//Not during startup
+		d->surge_timer = d->current_time; 			//Reset surge timer
+		d->surge = true; 					//Indicates we are in the surge cycle of the surge period
+		//fault debug for surge
+		d->debug4 = VESC_IF->mc_get_duty_cycle_now();		//Set pre-surge duty
+		d->debug3 = 0;
+		d->debug5 = 0;
+	}
+
+	//Conditions to stop surge and increment the duty cycle
+	if (d->surge){	
+		d->duty_cycle = SIGN(d->erpm); 					// Max duty during surge cycle	
+		d->surge_diffcount = 0;						// Reset surge initialization counter
+		//Conditions that will cause surge cycle to end
+		if ((d->current_time - d->surge_timer > d->surge_cycle) ||		//Outside the surge cycle portion of the surge period
+		 (d->traction_control) ||						//In traction control
+		 ((SIGN(d->erpm) * d->proportional - 0.05) < 0) ||			//The pitch is less than our minimum angle
+		 (new_pid_value <= d->motor_current / d->surge_currentmargin && SIGN(d->erpm) * d->differential < 0)) {
+		 //PID current demand has lowered below our surge current / margin and the nose is lifting (to prevent nuisance trips)
+			d->surge = false;
+			d->pid_value = d->motor_current;	//This allows a smooth transition to PID current control
+			//fault debug for surge
+			if (d->current_time - d->surge_timer < d->surge_cycle) { 	//If we are still in the surge cycle
+				d->debug5 = d->current_time - d->surge_timer;	//Register how long the surge cycle lasted
+				if (d->debug3 == 0 ) {				//We have not registered the reason for exiting surge yet
+					d->debug3= d->proportional; 		//Pitch at surge end
+					if (d->traction_control) {
+						d->debug3 = 100;		//Report pitch as 100 for traction control
+					}
+				}
+			}
+		}
+	}
+}
+
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
 	UNUSED(mag);
 	data *d = (data*)ARG;
@@ -1944,60 +2000,9 @@ static void float_thd(void *arg) {
 				}
 			}
 			
-			//Start Surge Code
-			d->surge_period = 0.75; 		//.75	//Period between each surge, in seconds. Prevents runaway and instability. 
-			d->surge_cycle = 0.30; 			//.30	//Length of surge, in seconds
-			d->surge_startanglespeed = 50 //fmaxf(10, (float)d->float_conf.turntilt_start_erpm/10); 	//50	//Nose speed that can initiate a surge
-			d->surge_difflimit = 3 //fmaxf(0.1, d->float_conf.turntilt_speed);				//2	//Pitch required at start angle speed to initiate surge
-			d->surge_currentmargin = 1.3 //fmaxf(0.5, (float)d->float_conf.turntilt_erpm_boost/100);	//1.5	//Higher current margin ends surge later
-			
-			//Counter for high nose angle speed
-			if (d->differential * SIGN(d->erpm) > d->surge_startanglespeed / d->float_conf.hertz){
-				d->surge_diffcount += d->differential * SIGN(d->erpm);	
-				// Add until diff limit. Differntial scaled by start angle to provide more counter for higher speeds
-			} else if (d->differential * SIGN(d->erpm) < 0) { 	//Pitch is travelling back to center
-				d->surge_diffcount = 0;				// reset
-			}
-
-			//Initialize Surge Cycle
-			if ((d->surge_diffcount >= d->surge_difflimit) && 		//Nose dip condition 
-			     (SIGN(d->erpm) * d->proportional - d->surge_difflimit > 0) &&	//Minimum angle for acceleration
-			     (!d->braking) && 						//Not braking
-			     (d->current_time - d->surge_timer > d->surge_period) &&	//Not during an active surge period
-			     (d->setpointAdjustmentType != CENTERING)) { 		//Not during startup
-				d->surge_timer = d->current_time; 			//Reset surge timer
-				d->surge = true; 					//Indicates we are in the surge cycle of the surge period
-				//fault debug for surge
-				d->debug4 = VESC_IF->mc_get_duty_cycle_now();		//Set pre-surge duty
-				d->debug3 = 0;
-				d->debug5 = 0;
-			}
-			
-			//Conditions to stop surge and increment the duty cycle
-			if (d->surge){	
-				d->duty_cycle = SIGN(d->erpm); 					// Max duty during surge cycle	
-				d->surge_diffcount = 0;						// Reset surge initialization counter
-				//Conditions that will cause surge cycle to end
-				if ((d->current_time - d->surge_timer > d->surge_cycle) ||		//Outside the surge cycle portion of the surge period
-				 (d->traction_control) ||						//In traction control
-				 ((SIGN(d->erpm) * d->proportional - 0.05) < 0) ||			//The pitch is less than our minimum angle
-				 (new_pid_value <= d->motor_current / d->surge_currentmargin && SIGN(d->erpm) * d->differential < 0)) {
-				 //PID current demand has lowered below our surge current / margin and the nose is lifting (to prevent nuisance trips)
-					d->surge = false;
-					d->pid_value = d->motor_current;	//This allows a smooth transition to PID current control
-					//fault debug for surge
-					if (d->current_time - d->surge_timer < d->surge_cycle) { 	//If we are still in the surge cycle
-				    	 	d->debug5 = d->current_time - d->surge_timer;	//Register how long the surge cycle lasted
-						if (d->debug3 == 0 ) {				//We have not registered the reason for exiting surge yet
-							d->debug3= d->proportional; 		//Pitch at surge end
-							if (d->traction_control) {
-								d->debug3 = 100;		//Report pitch as 100 for traction control
-							}
-						}
-					}
-				}
-			}					
-			
+			//Control Modifiers
+			check_surge(d, new_pid_value);
+				
 			/*if (d->traction_control) {						//Commented out so we don't act on traction control
 				d->pid_value = 0; // freewheel while traction loss is detected 	//Surfdado said it is risky to use in the current state
 			} else*/ 
@@ -2013,7 +2018,6 @@ static void float_thd(void *arg) {
 			else {
 				d->pid_value = d->pid_value * 0.8 + new_pid_value * 0.2;
 			}
-			
 
 			// Output to motor
 			if (d->start_counter_clicks) {
@@ -2270,7 +2274,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
 	//buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
 	//buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
-	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
+	buffer_append_float32_auto(send_buffer, d->pid_mod, &ind);
 	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
 	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
