@@ -1,4 +1,31 @@
-# FLOAT PACKAGE
+# IzzFLOAT
+My personal changes to the VESC Float Package
+
+Version 1.0.0.1
+
+- Updated to v1.0 FLOAT package
+- Migrated turn boost, sticky tilt and surge behaviors
+- TURN TILT ENTRIES NO LONGER EFFECT SURGE. Hard-coded all surge user entries to my perferred values for safety and simplicity. 
+  - Start Angle Speed = 50 degrees/s
+  - Start Differential = 3 degrees
+  - Current Margin = 1.3
+- Changed surge minimum angle to initialize to Start Differential to smooth out transition from braking to surge.
+
+Version 0.9.1.1
+
+- Replaces traditional pitch booster with roll based booster, Turn Boost
+
+Version 0.9.1.0
+
+- Adds surge behavior with differential pitch trigger (https://pev.dev/t/im-excited-to-bring-you-surge-behavior-in-izzfloat-package/730)
+
+Version 0.9.0.1
+
+- Adds sticky tilt input with hardcoded value of 3.0 (https://pev.dev/t/i-made-my-first-feature-sticky-input-tilt-for-your-remote/687)
+
+
+
+<H2>Readme from FLOAT</H2>
 
 A balance vehicle package specifically tailored for one wheeled skateboards, as invented by Ben Smither in 2007: http://www.robosys.co.uk/
 
