@@ -163,16 +163,26 @@ Item {
                 var float_setpoint = dv.getFloat32(ind); ind += 4;
                 var float_atr = dv.getFloat32(ind); ind += 4;
                 var float_braketilt = dv.getFloat32(ind); ind += 4;
-                var float_torquetilt = dv.getFloat32(ind); ind += 4;
-                var float_turntilt = dv.getFloat32(ind); ind += 4;
+                //var float_torquetilt = dv.getFloat32(ind); ind += 4;
+                //var float_turntilt = dv.getFloat32(ind); ind += 4;
                 var float_inputtilt = dv.getFloat32(ind); ind += 4;
 
                 var true_pitch = dv.getFloat32(ind); ind += 4;
-                var filtered_current = dv.getFloat32(ind); ind += 4;
-                var float_acc_diff = dv.getFloat32(ind); ind += 4;
+                //var filtered_current = dv.getFloat32(ind); ind += 4;
+                //var float_acc_diff = dv.getFloat32(ind); ind += 4;
                 var applied_booster_current = dv.getFloat32(ind); ind += 4;
                 var motor_current = dv.getFloat32(ind); ind += 4;
                 var throttle_val = dv.getFloat32(ind); ind += 4;
+                var surge_lasttime = dv.getFloat32(ind); ind += 4;
+                var surge_duty = dv.getFloat32(ind); ind += 4;
+                var surge_lastcycle = dv.getFloat32(ind); ind += 4;
+                var fault_angle = dv.getFloat32(ind); ind += 4;
+                var maxsurgeaccel = dv.getFloat32(ind); ind += 4;
+                var maxnormaccel = dv.getFloat32(ind); ind += 4;
+
+                var startanglespeed= dv.getFloat32(ind); ind += 4;
+                var diff_limit= dv.getFloat32(ind); ind += 4;
+                var currentmargin= dv.getFloat32(ind); ind += 4;
 
                 // var debug1 = dv.getFloat32(ind); ind += 4;
                 // var debug2 = dv.getFloat32(ind); ind += 4;
@@ -264,24 +274,34 @@ Item {
                 rt_data.text =
                     "Current (Requested) : " + pid_value.toFixed(2) + "A\n" +
                     "Current (Motor)     : " + motor_current.toFixed(2) + "A\n" +
+                    "Booster Current     : " + applied_booster_current.toFixed(2) + "A\n" +
                     "Pitch               : " + pitch.toFixed(2) + "°\n" +
+                    "True Pitch          : " + true_pitch.toFixed(2) + "°\n" +
                     "Roll                : " + roll.toFixed(2) + "°\n" +
-                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n"
-
+                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
+                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n"
+                    
                 setpoints.text =
                     "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
                     "ATR Setpoint        : " + float_atr.toFixed(2) + "°\n" +
                     "BrakeTilt Setpoint  : " + float_braketilt.toFixed(2) + "°\n" +
-                    "TorqueTilt Setpoint : " + float_torquetilt.toFixed(2) + "°\n" +
-                    "TurnTilt Setpoint   : " + float_turntilt.toFixed(2) + "°\n" +
+                    // "TorqueTilt Setpoint : " + float_torquetilt.toFixed(2) + "°\n" +
+                    // "TurnTilt Setpoint   : " + float_turntilt.toFixed(2) + "°\n" +
                     "RemoteTilt Setpoint  : " + float_inputtilt.toFixed(2) + "°\n"
 
                 debug.text =
-                    "True Pitch          : " + true_pitch.toFixed(2) + "°\n" +
-                    "Torque              : " + filtered_current.toFixed(2) + "A\n" +
-                    "Acc. Diff.          : " + float_acc_diff.toFixed(2) + "\n" +
-                    "Booster Current     : " + applied_booster_current.toFixed(2) + "A\n" +
-                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n"
+                    "Start Diff          : " + startanglespeed.toFixed(0) + "°/s Turntilt ERPM Threshold/10\n" + 
+                    "Diff Angle Limit    : " + diff_limit.toFixed(1)  + "° Turntilt Max Angle Speed\n" + 
+                    "Current Margin      : " + currentmargin.toFixed(2) + " Turntilt Speed Boost\n" +
+                    // "Torque              : " + filtered_current.toFixed(2) + "A\n" +
+                    // "Acc. Diff.          : " + float_acc_diff.toFixed(2) + "\n" +
+                     "\n" +
+                    "Last Surge Time     : " + surge_lasttime.toFixed(0) + "s\n" +
+                    "Added Surge Duty    : " + surge_duty.toFixed(2) + "\n" +
+                    "Last Surge Cycle    : " + surge_lastcycle.toFixed(3) + "s\n" +
+                    "Fault Angle/Traction: " + fault_angle.toFixed(1) + "°\n" +
+                    "Max Surge Accel     : " + maxsurgeaccel.toFixed(1) + "\n" +
+                    "Max Normal Accel    : " + maxnormaccel.toFixed(1) + "\n" 
                 }
             }
         }
