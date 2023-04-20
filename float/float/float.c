@@ -208,7 +208,25 @@ typedef struct {
 	int rc_counter;
 	float rc_current_target;
 	float rc_current;
-
+	
+	// Feature: Surge
+	float surge_timer;			//Timer to monitor surge cycle and period
+	bool surge;				//Identifies surge state which drives duty to max
+	float differential;			//Pitch differential
+	float surge_period;		//.75	//Period between each surge, in seconds. Prevents runaway and instability. 
+	float surge_cycle; 		//.30	//Length of surge, in seconds
+	float surge_startanglespeed;	//50	//Nose speed that can initiate a surge
+	float surge_difflimit;		//2	//Pitch required at start angle speed to initiate surge, in  degrees
+	float surge_diffcount;			//Counter to watch for continuous start angle speed or else reset to zero
+	float surge_currentmargin;	//1.5	//Higher current margin ends surge later, min value of 1
+	float debug1;
+	float debug2;
+	float debug3;
+	float debug4;
+	float debug5;
+	float debug6;
+	float debug7;
+	
 	// Log values
 	float float_setpoint, float_atr, float_braketilt, float_torquetilt, float_turntilt, float_inputtilt;
 	float float_expected_acc, float_measured_acc, float_acc_diff;
@@ -540,6 +558,9 @@ static void reset_vars(data *d) {
 	// RC Move:
 	d->rc_steps = 0;
 	d->rc_current = 0;
+	
+	d->debug6 = 0;
+	d->debug7 = 0;
 }
 
 
@@ -819,7 +840,8 @@ static bool check_faults(data *d){
 
 static void calculate_setpoint_target(data *d) {
 	float input_voltage = VESC_IF->mc_get_input_voltage_filtered();
-
+	float accel_limit = 35;
+	
 	if (input_voltage < d->float_conf.tiltback_hv) {
 		d->tb_highvoltage_timer = d->current_time;
 	}
@@ -844,7 +866,7 @@ static void calculate_setpoint_target(data *d) {
 				}
 			}
 		}
-	} else if ((fabsf(d->acceleration) > 15) &&					// this isn't normal, either wheelslip or wheel getting stuck
+	} else if ((fabsf(d->acceleration) > accel_limit) &&					// this isn't normal, either wheelslip or wheel getting stuck
 			  (SIGN(d->acceleration) == SIGN(d->erpm)) &&		// we only act on wheelslip, not when the wheel gets stuck
 			  (d->abs_duty_cycle > 0.3) &&
 			  (d->abs_erpm > 2000))								// acceleration can jump a lot at very low speeds
@@ -856,7 +878,7 @@ static void calculate_setpoint_target(data *d) {
 			d->traction_control = true;
 		}
 	} else if (d->state == RUNNING_WHEELSLIP) {
-		if (fabsf(d->acceleration) < 10) {
+		if (fabsf(d->acceleration) < accel_limit) {
 			// acceleration is slowing down, traction control seems to have worked
 			d->traction_control = false;
 		}
@@ -1116,7 +1138,27 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 	// 		d->inputtilt_interpolated -= d->inputtilt_step_size;
 	// 	}
 	// }
-
+	
+	//Sticky Tilt Input Start
+	float stickytilt_val = 3.0; // Value that defines where tilt will stick for both nose up and down. Can be made UI input later.
+	// Value of 0 or above max disables. Max value <=  d->float_conf.inputtilt_angle_limit. 
+	
+	if ((fabsf(d->inputtilt_interpolated) - fabsf(input_tiltback_target)) > 0){ // If the target is travelling toward or at the center
+		if ((fabsf(d->inputtilt_interpolated) >  (stickytilt_val - d->inputtilt_step_size * 0.51)) && 
+		 (fabsf(d->inputtilt_interpolated) < (stickytilt_val + d->inputtilt_step_size * 0.51))){
+		//If we are close to our sticky tilt value (the range,+/-51% step size, is so you don't over step the sticky value.)
+			if (SIGN(d->inputtilt_interpolated)==((d->throttle_val == 0.0) ? SIGN(d->inputtilt_interpolated) : SIGN(d->throttle_val))){   
+		 	// If the throttle is at zero or not pushed to the opposite direction from sticky tilt value. 
+				input_tiltback_target = stickytilt_val * SIGN(d->inputtilt_interpolated); // stay at our sticky tilt value
+			} else {
+				input_tiltback_target = (d->inputtilt_interpolated - SIGN(d->inputtilt_interpolated) * d->inputtilt_step_size); 
+				// release target to outside sticky tilt value range, defined above, when throttle pushed in opposite direction
+				// uses d->inputtilt_interpolated instead of sticky value to keep transition smooth going continuous throttle up to throttle down
+			}                
+                } 
+        }
+	//Sticky Tilt Input End
+	
 	float input_tiltback_target_diff = input_tiltback_target - d->inputtilt_interpolated;
 
 	if (d->float_conf.inputtilt_smoothing_factor > 0) { // Smoothen changes in tilt angle by ramping the step size
@@ -1573,6 +1615,23 @@ static void set_current(data *d, float current){
 	VESC_IF->mc_set_current(current);
 }
 
+static void set_dutycycle(data *d, float dutycycle){
+	// Limit duty output to configured max output
+	if (dutycycle >  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
+		dutycycle = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
+	} else if(dutycycle < 0 && dutycycle < (-1) * VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
+		dutycycle = (-1) *  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
+	}
+	
+	// Reset the timeout
+	VESC_IF->timeout_reset();
+	// Set the current delay
+	VESC_IF->mc_set_current_off_delay(d->motor_timeout_seconds);
+	// Set Duty
+	//VESC_IF->mc_set_duty(dutycycle); 
+	VESC_IF->mc_set_duty_noramp(dutycycle);
+}
+
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
 	UNUSED(mag);
 	data *d = (data*)ARG;
@@ -1812,7 +1871,7 @@ static void float_thd(void *arg) {
 			d->pid_prop = d->float_conf.kp * d->proportional;
 			d->pid_integral = d->float_conf.ki * d->integral;
 			new_pid_value = d->pid_prop + d->pid_integral;
-
+			d->differential = d->proportional - d->last_proportional;
 			d->last_proportional = d->proportional;
 
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
@@ -1825,49 +1884,26 @@ static void float_thd(void *arg) {
 				// Apply Booster (Now based on True Pitch)
 				float true_proportional = (d->setpoint - d->braketilt_interpolated) - d->true_pitch_angle; // Braketilt excluded to allow for soft brakes that strengthen when near tail-drag
 				d->abs_proportional = fabsf(true_proportional);
-				bool boostbraking = SIGN(d->proportional) != SIGN(d->erpm);
-
 				float booster_current, booster_angle, booster_ramp;
-				if (boostbraking) {
-					booster_current = d->float_conf.brkbooster_current;
+				if ((d->braking) &&
+				   (d->abs_erpm > 1000)) {
+					booster_current = (-1) * d->float_conf.brkbooster_current / 100; //Changed to percent. Negative to reduce brake current
 					booster_angle = d->float_conf.brkbooster_angle;
 					booster_ramp = d->float_conf.brkbooster_ramp;
-				}
-				else {
-					booster_current = d->float_conf.booster_current;
+				} else {
+					booster_current = d->float_conf.booster_current / 100; //Changed to percent
 					booster_angle = d->float_conf.booster_angle;
 					booster_ramp = d->float_conf.booster_ramp;
-				}
-
-				// Make booster a bit stronger at higher speed (up to 2x stronger when braking)
-				const int boost_min_erpm = 3000;
-				if (d->abs_erpm > boost_min_erpm) {
-					float speedstiffness = fminf(1, (d->abs_erpm - boost_min_erpm) / 10000);
-					if (boostbraking) {
-						// use higher current at speed when braking
-						booster_current += booster_current * speedstiffness;
+				} 				
+				if (d->abs_roll_angle > booster_angle) {
+					if (d->abs_roll_angle - booster_angle < booster_ramp) {
+						booster_current *= (d->abs_roll_angle - booster_angle) / booster_ramp;
 					}
-					else {
-						// when accelerating, we reduce the booster start angle as we get faster
-						// strength remains unchanged
-						float angledivider = 1 + speedstiffness;
-						booster_angle /= angledivider;
-					}
-				}
-
-				if (d->abs_proportional > booster_angle) {
-					if (d->abs_proportional - booster_angle < booster_ramp) {
-						booster_current *= SIGN(true_proportional) *
-								((d->abs_proportional - booster_angle) / booster_ramp);
-					} else {
-						booster_current *= SIGN(true_proportional);
-					}
-				}
-				else {
+				} else {
 					booster_current = 0;
 				}
-
-				// No harsh changes in booster current (effective delay <= 100ms)
+				booster_current *= new_pid_value; 
+				// Since boost current is a percent we can multiply it by new current demand to get boost current. Always act in direction of travel
 				d->applied_booster_current = 0.01 * booster_current + 0.99 * d->applied_booster_current;
 				d->pid_mod += d->applied_booster_current;
 
@@ -1877,8 +1913,7 @@ static void float_thd(void *arg) {
 				}
 
 				new_pid_value += d->pid_mod;
-			}
-			else {
+			} else {
 				d->pid_mod = 0;
 			}
 
@@ -1909,24 +1944,76 @@ static void float_thd(void *arg) {
 				}
 			}
 			
-			if (d->traction_control) {
-				// freewheel while traction loss is detected
-				d->pid_value = 0;
+			//Start Surge Code
+			d->surge_period = 0.75; 		//.75	//Period between each surge, in seconds. Prevents runaway and instability. 
+			d->surge_cycle = 0.30; 			//.30	//Length of surge, in seconds
+			d->surge_startanglespeed = 50 //fmaxf(10, (float)d->float_conf.turntilt_start_erpm/10); 	//50	//Nose speed that can initiate a surge
+			d->surge_difflimit = 3 //fmaxf(0.1, d->float_conf.turntilt_speed);				//2	//Pitch required at start angle speed to initiate surge
+			d->surge_currentmargin = 1.3 //fmaxf(0.5, (float)d->float_conf.turntilt_erpm_boost/100);	//1.5	//Higher current margin ends surge later
+			
+			//Counter for high nose angle speed
+			if (d->differential * SIGN(d->erpm) > d->surge_startanglespeed / d->float_conf.hertz){
+				d->surge_diffcount += d->differential * SIGN(d->erpm);	
+				// Add until diff limit. Differntial scaled by start angle to provide more counter for higher speeds
+			} else if (d->differential * SIGN(d->erpm) < 0) { 	//Pitch is travelling back to center
+				d->surge_diffcount = 0;				// reset
 			}
-			else {
-				// Brake Amp Rate Limiting
-				if (d->braking && (fabsf(d->pid_value - new_pid_value) > d->pid_brake_increment)) {
-					if (new_pid_value > d->pid_value) {
-						d->pid_value += d->pid_brake_increment;
+
+			//Initialize Surge Cycle
+			if ((d->surge_diffcount >= d->surge_difflimit) && 		//Nose dip condition 
+			     (SIGN(d->erpm) * d->proportional - d->surge_difflimit > 0) &&	//Minimum angle for acceleration
+			     (!d->braking) && 						//Not braking
+			     (d->current_time - d->surge_timer > d->surge_period) &&	//Not during an active surge period
+			     (d->setpointAdjustmentType != CENTERING)) { 		//Not during startup
+				d->surge_timer = d->current_time; 			//Reset surge timer
+				d->surge = true; 					//Indicates we are in the surge cycle of the surge period
+				//fault debug for surge
+				d->debug4 = VESC_IF->mc_get_duty_cycle_now();		//Set pre-surge duty
+				d->debug3 = 0;
+				d->debug5 = 0;
+			}
+			
+			//Conditions to stop surge and increment the duty cycle
+			if (d->surge){	
+				d->duty_cycle = SIGN(d->erpm); 					// Max duty during surge cycle	
+				d->surge_diffcount = 0;						// Reset surge initialization counter
+				//Conditions that will cause surge cycle to end
+				if ((d->current_time - d->surge_timer > d->surge_cycle) ||		//Outside the surge cycle portion of the surge period
+				 (d->traction_control) ||						//In traction control
+				 ((SIGN(d->erpm) * d->proportional - 0.05) < 0) ||			//The pitch is less than our minimum angle
+				 (new_pid_value <= d->motor_current / d->surge_currentmargin && SIGN(d->erpm) * d->differential < 0)) {
+				 //PID current demand has lowered below our surge current / margin and the nose is lifting (to prevent nuisance trips)
+					d->surge = false;
+					d->pid_value = d->motor_current;	//This allows a smooth transition to PID current control
+					//fault debug for surge
+					if (d->current_time - d->surge_timer < d->surge_cycle) { 	//If we are still in the surge cycle
+				    	 	d->debug5 = d->current_time - d->surge_timer;	//Register how long the surge cycle lasted
+						if (d->debug3 == 0 ) {				//We have not registered the reason for exiting surge yet
+							d->debug3= d->proportional; 		//Pitch at surge end
+							if (d->traction_control) {
+								d->debug3 = 100;		//Report pitch as 100 for traction control
+							}
+						}
 					}
-					else {
-						d->pid_value -= d->pid_brake_increment;
-					}
+				}
+			}					
+			
+			/*if (d->traction_control) {						//Commented out so we don't act on traction control
+				d->pid_value = 0; // freewheel while traction loss is detected 	//Surfdado said it is risky to use in the current state
+			} else*/ 
+			// Brake Amp Rate Limiting
+			if (SIGN(d->erpm) * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
+				if (new_pid_value > d->pid_value) {
+					d->pid_value += d->pid_brake_increment;
 				}
 				else {
-					d->pid_value = d->pid_value * 0.8 + new_pid_value * 0.2;
+					d->pid_value -= d->pid_brake_increment;
 				}
 			}
+			else {
+				d->pid_value = d->pid_value * 0.8 + new_pid_value * 0.2;
+			}
+			
 
 			// Output to motor
 			if (d->start_counter_clicks) {
@@ -1936,9 +2023,14 @@ static void float_thd(void *arg) {
 					set_current(d, d->pid_value - d->float_conf.startup_click_current);
 				else
 					set_current(d, d->pid_value + d->float_conf.startup_click_current);
-			}
-			else {
-				set_current(d, d->pid_value);
+			} else if (d->surge) { 	
+				set_dutycycle(d, d->duty_cycle); 		// Set the duty to surge
+				d->debug1= VESC_IF->mc_get_duty_cycle_now();	// Will report the final duty before exiting surge cycle
+				d->debug6= fmaxf(d->debug6, d->acceleration);
+			} else {
+				set_current(d, d->pid_value); 	// Set current as normal.
+				d->surge = false;		// Don't re-engage surge if we have left surge cycle until new surge period
+				d->debug7= fmaxf(d->debug7, d->acceleration);
 			}
 
 			break;
@@ -2150,7 +2242,7 @@ enum {
 } float_commands;
 
 static void send_realtime_data(data *d){
-	#define BUFSIZE 72
+	#define BUFSIZE 92
 	uint8_t send_buffer[BUFSIZE];
 	int32_t ind = 0;
 	send_buffer[ind++] = 101;//Magic Number
@@ -2170,18 +2262,28 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->float_setpoint, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_atr, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_braketilt, &ind);
-	buffer_append_float32_auto(send_buffer, d->float_torquetilt, &ind);
-	buffer_append_float32_auto(send_buffer, d->float_turntilt, &ind);
+	//buffer_append_float32_auto(send_buffer, d->float_torquetilt, &ind);
+	//buffer_append_float32_auto(send_buffer, d->float_turntilt, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
-
+	
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
-	buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
+	//buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
+	//buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
 	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
-
+	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
+	buffer_append_float32_auto(send_buffer, d->debug1 - d->debug4, &ind); //Temporary debug. Added surge duty
+	buffer_append_float32_auto(send_buffer, d->debug5, &ind); //Temporary debug. surge cycle time
+	buffer_append_float32_auto(send_buffer, d->debug3, &ind); //Added for surge debug. Indicates angle or traction control limited surge
+	buffer_append_float32_auto(send_buffer, d->debug6, &ind); //Temporary debug. Max acceleration surge
+	buffer_append_float32_auto(send_buffer, d->debug7, &ind); //Temporary debug. Max acceleration normal
+	
+	buffer_append_float32_auto(send_buffer, d->surge_startanglespeed, &ind); //Temporary debug.
+	buffer_append_float32_auto(send_buffer, d->surge_difflimit, &ind); //Temporary debug.
+	buffer_append_float32_auto(send_buffer, d->surge_currentmargin, &ind); //Temporary debug.
+	
 	if (ind > BUFSIZE) {
 		VESC_IF->printf("BUFSIZE too small...\n");
 	}
