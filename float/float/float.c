@@ -1636,9 +1636,9 @@ static void check_surge(data *d, float new_pid_value){
 	//Start Surge Code
 	d->surge_period = 0.75; 		//.75	//Period between each surge, in seconds. Prevents runaway and instability. 
 	d->surge_cycle = 0.30; 			//.30	//Length of surge, in seconds
-	d->surge_startanglespeed = 50 //fmaxf(10, (float)d->float_conf.turntilt_start_erpm/10); 	//50	//Nose speed that can initiate a surge
-	d->surge_difflimit = 3 //fmaxf(0.1, d->float_conf.turntilt_speed);				//2	//Pitch required at start angle speed to initiate surge
-	d->surge_currentmargin = 1.3 //fmaxf(0.5, (float)d->float_conf.turntilt_erpm_boost/100);	//1.5	//Higher current margin ends surge later
+	d->surge_startanglespeed = 50; //fmaxf(10, (float)d->float_conf.turntilt_start_erpm/10); 	//50	//Nose speed that can initiate a surge
+	d->surge_difflimit = 3; //fmaxf(0.1, d->float_conf.turntilt_speed);				//2	//Pitch required at start angle speed to initiate surge
+	d->surge_currentmargin = 1.3; //fmaxf(0.5, (float)d->float_conf.turntilt_erpm_boost/100);	//1.5	//Higher current margin ends surge later
 
 	//Counter for high nose angle speed
 	if (d->differential * SIGN(d->erpm) > d->surge_startanglespeed / d->float_conf.hertz){
