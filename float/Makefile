@@ -13,7 +13,7 @@ VERSION=`grep APPCONF_FLOAT_VERSION float/conf/settings.xml -A10 | grep valDoubl
 README-pkg.md: README.md
 	cp README.md README-pkg.md
 	echo "- Version: ${VERSION}" >> README-pkg.md
-	echo "- Build Date: `date +'%D %T'`" >> README-pkg.md
+	echo "- Build Date: `date --rfc-3339=seconds`" >> README-pkg.md
 	echo "- Git Commit: #`git rev-parse --short HEAD`" >> README-pkg.md
 
 ui.qml: ui.qml.in
