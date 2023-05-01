@@ -22,17 +22,24 @@ make clean
 cd ../../
 
 # Float
+# Get version number out of settings.xml - assumes that valDouble is exactly 8 lines after the parameter name:
+LINENUMBER=$(grep -n APPCONF_FLOAT_VERSION float/float/conf/settings.xml | tr -dc '0-9')
+VERSION=`head -$(($LINENUMBER + 8)) float/float/conf/settings.xml | tail -1 | tr -dc '[.[:digit:]]'`
+# Inject version number into ui.qml
+sed -i "s/xx.yy/$VERSION/" float/ui.qml
 cd float/float/
 make clean
 make
+# restore ui.qml to "template" state
+# commented out for now since it would wipe any uncommitted changes...
+# but for upstream/public version this needs to remain in place:
+#git checkout float/ui.qml
 cd ../
 cp README.md READMEx.md
 echo "- Version: v" >> READMEx.md
 truncate -s-1 READMEx.md
 cd float/conf
-# Get version number out of settings.xml - assumes that valDouble is exactly 8 lines after the parameter name:
-LINENUMBER=$(grep -n APPCONF_FLOAT_VERSION settings.xml | tr -dc '0-9')
-head -$(($LINENUMBER + 8)) settings.xml | tail -1 | tr -dc '[.[:digit:]]' >> ../../READMEx.md
+echo $VERSION >> ../../READMEx.md
 cd ../..
 echo "" >> READMEx.md
 echo "- Build Date: " >> READMEx.md
