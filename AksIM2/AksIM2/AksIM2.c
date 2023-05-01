@@ -27,45 +27,6 @@
 HEADER
 
 //define pins for trampa 100_250 board
-/*NOTE: This will have to change if we are using a different board architecture
-
-// Hall/encoder pins
-#define HW_HALL_ENC_GPIO1		GPIOC
-#define HW_HALL_ENC_PIN1		6
-#define HW_HALL_ENC_GPIO2		GPIOC
-#define HW_HALL_ENC_PIN2		7
-#define HW_HALL_ENC_GPIO3		GPIOC
-#define HW_HALL_ENC_PIN3		8
-#define HW_ENC_TIM				TIM3
-#define HW_ENC_TIM_AF			GPIO_AF_TIM3
-#define HW_ENC_TIM_CLK_EN()		RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE)
-#define HW_ENC_EXTI_PORTSRC		EXTI_PortSourceGPIOC
-#define HW_ENC_EXTI_PINSRC		EXTI_PinSource8
-#define HW_ENC_EXTI_CH			EXTI9_5_IRQn
-#define HW_ENC_EXTI_LINE		EXTI_Line8
-#define HW_ENC_EXTI_ISR_VEC		EXTI9_5_IRQHandler
-#define HW_ENC_TIM_ISR_CH		TIM3_IRQn
-#define HW_ENC_TIM_ISR_VEC		TIM3_IRQHandler
-
-// SPI pins -> IF we want to use this in the future
-#define HW_SPI_DEV				SPID1
-#define HW_SPI_GPIO_AF			GPIO_AF_SPI1
-#define HW_SPI_PORT_NSS			GPIOA
-#define HW_SPI_PIN_NSS			4
-#define HW_SPI_PORT_SCK			GPIOA
-#define HW_SPI_PIN_SCK			5
-#define HW_SPI_PORT_MOSI		GPIOA
-#define HW_SPI_PIN_MOSI			7
-#define HW_SPI_PORT_MISO		GPIOA
-#define HW_SPI_PIN_MISO			6
-
-#define BMI160_SDA_GPIO			GPIOB
-#define BMI160_SDA_PIN			4
-#define BMI160_SCL_GPIO			GPIOB
-#define BMI160_SCL_PIN			12
-#define IMU_FLIP
-
-*/
 #define AksIM2_DATA_INVALID_THRESHOLD 20000
 #define AksIM2_CONNECTION_ERROR_THRESHOLD 5
 
@@ -92,8 +53,6 @@ static const uint8_t ab_CRC8_LUT[256] = {
 0xAA, 0x3D, 0x13, 0x84, 0x4F, 0xD8, 0xF6, 0x61, 0xF7, 0x60, 0x4E, 0xD9, 0x12, 0x85, 0xAB, 0x3C
 };
 
-//Development note.
-//Don't have prints that spam, will cause package to crash
 typedef struct {
 	stm32_gpio_t *nss;
 	uint32_t nss_pin;
@@ -103,7 +62,6 @@ typedef struct {
 	uint32_t mosi_pin;
 	stm32_gpio_t *miso;
 	uint32_t miso_pin;
-	//mutex_t mutex; // what is this inculde file?
 } aksim2_gpio_t;
 
 typedef struct {
@@ -181,14 +139,6 @@ static bool check_crc(uint32_t msg, data * d) {
 	uint64_t dw_CRCinputData = 0;
 	uint8_t calculated_crc = 0;
 
-//	dw_CRCinputData = ((uint64_t)rx_buff[0] << 32) + ((uint64_t)rx_buff[1] << 24) +
-//						((uint64_t)rx_buff[2] << 16) + ((uint64_t)rx_buff[3] << 8) +
-//						((uint64_t)rx_buff[4] << 0); 
-//
-//	dw_CRCinputData = ((uint64_t)rx_buff[0] << 32) + ((uint64_t)rx_buff[1] << 24) +
-//						((uint64_t)rx_buff[2] << 16) + ((uint64_t)rx_buff[3] << 8);
-//
-//	//This also works... don't know if it's better
 	dw_CRCinputData = (uint64_t)msg;
 	calculated_crc = ~(CRC_SPI_97_64bit(dw_CRCinputData)) & 0xFF;		//inverted CRC
 
@@ -207,7 +157,7 @@ static bool check_crc(uint32_t msg, data * d) {
 static void initialise_data(data *d) {
 	d->thread = NULL;
 	//init gpio pins for AksIM-2 coms
-	//currently using sense port (hall). Set VESC pin type agnostic to firmware updates
+	//Option to use sense port
 //	d->vesc_pins.nss = VESC_PIN_HALL3;
 //	d->vesc_pins.sck = VESC_PIN_HALL1;
 //	d->vesc_pins.miso = VESC_PIN_HALL2;		//check this
@@ -215,8 +165,8 @@ static void initialise_data(data *d) {
 
 	d->vesc_pins.nss = VESC_PIN_COMM_RX;
 	d->vesc_pins.sck = VESC_PIN_ADC1;
-	d->vesc_pins.miso = VESC_PIN_ADC2;		//check this
-	d->vesc_pins.mosi = VESC_PIN_COMM_TX;		//not used
+	d->vesc_pins.miso = VESC_PIN_ADC2;		
+	d->vesc_pins.mosi = VESC_PIN_COMM_TX;	
 
 	//get the gpio for these pins. Need it to set and clear pad
 	VESC_IF->io_get_st_pin(d->vesc_pins.nss, (void**)&d->gpio.nss, &d->gpio.nss_pin);
@@ -250,34 +200,41 @@ static void spi_bb_init(data * d) {
 	VESC_IF->set_pad_mode(d->gpio.sck, d->gpio.sck_pin, ((PAL_STM32_MODE_OUTPUT | PAL_STM32_OTYPE_PUSHPULL) | PAL_STM32_OSPEED_HIGHEST));
 	VESC_IF->set_pad_mode(d->gpio.nss, d->gpio.nss_pin, ((PAL_STM32_MODE_OUTPUT | PAL_STM32_OTYPE_PUSHPULL) | PAL_STM32_OSPEED_HIGHEST));
 
-	//io_set_mode does not have speed options, if there are issues with sampling rate, try using set_pad_mode...
-	//if(!VESC_IF->io_set_mode(d->vesc_pins.miso, VESC_PIN_MODE_INPUT_PULL_UP)) {
-	//	if (!VESC_IF->app_is_output_disabled()) {
-	//		VESC_IF->printf("AksIM2 App: io_set_mode failed for miso pin");
-	//	}
-	//}
-	//if(!VESC_IF->io_set_mode(d->vesc_pins.sck, VESC_PIN_MODE_OUTPUT)) {
-	//	if (!VESC_IF->app_is_output_disabled()) {
-	//		VESC_IF->printf("AksIM2 App: io_set_mode failed for sck pin");
-	//	}
-	//}
-	//if(!VESC_IF->io_set_mode(d->vesc_pins.nss, VESC_PIN_MODE_OUTPUT)) {
-	//	if (!VESC_IF->app_is_output_disabled()) {
-	//		VESC_IF->printf("AksIM2 App: io_set_mode failed for nss pin");
-	//	}
-	//}
 
-	/*if (d->gpio.mosi) {
+/*
+	Alternative way to set pins
+
+	if(!VESC_IF->io_set_mode(d->vesc_pins.miso, VESC_PIN_MODE_INPUT_PULL_UP)) {
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("AksIM2 App: io_set_mode failed for miso pin");
+		}
+	}
+	if(!VESC_IF->io_set_mode(d->vesc_pins.sck, VESC_PIN_MODE_OUTPUT)) {
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("AksIM2 App: io_set_mode failed for sck pin");
+		}
+	}
+	if(!VESC_IF->io_set_mode(d->vesc_pins.nss, VESC_PIN_MODE_OUTPUT)) {
+		if (!VESC_IF->app_is_output_disabled()) {
+			VESC_IF->printf("AksIM2 App: io_set_mode failed for nss pin");
+		}
+	}
+
+	if (d->gpio.mosi) {
 		VESC_IF->set_pad_mode(d->gpio.mosi, d->gpio.mosi_pin, 6U | PAL_STM32_OSPEED_HIGHEST);
 		VESC_IF->set_pad(d->gpio.mosi, d->gpio.mosi_pin);
 		VESC_IF->set_pad(d->gpio.nss, d->gpio.nss_pin);
-	}*/
+	}
+*/
 }
 
 static void spi_bb_deint(data *d) {
-	//VESC_IF->set_pad_mode(d->gpio.miso, d->gpio.miso_pin, 3U);
-	//VESC_IF->set_pad_mode(d->gpio.sck, d->gpio.sck_pin, 3U);
-	//VESC_IF->set_pad_mode(d->gpio.nss, d->gpio.nss_pin, 3U);
+/*
+	TODO, update to use set_pad_mode
+	VESC_IF->set_pad_mode(d->gpio.miso, d->gpio.miso_pin, 3U);
+	VESC_IF->set_pad_mode(d->gpio.sck, d->gpio.sck_pin, 3U);
+	VESC_IF->set_pad_mode(d->gpio.nss, d->gpio.nss_pin, 3U);
+*/
 	if(!VESC_IF->io_set_mode(d->vesc_pins.miso, VESC_PIN_MODE_INPUT_PULL_UP)) {
 		if (!VESC_IF->app_is_output_disabled()) {
 			VESC_IF->printf("AksIM2 App: io_set_mode failed for miso pin");
@@ -402,6 +359,7 @@ static char * AksIM2_print (void) {
 }
 
 // Register get_debug as a lisp extension
+//TODO update debug 
 static lbm_value ext_aksim_dbg(lbm_value *args, lbm_uint argn) {
 
 	data* d = (data*)ARG;
@@ -486,7 +444,6 @@ static void askim_thd(void * arg) {
 			d->spi.data_last_invalid_counter = AksIM2_DATA_INVALID_THRESHOLD;
 		}
 
-		//this check sum is failing lots..
 		if (check_crc(pos, d)) {
 			//check error and warning flags
 			(pos & (1 << 7)) ?
@@ -494,7 +451,6 @@ static void askim_thd(void * arg) {
 			(pos & (1 << 8)) ? 
 				(d->spi.enc_data_warning_raised = false) : (d->spi.enc_data_warning_raised = true);
 
-			//also getting lots of error bits
 			if (!d->spi.enc_data_error_raised) {
 				//get the angle
 				pos &= 0xFFFFC000;											//mask out the unused 4 bits, error/warning flags and CRC
@@ -514,7 +470,7 @@ static void askim_thd(void * arg) {
 			LP_FAST(d->spi.crc_err_rate, 1.0, timestep);
 		}
 
-		//thread needs some delay (more then just in msg timing) to release the cpu
+		//thread needs some delay
 		//TODO find good delay
 		VESC_IF->sleep_us(10);
 	}
