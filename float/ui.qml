@@ -53,10 +53,6 @@ Item {
     property ConfigParams mCustomConf: VescIf.customConfig(0)
     property var quicksaveNames: []
 
-    
-
-    // property var dialogParent: ApplicationWindow.overlay
-    
     Settings {
         id: settingStorage
     }
@@ -77,29 +73,19 @@ Item {
             mCommands.sendCustomAppData(buffer)
             
             // Process Controls
-            if(reverseButton.pressed){
+            if(moveSlider.value != 0){
+                var current = Math.abs(Math.round(moveSlider.value * 70)) + 10 
                 var buffer = new ArrayBuffer(6)
                 var dv = new DataView(buffer)
                 var ind = 0
                 dv.setUint8(ind, 101); ind += 1; // Float Package
                 dv.setUint8(ind, 7); ind += 1; // Command ID: RC Move
-                dv.setUint8(ind, 0); ind += 1; // Direction
-                dv.setUint8(ind, movementStrengthSlider.value); ind += 1; // Current
+                dv.setUint8(ind, moveSlider.value > 0 ? 1 : 0); ind += 1; // Direction
+                dv.setUint8(ind, current); ind += 1; // Current
                 dv.setUint8(ind, 1); ind += 1; // Time
-                dv.setUint8(ind, movementStrengthSlider.value + 1); ind += 1; // Sum = time + current
+                dv.setUint8(ind, current + 1); ind += 1; // Sum = time + current
                 mCommands.sendCustomAppData(buffer)
-            }
-            if(forwardButton.pressed){
-                var buffer = new ArrayBuffer(6)
-                var dv = new DataView(buffer)
-                var ind = 0
-                dv.setUint8(ind, 101); ind += 1; // Float Package
-                dv.setUint8(ind, 7); ind += 1; // Command ID: RC Move
-                dv.setUint8(ind, 1); ind += 1; // Direction
-                dv.setUint8(ind, movementStrengthSlider.value); ind += 1; // Current
-                dv.setUint8(ind, 1); ind += 1; // Time
-                dv.setUint8(ind, movementStrengthSlider.value + 1); ind += 1; // Sum = time + current
-                mCommands.sendCustomAppData(buffer)
+
             }
             if(tiltEnabled.checked){
                 mCommands.lispSendReplCmd("(set-remote-state " + tiltSlider.value + " 0 0 0 0)")
@@ -114,6 +100,22 @@ Item {
         interval: 10
         
         onTriggered: {
+            if(!moveSlider.pressed){
+                var stepSize = 0.05
+                if(moveSlider.value > 0){
+                    if(moveSlider.value < stepSize){
+                        moveSlider.value = 0
+                    }else{
+                        moveSlider.value -= stepSize
+                    }
+                }else if(moveSlider.value < 0){
+                    if(moveSlider.value > -stepSize){
+                        moveSlider.value = 0
+                    }else{
+                        moveSlider.value += stepSize
+                    }
+                } 
+            }
             if(!tiltSlider.pressed){
                 var stepSize = 0.05
                 if(tiltSlider.value > 0){
@@ -188,6 +190,8 @@ Item {
                     stateString = "RUNNING_WHEELSLIP"
                 }else if(state == 4){
                     stateString = "RUNNING_UPSIDEDOWN"
+                }else if(state == 5){
+                    stateString = "RUNNING_FLYWHEEL"
                 }else if(state == 6){
                     stateString = "STOP_ANGLE_PITCH"
                 }else if(state == 7){
@@ -443,11 +447,10 @@ Item {
             }
         }
         
-        StackLayout {
+        StackLayout { // Pages
             id: stackLayout
             Layout.fillWidth: true
             Layout.fillHeight: true
-            // onCurrentIndexChanged: {tabBar.currentIndex = currentIndex
 
             ColumnLayout { // RT Data Page
                 id: rtDataColumn
@@ -543,6 +546,30 @@ Item {
                         }
                     }
                 }
+				Item {
+					// spacer item
+					Layout.fillWidth: true
+					Layout.fillHeight: true
+				}
+				Rectangle {
+					Layout.fillWidth: true
+					Layout.preferredHeight: 2
+					color: Utility.getAppHexColor("lightText")
+				}
+                RowLayout {
+					Text {
+						text: "Float Package Version:"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 8
+					}
+					Text {
+						id: versionText
+						text: "xx.yy"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 10
+						font.weight: Font.Black
+					}
+				}
             }
 
             ColumnLayout { // Controls Page
@@ -562,60 +589,38 @@ Item {
                     font.weight: Font.Black
                     font.pointSize: 14
                 }
-                RowLayout {
-                    id: movementStrength
+                Slider {
+                    id: moveSlider
+                    from: -1
+                    value: 0
+                    to: 1
                     Layout.fillWidth: true
-
-                    Text {
-                        id: movementStrengthLabel
-                        color: Utility.getAppHexColor("lightText")
-                        font.family: "DejaVu Sans Mono"
-                        text: "Strength:"
-                    }
-                    Slider {
-                        id: movementStrengthSlider
-                        from: 20
-                        value: 40
-                        to: 80
-                        stepSize: 1
-                    }
-                }
-                RowLayout {
-                    id: movementControls
-                    Layout.fillWidth: true
-                    Button {
-                        id: reverseButton
-                        text: "Reverse"
-                        Layout.fillWidth: true
-                    }
-                    Button {
-                        id: forwardButton
-                        text: "Forward"
-                        Layout.fillWidth: true
-                    }
                 }
                 
                 // Tilt controls
-                Text {
-                    id: tiltControlsHeader
-                    color: Utility.getAppHexColor("lightText")
-                    font.family: "DejaVu Sans Mono"
-                    Layout.margins: 0
-                    Layout.leftMargin: 0
+                RowLayout {
+                    id: movementStrength
                     Layout.fillWidth: true
-                    text: "Tilt Controls"
-                    font.underline: true
-                    font.weight: Font.Black
-                    font.pointSize: 14
-                }
-                 CheckBox {
-                    id: tiltEnabled
-                    checked: false
-                    text: qsTr("Enabled (Overrides Remote)")
-                    onClicked: {
-                        if(tiltEnabled.checked && mCustomConf.getParamEnum("inputtilt_remote_type", 0) != 1){
-                            mCustomConf.updateParamEnum("inputtilt_remote_type", 1)
-                            mCommands.customConfigSet(0, mCustomConf)
+                    Text {
+                        id: tiltControlsHeader
+                        color: Utility.getAppHexColor("lightText")
+                        font.family: "DejaVu Sans Mono"
+                        Layout.margins: 0
+                        Layout.leftMargin: 0
+                        text: "Tilt Controls"
+                        font.underline: true
+                        font.weight: Font.Black
+                        font.pointSize: 14
+                    }
+                    CheckBox {
+                        id: tiltEnabled
+                        checked: false
+                        text: qsTr("Enabled (Overrides Remote)")
+                        onClicked: {
+                            if(tiltEnabled.checked && mCustomConf.getParamEnum("inputtilt_remote_type", 0) != 1){
+                                mCustomConf.updateParamEnum("inputtilt_remote_type", 1)
+                                mCommands.customConfigSet(0, mCustomConf)
+                            }
                         }
                     }
                 }
@@ -626,6 +631,75 @@ Item {
                     to: 1
                     Layout.fillWidth: true
                 }
+
+		        Item { // spacer item
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 2
+                    color: Utility.getAppHexColor("lightText")
+                }
+
+                // Flywheel controls
+                Text {
+                    id: flywheelControlsHeader
+                    color: Utility.getAppHexColor("lightText")
+                    font.family: "DejaVu Sans Mono"
+                    Layout.margins: 0
+                    Layout.leftMargin: 0
+                    Layout.fillWidth: true
+                    text: "Magic Flywheel Mode"
+                    font.underline: true
+                    font.weight: Font.Black
+                    font.pointSize: 14
+                }
+                Text {
+                    id: flywheelInstructions
+                    color: Utility.getAppHexColor("lightText")
+                    Layout.margins: 0
+                    Layout.leftMargin: 0
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+					text: "Before enabling flywheel mode make sure that your board is nose up and perfectly balanced. To turn it off you must disengage the board first!"
+                    font.pointSize: 11
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+					Button {
+						id: flywheelOnButton
+						text: "ON"
+						Layout.fillWidth: true
+                        onClicked: {
+                            var buffer = new ArrayBuffer(9)
+                            var dv = new DataView(buffer)
+                            dv.setUint8(0, 101);  // Float Package
+                            dv.setUint8(1, 22);   // Command ID: Flywheel
+                            dv.setUint8(2, 0x82); // Flywheel On (force calibration)
+                            dv.setUint8(3, 0x0);  // use default kp
+                            dv.setUint8(4, 0x0);  // use default kp2
+                            dv.setUint8(5, 0x0);  // use default duty angle
+                            dv.setUint8(6, 0x0);  // use default duty start
+                            dv.setUint8(7, 0x1);  // allow abort with footpads
+                            dv.setUint8(8, 0x0);  // use default duty speed
+                            mCommands.sendCustomAppData(buffer)
+                        }
+					}
+					Button {
+						id: flywheelOffButton
+						text: "OFF"
+						Layout.fillWidth: true
+                        onClicked: {
+                            var buffer = new ArrayBuffer(8)
+                            var dv = new DataView(buffer)
+                            dv.setUint8(0, 101);  // Float Package
+                            dv.setUint8(1, 22);   // Command ID: Flywheel
+                            dv.setUint8(2, 0x80); // Flywheel Off
+                            mCommands.sendCustomAppData(buffer)
+                        }
+					}
+				}
             }
 
             ColumnLayout { // Tunes Page
@@ -719,7 +793,7 @@ Item {
                             downloadTunesButton.text = "Downloading Tunes..."
                             downloadedTunesModel.clear()
                             var http = new XMLHttpRequest()
-                            // var url = "http://docs.google.com/spreadsheets/d/1bPH-gviDFyXvxx5s2cjs5BWTjqJOmRqB4Xi59itxbJ8/export?format=csv"
+                            // var url = "https://docs.google.com/spreadsheets/d/1bPH-gviDFyXvxx5s2cjs5BWTjqJOmRqB4Xi59itxbJ8/export?format=csv"
                             var url = "http://us-central1-mimetic-union-377520.cloudfunctions.net/float_package_tunes_via_http"
                             http.open("GET", url, true);
                             http.onreadystatechange = function() {
@@ -771,6 +845,8 @@ Item {
             {"name": "ki", "type": "Double"},
             {"name": "kd", "type": "Double"},
             {"name": "kp2", "type": "Double"},
+            {"name": "kp_brake", "type": "Double"},
+            {"name": "kp2_brake", "type": "Double"},
             {"name": "mahony_kp", "type": "Double"},
             // {"name": "hertz", "type": "Int"},
             {"name": "fault_pitch", "type": "Double"},
@@ -843,8 +919,8 @@ Item {
             {"name": "atr_response_boost", "type": "Double"},
             {"name": "atr_transition_boost", "type": "Double"},
             {"name": "atr_filter", "type": "Double"},
-            // {"name": "atr_amps_accel_ratio", "type": "Double"},
-            // {"name": "atr_amps_decel_ratio", "type": "Double"},
+            {"name": "atr_amps_accel_ratio", "type": "Double"},
+            {"name": "atr_amps_decel_ratio", "type": "Double"},
             {"name": "braketilt_strength", "type": "Double"},
             {"name": "braketilt_lingering", "type": "Double"},
             {"name": "turntilt_strength", "type": "Double"},
@@ -1005,9 +1081,9 @@ Item {
                 }else if(key.startsWith("enum_")){
                     mCustomConf.updateParamEnum(key.substring(5), value)
                 }
-                mCommands.customConfigSet(0, mCustomConf)
             }
         }
+        mCommands.customConfigSet(0, mCustomConf)
     }
 
     function restoreQuicksaveNames(){
