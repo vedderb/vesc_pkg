@@ -23,6 +23,16 @@
 #define APPCONF_FLOAT_MAHONY_KP 2
 #endif
 
+// Angle P (Braking)
+#ifndef APPCONF_FLOAT_KP_BRAKE
+#define APPCONF_FLOAT_KP_BRAKE 1
+#endif
+
+// Rate P (Braking)
+#ifndef APPCONF_FLOAT_KP2_BRAKE
+#define APPCONF_FLOAT_KP2_BRAKE 1
+#endif
+
 // Loop Hertz
 #ifndef APPCONF_FLOAT_HERTZ
 #define APPCONF_FLOAT_HERTZ 832
@@ -78,7 +88,7 @@
 #define APPCONF_FLOAT_FAULT_ADC_HALF_ERPM 300
 #endif
 
-// Treat Both Sensors as One
+// Treat Both Sensors as One (Posi)
 #ifndef APPCONF_FLOAT_FAULT_IS_DUAL_SWITCH
 #define APPCONF_FLOAT_FAULT_IS_DUAL_SWITCH 0
 #endif
@@ -475,7 +485,7 @@
 
 // Package Version
 #ifndef APPCONF_FLOAT_VERSION
-#define APPCONF_FLOAT_VERSION 1
+#define APPCONF_FLOAT_VERSION 1.1
 #endif
 
 // CONF_DEFAULT_H_

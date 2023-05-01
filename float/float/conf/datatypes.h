@@ -34,9 +34,11 @@ typedef struct {
 	float float_disable;
 	float kp;
 	float ki;
-	float kd;
 	float kp2;
 	float mahony_kp;
+	float kp_brake;
+	float kp2_brake;
+	uint16_t kp_brake_erpm;
 	uint16_t hertz;
 	float fault_pitch;
 	float fault_roll;
