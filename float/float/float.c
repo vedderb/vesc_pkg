@@ -1896,9 +1896,9 @@ static void float_thd(void *arg) {
 
 				float scaled_kp2;
 				if (rate_prop < 0) { // Choose appropriate scale based on board angle (yes, this accomodates backwards riding)
-					scaled_kp2 = d->float_conf.kp2 * d->kp_brake_scale;
+					scaled_kp2 = d->float_conf.kp2 * d->kp2_brake_scale;
 				} else {
-					scaled_kp2 = d->float_conf.kp2 * d->kp_accel_scale;
+					scaled_kp2 = d->float_conf.kp2 * d->kp2_accel_scale;
 				}
 
 				d->pid_mod = (scaled_kp2 * rate_prop);

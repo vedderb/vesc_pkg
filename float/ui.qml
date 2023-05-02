@@ -564,7 +564,7 @@ Item {
 					}
 					Text {
 						id: versionText
-						text: "xx.yy"
+						text: "xx.yyb"
 						color: Utility.getAppHexColor("lightText")
 						font.pointSize: 10
 						font.weight: Font.Black
