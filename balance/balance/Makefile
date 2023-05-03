@@ -4,7 +4,7 @@ TARGET = balance
 
 SOURCES = balance.c conf/buffer.c conf/confparser.c conf/confxml.c
 
-ADD_TO_CLEAN = conf/confparser.h conf/confxml.h conf/confxml.c
+ADD_TO_CLEAN = conf/confxml.h conf/confxml.c
 
 balance.c: conf/confparser.h conf/confxml.h
 
