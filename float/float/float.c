@@ -2988,6 +2988,11 @@ static int get_cfg(uint8_t *buffer, bool is_default) {
 
 static bool set_cfg(uint8_t *buffer) {
 	data *d = (data*)ARG;
+
+	// don't let users use the Float Cfg "write" button in flywheel mode
+	if (d->is_flywheel_mode)
+		return false;
+
 	bool res = confparser_deserialize_float_config(buffer, &(d->float_conf));
 
 	// Store to EEPROM
