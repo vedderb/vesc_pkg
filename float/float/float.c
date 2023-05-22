@@ -152,7 +152,7 @@ typedef struct {
 
 	// Rumtime state values
 	FloatState state;
-	float proportional, integral;
+	float proportional;
 	float pid_prop, pid_integral, pid_rate, pid_mod;
 	float last_proportional, abs_proportional;
 	float pid_value;
@@ -498,7 +498,6 @@ static void configure(data *d) {
 
 static void reset_vars(data *d) {
 	// Clear accumulated values.
-	d->integral = 0;
 	d->last_proportional = 0;
 	// Set values for startup
 	d->setpoint = d->pitch_angle;
@@ -868,7 +867,7 @@ static void calculate_setpoint_target(data *d) {
 					d->setpointAdjustmentType = TILTBACK_NONE;
 					d->reverse_total_erpm = 0;
 					d->setpoint_target = 0;
-					d->integral = 0;
+					d->pid_integral = 0;
 				}
 			}
 		}
@@ -1862,15 +1861,15 @@ static void float_thd(void *arg) {
 			bool tail_down = SIGN(d->proportional) != SIGN(d->erpm);
 
 			// Resume real PID maths
-			d->integral = d->integral + d->proportional;
-
-			if (d->setpointAdjustmentType == REVERSESTOP) {
-				d->integral = d->integral * 0.9;
-			}
+			d->pid_integral = d->pid_integral + d->proportional * d->float_conf.ki;
 
 			// Apply I term Filter
-			if (d->float_conf.ki_limit > 0 && fabsf(d->integral * d->float_conf.ki) > d->float_conf.ki_limit) {
-				d->integral = d->float_conf.ki_limit / d->float_conf.ki * SIGN(d->integral);
+			if (d->float_conf.ki_limit > 0 && fabsf(d->pid_integral) > d->float_conf.ki_limit) {
+				d->pid_integral = d->float_conf.ki_limit * SIGN(d->pid_integral);
+			}
+			// Quickly ramp down integral component during reverse stop
+			if (d->setpointAdjustmentType == REVERSESTOP) {
+				d->pid_integral = d->pid_integral * 0.9;
 			}
 
 			// Apply P Brake Scaling
@@ -1882,7 +1881,6 @@ static void float_thd(void *arg) {
 			}
 
 			d->pid_prop = scaled_kp * d->proportional;
-			d->pid_integral = d->float_conf.ki * d->integral;
 			new_pid_value = d->pid_prop + d->pid_integral;
 
 			d->last_proportional = d->proportional;
@@ -2228,9 +2226,9 @@ static float app_float_get_debug(int index) {
 		case(13):
 			return d->filtered_diff_time;
 		case(14):
-			return d->integral;
+			return d->pid_integral / d->float_conf.ki;
 		case(15):
-			return d->integral * d->float_conf.ki;
+			return d->pid_integral;
 		case(16):
 			return 0;
 		case(17):
@@ -2990,6 +2988,11 @@ static int get_cfg(uint8_t *buffer, bool is_default) {
 
 static bool set_cfg(uint8_t *buffer) {
 	data *d = (data*)ARG;
+
+	// don't let users use the Float Cfg "write" button in flywheel mode
+	if (d->is_flywheel_mode)
+		return false;
+
 	bool res = confparser_deserialize_float_config(buffer, &(d->float_conf));
 
 	// Store to EEPROM
