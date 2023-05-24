@@ -295,6 +295,18 @@
         (write-setting 'ver-code settings-version)
 ))
 
+(defun send-settings ()
+    (send-data (str-merge
+            "settings "
+            (str-from-n (read-setting 'can-id) "%d ")
+            (if (read-setting 'log-at-boot) "1 " "0 ")
+            (str-from-n (read-setting 'log-rate) "%.2f ")
+            (if (read-setting 'append-gnss) "1 " "0 ")
+            (if (read-setting 'log-local) "1 " "0 ")
+            (if (read-setting 'log-can) "1 " "0 ")
+            (if (read-setting 'log-bms) "1 " "0 ")
+)))
+
 ; Restore settings if version number does not match
 ; as that probably means something else is in eeprom
 (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))

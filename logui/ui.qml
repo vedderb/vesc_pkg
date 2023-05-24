@@ -17,6 +17,8 @@ Item {
         if (VescIf.getLastFwRxParams().hw.includes("Express")) {
             canId.value = -2
         }
+        
+        sendCode("(send-settings)")
     }
     
     ColumnLayout {
@@ -104,13 +106,15 @@ Item {
             Layout.fillHeight: true
         }
         
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            
+            columns: 2
+            rowSpacing: -5
+                        
             Button {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 500
-                text: "Start"
+                text: "Start Log"
                 
                 onClicked: {
                     var cmd = "(start-log " + makeArgStr() + ")"
@@ -121,7 +125,7 @@ Item {
             Button {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 500
-                text: "Stop"
+                text: "Stop Log"
                 
                 onClicked: {
                     sendCode("(stop-log " + canId.value + ")")
@@ -135,6 +139,38 @@ Item {
                 
                 onClicked: {
                     sendCode("(save-config " + makeArgStr() + " " + startAtBoot.checked + ")")
+                }
+            }
+            
+            Button {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 500
+                text: "Test SD-card"
+                
+                onClicked: {
+                    commDialog.open()
+                    if (canId.value >= 0) {
+                        VescIf.canTmpOverride(true, canId.value)
+                    }
+                    
+                    var ok = mCommands.fileBlockWrite("test.txt", "TestTxt")
+                    
+                    if (canId.value >= 0) {
+                        VescIf.canTmpOverrideEnd()
+                    }
+                    commDialog.close()
+                    
+                    VescIf.emitMessageDialog(
+                        "Express SD-Card Test",
+                        ok ?
+                            "Writing to the SD-card works!" :
+                            
+                            "Could not write to the SD-card. Make sure " +
+                            "that it is formatted to FAT32. Also make sure " +
+                            "that the logger CAN ID is correct. Note that not " +
+                            "all SD-cards work even if they are formatted " +
+                            "correctly.",
+                        ok, false)
                 }
             }
         }
@@ -158,7 +194,38 @@ Item {
         target: mCommands
         
         function onCustomAppDataReceived(data) {
-            VescIf.emitStatusMessage(data, true)
+            var str = data.toString()
+            
+            if (str.startsWith("settings")) {
+                var tokens = str.split(" ")
+                canId.value = Number(tokens[1])
+                startAtBoot.checked = Number(tokens[2])
+                logRate.realValue = Number(tokens[3])
+                gnssLog.checked = Number(tokens[4])
+                localLog.checked = Number(tokens[5])
+                canLog.checked = Number(tokens[6])
+                bmsLog.checked = Number(tokens[7])
+            } else {
+                VescIf.emitStatusMessage(str, true)
+            }
+        }
+    }
+    
+    Dialog {
+        id: commDialog
+        title: "Processing..."
+        closePolicy: Popup.NoAutoClose
+        modal: true
+        focus: true
+        
+        width: parent.width - 20
+        x: 10
+        y: parent.height / 2 - height / 2
+        parent: container
+        
+        ProgressBar {
+            anchors.fill: parent
+            indeterminate: visible
         }
     }
 }
