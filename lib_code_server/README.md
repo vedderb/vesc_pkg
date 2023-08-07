@@ -1,6 +1,6 @@
 # Code Server
 
-This library can be used for remote code execution over CAN-bus. The result of the code is sent back to the sender and a timeout can also be specified.
+This library can be used for remote code execution over CAN-bus. The result of the code is sent back to the sender and a timeout can also be specified. This library requires firmware 6.05 or later.
 
 ## Functions
 
@@ -10,7 +10,7 @@ This library can be used for remote code execution over CAN-bus. The result of t
 (start-code-server)
 ```
 
-Start code server on local device.
+Start code server on local device. Note that a CAN-device can be a client and a server at the same time.
 
 ### rcode-run
 
@@ -18,7 +18,7 @@ Start code server on local device.
 (rcode-run id tout code)
 ```
 
-Run code on CAN-device with id. A timeout in seconds can be specified in which returns the symbol timeout of the CAN-device does not respond. Note that start-code-server has to be used on the CAN-device for it to respond. Also note that a CAN-device can be a client and a server at the same time.
+Run code on CAN-device with id. A timeout in seconds can be specified, which makes this function return the symbol timeout if the CAN-device does not respond. Note that start-code-server has to be used on the CAN-device for it to respond. Also note that the symbol eerror is returned if the code results in an error on the server.
 
 ### rcode-run-noret
 
@@ -45,6 +45,6 @@ Same as above, but does not wait for a response (fire and forget).
 (import "pkg@://vesc_packages/lib_code_server/code_server.vescpkg" 'code-server)
 (read-eval-program code-server)
 
-; Assume client has CAN-ID 26
+; Assume server has CAN-ID 26
 (print (list "Input Voltage" (rcode-run 26 0.5 '(get-vin))))
 ```
