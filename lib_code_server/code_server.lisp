@@ -1,4 +1,4 @@
-@const-symbol-strings
+;@const-symbol-strings
 @const-start
 
 (defun code-server-worker (parent)
@@ -20,9 +20,10 @@
                 (var respawn true)
                 
                 (loopwhile t {
-                        (if respawn
-                            (spawn-trap "CodeSrv" code-server-worker (self))
-                        )
+                        (if respawn {
+                                (spawn-trap "CodeSrv" code-server-worker (self))
+                                (setq respawn false)
+                        })
                         
                         (recv
                             ((exit-error (? tid) (? v)) {
@@ -33,7 +34,6 @@
                             })
                             
                             ((can-id (? id)) {
-                                    (setq respawn false)
                                     (setq last-id id)
                             })
                         )
