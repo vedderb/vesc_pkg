@@ -588,7 +588,8 @@ static void check_odometer(data *d)
 {
 	// Make odometer persistent if we've gone 200m or more
 	if (d->odometer_dirty > 0) {
-		if (VESC_IF->mc_get_odometer() > d->odometer + 200) {
+		float stored_odo = VESC_IF->mc_get_odometer();
+		if ((stored_odo > d->odometer + 200) || (stored_odo < d->odometer - 10000)) {
 			if (d->odometer_dirty == 1) {
 				// Wait 10 seconds before writing to avoid writing if immediately continuing to ride
 				d->odo_timer = d->current_time;
