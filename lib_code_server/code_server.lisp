@@ -3,13 +3,13 @@
 
 (defun code-server-worker (parent)
     (loopwhile t {
-            (var rx (unflatten (rmsg-wait 0 -1)))
+            (var rx (unflatten (canmsg-recv 0 -1)))
             (var id (first rx))
             
             (send parent (list 'can-id id))
             
             (if (>= id 0)
-                (rmsg-send-can id 1 (flatten (eval (second rx))))
+                (canmsg-send id 1 (flatten (eval (second rx))))
                 (eval (second rx))
             )
 }))
@@ -29,7 +29,7 @@
                             ((exit-error (? tid) (? v)) {
                                     (setq respawn true)
                                     (if (>= last-id 0)
-                                        (rmsg-send-can last-id 1 (flatten 'eerror))
+                                        (canmsg-send last-id 1 (flatten 'eerror))
                                     )
                             })
                             
@@ -41,15 +41,15 @@
 })))
 
 (defun rcode-run (id tout code) {
-        (rmsg-send-can id 0 (flatten (list (can-local-id) code)))
-        (match (rmsg-wait 1 tout)
+        (canmsg-send id 0 (flatten (list (can-local-id) code)))
+        (match (canmsg-recv 1 tout)
             (timeout timeout)
             ((? a) (unflatten a))
         )
 })
 
 (defun rcode-run-noret (id code) {
-        (rmsg-send-can id 0 (flatten (list -1 code)))
+        (canmsg-send id 0 (flatten (list -1 code)))
 })
 
  @const-end
