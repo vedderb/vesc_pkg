@@ -32,6 +32,9 @@
 // Acceleration average
 #define ACCEL_ARRAY_SIZE 40
 
+// ADC Hand-Press Scale Factor (Accomdate lighter presses than what's needed for engagement by foot)
+#define ADC_HAND_PRESS_SCALE 0.8
+
 HEADER
 
 // Return the sign of the argument. -1.0 if negative, 1.0 if zero or positive.
@@ -207,8 +210,10 @@ typedef struct {
 	bool enable_upside_down;		// dark ride mode is enabled (10 seconds after fault)
 	float delay_upside_down_fault;
 	float darkride_setpoint_correction;
+
+	// Feature: Flywheel
 	bool is_flywheel_mode, flywheel_abort, flywheel_allow_abort;
-	float flywheel_pitch_offset, flywheel_roll_offset, flywheel_konami_timer;
+	float flywheel_pitch_offset, flywheel_roll_offset, flywheel_konami_timer, flywheel_konami_pitch;
 	int flywheel_konami_state;
 
 	// Feature: Handtest
@@ -249,6 +254,8 @@ static void brake(data *d);
 static void set_current(data *d, float current);
 static void flywheel_stop(data *d);
 static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len);
+static bool flywheel_konami_check(data *d);
+static bool flywheel_konami_step(data *d, int input);
 
 /**
  * BUZZER / BEEPER on Servo Pin
@@ -479,6 +486,8 @@ static void configure(data *d) {
 	d->enable_upside_down = false;
 	d->is_upside_down = false;
 	d->darkride_setpoint_correction = d->float_conf.dark_pitch_offset;
+
+	// Feature: Flywheel
 	d->is_flywheel_mode = false;
 	d->flywheel_abort = false;
 	d->flywheel_allow_abort = false;
@@ -849,9 +858,9 @@ static bool check_faults(data *d){
 			}
 		}
 
-		if(d->is_flywheel_mode && d->flywheel_allow_abort) {
-			if(d->adc1 > (d->float_conf.fault_adc1 * 0.8) || d->adc2 > (d->float_conf.fault_adc2 * 0.8)) {
-				// this is a hand-press, accept 80% of normal ADC threshold to turn it off board
+		if (d->is_flywheel_mode && d->flywheel_allow_abort) {
+			if (d->adc1 > (d->float_conf.fault_adc1 * ADC_HAND_PRESS_SCALE)
+			    && d->adc2 > (d->float_conf.fault_adc2 * ADC_HAND_PRESS_SCALE)) {
 				d->state = FAULT_SWITCH_HALF;
 				d->flywheel_abort = true;
 				return true;
@@ -2072,22 +2081,11 @@ static void float_thd(void *arg) {
 					break;
 				}
 			}
-			if(!d->is_flywheel_mode && d->flywheel_konami_state == 0 && d->true_pitch_angle > 75 && d->true_pitch_angle < 105 && d->adc1 > 1 && d->adc2 < 1){
-				d->flywheel_konami_state = 1;
-				d->flywheel_konami_timer = d->current_time;
-			}else if(!d->is_flywheel_mode && d->flywheel_konami_state == 1 && d->true_pitch_angle > 75 && d->true_pitch_angle < 105 && d->adc1 < 1 && d->adc2 > 1){
-				d->flywheel_konami_state = 2;
-				d->flywheel_konami_timer = d->current_time;
-			}else if(!d->is_flywheel_mode && d->flywheel_konami_state == 2 && d->true_pitch_angle > 75 && d->true_pitch_angle < 105 && d->adc1 > 1 && d->adc2 < 1){
-				d->flywheel_konami_state = 3;
-				d->flywheel_konami_timer = d->current_time;
-			}else if(!d->is_flywheel_mode && d->flywheel_konami_state == 3 && d->true_pitch_angle > 75 && d->true_pitch_angle < 105 && d->adc1 < 1 && d->adc2 > 1){
-				d->flywheel_konami_state = 4;
-				d->flywheel_konami_timer = d->current_time;
-				unsigned char enabled[6] = {0x82, 0, 0, 0, 0, 1};
-				cmd_flywheel_toggle(d, enabled, 6);
-			}else if(d->current_time - d->flywheel_konami_timer > 1.0){
-				d->flywheel_konami_state = 0;
+			else {
+				if (flywheel_konami_check(d)) {
+					unsigned char enabled[6] = {0x82, 0, 0, 0, 0, 1};
+					cmd_flywheel_toggle(d, enabled, 6);
+				}
 			}
 
 			if (d->current_time - d->disengage_timer > 10) {
@@ -2965,6 +2963,78 @@ void flywheel_stop(data *d)
 	VESC_IF->set_cfg_float(CFG_PARAM_l_max_erpm + 100, 30000);
 	read_cfg_from_eeprom(d);
 	configure(d);
+}
+
+bool flywheel_konami_check(data *d)
+{
+	if ((d->flywheel_konami_state == 0) && flywheel_konami_step(d, 1)) { // LEFT
+		d->flywheel_konami_state = 1;
+		d->flywheel_konami_timer = d->current_time;
+		d->flywheel_konami_pitch = d->true_pitch_angle;
+	} else if ((d->flywheel_konami_state == 1) && flywheel_konami_step(d, 0)) { // _
+		d->flywheel_konami_state = 2;
+		d->flywheel_konami_timer = d->current_time;
+	} else if ((d->flywheel_konami_state == 2) && flywheel_konami_step(d, 2)) { // RIGHT
+		d->flywheel_konami_state = 3;
+		d->flywheel_konami_timer = d->current_time;
+	} else if ((d->flywheel_konami_state == 3) && flywheel_konami_step(d, 0)) { // _
+		d->flywheel_konami_state = 4;
+		d->flywheel_konami_timer = d->current_time;
+	} else if ((d->flywheel_konami_state == 4) && flywheel_konami_step(d, 1)) { // LEFT
+		d->flywheel_konami_state = 5;
+		d->flywheel_konami_timer = d->current_time;
+	} else if ((d->flywheel_konami_state == 5) && flywheel_konami_step(d, 0)) { // _
+		d->flywheel_konami_state = 6;
+		d->flywheel_konami_timer = d->current_time;
+	} else if ((d->flywheel_konami_state == 6) && flywheel_konami_step(d, 2)) { // RIGHT (ENABLE FLYWHEEL)
+		d->flywheel_konami_state = 7;
+		d->flywheel_konami_timer = d->current_time;
+		return true;
+	} else if (// Timeout:
+		   (d->current_time - d->flywheel_konami_timer > 0.5) ||
+		   // Right Press when expecting Left:
+		   ((d->flywheel_konami_state == 4) && flywheel_konami_step(d, 2)) ||
+		   // Left Press when expecting Right:
+		   (((d->flywheel_konami_state == 2) || (d->flywheel_konami_state == 6)) && flywheel_konami_step(d, 1)) ||
+		   // Double Press when expecting None:
+		   (((d->flywheel_konami_state == 1) || (d->flywheel_konami_state == 3) || (d->flywheel_konami_state == 5)) && flywheel_konami_step(d, 3))) {
+
+		d->flywheel_konami_state = 0;
+	}
+	return false;
+}
+
+bool flywheel_konami_step(data *d, int input)
+{
+	float fault_adc1 = d->float_conf.fault_adc1 * ADC_HAND_PRESS_SCALE;
+	float fault_adc2 = d->float_conf.fault_adc2 * ADC_HAND_PRESS_SCALE;
+	if((!d->is_flywheel_mode) && (d->true_pitch_angle > 75) && (d->true_pitch_angle < 105) && // Check that Flywheel is inactive and board is within reasonable pitch range
+	   ((d->flywheel_konami_state == 0) || (fabsf(d->true_pitch_angle - d->flywheel_konami_pitch) < 2.5)))
+	{
+		switch(input) {
+		case 1: // ADC 1 Pressed
+			if ((d->adc1 > fault_adc1) && (d->adc2 < fault_adc2)) {
+				return true;
+			}
+			break;
+		case 2: // ADC 2 Pressed
+			if ((d->adc1 < fault_adc1) && (d->adc2 > fault_adc2)) {
+				return true;
+			}
+			break;
+		case 3: // ADC 1 + 2 Pressed
+			if ((d->adc1 > fault_adc1) && (d->adc2 > fault_adc2)) {
+				return true;
+			}
+			break;
+		default: // No ADC Pressed
+			if ((d->adc1 < fault_adc1) && (d->adc2 < fault_adc2)) {
+				return true;
+			}
+			break;
+		}
+	}
+	return false; // Reached if any conditions along the way are failed
 }
 
 // Handler for incoming app commands
