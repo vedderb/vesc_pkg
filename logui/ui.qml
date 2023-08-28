@@ -205,6 +205,9 @@ Item {
                 localLog.checked = Number(tokens[5])
                 canLog.checked = Number(tokens[6])
                 bmsLog.checked = Number(tokens[7])
+            } else if (str.startsWith("msg ")) {
+                var msg = str.substring(4)
+                VescIf.emitMessageDialog("Logger", msg, false, false)
             } else {
                 VescIf.emitStatusMessage(str, true)
             }

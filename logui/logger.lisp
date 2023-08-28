@@ -170,19 +170,24 @@
                     (if log-bms (bmslist-create) ())
         )))
         
-        (log-configure id loglist)
-        
-        (log-start
-            id ; CAN id
-            (length loglist) ; Field num
-            rate ; Rate Hz
-            true ; Append time
-            append-gnss ; Append gnss
-        )
-
-        (def log-running true)
-        (def log-thd-id (spawn log-thd id rate loglist))
-        (send-data "Log Started")
+        (if (eq loglist nil)
+            (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
+            
+            (progn
+                (log-configure id loglist)
+                
+                (log-start
+                    id ; CAN id
+                    (length loglist) ; Field num
+                    rate ; Rate Hz
+                    true ; Append time
+                    append-gnss ; Append gnss
+                )
+                
+                (def log-running true)
+                (def log-thd-id (spawn log-thd id rate loglist))
+                (send-data "Log Started")
+        ))
 ))
 
 (defun stop-log (id)
@@ -225,7 +230,10 @@
 (defun vin-hw ()
     (if is-esc
         (get-vin)
-        (canget-vin (first (can-list-devs)))
+        (if (can-list-devs)
+            (canget-vin (first (can-list-devs)))
+            20.0
+        )
 ))
 
 ; Voltage monitor thread that stops logging if the voltage drops too low
@@ -306,6 +314,10 @@
             (if (read-setting 'log-can) "1 " "0 ")
             (if (read-setting 'log-bms) "1 " "0 ")
 )))
+
+(defun send-msg (text)
+    (send-data (str-merge "msg " text))
+)
 
 ; Restore settings if version number does not match
 ; as that probably means something else is in eeprom
