@@ -43,11 +43,11 @@
         (= (bufget-u8 pn532-readybuf 0) 1)
 })
 
-(defun pn532-waitready (timeout) {
+(defun pn532-waitready (tout) {
         (var start (systime))
         (loopwhile t {
                 (if (pn532-isready) (break true))
-                (if (> (secs-since start) timeout) (break false))
+                (if (> (secs-since start) tout) (break false))
                 (sleep 0.05)
         })
 })
@@ -56,13 +56,13 @@
         (eq (pn532-read 6) '(0x00 0x00 0xff 0x00 0xff 0x00))
 })
 
-(defunret pn532-cmd-check-ack (cmd timeout) {
+(defunret pn532-cmd-check-ack (cmd tout) {
         (pn532-cmd cmd)
         (sleep 0.001)
-        (if (not (pn532-waitready timeout)) (return false))
+        (if (not (pn532-waitready tout)) (return false))
         (if (not (pn532-readack)) (return false))
         (sleep 0.001)
-        (pn532-waitready timeout)
+        (pn532-waitready tout)
 })
 
 (defun pn532-read-fwversion ()
@@ -82,8 +82,8 @@
     false
 )
 
-(defun pn532-read-target-id (timeout)
-    (if (pn532-cmd-check-ack '(0x4A 1 0) timeout) {
+(defun pn532-read-target-id (tout)
+    (if (pn532-cmd-check-ack '(0x4A 1 0) tout) {
             (var data (pn532-read 20))
             (var uuid-len (ix data 12))
             (var uuid (map (fn (x) (ix data x)) (range 13 (+ 13 uuid-len))))
