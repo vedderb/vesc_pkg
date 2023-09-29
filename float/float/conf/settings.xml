@@ -2161,11 +2161,11 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>1.2</maxDouble>
-            <minDouble>1.2</minDouble>
+            <maxDouble>1.3</maxDouble>
+            <minDouble>1.3</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.2</valDouble>
+            <valDouble>1.3</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
