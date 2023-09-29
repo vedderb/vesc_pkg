@@ -662,25 +662,33 @@ static float get_setpoint_adjustment_step_size(data *d) {
 static SwitchState check_adcs(data *d) {
 	SwitchState sw_state;
 
+	float fault_adc1 = d->float_conf.fault_adc1;
+	float fault_adc2 = d->float_conf.fault_adc2;
+	if (d->is_flywheel_mode) {
+		// use local variables to avoid risk of VESC Tool writing settings!
+		fault_adc1 = 0;
+		fault_adc2 = 0;
+	}
+
 	// Calculate switch state from ADC values
-	if(d->float_conf.fault_adc1 == 0 && d->float_conf.fault_adc2 == 0){ // No Switch
+	if(fault_adc1 == 0 && fault_adc2 == 0){ // No Switch
 		sw_state = ON;
-	}else if(d->float_conf.fault_adc2 == 0){ // Single switch on ADC1
-		if(d->adc1 > d->float_conf.fault_adc1){
+	}else if(fault_adc2 == 0){ // Single switch on ADC1
+		if(d->adc1 > fault_adc1){
 			sw_state = ON;
 		} else {
 			sw_state = OFF;
 		}
-	}else if(d->float_conf.fault_adc1 == 0){ // Single switch on ADC2
-		if(d->adc2 > d->float_conf.fault_adc2){
+	}else if(fault_adc1 == 0){ // Single switch on ADC2
+		if(d->adc2 > fault_adc2){
 			sw_state = ON;
 		} else {
 			sw_state = OFF;
 		}
 	}else{ // Double switch
-		if(d->adc1 > d->float_conf.fault_adc1 && d->adc2 > d->float_conf.fault_adc2){
+		if(d->adc1 > fault_adc1 && d->adc2 > fault_adc2){
 			sw_state = ON;
-		}else if(d->adc1 > d->float_conf.fault_adc1 || d->adc2 > d->float_conf.fault_adc2){
+		}else if(d->adc1 > fault_adc1 || d->adc2 > fault_adc2){
 			// 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
 			bool is_simple_start = d->float_conf.startup_simplestart_enabled &&
 				(d->current_time - d->disengage_timer > 5);
@@ -842,8 +850,7 @@ static bool check_faults(data *d){
 		}
 
 		if(d->is_flywheel_mode && d->flywheel_allow_abort) {
-			//if(d->adc1 > (d->float_conf.fault_adc1 * 0.8) || d->adc2 > (d->float_conf.fault_adc2 * 0.8)) {
-			if(d->adc1 > 1 && d->adc2 > 1) {
+			if(d->adc1 > (d->float_conf.fault_adc1 * 0.8) || d->adc2 > (d->float_conf.fault_adc2 * 0.8)) {
 				// this is a hand-press, accept 80% of normal ADC threshold to turn it off board
 				d->state = FAULT_SWITCH_HALF;
 				d->flywheel_abort = true;
@@ -2885,8 +2892,6 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 		}
 		d->float_conf.fault_delay_pitch = 50; // 50ms delay should help filter out IMU noise
 		d->float_conf.fault_delay_roll = 50;  // 50ms delay should help filter out IMU noise
-		d->float_conf.fault_adc1 = 0;
-		d->float_conf.fault_adc2 = 0;
 		d->surge_enable = false;
 
 		// Aggressive P with some D (aka Rate-P) for Mahony kp=0.3
