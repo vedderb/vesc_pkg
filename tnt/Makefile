@@ -1,14 +1,14 @@
 VESC_TOOL ?= vesc_tool
 
-all: float.vescpkg
+all: tnt.vescpkg
 
-float.vescpkg: float README-pkg.md ui.qml
-	$(VESC_TOOL) --buildPkg "float.vescpkg:float.lisp:ui.qml:0:README-pkg.md:Float"
+tnt.vescpkg: tnt README-pkg.md ui.qml
+	$(VESC_TOOL) --buildPkg "tnt.vescpkg:tnt.lisp:ui.qml:0:README-pkg.md:Trick and Trails"
 
-float:
+tnt:
 	$(MAKE) -C $@
 
-VERSION=`grep APPCONF_FLOAT_VERSION float/conf/settings.xml -A10 | grep valDouble | tr -dc '[.[:digit:]]'`
+VERSION=`grep APPCONF_TNT_VERSION tnt/conf/settings.xml -A10 | grep valDouble | tr -dc '[.[:digit:]]'`
 
 README-pkg.md: README.md
 	cp README.md README-pkg.md
@@ -20,7 +20,7 @@ ui.qml: ui.qml.in
 	cat ui.qml.in | sed "s/{{VERSION}}/${VERSION}/g" > ui.qml
 
 clean:
-	rm -f float.vescpkg README-pkg.md ui.qml
-	$(MAKE) -C float clean
+	rm -f tnt.vescpkg README-pkg.md ui.qml
+	$(MAKE) -C tnt clean
 
-.PHONY: all clean float
+.PHONY: all clean tnt
