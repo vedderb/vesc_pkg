@@ -6,8 +6,8 @@ Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
 ### Features
- * Current output defined by a user input curve
- * Alternative proportional gain user input
+ * Current output defined by a series of points, input by the user
+ * Alternative proportional gain user inputs
  * Roll kp curves for acceleration and braking
  * Roll kp modification for low speeds
  * Surge
