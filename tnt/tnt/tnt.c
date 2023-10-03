@@ -1819,7 +1819,7 @@ static void send_realtime_data(data *d){
 	#define BUFSIZE 100
 	uint8_t send_buffer[BUFSIZE];
 	int32_t ind = 0;
-	send_buffer[ind++] = 666;//Magic Number
+	send_buffer[ind++] = 111;//Magic Number
 	send_buffer[ind++] = FLOAT_COMMAND_GET_RTDATA;
 
 	// RT Data
@@ -1873,7 +1873,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		}
 		return;
 	}
-	if (magicnr != 666) {
+	if (magicnr != 111) {
 		if (!VESC_IF->app_is_output_disabled()) {
 			VESC_IF->printf("Float App: Wrong magic number %d\n", magicnr);
 		}
@@ -1884,7 +1884,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		case FLOAT_COMMAND_GET_INFO: {
 			int32_t ind = 0;
 			uint8_t send_buffer[10];
-			send_buffer[ind++] = 666;	// magic nr.
+			send_buffer[ind++] = 111;	// magic nr.
 			send_buffer[ind++] = 0x0;	// command ID
 			send_buffer[ind++] = (uint8_t) (10 * APPCONF_TNT_VERSION);
 			send_buffer[ind++] = 1;
