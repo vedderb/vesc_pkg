@@ -72,7 +72,7 @@ Item {
             var buffer = new ArrayBuffer(2)
             var dv = new DataView(buffer)
             var ind = 0
-            dv.setUint8(ind, 666); ind += 1
+            dv.setUint8(ind, 111); ind += 1
             dv.setUint8(ind, 0x1); ind += 1
             mCommands.sendCustomAppData(buffer)
             
@@ -93,7 +93,7 @@ Item {
             var magicnr = dv.getUint8(ind); ind += 1;
             var msgtype = dv.getUint8(ind); ind += 1;
 
-            if (magicnr != 666) {
+            if (magicnr != 111) {
                 return;
             }
             if (msgtype == 1) {
