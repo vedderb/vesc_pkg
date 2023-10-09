@@ -1,5 +1,7 @@
 *.list
 *.vescpkg
+conf_default.h
+confparser.c
 confxml.c
 confxml.h
 
