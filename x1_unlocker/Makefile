@@ -1,4 +1,4 @@
-VESC_TOOL ?= C:\Users\X390\Drive\DEV_Design\VESC\build-vesc_tool-Desktop_Qt_5_15_2_MinGW_64_bit-Release\release\vesc_tool_6.05.exe
+VESC_TOOL ?= vesc_tool
 
 all: x1_unlocker.vescpkg
 
