@@ -200,6 +200,7 @@ typedef struct {
 	float erpmhist1[ERPM_ARRAY_SIZE1];
 	float erpmavg1;
 	int erpmidx1;
+	float direction;
 	
 	// Drop Detection
 	bool wheelslip_drop;
@@ -227,9 +228,18 @@ typedef struct {
 	float pitch[7];
 	float kp[7];
 	float current[7];
+	int brake_current_count;
+	float brakepitch[7];
+	float brakekp[7];
+	float brakecurrent[7];
+
+	// Dynamic Stability
+	float stabl;
+	float stabl_step_size;
 	
+
 	//Debug
-	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11;
+	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11, debug12;
 
 	// Log values
 	float float_setpoint, float_inputtilt;
@@ -393,6 +403,7 @@ static void configure(data *d) {
 	d->tiltback_return_step_size = d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
 	d->inputtilt_step_size = d->tnt_conf.inputtilt_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
+	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
 
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
@@ -480,7 +491,7 @@ static void configure(data *d) {
 		beep_alert(d, 1, false);
 	}
 
-	//initialize current and pitch arrays
+	//initialize current and pitch arrays for acceleration
 	d->pitch[0] = 0;
 	d->pitch[1] = d->tnt_conf.pitch1;
 	d->pitch[2] = d->tnt_conf.pitch2;
@@ -499,7 +510,7 @@ static void configure(data *d) {
 	d->current_count=0;
 	int i = 1;
 	while (i <= 6){
-		if (d->current[i]>d->current[i-1] && d->pitch[i]>d->pitch[i-1]) {
+		if (d->current[i]!=0 && d->pitch[i]>d->pitch[i-1]) {
 			d->current_count = i;
 			if (d->tnt_conf.pitch_kp_input) {
 				d->kp[i]=d->current[i];
@@ -514,6 +525,42 @@ static void configure(data *d) {
 		} else { d->kp[0] = d->tnt_conf.kp0; }
 	} else { d->kp[0] = d->tnt_conf.kp0; }
 
+	//initialize current and pitch arrays for braking
+	if (d->tnt_conf.brake_curve) {
+		d->brakepitch[0] = 0;
+		d->brakepitch[1] = d->tnt_conf.brakepitch1;
+		d->brakepitch[2] = d->tnt_conf.brakepitch2;
+		d->brakepitch[3] = d->tnt_conf.brakepitch3;
+		d->brakepitch[4] = d->tnt_conf.brakepitch4;
+		d->brakepitch[5] = d->tnt_conf.brakepitch5;
+		d->brakepitch[6] = d->tnt_conf.brakepitch6;
+		d->brakecurrent[0] = 0;
+		d->brakecurrent[1] = d->tnt_conf.brakecurrent1;
+		d->brakecurrent[2] = d->tnt_conf.brakecurrent2;
+		d->brakecurrent[3] = d->tnt_conf.brakecurrent3;
+		d->brakecurrent[4] = d->tnt_conf.brakecurrent4;
+		d->brakecurrent[5] = d->tnt_conf.brakecurrent5;
+		d->brakecurrent[6] = d->tnt_conf.brakecurrent6;
+		//Check for current inputs
+		d->brake_current_count=0;
+		int i = 1;
+		while (i <= 6){
+			if (d->brakecurrent[i]!=0 && d->brakepitch[i]>d->brakepitch[i-1]) {
+				d->brake_current_count = i;
+				if (d->tnt_conf.pitch_kp_input_brake) {
+					d->brakekp[i]=d->brakecurrent[i];
+				} else {d->brakekp[i]=d->brakecurrent[i]/d->brakepitch[i];}
+			} else { i=7; }
+			i++;
+		}
+		//Check kp0 for an appropriate value, prioritizing kp1
+		if (d->brake_current_count > 0) {
+			if (d->brakekp[1]<d->tnt_conf.brake_kp0) {
+				d->brakekp[0]= d->brakekp[1];
+			} else { d->brakekp[0] = d->tnt_conf.brake_kp0; }
+		} else { d->brakekp[0] = d->tnt_conf.brake_kp0; }
+	}
+	
 	//Check for roll inputs
 	if (d->tnt_conf.roll_kp1<d->tnt_conf.roll_kp2 && d->tnt_conf.roll1<d->tnt_conf.roll2) {
 		if (d->tnt_conf.roll_kp2<d->tnt_conf.roll_kp3 && d->tnt_conf.roll2<d->tnt_conf.roll3) {
@@ -532,47 +579,55 @@ static void configure(data *d) {
 }
 
 static void reset_vars(data *d) {
-	// Clear accumulated values.
-	d->last_proportional = 0;
-	d->prop_smooth = 0;
-	d->abs_prop_smooth = 0;
 	// Set values for startup
 	d->setpoint = d->pitch_angle;
 	d->setpoint_target_interpolated = d->pitch_angle;
 	d->setpoint_target = 0;
-	if (d->inputtilt_interpolated != d->stickytilt_val || !(VESC_IF->get_ppm_age() < 1)) { 	// Persistent sticky tilt value if we are at value with remote connected
-		d->inputtilt_interpolated = 0;			// Reset other values
-	}
 	d->setpointAdjustmentType = CENTERING;
 	d->state = RUNNING;
 	d->current_time = 0;
 	d->last_time = 0;
 	d->diff_time = 0;
 	d->brake_timeout = 0;
-	d->traction_control = false;
+	d->softstart_pid_limit = 0;
+	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
+	
+	//Input tilt/ Sticky tilt
+	d->atr_filtered_current = 0;
+	if (d->inputtilt_interpolated != d->stickytilt_val || !(VESC_IF->get_ppm_age() < 1)) { 	// Persistent sticky tilt value if we are at value with remote connected
+		d->inputtilt_interpolated = 0;			// Reset other values
+	}
+	biquad_reset1(&d->atr_current_biquad);
+	
+	//Control variables
 	d->pid_value = 0;
 	d->pid_mod = 0;
 	d->roll_pid_mod = 0;
-	d->softstart_pid_limit = 0;
-	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
-	d->atr_filtered_current = 0;
-	biquad_reset1(&d->atr_current_biquad);
-	biquad_reset2(&d->pitch_biquad);
 	
+	// Feature: click on start
+	d->start_counter_clicks = d->start_counter_clicks_max;
+	
+	// Traction Control
+	d->traction_control = false;
 	for (int i = 0; i < ACCEL_ARRAY_SIZE1; i++)
 		d->accelhist1[i] = 0;
 	d->accelidx1 = 0;
 	d->accelavg1 = 0;
-	
 	for (int i = 0; i < ERPM_ARRAY_SIZE1; i++)
 		d->erpmhist1[i] = 0;
 	d->erpmidx1 = 0;
 	d->erpmavg1 = 0;
-
-	// Feature: click on start
-	d->start_counter_clicks = d->start_counter_clicks_max;
+	d->direction = 0;
 	
-	//Kalman
+	// Surge
+	d->last_proportional = 0;
+	
+	//Low pass pitch filter
+	d->prop_smooth = 0;
+	d->abs_prop_smooth = 0;
+	biquad_reset2(&d->pitch_biquad);
+	
+	//Kalman filter
 	d->P00 = 0;
 	d->P01 = 0;
 	d->P10 = 0;
@@ -580,6 +635,9 @@ static void reset_vars(data *d) {
 	d->bias = 0;
 	d->pitch_smooth = d->pitch_angle;
 	d->pitch_smooth_kalman = d->pitch_angle;
+
+	//Stability
+	d->stabl = 0;
 }
 
 
@@ -983,7 +1041,9 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		d->inputtilt_interpolated += d->inputtilt_step_size * SIGN(input_tiltback_target_diff);
 	}
 	}
-	d->setpoint += d->inputtilt_interpolated;
+	if (!d->tnt_conf.enable_throttle_stability) {
+		d->setpoint += d->inputtilt_interpolated;
+	}
 }
 
 static void brake(data *d) {
@@ -1079,15 +1139,22 @@ static void check_surge(data *d, float new_pid_value){
 
 static void check_traction(data *d){
 	float wheelslip_erpmfactor = d->tnt_conf.wheelslip_scaleaccel - fminf(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
+	bool erpm_check;
+
+	d->direction = 0.999 * d->direction + (1-0.999) * SIGN(d->erpm);
 	
 	int last_accelidx1 = d->accelidx1 - 1; // Identify the last cycles accel
 	if (d->accelidx1 == 0) {
 		last_accelidx1 = ACCEL_ARRAY_SIZE1 - 1;
 	}
 	
-	int last_erpmidx = d->erpmidx1 + 2; // Identify ERPM from array size cycles ago, +1 in case we nned the extra cycle
-	if (d->erpmidx1 > ERPM_ARRAY_SIZE1 - 1) {
-		last_erpmidx = 0;
+	int last_erpmidx = d->erpmidx1 -10; // Identify ERPM at the start of the acceleration array
+	if (last_erpmidx < 0) {
+		last_erpmidx += ERPM_ARRAY_SIZE1;
+	}
+	int current_erpmidx = d->erpmidx1 -1;
+	if (current_erpmidx < 0) {
+		current_erpmidx += ERPM_ARRAY_SIZE1;
 	}
 	
 	// Conditons to end traction control
@@ -1143,31 +1210,30 @@ static void check_traction(data *d){
 					d->debug8 = d->accelavg1;		
 				}
 			}
-			//This section determines if the wheel has changed directions
-			if (d->state == RUNNING_WHEELSLIP) { // skip this if we are already out of wheelslip to preserve debug values
-				if (SIGN(d->wheelslip_lasterpm)!=SIGN(d->wheelslip_erpm) && SIGN(d->erpm)==SIGN(d->wheelslip_lasterpm)) {		
-					//If the wheel slipped into reverse while braking, end wheelslip once the wheel is spinning in the right direction again
-					d->state = RUNNING;
-					d->wheelslip_timeroff = d->current_time;
-					d->debug4 = 3333;
-					d->debug8 = d->erpm;		
-				}
-			}
 		}
 	}	
-	
+	if (SIGN(d->erpmhist1[current_erpmidx]) == SIGN(d->erpmhist1[last_erpmidx])) { // We check sign to make sure erpm is increasing or has changed direction. 
+		if (d->erpmhist1[current_erpmidx] > d-> erpmhist1[last_erpmidx]) {
+			erpm_check = true;
+		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
+	} else if (SIGN(d->direction) != SIGN(d->accelavg1)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+		erpm_check = true;
+	} else {erpm_check = false;}
+		
+		
 	// Initiate traction control
 	if ((SIGN(d->motor_current) * d->accelavg1 > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (d->state != RUNNING_WHEELSLIP) &&									// Not in traction control
 	   (SIGN(d->motor_current) == SIGN(d->accelhist1[d->accelidx1])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
-	   (SIGN(d->proportional) == SIGN(d->erpm)) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
-	   (d->current_time - d->wheelslip_timeroff > .2)) {						// Did not recently wheel slip.
+	   (SIGN(d->proportional) == SIGN(d->erpmhist1[current_erpmidx])) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
+	   (d->current_time - d->wheelslip_timeroff > .2) && 						// Did not recently wheel slip.
+	   (erpm_check)) {
 		d->state = RUNNING_WHEELSLIP;
 		d->wheelslip_accelstartval = d->accelavg1;
 		d->wheelslip_highaccelon1 = true; 	
 		d->wheelslip_highaccelon2 = true; 	
 		d->wheelslip_timeron = d->current_time;
-		d->wheelslip_erpm = d->erpm;
+		d->wheelslip_erpm = d->erpmhist1[current_erpmidx];
 		d->wheelslip_lasterpm = d->erpmhist1[last_erpmidx];
 		d->debug6 = d->accelavg1;
 		d->debug3 = d->erpmhist1[last_erpmidx];
@@ -1175,7 +1241,7 @@ static void check_traction(data *d){
 		d->debug2 = wheelslip_erpmfactor;
 		d->debug4 = 0;
 		d->debug8 = 0;
-		d->debug9 = d->erpm;
+		d->debug9 = d->erpmhist1[current_erpmidx];
 	}
 }
 
@@ -1221,7 +1287,7 @@ static void apply_rollkp(data *d, float new_pid_value){
 
 	//Determine the correct kp to use based on abs_roll_angle
 	if (SIGN(d->proportional) != SIGN(d->erpm)) { //Braking
-		if (d->abs_roll_angle > d->tnt_conf.brkroll3  && d->brkroll_count==3) {
+		if (d->abs_roll_angle > d->tnt_conf.brkroll3 && d->brkroll_count==3) {
 			kp_min = d->tnt_conf.brkroll_kp3;
 			kp_max = d->tnt_conf.brkroll_kp3;
 			scale_angle_min = d->tnt_conf.brkroll3;
@@ -1251,12 +1317,12 @@ static void apply_rollkp(data *d, float new_pid_value){
 			erpmscale = 0;
 		}
 	} else { //Accelerating
-		if (d->abs_roll_angle > d->tnt_conf.roll3  && d->roll_count == 3) {
+		if (d->abs_roll_angle > d->tnt_conf.roll3 && d->roll_count == 3) {
 			kp_min = d->tnt_conf.roll_kp3;
 			kp_max = d->tnt_conf.roll_kp3;
 			scale_angle_min = d->tnt_conf.roll3;
 			scale_angle_max = 90;
-		} else if (d->abs_roll_angle > d->tnt_conf.roll2  && d->roll_count>=2) {
+		} else if (d->abs_roll_angle > d->tnt_conf.roll2 && d->roll_count>=2) {
 			kp_min = d->tnt_conf.roll_kp2;
 			scale_angle_min = d->tnt_conf.roll2;
 			if (d->roll_count==3) {
@@ -1367,6 +1433,63 @@ static float select_kp(data *d) {
 	}
 	d->debug10 = kp_mod;
 	return kp_mod;
+}
+
+static float select_kp_brake(data *d) {
+	float kp_mod = 0;
+	float kp_min = 0;
+	float scale_angle_min = 0;
+	float scale_angle_max = 1;
+	float kp_max = 0;
+	int i = d->brake_current_count;
+	//Determine the correct current to use based on d->prop_smooth
+	while (i >= 0) {
+		if (d->abs_prop_smooth>= d->brakepitch[i]) {
+			kp_min = d->brakekp[i];
+			scale_angle_min = d->brakepitch[i];
+			if (i == d->brake_current_count) { //if we are at the highest current only use highest kp
+				kp_max = d->brakekp[i];
+				scale_angle_max = 90;
+			} else {
+				kp_max = d->brakekp[i+1];
+				scale_angle_max = d->brakepitch[i+1];
+			}
+			i=-1;
+		}
+		i--;
+	}
+	
+	if (d->brake_current_count == 0) { //If no currents 
+		if (d->brakekp[0]==0) {
+			kp_mod = 5; //If no kp use 5
+		} else { kp_mod = d->brakekp[0]; }
+	} else { //Scale the kp values according to d->prop_smooth
+		kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * d->abs_prop_smooth			//linear scaling mx
+				+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
+	}
+	d->debug10 = -kp_mod; //negative to indicate braking on AppUI
+	return kp_mod;
+}
+
+static void apply_stability(data *d) {
+	float speed_stabl_mod = 0;
+	float throttle_stabl_mod = 0;	
+	float stabl_mod = 0;
+	if (d->tnt_conf.enable_throttle_stability) {
+		throttle_stabl_mod = fabsf(d->inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; //using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
+	}
+	if (d->tnt_conf.enable_speed_stability && d->erpm > d->tnt_conf.stabl_min_erpm) {		
+		speed_stabl_mod = fminf(1 ,	// Do not exceed the max value. Divided by 100 for percentage.					
+				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->erpm				//linear scaling mx
+				+ (1 - ((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->tnt_conf.stabl_max_erpm) 	//+b
+				);
+	}
+	stabl_mod = fmaxf(speed_stabl_mod,throttle_stabl_mod);
+	if (d->stabl > stabl_mod) {
+		d->stabl = fmaxf(d->stabl - d->stabl_step_size, 0); //ramp stifness down but not below zero. Ramp is a percentage of max scale
+	} else if (d->stabl < stabl_mod) {
+		d->stabl = fminf(d->stabl + d->stabl_step_size, stabl_mod); //ramp stability up but do not exceed stabl_mod
+	}
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
@@ -1533,27 +1656,38 @@ static void tnt_thd(void *arg) {
 			d->setpoint = d->setpoint_target_interpolated;
 			apply_inputtilt(d); 
 			apply_noseangling(d);
-
+			if (d->tnt_conf.enable_speed_stability || d->tnt_conf.enable_throttle_stability) {
+				apply_stability(d);
+			}
 			// Do PID maths
 			d->proportional = d->setpoint - d->pitch_angle;
 			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			d->differential = d->proportional - d->last_proportional;
-			new_pid_value = select_kp(d)*d->proportional;
+			if (d->tnt_conf.brake_curve && SIGN(d->proportional) != SIGN(d->erpm)) { 	//If braking and user allows braking curve
+				new_pid_value = select_kp_brake(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
+			} else {new_pid_value = select_kp(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
+			d->last_proportional = d->proportional; 
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
 				// Rate P
 				float rate_prop = -d->gyro[1];
-				d->pid_mod = d->tnt_conf.kp_rate * rate_prop;
+				if (d->tnt_conf.brake_curve && SIGN(d->proportional) != SIGN(d->erpm)) { 	//If braking and user allows braking curve
+					d->pid_mod = d->tnt_conf.brakekp_rate * rate_prop*(1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100);			// Use separate braking function
+					d->debug12 = -d->tnt_conf.brakekp_rate * d->stabl*d->tnt_conf.stabl_rate_max_scale/100;					// negative for braking
+				} else {
+					d->pid_mod = d->tnt_conf.kp_rate * rate_prop*(1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100); 			// Else use normal function
+					d->debug12 = d->tnt_conf.kp_rate * d->stabl*d->tnt_conf.stabl_rate_max_scale/100;
+				}				
 				
 				// Apply Turn Boost
-				if (d->roll_count > 0) {
+				if (d->roll_count > 0 || d->brkroll_count > 0) {
 					apply_rollkp(d, new_pid_value);
 					d->pid_mod += d->roll_pid_mod;
 				}
-				
+
 				if (d->softstart_pid_limit < d->mc_current_max) {
 					d->pid_mod = fminf(fabs(d->pid_mod), d->softstart_pid_limit) * SIGN(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
@@ -1600,7 +1734,6 @@ static void tnt_thd(void *arg) {
 			check_surge(d, new_pid_value);
 			}
 						
-			d->last_proportional = d->proportional; // Moved here so turn boost can use last prop
 			d->last_erpm = d->erpm; //moved here so last erpm can be used in traction control
 				
 			// PID value application
@@ -1615,7 +1748,7 @@ static void tnt_thd(void *arg) {
 				}
 			}
 			else {
-				d->pid_value = d->pid_value * 0.8 + new_pid_value * 0.2; // Normal application of PID current control
+				d->pid_value = new_pid_value; //d->pid_value * 0.8 + new_pid_value * 0.2; // Normal application of PID current control
 			}
 
 			// Output to motor
@@ -1651,11 +1784,13 @@ static void tnt_thd(void *arg) {
 						d->idle_voltage = input_voltage;
 					}
 					else {
-						beep_alert(d, 2, 1);						// 2 long beeps
+						//if (d->current_time - d->disengage_timer < 5400) { 		// stop alerting after 1 hour
+							beep_alert(d, 2, 1);					// 2 long beeps
+						//	set_current(d, d->tnt_conf.startup_click_current);	// Startup click
+						//}
 					}
 				}
-			}
-			else {
+			} else {
 				d->nag_timer = d->current_time;
 				d->idle_voltage = 0;
 			}
@@ -1830,6 +1965,8 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->debug10, &ind); // scaled angle P
 	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind); // current
+	buffer_append_float32_auto(send_buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
+	buffer_append_float32_auto(send_buffer, d->debug12, &ind); // added stability rate P
 	
 	send_buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
 	send_buffer[ind++] = d->switch_state;
@@ -1838,16 +1975,13 @@ static void send_realtime_data(data *d){
 
 	buffer_append_float32_auto(send_buffer, d->float_setpoint, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
+	buffer_append_float32_auto(send_buffer, d->stabl, &ind);
 	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
 	
 	// DEBUG
 	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
 	buffer_append_float32_auto(send_buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
-	
 	buffer_append_float32_auto(send_buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(send_buffer, d->wheelslip_timeroff - d->wheelslip_timeron , &ind); //Temporary debug. Duration last wheelslip
-	buffer_append_float32_auto(send_buffer, d->debug1, &ind); //Temporary debug. Time until start accel reversed
-	buffer_append_float32_auto(send_buffer, d->debug7, &ind); //Temporary debug. Time until start accel reduced	
 	buffer_append_float32_auto(send_buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
 	buffer_append_float32_auto(send_buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
 	buffer_append_float32_auto(send_buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
