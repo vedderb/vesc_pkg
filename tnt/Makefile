@@ -3,7 +3,7 @@ VESC_TOOL ?= vesc_tool
 all: tnt.vescpkg
 
 tnt.vescpkg: tnt README-pkg.md ui.qml
-	$(VESC_TOOL) --buildPkg "tnt.vescpkg:tnt.lisp:ui.qml:0:README-pkg.md:Trick and Trails"
+	$(VESC_TOOL) --buildPkg "tnt.vescpkg:tnt.lisp:ui.qml:0:README-pkg.md:Trick and Trail"
 
 tnt:
 	$(MAKE) -C $@
