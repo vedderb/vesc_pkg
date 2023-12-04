@@ -102,8 +102,11 @@ Item {
                 var smoothpitch = dv.getFloat32(ind); ind += 4;
                 var pitch = dv.getFloat32(ind); ind += 4;
                 var roll = dv.getFloat32(ind); ind += 4;
-                var scaledkp = dv.getFloat32(ind); ind += 4;
+                var basekp = dv.getFloat32(ind); ind += 4;
                 var current = dv.getFloat32(ind); ind += 4;
+                var stablkp = dv.getFloat32(ind); ind += 4;
+                var stablkprate = dv.getFloat32(ind); ind += 4;
+                
                 var state = dv.getInt8(ind); ind += 1;
                 var setpointAdjustmentType = state >> 4;
                 state = state &0xF;
@@ -113,15 +116,12 @@ Item {
 
                 var float_setpoint = dv.getFloat32(ind); ind += 4;
                 var float_inputtilt = dv.getFloat32(ind); ind += 4;
+                var stabl = dv.getFloat32(ind); ind += 4;
                 var throttle_val = dv.getFloat32(ind); ind += 4;
                
                 var surge_lasttime = dv.getFloat32(ind); ind += 4;
                 var surge_lastcycle = dv.getFloat32(ind); ind += 4;
-                
-                var lastwheelslip = dv.getFloat32(ind); ind += 4;
-                var durwheelslip = dv.getFloat32(ind); ind += 4;
-                var startaccel1 = dv.getFloat32(ind); ind += 4;
-                var startaccel2 = dv.getFloat32(ind); ind += 4;
+                var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var erpmfactor = dv.getFloat32(ind); ind += 4;                
                 var wheelslipstart = dv.getFloat32(ind); ind += 4;
                 var wheelsliplasterpm = dv.getFloat32(ind); ind += 4;
@@ -207,7 +207,7 @@ Item {
                     switchString = "Enable in TNT Cfg: Specs"
                     rt_state.text = "TNT Package is Disabled\n\n" +
                                     "You can re-enable it in\nTNT Cfg: Specs\n\n"
-                    rt_data.text = "-- n/a --"
+                    tune.text = "-- n/a --"
                     setpoints.text = "-- n/a --"
                     debug.text = "-- n/a --"
                 }
@@ -215,29 +215,29 @@ Item {
                 rt_state.text =
                     "State               : " + stateString + "\n" +
                     "Switch              : " + switchString + "\n" +
-                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n"    
-
-                rt_data.text =
+                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
                     "Voltage             : " + voltage.toFixed(1) + "V\n" +
-                    "Current             : " + current.toFixed(0) + " A\n" +
+                    "Current             : " + current.toFixed(0) + " A\n" 
+                
+                tune.text =
                     "Pitch               : " + pitch.toFixed(2) + "°\n" +
                     "Smooth Pitch        : " + smoothpitch.toFixed(2) + "°\n" +
-                    "Effective Pitch Kp  : " + scaledkp.toFixed(0) + " \n" +
+                    "Base Pitch Kp       : " + basekp.toFixed(0) + " \n" +         
+                    "Stability Kp        : " + stablkp.toFixed(0) + " \n" + 
+                    "Stability Rate Kp   : " + stablkprate.toFixed(2) + " \n" +
                     "Roll                : " + roll.toFixed(2) + "°\n" +
-                    "Roll Kp             : " + rollkp.toFixed(2) + "\n" +
-                    "Last Surge Time     : " + surge_lasttime.toFixed(0) + " s\n" +
-                    "Last Surge Duration : " + surge_lastcycle.toFixed(3) + " s\n" +
-                    "Last Wheelslip Time : " + lastwheelslip.toFixed(0) + " s \n" +
-                    "Wheelslip Duration  : " + durwheelslip.toFixed(3) + " s \n"   
-  
+                    "Roll Kp             : " + rollkp.toFixed(2) + "\n" 
+                    
                 setpoints.text =
+                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
                     "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
                     "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
-                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n"
+                    "Relative Stability  : " + (stabl * 100).toFixed(0) + "%\n" +
+                    "Last Surge Time     : " + surge_lasttime.toFixed(0) + " s\n" +
+                    "Last Surge Duration : " + surge_lastcycle.toFixed(3) + " s\n" +
+                    "Last Wheelslip Time : " + lastwheelslip.toFixed(0) + " s \n" 
                     
                 debug.text =
-                    "Time to ReverseAccel: " + startaccel1.toFixed(3) + " s \n" +  
-                    "Time to Reduce Accel: " + startaccel2.toFixed(3) + " s \n" +
                     "Start ERPM Factor   : " + erpmfactor.toFixed(1) + "\n" +  
                     "Wheelslip Start Acce: " + wheelslipstart.toFixed(1) + "\n" +
                     "Wheelslip ERPM      : " + wheelsliperpm.toFixed(0) + "\n" +
@@ -427,7 +427,7 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Trick n Trail App State"
+                            text: "Board State"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
@@ -448,13 +448,13 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Trick n Trail App RT Data"
+                            text: "Tune"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
                         }
                         Text {
-                            id: rt_data
+                            id: tune
                             color: Utility.getAppHexColor("lightText")
                             font.family: "DejaVu Sans Mono"
                             Layout.margins: 0
@@ -469,7 +469,7 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Setpoints"
+                            text: "Tune Modifiers"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
@@ -490,9 +490,10 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "DEBUG"
+                            text: "Wheelslip Debug"
                             font.underline: true
                             font.weight: Font.Black
+                            font.pointSize: 14
                         }
                         Text {
                             id: debug
@@ -509,7 +510,7 @@ Item {
 
             ColumnLayout { // Tunes Page
                 id: tunesColumn
-
+/*
                 Text {
                     id: floatQuicksaveHeader
                     color: Utility.getAppHexColor("lightText")
@@ -543,7 +544,7 @@ Item {
                         }
                     }
                 }
-
+*/
                 Text {
                     id: imuQuicksaveHeader
                     color: Utility.getAppHexColor("lightText")
@@ -574,7 +575,7 @@ Item {
                         }
                     }
                 }
-
+/*
                 RowLayout {
                     Layout.fillWidth: true
 
@@ -636,7 +637,7 @@ Item {
                         }
                     }
                 }
-
+*/
             }
                 
         }
@@ -899,5 +900,3 @@ Item {
     }
 
 }
-
-

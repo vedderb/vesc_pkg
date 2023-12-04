@@ -55,17 +55,17 @@
 
 // Pitch 4
 #ifndef APPCONF_TNT_PITCH4
-#define APPCONF_TNT_PITCH4 1.5
+#define APPCONF_TNT_PITCH4 4
 #endif
 
 // Pitch 5
 #ifndef APPCONF_TNT_PITCH5
-#define APPCONF_TNT_PITCH5 2
+#define APPCONF_TNT_PITCH5 5
 #endif
 
 // Pitch 6
 #ifndef APPCONF_TNT_PITCH6
-#define APPCONF_TNT_PITCH6 3
+#define APPCONF_TNT_PITCH6 6
 #endif
 
 // Enable Pitch Kp Input
@@ -78,7 +78,7 @@
 #define APPCONF_TNT_MAHONY_KP 2
 #endif
 
-// Kp Rate
+// Pitch Rate Kp
 #ifndef APPCONF_TNT_KP_RATE
 #define APPCONF_TNT_KP_RATE 0.4
 #endif
@@ -101,6 +101,86 @@
 // Kalman Factor 3
 #ifndef APPCONF_TNT_KALMAN3
 #define APPCONF_TNT_KALMAN3 0.5
+#endif
+
+// Enable Brake Curve
+#ifndef APPCONF_TNT_BRAKE_CURVE
+#define APPCONF_TNT_BRAKE_CURVE 0
+#endif
+
+// Brake Kp0
+#ifndef APPCONF_TNT_BRAKE_KP0
+#define APPCONF_TNT_BRAKE_KP0 0
+#endif
+
+// Brake Kp Rate
+#ifndef APPCONF_TNT_BRAKEKP_RATE
+#define APPCONF_TNT_BRAKEKP_RATE 0.4
+#endif
+
+// Brake Pitch 1 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT1
+#define APPCONF_TNT_BRAKE_CURRENT1 1
+#endif
+
+// Brake Pitch 2 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT2
+#define APPCONF_TNT_BRAKE_CURRENT2 5
+#endif
+
+// Brake Pitch 3 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT3
+#define APPCONF_TNT_BRAKE_CURRENT3 140
+#endif
+
+// Brake Pitch 4 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT4
+#define APPCONF_TNT_BRAKE_CURRENT4 0
+#endif
+
+// Brake Pitch 5 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT5
+#define APPCONF_TNT_BRAKE_CURRENT5 0
+#endif
+
+// Brake Pitch 6 Current
+#ifndef APPCONF_TNT_BRAKE_CURRENT6
+#define APPCONF_TNT_BRAKE_CURRENT6 0
+#endif
+
+// Brake Pitch 1
+#ifndef APPCONF_TNT_BRAKE_PITCH1
+#define APPCONF_TNT_BRAKE_PITCH1 0.2
+#endif
+
+// Brake Pitch 2
+#ifndef APPCONF_TNT_BRAKE_PITCH2
+#define APPCONF_TNT_BRAKE_PITCH2 0.5
+#endif
+
+// Brake Pitch 3
+#ifndef APPCONF_TNT_BRAKE_PITCH3
+#define APPCONF_TNT_BRAKE_PITCH3 3
+#endif
+
+// Brake Pitch 4
+#ifndef APPCONF_TNT_BRAKE_PITCH4
+#define APPCONF_TNT_BRAKE_PITCH4 4
+#endif
+
+// Brake Pitch 5
+#ifndef APPCONF_TNT_BRAKE_PITCH5
+#define APPCONF_TNT_BRAKE_PITCH5 5
+#endif
+
+// Brake Pitch 6
+#ifndef APPCONF_TNT_BRAKE_PITCH6
+#define APPCONF_TNT_BRAKE_PITCH6 6
+#endif
+
+// Enable Pitch Kp Input for Braking
+#ifndef APPCONF_TNT_PITCH_KP_INPUT_BRAKE
+#define APPCONF_TNT_PITCH_KP_INPUT_BRAKE 0
 #endif
 
 // Level 1 Roll Kp
@@ -236,6 +316,41 @@
 // Wheelslip Scale ERPM
 #ifndef APPCONF_TNT_WHEELSLIP_SCALEERPM
 #define APPCONF_TNT_WHEELSLIP_SCALEERPM 3000
+#endif
+
+// Enable Speed Stability
+#ifndef APPCONF_TNT_ENABLE_SPEED_STABILITY
+#define APPCONF_TNT_ENABLE_SPEED_STABILITY 1
+#endif
+
+// Enable Throttle Stability
+#ifndef APPCONF_TNT_ENABLE_THROTTLE_STABILITY
+#define APPCONF_TNT_ENABLE_THROTTLE_STABILITY 0
+#endif
+
+// Pitch Current Max Stability
+#ifndef APPCONF_TNT_STABL_PITCH_MAXSCALE
+#define APPCONF_TNT_STABL_PITCH_MAXSCALE 50
+#endif
+
+// Pitch Rate Max Stability
+#ifndef APPCONF_TNT_STABL_RATE_MAXSCALE
+#define APPCONF_TNT_STABL_RATE_MAXSCALE 100
+#endif
+
+// Stability Minimum ERPM
+#ifndef APPCONF_TNT_STABL_MIN_ERPM
+#define APPCONF_TNT_STABL_MIN_ERPM 3000
+#endif
+
+// Stability Maximum ERPM
+#ifndef APPCONF_TNT_STABL_MAX_ERPM
+#define APPCONF_TNT_STABL_MAX_ERPM 8000
+#endif
+
+// Stability Ramp Rate
+#ifndef APPCONF_TNT_STABL_RAMP
+#define APPCONF_TNT_STABL_RAMP 50
 #endif
 
 // Loop Hertz
@@ -485,7 +600,7 @@
 
 // Package Version
 #ifndef APPCONF_TNT_VERSION
-#define APPCONF_TNT_VERSION 1
+#define APPCONF_TNT_VERSION 1.1
 #endif
 
 // CONF_DEFAULT_H_
