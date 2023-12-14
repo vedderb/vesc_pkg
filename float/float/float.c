@@ -2881,8 +2881,11 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 	if (d->is_flywheel_mode) {
 		if ((d->flywheel_pitch_offset == 0) || (command == 2)) {
 			// accidental button press?? board isn't evn close to being upright
-			if (fabsf(d->true_pitch_angle) < 70)
+			if (fabsf(d->true_pitch_angle) < 70) {
+				// don't forget to set flywheel mode back to false!
+				d->is_flywheel_mode = false;
 				return;
+			}
 
 			d->flywheel_pitch_offset = d->true_pitch_angle;
 			d->flywheel_roll_offset = d->roll_angle;
