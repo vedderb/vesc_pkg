@@ -1356,7 +1356,12 @@ static void apply_torquetilt(data *d) {
 		d->accel_gap = 0;
 	}
 
-	float atr_strength = (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
+	// d->accel_gap | > 0  | <= 0
+	// -------------+------+-------
+	//      forward | up   | down
+	//     !forward | down | up
+	float atr_strength = forward == (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
+
 	// from 3000 to 6000 erpm gradually crank up the torque response
 	if ((d->abs_erpm > 3000) && (!d->braking)) {
 		float speedboost = (d->abs_erpm - 3000) / 3000;
@@ -2876,8 +2881,11 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 	if (d->is_flywheel_mode) {
 		if ((d->flywheel_pitch_offset == 0) || (command == 2)) {
 			// accidental button press?? board isn't evn close to being upright
-			if (fabsf(d->true_pitch_angle) < 70)
+			if (fabsf(d->true_pitch_angle) < 70) {
+				// don't forget to set flywheel mode back to false!
+				d->is_flywheel_mode = false;
 				return;
+			}
 
 			d->flywheel_pitch_offset = d->true_pitch_angle;
 			d->flywheel_roll_offset = d->roll_angle;
