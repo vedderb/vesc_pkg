@@ -65,7 +65,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>1</valDouble>
@@ -90,7 +90,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>5</valDouble>
@@ -115,9 +115,9 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>1</stepDouble>
+            <stepDouble>5</stepDouble>
             <valDouble>140</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
@@ -140,7 +140,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
             <valDouble>0</valDouble>
@@ -165,7 +165,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
             <valDouble>0</valDouble>
@@ -190,7 +190,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>10</stepDouble>
             <valDouble>0</valDouble>
@@ -209,7 +209,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 1&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current1 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH1</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>25</maxDouble>
@@ -217,7 +217,7 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
             <valDouble>0.2</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </pitch1>
@@ -232,7 +232,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 2&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH2</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>25</maxDouble>
@@ -240,7 +240,7 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
             <valDouble>0.5</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </pitch2>
@@ -284,8 +284,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
-            <valDouble>1.5</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>4</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -307,8 +307,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
-            <valDouble>2</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -330,8 +330,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>6</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -379,15 +379,15 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </mahony_kp>
         <kp_rate>
-            <longName>Kp Rate</longName>
+            <longName>Pitch Rate Kp</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;KP Rate&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The rate applied to the pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch Rate Kp&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The proportional gain multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_KP_RATE</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -493,6 +493,366 @@ p, li { white-space: pre-wrap; }
             <suffix></suffix>
             <vTx>7</vTx>
         </kalman_factor3>
+        <brake_curve>
+            <longName>Enable Brake Curve</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Enable Brake Curve&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable a separate curve for braking. The filter factors from Pitch Acceleration will still be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURVE</cDefine>
+            <valInt>0</valInt>
+        </brake_curve>
+        <brake_kp0>
+            <longName>Brake Kp0</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch Kp0&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Pitch kp0 is multiplied by board pitch (in degrees) to determine current demand. If there are no currents defined the board will only use kp0, or else it will scale between kp0 and current1. If kp0 is too high for current 1, the kp resulting from current1/pitch1 will be prioritized.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_KP0</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>5</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </brake_kp0>
+        <brakekp_rate>
+            <longName>Brake Kp Rate</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;KP Rate&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The rate applied to the pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKEKP_RATE</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.4</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </brakekp_rate>
+        <brakecurrent1>
+            <longName>Brake Pitch 1 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 1 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 1.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT1</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>1</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent1>
+        <brakecurrent2>
+            <longName>Brake Pitch 2 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 2 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 2.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT2</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>1</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent2>
+        <brakecurrent3>
+            <longName>Brake Pitch 3 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 3 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 3.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT3</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>5</stepDouble>
+            <valDouble>140</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent3>
+        <brakecurrent4>
+            <longName>Brake Pitch 4 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 4 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 4.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT4</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>5</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent4>
+        <brakecurrent5>
+            <longName>Brake Pitch 5 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 5 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 5.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT5</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>5</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent5>
+        <brakecurrent6>
+            <longName>Brake Pitch 6 Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 6 Current&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 6.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT6</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>-500</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>10</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix>A</suffix>
+            <vTx>7</vTx>
+        </brakecurrent6>
+        <brakepitch1>
+            <longName>Brake Pitch 1</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 1&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current1 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH1</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch1>
+        <brakepitch2>
+            <longName>Brake Pitch 2</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 2&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH2</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>0.5</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch2>
+        <brakepitch3>
+            <longName>Brake Pitch 3</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 3&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH3</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>3</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch3>
+        <brakepitch4>
+            <longName>Brake Pitch 4</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 4&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH4</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>4</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch4>
+        <brakepitch5>
+            <longName>Brake Pitch 5</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 5&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH5</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch5>
+        <brakepitch6>
+            <longName>Brake Pitch 6</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch 6&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH6</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>25</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>6</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </brakepitch6>
+        <pitch_kp_input_brake>
+            <longName>Enable Pitch Kp Input for Braking</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Enable Pitch Kp Input &lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Override current inputs to instead read as propotional gain(kp) values such that current = kp x pitch. Any control curve can be made with current inputs or kp inputs. It is a different way to think about it and may be easier to tune for some.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_PITCH_KP_INPUT_BRAKE</cDefine>
+            <valInt>0</valInt>
+        </pitch_kp_input_brake>
         <roll_kp1>
             <longName>Level 1 Roll Kp</longName>
             <type>1</type>
@@ -1097,6 +1457,149 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM</suffix>
             <vTx>7</vTx>
         </wheelslip_scaleerpm>
+        <enable_speed_stability>
+            <longName>Enable Speed Stability</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Enable Speed Stability&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stability will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_ENABLE_SPEED_STABILITY</cDefine>
+            <valInt>1</valInt>
+        </enable_speed_stability>
+        <enable_throttle_stability>
+            <longName>Enable Throttle Stability</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Enable Throttle Stability&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allows stability to be increased with a remote. Maximum throttle gives maximum stability. Activating this will disable input tilt, but sticky tilt can be used to set persistent stability values. If input tilt is set to a maximum of 10 degrees and sticky values 1 and 2 are 3 and 6 degrees, activating those sticky values will give you 30% and 60% x Stability Maximum Scale, respectively. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_ENABLE_THROTTLE_STABILITY</cDefine>
+            <valInt>0</valInt>
+        </enable_throttle_stability>
+        <stabl_pitch_max_scale>
+            <longName>Pitch Current Max Stability</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch Current Maximum Stability&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stablity increases the current output of the throttle/brake curves by a percentage. This can be activated with increasing speed or remote throttle control. If both are enabled the highest value prevails.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stability will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STABL_PITCH_MAXSCALE</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>5000</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>10</stepDouble>
+            <valDouble>50</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> %</suffix>
+            <vTx>7</vTx>
+        </stabl_pitch_max_scale>
+        <stabl_rate_max_scale>
+            <longName>Pitch Rate Max Stability</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Pitch Rate Maximum Stability&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;With increased speed or throttle, the proportional gain applied to the gyro (pitch rate kp) will increase up to the max stablity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STABL_RATE_MAXSCALE</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>5000</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>10</stepDouble>
+            <valDouble>100</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> %</suffix>
+            <vTx>7</vTx>
+        </stabl_rate_max_scale>
+        <stabl_min_erpm>
+            <longName>Stability Minimum ERPM</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Stability Minimum ERPM&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stablity will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STABL_MIN_ERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>500</stepDouble>
+            <valDouble>3000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> ERPM</suffix>
+            <vTx>7</vTx>
+        </stabl_min_erpm>
+        <stabl_max_erpm>
+            <longName>Stability Maximum ERPM</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Stability Maximum ERPM&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stability will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STABL_MAX_ERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>500</stepDouble>
+            <valDouble>8000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> ERPM</suffix>
+            <vTx>7</vTx>
+        </stabl_max_erpm>
+        <stabl_ramp>
+            <longName>Stability Ramp Rate</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Stability Ramp Rate&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Restricts the rate that the stability can change in percent of Stability Maximum Scale per second. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STABL_RAMP</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>5000</maxDouble>
+            <minDouble>1</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>10</stepDouble>
+            <valDouble>50</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> %/s</suffix>
+            <vTx>7</vTx>
+        </stabl_ramp>
         <hertz>
             <longName>Loop Hertz</longName>
             <type>2</type>
@@ -2109,11 +2612,11 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>1</maxDouble>
-            <minDouble>1</minDouble>
+            <maxDouble>10</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1</valDouble>
+            <valDouble>1.1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -2140,6 +2643,22 @@ p, li { white-space: pre-wrap; }
         <ser>kalman_factor1</ser>
         <ser>kalman_factor2</ser>
         <ser>kalman_factor3</ser>
+        <ser>brake_curve</ser>
+        <ser>brake_kp0</ser>
+        <ser>brakekp_rate</ser>
+        <ser>brakecurrent1</ser>
+        <ser>brakecurrent2</ser>
+        <ser>brakecurrent3</ser>
+        <ser>brakecurrent4</ser>
+        <ser>brakecurrent5</ser>
+        <ser>brakecurrent6</ser>
+        <ser>brakepitch1</ser>
+        <ser>brakepitch2</ser>
+        <ser>brakepitch3</ser>
+        <ser>brakepitch4</ser>
+        <ser>brakepitch5</ser>
+        <ser>brakepitch6</ser>
+        <ser>pitch_kp_input_brake</ser>
         <ser>roll_kp1</ser>
         <ser>roll_kp2</ser>
         <ser>roll_kp3</ser>
@@ -2167,6 +2686,13 @@ p, li { white-space: pre-wrap; }
         <ser>wheelslip_accelend</ser>
         <ser>wheelslip_scaleaccel</ser>
         <ser>wheelslip_scaleerpm</ser>
+        <ser>enable_speed_stability</ser>
+        <ser>enable_throttle_stability</ser>
+        <ser>stabl_pitch_max_scale</ser>
+        <ser>stabl_rate_max_scale</ser>
+        <ser>stabl_min_erpm</ser>
+        <ser>stabl_max_erpm</ser>
+        <ser>stabl_ramp</ser>
         <ser>hertz</ser>
         <ser>fault_pitch</ser>
         <ser>fault_roll</ser>
@@ -2222,9 +2748,9 @@ p, li { white-space: pre-wrap; }
         <group>
             <groupName>General</groupName>
             <subgroup>
-                <subgroupName>Pitch</subgroupName>
+                <subgroupName>Acceleration</subgroupName>
                 <subgroupParams>
-                    <param>::sep::Pitch</param>
+                    <param>::sep::Pitch Acceleration Curve</param>
                     <param>kp0</param>
                     <param>kp_rate</param>
                     <param>current1</param>
@@ -2246,6 +2772,27 @@ p, li { white-space: pre-wrap; }
                     <param>kalman_factor1</param>
                     <param>kalman_factor2</param>
                     <param>kalman_factor3</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Brake</subgroupName>
+                <subgroupParams>
+                    <param>::sep::Pitch Brake Curve</param>
+                    <param>brake_curve</param>
+                    <param>brake_kp0</param>
+                    <param>brakecurrent1</param>
+                    <param>brakepitch1</param>
+                    <param>brakecurrent2</param>
+                    <param>brakepitch2</param>
+                    <param>brakecurrent3</param>
+                    <param>brakepitch3</param>
+                    <param>brakecurrent4</param>
+                    <param>brakepitch4</param>
+                    <param>brakecurrent5</param>
+                    <param>brakepitch5</param>
+                    <param>brakecurrent6</param>
+                    <param>brakepitch6</param>
+                    <param>pitch_kp_input_brake</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -2272,8 +2819,16 @@ p, li { white-space: pre-wrap; }
                 </subgroupParams>
             </subgroup>
             <subgroup>
-                <subgroupName>Surge / Traction Control</subgroupName>
+                <subgroupName>Tune Modifiers</subgroupName>
                 <subgroupParams>
+                    <param>::sep::Dynamic Stability</param>
+                    <param>enable_speed_stability</param>
+                    <param>enable_throttle_stability</param>
+                    <param>stabl_pitch_max_scale</param>
+                    <param>stabl_rate_max_scale</param>
+                    <param>stabl_min_erpm</param>
+                    <param>stabl_max_erpm</param>
+                    <param>stabl_ramp</param>
                     <param>::sep::Surge</param>
                     <param>is_surge_enabled</param>
                     <param>surge_startanglespeed</param>
