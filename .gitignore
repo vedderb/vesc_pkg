@@ -9,3 +9,6 @@ confxml.h
 *.obj
 *.so
 *.rcc
+*.cproject
+*.project
+*.settings
