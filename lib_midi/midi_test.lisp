@@ -1,25 +1,64 @@
-(import "midi/midi.bin" 'midi)
-(import "axelf_melody.mid" 'axelf-melody)
-(import "axelf_base.mid" 'axelf-base)
+(import "pkg::midi@://vesc_packages/lib_midi/midi.vescpkg" 'midi)
+(import "pkg::midi_axelf_base@://vesc_packages/lib_files/files.vescpkg" 'axelf-base)
+(import "pkg::midi_axelf_melody@://vesc_packages/lib_files/files.vescpkg" 'axelf-melody)
 
 (load-native-lib midi)
+
 (ext-midi-init 2)
 (ext-midi-open 0 axelf-melody)
 (ext-midi-open 1 axelf-base)
 
-(def midi-tdiv 100)
-(def midi-tempo 400000)
-
 (foc-play-stop)
+
+; Channel format (ch note freq vol decay)
+; Note 0 means nothing is playing
+(def num-chan 4)
+(def channels (map (fn (x) (list x 0 0 0 0)) (range num-chan)))
+
+(defun note-on (note vol decay)
+    (atomic (loopforeach ch channels {
+                (if (= (ix ch 1) 0) {
+                        (var freq (* 440.0 (pow 2.0 (/ (- note 69.0) 12.0))))
+                        (setix ch 2 freq)
+                        (setix ch 3 vol)
+                        (setix ch 4 decay)
+                        (setix ch 1 note)
+                        (foc-play-tone (ix ch 0) freq vol)
+                        (break)
+                })
+})))
+
+(defun note-off (note)
+    (atomic (loopforeach ch channels {
+                (if (= (ix ch 1) note) {
+                        (setix ch 1 0)
+                        (foc-play-tone (ix ch 0) 500 0)
+                        (break)
+                })
+})))
+
+; Exponential decay on active channels
+(loopwhile-thd 200 t {
+        (loopforeach ch channels
+            (atomic (if (not (= (ix ch 1) 0)) {
+                        (var ch-ind (ix ch 0))
+                        (var freq (ix ch 2))
+                        (var vol (ix ch 3))
+                        (var decay (ix ch 4))
+                        (setix ch 3 (* vol decay))
+                        (foc-play-tone ch-ind freq vol)
+        })))
+        (sleep 0.02)
+})
 
 (def t-start (systime))
 
-(defun play-on-ch (ch volts decay) {
+(defun play-midi (parser volts decay) {
         (var t-delta 0.0)
-        (var volts-now 0.0)
-        (var freq-now 1000.0)
+        (var midi-tdiv 100)
+        (var midi-tempo 400000)
         
-        (loopwhile t (match (ext-midi-parse ch)
+        (loopwhile t (match (ext-midi-parse parser)
                 ((midi-header (? size) (? format) (? tracks) (? time-div)) {
                         (setq midi-tdiv time-div)
                 })
@@ -28,23 +67,17 @@
                         (var secs (/ (* midi-tempo (to-float time)) midi-tdiv 1000000.0))
                         (setq t-delta (+ t-delta secs))
                         
-                        (loopwhile (< (secs-since t-start) t-delta) {
-                                (sleep 0.001)
-                                (setq volts-now (* volts-now decay))
-                                (foc-play-tone ch freq-now volts-now)
-                        })
+                        (var to-sleep (- t-delta (secs-since t-start)))
+                        (if (> to-sleep 0.001) (sleep to-sleep))
                         
                         ; Note on
                         (if (= status 9) {
-                                (var freq (* 440.0 (pow 2.0 (/ (- p1 69.0) 12.0))))
-                                (setq volts-now volts)
-                                (setq freq-now freq)
-                                (foc-play-tone ch freq volts)
+                                (note-on p1 volts decay)
                         })
                         
                         ; Note off
                         (if (= status 8) {
-                                (foc-play-tone ch 500 0.0)
+                                (note-off p1)
                         })
                 })
                 
@@ -71,5 +104,5 @@
             )
 )})
 
-(spawn 200 play-on-ch 0 0.7 0.995)
-(spawn 200 play-on-ch 1 0.4 0.997)
+(spawn 200 play-midi 0 0.7 0.92)
+(spawn 200 play-midi 1 0.4 0.92)
