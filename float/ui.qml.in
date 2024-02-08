@@ -702,7 +702,7 @@ Item {
 					}
 					Text {
 						id: versionText
-						text: "{{VERSION}}.0"
+						text: "{{VERSION}}.0b"
 						color: Utility.getAppHexColor("lightText")
 						font.pointSize: 10
 						font.weight: Font.Black

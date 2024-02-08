@@ -2445,6 +2445,7 @@ enum {
 	FLOAT_COMMAND_LIGHT_CTRL = 26, // to be called by apps to change light settings
 	FLOAT_COMMAND_LCM_INFO = 27,   // to be called by apps to check lighting controller firmware
 	FLOAT_COMMAND_CHARGESTATE = 28,// to be called by ADV LCM while charging
+	FLOAT_COMMAND_GET_BATTERY = 29, 
 	FLOAT_COMMAND_LCM_DEBUG = 99,  // reserved for external debug purposes
 } float_commands;
 
@@ -2590,6 +2591,19 @@ static void cmd_send_all_data(data *d, unsigned char mode){
 	}
 
 	if (ind > SNDBUFSIZE) {
+		VESC_IF->printf("BUFSIZE too small...\n");
+	}
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+static void cmd_send_battery(){
+	uint8_t send_buffer[10];
+	int32_t ind = 0;
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_GET_BATTERY;
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_battery_level(NULL), &ind);
+
+	if (ind > 10) {
 		VESC_IF->printf("BUFSIZE too small...\n");
 	}
 	VESC_IF->send_app_data(send_buffer, ind);
@@ -3119,7 +3133,7 @@ static void cmd_lcm_poll(data *d, unsigned char *cfg, int len)
  */
 static void cmd_light_info(data *d)
 {
-	uint8_t send_buffer[7];
+	uint8_t send_buffer[15];
 	int32_t ind = 0;
 	send_buffer[ind++] = 101;//Magic Number
 	send_buffer[ind++] = FLOAT_COMMAND_LIGHT_INFO;
@@ -3127,6 +3141,12 @@ static void cmd_light_info(data *d)
 	send_buffer[ind++] = d->float_conf.led_brightness;
 	send_buffer[ind++] = d->float_conf.led_brightness_idle;
 	send_buffer[ind++] = d->float_conf.led_status_brightness;
+	send_buffer[ind++] = d->float_conf.led_mode;
+	send_buffer[ind++] = d->float_conf.led_mode_idle;
+	send_buffer[ind++] = d->float_conf.led_status_mode;
+	send_buffer[ind++] = d->float_conf.led_status_count;
+	send_buffer[ind++] = d->float_conf.led_forward_count;
+	send_buffer[ind++] = d->float_conf.led_rear_count;
 
 	VESC_IF->send_app_data(send_buffer, ind);
 }
@@ -3514,6 +3534,10 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 		}
 		case FLOAT_COMMAND_CHARGESTATE: {
 			cmd_chargestate(d, &buffer[2], len-2);
+			return;
+		}
+		case FLOAT_COMMAND_GET_BATTERY: {
+			cmd_send_battery();
 			return;
 		}
 		default: {
