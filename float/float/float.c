@@ -2747,8 +2747,11 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 			d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.5;
 
 		split(cfg[6], &h1, &h2);
-		d->float_conf.atr_torque_offset = h1 + 5;
+		int isnegative = h1;
 		d->float_conf.atr_speed_boost = ((float)(h2 * 5)) / 100;
+		if (isnegative) {
+			d->float_conf.atr_speed_boost *= -1;
+		}
 
 		split(cfg[7], &h1, &h2);
 		d->float_conf.atr_angle_limit = h1 + 5;
