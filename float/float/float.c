@@ -3263,7 +3263,7 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 		d->float_conf.startup_pitch_tolerance = 0.2;
 		d->float_conf.startup_roll_tolerance = 25;
 		d->float_conf.fault_pitch = 6;
-		d->float_conf.fault_roll = 35;	// roll can fluctuate significantly in the upright position
+		d->float_conf.fault_roll = 60;	// roll can fluctuate significantly in the upright position
 		if (command & 0x4) {
 			d->float_conf.fault_roll = 90;
 		}
@@ -3284,10 +3284,10 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 			d->float_conf.kp2 /= 100;
 		}
 
-		d->float_conf.tiltback_duty_angle = 4;
+		d->float_conf.tiltback_duty_angle = 2;
 		d->float_conf.tiltback_duty = 0.1;
-		d->float_conf.tiltback_duty_speed = 20;
-		d->float_conf.tiltback_return_speed = 20;
+		d->float_conf.tiltback_duty_speed = 5;
+		d->float_conf.tiltback_return_speed = 5;
 
 		if (cfg[3] > 0) {
 			d->float_conf.tiltback_duty_angle = cfg[3];
@@ -3298,9 +3298,11 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 			d->float_conf.tiltback_duty /= 100;
 		}
 		if ((len > 6) && (cfg[6] > 1) && (cfg[6] < 100)) {
-			d->float_conf.tiltback_duty_speed = cfg[6];
-			d->float_conf.tiltback_return_speed = cfg[6];
+			d->float_conf.tiltback_duty_speed = cfg[6] / 2;
+			d->float_conf.tiltback_return_speed = cfg[6] / 2;
 		}
+		d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
+		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
 
 		// Limit speed of wheel and limit amps
 		//backup_erpm = mc_interface_get_configuration()->l_max_erpm;
