@@ -477,7 +477,7 @@ static void configure(data *d) {
 
 	// Feature: ATR:
 	d->float_acc_diff = 0;
-	d->atr_speed_boost_multiplier = 1 / 3000;  // used to be hard coded to 3000, still is for speed_boost <= 40%
+	d->atr_speed_boost_multiplier = 1.0 / 3000.0;  // used to be hard coded to 3000, still is for speed_boost <= 40%
 	if (fabsf(d->float_conf.atr_speed_boost) > 0.4) {
 		// above 0.4 we add 500erpm for each extra 10% of speed boost, so at most +6000 for 100% speed boost
 		// we're producing a multiplier here to avoid unnecessary floating point division in the main loop
