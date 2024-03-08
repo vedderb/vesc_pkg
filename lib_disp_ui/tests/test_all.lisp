@@ -64,10 +64,7 @@
         ; Long press
 
         (if  (and (= bt1 100) (not is-menu)) {
-                (gpio-write pin-bl 0)
-                (loopwhile (< (v-btn) 2.0) (sleep 0.1))
-                (sleep-config-wakeup-pin 3 0)
-                (sleep-deep -1)
+                (hw-sleep)
         })
 
         (sleep 0.015)
