@@ -12,6 +12,7 @@
         <file>lib_pn532/pn532.vescpkg</file>
         <file>lib_code_server/code_server.vescpkg</file>
         <file>lib_midi/midi.vescpkg</file>
+        <file>lib_disp_ui/disp_ui.vescpkg</file>
    </qresource>
 </RCC>
 
