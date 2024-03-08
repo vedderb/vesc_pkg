@@ -126,21 +126,21 @@
                 (match page-now-menu
                     (1 {
                             (txt-block-c img-data 2 160 95 font (list
-                                "SurRon Setup"
-                                ""
-                                "This will setup a"
-                                "SurRon bike. Hold"
-                                "Run to proceed."
+                                    "SurRon Setup"
+                                    ""
+                                    "This will setup a"
+                                    "SurRon bike. Hold"
+                                    "Run to proceed."
                             ))
                     })
 
                     (2 {
                             (txt-block-c img-data 2 160 95 font (list
-                                "Talaria Setup"
-                                ""
-                                "This will setup a"
-                                "Talaria bike. Hold"
-                                "Run to proceed."
+                                    "Talaria Setup"
+                                    ""
+                                    "This will setup a"
+                                    "Talaria bike. Hold"
+                                    "Run to proceed."
                             ))
                     })
 
