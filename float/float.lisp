@@ -14,6 +14,7 @@
 (if (= debug 1)
     (loopwhile t
         (progn
+            (apply ext-set-batt-level (get-batt))
             (define setpoint (ext-float-dbg 2))
             (define tt-filtered-current (ext-float-dbg 3))
             (define integral (ext-float-dbg 14))

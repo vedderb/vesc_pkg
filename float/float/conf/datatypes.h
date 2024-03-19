@@ -29,6 +29,17 @@ typedef enum {
 	INPUTTILT_PPM
 } FLOAT_INPUTTILT_REMOTE_TYPE;
 
+typedef enum {
+	HAPTIC_BUZZ_NONE = 0,
+	HAPTIC_BUZZ_AUDIBLE1,
+	HAPTIC_BUZZ_AUDIBLE2,
+	HAPTIC_BUZZ_AUDIBLE3,
+	HAPTIC_BUZZ_VIBRATING1,
+	HAPTIC_BUZZ_VIBRATING2,
+	HAPTIC_BUZZ_VIBRATING3,
+	HAPTIC_BUZZ_ALTERNATING
+} HAPTIC_BUZZ_TYPE;
+
 typedef struct {
 	float float_version;
 	float float_disable;
@@ -64,6 +75,14 @@ typedef struct {
 	float tiltback_lv;
 	float tiltback_return_speed;
 	float tiltback_constant;
+	int haptic_buzz_intensity;
+	int haptic_buzz_min;
+	HAPTIC_BUZZ_TYPE haptic_buzz_duty;
+	HAPTIC_BUZZ_TYPE haptic_buzz_hv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_lv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_temp;
+	HAPTIC_BUZZ_TYPE haptic_buzz_current;
+	HAPTIC_BUZZ_TYPE haptic_buzz_bms;
 	uint16_t tiltback_constant_erpm;
 	float tiltback_variable;
 	float tiltback_variable_max;
@@ -112,6 +131,9 @@ typedef struct {
 	float atr_filter;
 	float atr_amps_accel_ratio;
 	float atr_amps_decel_ratio;
+	int   atr_test1;
+	float atr_test2;
+	float atr_test3;
 	float braketilt_strength;
 	float braketilt_lingering;
 	float turntilt_strength;
@@ -123,12 +145,25 @@ typedef struct {
 	uint16_t turntilt_erpm_boost_end;
 	int turntilt_yaw_aggregate;
 	float dark_pitch_offset;
-	bool is_buzzer_enabled;
-	bool is_dutybuzz_enabled;
-	bool is_footbuzz_enabled;
-	bool is_surgebuzz_enabled;
+	bool is_beeper_enabled;
+	bool is_dutybeep_enabled;
+	bool is_footbeep_enabled;
+	bool is_surgebeep_enabled;
 	float surge_duty_start;
 	float surge_angle;
+	uint8_t led_type;
+	uint8_t led_status_count;
+	uint8_t led_forward_count;
+	uint8_t led_rear_count;
+	uint8_t led_brightness;
+	uint8_t led_brightness_idle;
+	uint8_t led_mode;
+	uint8_t led_mode_idle;
+	uint8_t led_status_brightness;
+	uint8_t led_status_mode;
+	int limit_current_accel;
+	int limit_current_brake;
+	int limit_current_cont;
 } float_config;
 
 // DATATYPES_H_

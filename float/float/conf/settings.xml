@@ -124,7 +124,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*Note: If your set Mahony KP in &amp;quot;App CFG -&amp;gt; IMU&amp;quot; does not match this value, this value will take priority and writing the Float Config will overwrite this value into your App CFG.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_FLOAT_MAHONY_KP</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>3</maxDouble>
@@ -227,7 +227,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>-180</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>90</valDouble>
+            <valDouble>60</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -249,7 +249,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>-180</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>90</valDouble>
+            <valDouble>60</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -273,7 +273,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>1</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
             <vTx>7</vTx>
@@ -297,12 +297,12 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>1</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
             <vTx>7</vTx>
         </fault_adc2>
-        <is_footbuzz_enabled>
+        <is_footbeep_enabled>
             <longName>Beep on Sensor Fault</longName>
             <type>5</type>
             <transmittable>1</transmittable>
@@ -311,9 +311,9 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep when both sensors turn off above 2000erpm (beeps for as long as the sensor remains off)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED</cDefine>
+            <cDefine>APPCONF_FLOAT_IS_FOOTBEEP_ENABLED</cDefine>
             <valInt>1</valInt>
-        </is_footbuzz_enabled>
+        </is_footbeep_enabled>
         <fault_delay_pitch>
             <longName>Pitch Fault Delay</longName>
             <type>2</type>
@@ -330,7 +330,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>1000</valInt>
+            <valInt>250</valInt>
             <suffix> ms</suffix>
             <vTx>3</vTx>
         </fault_delay_pitch>
@@ -350,7 +350,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>1000</valInt>
+            <valInt>250</valInt>
             <suffix> ms</suffix>
             <vTx>3</vTx>
         </fault_delay_roll>
@@ -370,7 +370,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>250</valInt>
+            <valInt>100</valInt>
             <suffix> ms</suffix>
             <vTx>3</vTx>
         </fault_delay_switch_half>
@@ -412,7 +412,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>300</valInt>
+            <valInt>200</valInt>
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </fault_adc_half_erpm>
@@ -519,7 +519,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </tiltback_duty_speed>
         <tiltback_duty>
-            <longName>Duty Cycle</longName>
+            <longName>Duty Cycle Threshold</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -544,7 +544,7 @@ p, li { white-space: pre-wrap; }
             <suffix></suffix>
             <vTx>7</vTx>
         </tiltback_duty>
-        <is_dutybuzz_enabled>
+        <is_dutybeep_enabled>
             <longName>Beep on Duty Tiltback</longName>
             <type>5</type>
             <transmittable>1</transmittable>
@@ -554,10 +554,10 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep during duty cycle tiltback. It is recommended to disable this beep when enabling the surge beep or else it will be impossible to recognize the surge beep.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Warning: buzzer may not be easily audible at high speeds!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED</cDefine>
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Warning: beeper may not be easily audible at high speeds!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_IS_DUTYBEEP_ENABLED</cDefine>
             <valInt>0</valInt>
-        </is_dutybuzz_enabled>
+        </is_dutybeep_enabled>
         <surge_angle>
             <longName>Surge Angle Increment</longName>
             <type>1</type>
@@ -619,7 +619,7 @@ p, li { white-space: pre-wrap; }
             <suffix></suffix>
             <vTx>7</vTx>
         </surge_duty_start>
-        <is_surgebuzz_enabled>
+        <is_surgebeep_enabled>
             <longName>Beep when Surging</longName>
             <type>5</type>
             <transmittable>1</transmittable>
@@ -629,10 +629,10 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep whenever surge is triggered. Issues 1-3 beeps depending on whether the 1st, 2nd or 3rd stage surge got triggered.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Helpful when practicing to recognize surge, but shouldn't be relied on as the buzzer &lt;span style=&quot; font-weight:600;&quot;&gt;may not be easily audible at high speeds!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Helpful when practicing to recognize surge, but shouldn't be relied on as the beeper &lt;span style=&quot; font-weight:600;&quot;&gt;may not be easily audible at high speeds!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_IS_SURGEBEEP_ENABLED</cDefine>
             <valInt>1</valInt>
-        </is_surgebuzz_enabled>
+        </is_surgebeep_enabled>
         <tiltback_hv_angle>
             <longName>Angle</longName>
             <type>1</type>
@@ -786,11 +786,11 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>100</maxDouble>
+            <maxDouble>10</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
+            <valDouble>1</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -853,7 +853,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>-5</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.05</stepDouble>
             <valDouble>0.1</valDouble>
@@ -903,6 +903,168 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </tiltback_variable_erpm>
+        <haptic_buzz_intensity>
+            <longName>Haptic Buzz Intensity</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Haptic buzz uses motor current oscillations to produce an audible or vibrating buzz. The intensity controls how much current to use for this effect.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_INTENSITY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>30</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix>A</suffix>
+            <vTx>1</vTx>
+        </haptic_buzz_intensity>
+        <haptic_buzz_min>
+            <longName>Haptic Buzz Minimum Intensity</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Haptic buzz uses motor current oscillations to produce an audible or vibrating buzz. The intensity controls how much current to use for this effect.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower speeds the full intensity will be perceived as too harsh, so it needs to be scaled down. Recommended value for Hypercore is 3A, for SuperFlux/CannonCore is 5A&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_MIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>6</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix>A</suffix>
+            <vTx>1</vTx>
+        </haptic_buzz_min>
+        <haptic_buzz_duty>
+            <longName>Haptic Buzz</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when duty cycle exceeds the threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_DUTY</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_duty>
+        <haptic_buzz_hv>
+            <longName>Haptic Buzz</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when voltage exceeds the upper threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_HV</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_hv>
+        <haptic_buzz_lv>
+            <longName>Haptic Buzz</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when voltage exceeds the lower threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_LV</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_lv>
+        <haptic_buzz_temp>
+            <longName>Haptic Buzz - Temperature</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when either controller or motor temperature gets within 3 degrees of the throttle start threshold (in Motor Config - General)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_TEMP</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_temp>
+        <haptic_buzz_current>
+            <longName>Haptic Buzz - Current Limits</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when exceeding the configured motor current or continuous current limits&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_CURRENT</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_current>
+        <haptic_buzz_bms>
+            <longName>Haptic Buzz - BMS</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when the BMS reports an error&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_HAPTIC_BUZZ_BMS</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_bms>
         <noseangling_speed>
             <longName>Nose Angling Speed</longName>
             <type>1</type>
@@ -937,7 +1099,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;Note: Remote Tiltback requires an input device (such as a UART/PPM Eskate remote)! If not applicable, the type should remain as &amp;quot;&lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;None.&lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;&amp;quot;&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-weight:600; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;Note: For PPM, make sure to keep the Buzzer &lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;DISABLED &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;(under &amp;quot;Specs&amp;quot; tab)&lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt; &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;for proper functionality. A reboot may be required following the switch.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;Note: For PPM, make sure to keep the Beeper &lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;DISABLED &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;(under &amp;quot;Specs&amp;quot; tab)&lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt; &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;for proper functionality. A reboot may be required following the switch.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_FLOAT_INPUTTILT_REMOTE_TYPE</cDefine>
             <valInt>0</valInt>
             <enumNames>None</enumNames>
@@ -1126,7 +1288,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1170,7 +1332,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
-            <valDouble>60</valDouble>
+            <valDouble>30</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1555,7 +1717,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.05</stepDouble>
-            <valDouble>0</valDouble>
+            <valDouble>0.1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/A</suffix>
             <vTx>7</vTx>
@@ -1634,7 +1796,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>0.5</valDouble>
+            <valDouble>1.5</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1660,7 +1822,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>0.5</valDouble>
+            <valDouble>1.5</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1678,8 +1840,8 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>100</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>0.5</maxDouble>
-            <minDouble>0</minDouble>
+            <maxDouble>1</maxDouble>
+            <minDouble>-1</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>10</stepDouble>
             <valDouble>0.3</valDouble>
@@ -1879,6 +2041,70 @@ p, li { white-space: pre-wrap; }
             <suffix></suffix>
             <vTx>7</vTx>
         </atr_amps_decel_ratio>
+        <atr_test1>
+            <longName>Test1</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Please ignore - used for testing/development purposes only&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_ATR_TEST1</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>255</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>1</vTx>
+        </atr_test1>
+        <atr_test2>
+            <longName>Test2</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Please ignore - used for testing/development purposes only&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_ATR_TEST2</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </atr_test2>
+        <atr_test3>
+            <longName>Test3</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Please ignore - used for testing/development purposes only&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_ATR_TEST3</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </atr_test3>
         <braketilt_strength>
             <longName>Brake Tilt Strength</longName>
             <type>1</type>
@@ -2101,6 +2327,270 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>1</vTx>
         </turntilt_yaw_aggregate>
+        <led_type>
+            <longName>LED Type</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;LED Strip Type&lt;br /&gt;&lt;br /&gt;None: disable led output&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;RGB: for ws2811 &amp;amp; ws2812b and anything else that shares that 3 channel protocol&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;RGBW: for sk2812 &amp;amp; ws2815 and anything else that shares that 4 channel protocol&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;External Module: for external lighting solutions such as the Floatwheel LCM&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_TYPE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>RGB</enumNames>
+            <enumNames>RGBW</enumNames>
+            <enumNames>External Module</enumNames>
+        </led_type>
+        <led_status_count>
+            <longName>Status LED Strip Length</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Number of leds in your status bar strip. The status bar strip must be the first in the chain of LEDs. If you dont have a status bar, set this to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_STATUS_COUNT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>99</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>10</valInt>
+            <suffix></suffix>
+            <vTx>1</vTx>
+        </led_status_count>
+        <led_forward_count>
+            <longName>Forward LED Strip Length</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The number of leds in your forward facing LED strip. This strip must be the 2nd in your chain of LEDs, wired after the status leds and before the rear LEDs. Set to 0 if you don't have a forward facing LED stip.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_FORWARD_COUNT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>99</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix></suffix>
+            <vTx>1</vTx>
+        </led_forward_count>
+        <led_rear_count>
+            <longName>Rear LED Strip Length</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The number of leds in your rear facing LED strip. This strip must be the 3rd in your chain of LEDs, wired after the status leds and forward LEDs. Set to 0 if you don't have a rear facing LED stip.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_REAR_COUNT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>99</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix></suffix>
+            <vTx>1</vTx>
+        </led_rear_count>
+        <led_brightness>
+            <longName>Headlight Brightness</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brightness for the forward and rear LED strips.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_BRIGHTNESS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>50</valInt>
+            <suffix>%</suffix>
+            <vTx>1</vTx>
+        </led_brightness>
+        <led_brightness_idle>
+            <longName>Headlight Brightness when Idle</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brightness for the forward and rear LED strips when the board is disengaged.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_BRIGHTNESS_IDLE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>10</valInt>
+            <suffix>%</suffix>
+            <vTx>1</vTx>
+        </led_brightness_idle>
+        <led_mode>
+            <longName>Headlights LED Mode</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Color modes for forward &amp;amp; rear LED strips while the board is in motion.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_MODE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>White/Red</enumNames>
+            <enumNames>Battery Meter</enumNames>
+            <enumNames>Cyan/Magenta</enumNames>
+            <enumNames>Blue/Green</enumNames>
+            <enumNames>Yellow/Green</enumNames>
+            <enumNames>RGB Fade</enumNames>
+            <enumNames>Strobe</enumNames>
+            <enumNames>Rave</enumNames>
+            <enumNames>Mullet</enumNames>
+            <enumNames>Knight Rider</enumNames>
+            <enumNames>Felony</enumNames>
+        </led_mode>
+        <led_mode_idle>
+            <longName>Forward/Rear LED Mode when Idle</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Color modes for forward &amp;amp; rear LED strips while the board is disengaged.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_MODE_IDLE</cDefine>
+            <valInt>1</valInt>
+            <enumNames>White/Red</enumNames>
+            <enumNames>Battery Meter</enumNames>
+            <enumNames>Cyan/Magenta</enumNames>
+            <enumNames>Blue/Green</enumNames>
+            <enumNames>Yellow/Green</enumNames>
+            <enumNames>RGB Fade</enumNames>
+            <enumNames>Strobe</enumNames>
+            <enumNames>Rave</enumNames>
+            <enumNames>Mullet</enumNames>
+            <enumNames>Knight Rider</enumNames>
+            <enumNames>Felony</enumNames>
+        </led_mode_idle>
+        <led_status_brightness>
+            <longName>Status LED Brightness</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brightness for the status LED strip.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_STATUS_BRIGHTNESS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>10</valInt>
+            <suffix>%</suffix>
+            <vTx>1</vTx>
+        </led_status_brightness>
+        <led_status_mode>
+            <longName>Status LED Mode</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Color modes for status LED strip.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_LED_STATUS_MODE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Green-&gt;Red Voltage, Blue Sensor, Yellow-&gt;Red Duty</enumNames>
+        </led_status_mode>
+        <limit_current_accel>
+            <longName>Acceleration Current Limit</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Current limit for acceleration during normal riding on level ground. Lower values make nosedrags easier. &lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This limit will be surpassed when ATR starts kicking in.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>LIMIT_CURRENT_ACCEL</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1000</maxInt>
+            <minInt>50</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>150</valInt>
+            <suffix>A</suffix>
+            <vTx>4</vTx>
+        </limit_current_accel>
+        <limit_current_brake>
+            <longName>Braking Current Limit</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Current limit for braking during normal riding on street. Lower values make taildrags easier. &lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This limit will be surpassed when ATR starts kicking in.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>LIMIT_CURRENT_BRAKE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>-50</maxInt>
+            <minInt>-1000</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-150</valInt>
+            <suffix>A</suffix>
+            <vTx>4</vTx>
+        </limit_current_brake>
+        <limit_current_cont>
+            <longName>Continuous Current Limit</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum current to be output continuously. Whenever the average current exceeds this value for longer than 5 seconds the beeper will go off.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Actual limiting is not yet in place - this is for awareness only!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>LIMIT_CURRENT_CONT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1000</maxInt>
+            <minInt>30</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>100</valInt>
+            <suffix>A</suffix>
+            <vTx>4</vTx>
+        </limit_current_cont>
         <dark_pitch_offset>
             <longName>Darkride Pitch Offset</longName>
             <type>1</type>
@@ -2123,18 +2613,18 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>7</vTx>
         </dark_pitch_offset>
-        <is_buzzer_enabled>
-            <longName>Enable Buzzer on Servo/PPM</longName>
+        <is_beeper_enabled>
+            <longName>Enable Beeper on Servo/PPM</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable buzzer. Buzzer is controlled by Servo/PPM. Active buzzer required, 3pin version recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_FLOAT_IS_BUZZER_ENABLED</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable beeper. Beeper is controlled by Servo/PPM. Active buzzer required, 3pin version recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_FLOAT_IS_BEEPER_ENABLED</cDefine>
             <valInt>0</valInt>
-        </is_buzzer_enabled>
+        </is_beeper_enabled>
         <float_disable>
             <longName>Disable Float Package</longName>
             <type>5</type>
@@ -2161,11 +2651,11 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>1.3</maxDouble>
-            <minDouble>1.3</minDouble>
+            <maxDouble>2</maxDouble>
+            <minDouble>2</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.3</valDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -2183,7 +2673,7 @@ p, li { white-space: pre-wrap; }
         <ser>fault_roll</ser>
         <ser>fault_adc1</ser>
         <ser>fault_adc2</ser>
-        <ser>is_footbuzz_enabled</ser>
+        <ser>is_footbeep_enabled</ser>
         <ser>fault_delay_pitch</ser>
         <ser>fault_delay_roll</ser>
         <ser>fault_delay_switch_half</ser>
@@ -2196,10 +2686,10 @@ p, li { white-space: pre-wrap; }
         <ser>tiltback_duty_angle</ser>
         <ser>tiltback_duty_speed</ser>
         <ser>tiltback_duty</ser>
-        <ser>is_dutybuzz_enabled</ser>
+        <ser>is_dutybeep_enabled</ser>
         <ser>surge_angle</ser>
         <ser>surge_duty_start</ser>
-        <ser>is_surgebuzz_enabled</ser>
+        <ser>is_surgebeep_enabled</ser>
         <ser>tiltback_hv_angle</ser>
         <ser>tiltback_hv_speed</ser>
         <ser>tiltback_hv</ser>
@@ -2212,6 +2702,14 @@ p, li { white-space: pre-wrap; }
         <ser>tiltback_variable</ser>
         <ser>tiltback_variable_max</ser>
         <ser>tiltback_variable_erpm</ser>
+        <ser>haptic_buzz_intensity</ser>
+        <ser>haptic_buzz_min</ser>
+        <ser>haptic_buzz_duty</ser>
+        <ser>haptic_buzz_hv</ser>
+        <ser>haptic_buzz_lv</ser>
+        <ser>haptic_buzz_temp</ser>
+        <ser>haptic_buzz_current</ser>
+        <ser>haptic_buzz_bms</ser>
         <ser>noseangling_speed</ser>
         <ser>inputtilt_remote_type</ser>
         <ser>inputtilt_angle_limit</ser>
@@ -2263,10 +2761,26 @@ p, li { white-space: pre-wrap; }
         <ser>atr_filter</ser>
         <ser>atr_amps_accel_ratio</ser>
         <ser>atr_amps_decel_ratio</ser>
+        <ser>atr_test1</ser>
+        <ser>atr_test2</ser>
+        <ser>atr_test3</ser>
         <ser>braketilt_strength</ser>
         <ser>braketilt_lingering</ser>
+        <ser>led_type</ser>
+        <ser>led_status_count</ser>
+        <ser>led_forward_count</ser>
+        <ser>led_rear_count</ser>
+        <ser>led_brightness</ser>
+        <ser>led_brightness_idle</ser>
+        <ser>led_mode</ser>
+        <ser>led_mode_idle</ser>
+        <ser>led_status_brightness</ser>
+        <ser>led_status_mode</ser>
+        <ser>limit_current_accel</ser>
+        <ser>limit_current_brake</ser>
+        <ser>limit_current_cont</ser>
         <ser>dark_pitch_offset</ser>
-        <ser>is_buzzer_enabled</ser>
+        <ser>is_beeper_enabled</ser>
         <ser>float_disable</ser>
         <ser>float_version</ser>
     </SerOrder>
@@ -2346,6 +2860,10 @@ p, li { white-space: pre-wrap; }
                     <param>::sep:: Brake Tiltback</param>
                     <param>braketilt_strength</param>
                     <param>braketilt_lingering</param>
+                    <param>::sep::Test</param>
+                    <param>atr_test1</param>
+                    <param>atr_test2</param>
+                    <param>atr_test3</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -2385,25 +2903,34 @@ p, li { white-space: pre-wrap; }
                 </subgroupParams>
             </subgroup>
             <subgroup>
-                <subgroupName>Tiltback</subgroupName>
+                <subgroupName>Alerts/Pushback</subgroupName>
                 <subgroupParams>
                     <param>::sep::General Config</param>
                     <param>tiltback_return_speed</param>
-                    <param>::sep::Duty Cycle Tiltback</param>
+                    <param>haptic_buzz_intensity</param>
+                    <param>haptic_buzz_min</param>
+                    <param>::sep::Duty Cycle Alert Pushback</param>
                     <param>tiltback_duty</param>
                     <param>tiltback_duty_angle</param>
                     <param>tiltback_duty_speed</param>
-                    <param>is_dutybuzz_enabled</param>
+                    <param>haptic_buzz_duty</param>
+                    <param>is_dutybeep_enabled</param>
                     <param>::sep::Duty Surge</param>
                     <param>surge_duty_start</param>
                     <param>surge_angle</param>
-                    <param>is_surgebuzz_enabled</param>
-                    <param>::sep::High Voltage Tiltback</param>
+                    <param>is_surgebeep_enabled</param>
+                    <param>::sep::High Voltage Alert Pushback</param>
                     <param>tiltback_hv_angle</param>
                     <param>tiltback_hv_speed</param>
-                    <param>::sep::Low Voltage Tiltback</param>
+                    <param>haptic_buzz_hv</param>
+                    <param>::sep::Low Voltage Alert Pushback</param>
                     <param>tiltback_lv_angle</param>
                     <param>tiltback_lv_speed</param>
+                    <param>haptic_buzz_lv</param>
+                    <param>::sep::Other Alerts</param>
+                    <param>haptic_buzz_temp</param>
+                    <param>haptic_buzz_current</param>
+                    <param>haptic_buzz_bms</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -2422,6 +2949,24 @@ p, li { white-space: pre-wrap; }
                 </subgroupParams>
             </subgroup>
             <subgroup>
+                <subgroupName>LEDs</subgroupName>
+                <subgroupParams>
+                    <param>::sep::Headlights</param>
+                    <param>led_brightness</param>
+                    <param>led_brightness_idle</param>
+                    <param>led_mode</param>
+                    <param>led_mode_idle</param>
+                    <param>::sep::Status</param>
+                    <param>led_status_brightness</param>
+                    <param>led_status_mode</param>
+                    <param>::sep::Config (changes require reboot)</param>
+                    <param>led_type</param>
+                    <param>led_status_count</param>
+                    <param>led_forward_count</param>
+                    <param>led_rear_count</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
                 <subgroupName>Specs</subgroupName>
                 <subgroupParams>
                     <param>::sep::Float Package Details</param>
@@ -2435,10 +2980,14 @@ p, li { white-space: pre-wrap; }
                     <param>::sep::Foot Sensors</param>
                     <param>fault_adc1</param>
                     <param>fault_adc2</param>
-                    <param>is_footbuzz_enabled</param>
+                    <param>is_footbeep_enabled</param>
                     <param>::sep::Miscellaneous</param>
                     <param>dark_pitch_offset</param>
-                    <param>is_buzzer_enabled</param>
+                    <param>is_beeper_enabled</param>
+                    <param>::sep::Current Limiting</param>
+                    <param>limit_current_accel</param>
+                    <param>limit_current_brake</param>
+                    <param>limit_current_cont</param>
                 </subgroupParams>
             </subgroup>
         </group>

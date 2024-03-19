@@ -40,42 +40,42 @@
 
 // Pitch Axis Fault Cutoff
 #ifndef APPCONF_FLOAT_FAULT_PITCH
-#define APPCONF_FLOAT_FAULT_PITCH 90
+#define APPCONF_FLOAT_FAULT_PITCH 60
 #endif
 
 // Roll Axis Fault Cutoff
 #ifndef APPCONF_FLOAT_FAULT_ROLL
-#define APPCONF_FLOAT_FAULT_ROLL 90
+#define APPCONF_FLOAT_FAULT_ROLL 60
 #endif
 
 // ADC1 Switch Voltage
 #ifndef APPCONF_FLOAT_FAULT_ADC1
-#define APPCONF_FLOAT_FAULT_ADC1 3
+#define APPCONF_FLOAT_FAULT_ADC1 2
 #endif
 
 // ADC2 Switch Voltage
 #ifndef APPCONF_FLOAT_FAULT_ADC2
-#define APPCONF_FLOAT_FAULT_ADC2 3
+#define APPCONF_FLOAT_FAULT_ADC2 2
 #endif
 
 // Beep on Sensor Fault
-#ifndef APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED
-#define APPCONF_FLOAT_IS_FOOTBUZZ_ENABLED 1
+#ifndef APPCONF_FLOAT_IS_FOOTBEEP_ENABLED
+#define APPCONF_FLOAT_IS_FOOTBEEP_ENABLED 1
 #endif
 
 // Pitch Fault Delay
 #ifndef APPCONF_FLOAT_FAULT_DELAY_PITCH
-#define APPCONF_FLOAT_FAULT_DELAY_PITCH 1000
+#define APPCONF_FLOAT_FAULT_DELAY_PITCH 250
 #endif
 
 // Roll Fault Delay
 #ifndef APPCONF_FLOAT_FAULT_DELAY_ROLL
-#define APPCONF_FLOAT_FAULT_DELAY_ROLL 1000
+#define APPCONF_FLOAT_FAULT_DELAY_ROLL 250
 #endif
 
 // Half Switch Fault Delay
 #ifndef APPCONF_FLOAT_FAULT_DELAY_SWITCH_HALF
-#define APPCONF_FLOAT_FAULT_DELAY_SWITCH_HALF 250
+#define APPCONF_FLOAT_FAULT_DELAY_SWITCH_HALF 100
 #endif
 
 // Full Switch Fault Delay
@@ -85,7 +85,7 @@
 
 // ADC Half State Fault ERPM
 #ifndef APPCONF_FLOAT_FAULT_ADC_HALF_ERPM
-#define APPCONF_FLOAT_FAULT_ADC_HALF_ERPM 300
+#define APPCONF_FLOAT_FAULT_ADC_HALF_ERPM 200
 #endif
 
 // Treat Both Sensors as One (Posi)
@@ -118,14 +118,14 @@
 #define APPCONF_FLOAT_TILTBACK_DUTY_SPEED 3
 #endif
 
-// Duty Cycle
+// Duty Cycle Threshold
 #ifndef APPCONF_FLOAT_TILTBACK_DUTY
 #define APPCONF_FLOAT_TILTBACK_DUTY 0.8
 #endif
 
 // Beep on Duty Tiltback
-#ifndef APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED
-#define APPCONF_FLOAT_IS_DUTYBUZZ_ENABLED 0
+#ifndef APPCONF_FLOAT_IS_DUTYBEEP_ENABLED
+#define APPCONF_FLOAT_IS_DUTYBEEP_ENABLED 0
 #endif
 
 // Surge Angle Increment
@@ -139,8 +139,8 @@
 #endif
 
 // Beep when Surging
-#ifndef APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED
-#define APPCONF_FLOAT_IS_SURGEBUZZ_ENABLED 1
+#ifndef APPCONF_FLOAT_IS_SURGEBEEP_ENABLED
+#define APPCONF_FLOAT_IS_SURGEBEEP_ENABLED 1
 #endif
 
 // Angle
@@ -175,7 +175,7 @@
 
 // Return To Level Speed
 #ifndef APPCONF_FLOAT_TILTBACK_RETURN_SPEED
-#define APPCONF_FLOAT_TILTBACK_RETURN_SPEED 5
+#define APPCONF_FLOAT_TILTBACK_RETURN_SPEED 1
 #endif
 
 // Constant Tiltback
@@ -201,6 +201,46 @@
 // Variable Tiltback Start ERPM
 #ifndef APPCONF_FLOAT_TILTBACK_VARIABLE_ERPM
 #define APPCONF_FLOAT_TILTBACK_VARIABLE_ERPM 0
+#endif
+
+// Haptic Buzz Intensity
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_INTENSITY
+#define APPCONF_FLOAT_HAPTIC_BUZZ_INTENSITY 0
+#endif
+
+// Haptic Buzz Minimum Intensity
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_MIN
+#define APPCONF_FLOAT_HAPTIC_BUZZ_MIN 0
+#endif
+
+// Haptic Buzz
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_DUTY
+#define APPCONF_FLOAT_HAPTIC_BUZZ_DUTY 0
+#endif
+
+// Haptic Buzz
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_HV
+#define APPCONF_FLOAT_HAPTIC_BUZZ_HV 0
+#endif
+
+// Haptic Buzz
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_LV
+#define APPCONF_FLOAT_HAPTIC_BUZZ_LV 0
+#endif
+
+// Haptic Buzz - Temperature
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_TEMP
+#define APPCONF_FLOAT_HAPTIC_BUZZ_TEMP 0
+#endif
+
+// Haptic Buzz - Current Limits
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_CURRENT
+#define APPCONF_FLOAT_HAPTIC_BUZZ_CURRENT 0
+#endif
+
+// Haptic Buzz - BMS
+#ifndef APPCONF_FLOAT_HAPTIC_BUZZ_BMS
+#define APPCONF_FLOAT_HAPTIC_BUZZ_BMS 0
 #endif
 
 // Nose Angling Speed
@@ -250,7 +290,7 @@
 
 // Startup Pitch Axis Angle Tolerance
 #ifndef APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE
-#define APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE 5
+#define APPCONF_FLOAT_STARTUP_PITCH_TOLERANCE 3
 #endif
 
 // Startup Roll Axis Angle Tolerance
@@ -260,7 +300,7 @@
 
 // Startup Centering Speed
 #ifndef APPCONF_FLOAT_STARTUP_SPEED
-#define APPCONF_FLOAT_STARTUP_SPEED 60
+#define APPCONF_FLOAT_STARTUP_SPEED 30
 #endif
 
 // Startup Click Current
@@ -350,7 +390,7 @@
 
 // Strength (Regen)
 #ifndef APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN
-#define APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN 0
+#define APPCONF_FLOAT_TORQUETILT_STRENGTH_REGEN 0.1
 #endif
 
 // Strength
@@ -405,12 +445,12 @@
 
 // Threshold Angle Up
 #ifndef APPCONF_FLOAT_ATR_THRESHOLD_UP
-#define APPCONF_FLOAT_ATR_THRESHOLD_UP 0.5
+#define APPCONF_FLOAT_ATR_THRESHOLD_UP 1.5
 #endif
 
 // Threshold Angle Down
 #ifndef APPCONF_FLOAT_ATR_THRESHOLD_DOWN
-#define APPCONF_FLOAT_ATR_THRESHOLD_DOWN 0.5
+#define APPCONF_FLOAT_ATR_THRESHOLD_DOWN 1.5
 #endif
 
 // Speed Boost
@@ -458,6 +498,21 @@
 #define APPCONF_FLOAT_ATR_AMPS_DECEL_RATIO 8
 #endif
 
+// Test1
+#ifndef APPCONF_FLOAT_ATR_TEST1
+#define APPCONF_FLOAT_ATR_TEST1 0
+#endif
+
+// Test2
+#ifndef APPCONF_FLOAT_ATR_TEST2
+#define APPCONF_FLOAT_ATR_TEST2 0
+#endif
+
+// Test3
+#ifndef APPCONF_FLOAT_ATR_TEST3
+#define APPCONF_FLOAT_ATR_TEST3 0
+#endif
+
 // Brake Tilt Strength
 #ifndef APPCONF_FLOAT_BRAKETILT_STRENGTH
 #define APPCONF_FLOAT_BRAKETILT_STRENGTH 0
@@ -468,14 +523,79 @@
 #define APPCONF_FLOAT_BRAKETILT_LINGERING 2
 #endif
 
+// LED Type
+#ifndef APPCONF_FLOAT_LED_TYPE
+#define APPCONF_FLOAT_LED_TYPE 0
+#endif
+
+// Status LED Strip Length
+#ifndef APPCONF_FLOAT_LED_STATUS_COUNT
+#define APPCONF_FLOAT_LED_STATUS_COUNT 10
+#endif
+
+// Forward LED Strip Length
+#ifndef APPCONF_FLOAT_LED_FORWARD_COUNT
+#define APPCONF_FLOAT_LED_FORWARD_COUNT 20
+#endif
+
+// Rear LED Strip Length
+#ifndef APPCONF_FLOAT_LED_REAR_COUNT
+#define APPCONF_FLOAT_LED_REAR_COUNT 20
+#endif
+
+// Headlight Brightness
+#ifndef APPCONF_FLOAT_LED_BRIGHTNESS
+#define APPCONF_FLOAT_LED_BRIGHTNESS 50
+#endif
+
+// Headlight Brightness when Idle
+#ifndef APPCONF_FLOAT_LED_BRIGHTNESS_IDLE
+#define APPCONF_FLOAT_LED_BRIGHTNESS_IDLE 10
+#endif
+
+// Headlights LED Mode
+#ifndef APPCONF_FLOAT_LED_MODE
+#define APPCONF_FLOAT_LED_MODE 0
+#endif
+
+// Forward/Rear LED Mode when Idle
+#ifndef APPCONF_FLOAT_LED_MODE_IDLE
+#define APPCONF_FLOAT_LED_MODE_IDLE 1
+#endif
+
+// Status LED Brightness
+#ifndef APPCONF_FLOAT_LED_STATUS_BRIGHTNESS
+#define APPCONF_FLOAT_LED_STATUS_BRIGHTNESS 10
+#endif
+
+// Status LED Mode
+#ifndef APPCONF_FLOAT_LED_STATUS_MODE
+#define APPCONF_FLOAT_LED_STATUS_MODE 0
+#endif
+
+// Acceleration Current Limit
+#ifndef LIMIT_CURRENT_ACCEL
+#define LIMIT_CURRENT_ACCEL 150
+#endif
+
+// Braking Current Limit
+#ifndef LIMIT_CURRENT_BRAKE
+#define LIMIT_CURRENT_BRAKE -150
+#endif
+
+// Continuous Current Limit
+#ifndef LIMIT_CURRENT_CONT
+#define LIMIT_CURRENT_CONT 100
+#endif
+
 // Darkride Pitch Offset
 #ifndef APPCONF_FLOAT_DARK_PITCH_OFFSET
 #define APPCONF_FLOAT_DARK_PITCH_OFFSET 0
 #endif
 
-// Enable Buzzer on Servo/PPM
-#ifndef APPCONF_FLOAT_IS_BUZZER_ENABLED
-#define APPCONF_FLOAT_IS_BUZZER_ENABLED 0
+// Enable Beeper on Servo/PPM
+#ifndef APPCONF_FLOAT_IS_BEEPER_ENABLED
+#define APPCONF_FLOAT_IS_BEEPER_ENABLED 0
 #endif
 
 // Disable Float Package
@@ -485,7 +605,7 @@
 
 // Package Version
 #ifndef APPCONF_FLOAT_VERSION
-#define APPCONF_FLOAT_VERSION 1.3
+#define APPCONF_FLOAT_VERSION 2
 #endif
 
 // CONF_DEFAULT_H_
