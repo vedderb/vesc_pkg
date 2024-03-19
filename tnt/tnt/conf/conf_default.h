@@ -40,12 +40,12 @@
 
 // Pitch 1
 #ifndef APPCONF_TNT_PITCH1
-#define APPCONF_TNT_PITCH1 0.2
+#define APPCONF_TNT_PITCH1 0.3
 #endif
 
 // Pitch 2
 #ifndef APPCONF_TNT_PITCH2
-#define APPCONF_TNT_PITCH2 0.5
+#define APPCONF_TNT_PITCH2 0.7
 #endif
 
 // Pitch 3
@@ -80,12 +80,12 @@
 
 // Pitch Rate Kp
 #ifndef APPCONF_TNT_KP_RATE
-#define APPCONF_TNT_KP_RATE 0.4
+#define APPCONF_TNT_KP_RATE 0.45
 #endif
 
 // Pitch Filter
 #ifndef APPCONF_TNT_PITCH_FILTER
-#define APPCONF_TNT_PITCH_FILTER 25
+#define APPCONF_TNT_PITCH_FILTER 20
 #endif
 
 // Kalman Factor 1
@@ -263,29 +263,44 @@
 #define APPCONF_TNT_IS_SURGE_ENABLED 0
 #endif
 
-// Surge Period
-#ifndef APPCONF_TNT_SURGE_PERIOD
-#define APPCONF_TNT_SURGE_PERIOD 0.7
+// High Current Threshold, Low Duty
+#ifndef APPCONF_TNT_SURGE_STARTCURRENT
+#define APPCONF_TNT_SURGE_STARTCURRENT 85
 #endif
 
-// Surge Cycle
-#ifndef APPCONF_TNT_SURGE_CYCLE
-#define APPCONF_TNT_SURGE_CYCLE 0.3
+// High Current Threshold, Max Duty
+#ifndef APPCONF_TNT_SURGE_START_HD_CURRENT
+#define APPCONF_TNT_SURGE_START_HD_CURRENT 30
 #endif
 
-// Surge Start Angle Speed
-#ifndef APPCONF_TNT_SURGE_STARTANGLESPEED
-#define APPCONF_TNT_SURGE_STARTANGLESPEED 50
+// Duty to Start Current Scaling
+#ifndef APPCONF_TNT_SURGE_SCALEDUTY
+#define APPCONF_TNT_SURGE_SCALEDUTY 35
 #endif
 
-// Surge Start Differential
-#ifndef APPCONF_TNT_SURGE_DIFFLIMIT
-#define APPCONF_TNT_SURGE_DIFFLIMIT 3.5
+// Surge Setpoint Margin
+#ifndef APPCONF_TNT_SURGE_PITCHMARGIN
+#define APPCONF_TNT_SURGE_PITCHMARGIN 3
 #endif
 
-// Surge End Current Margin
-#ifndef APPCONF_TNT_SURGE_CURRENTMARGIN
-#define APPCONF_TNT_SURGE_CURRENTMARGIN 1.3
+// Surge Max Nose Lift
+#ifndef APPCONF_TNT_SURGE_MAXANGLE
+#define APPCONF_TNT_SURGE_MAXANGLE 2
+#endif
+
+// High Current Minimum ERPM
+#ifndef APPCONF_TNT_SURGE_MINERPM
+#define APPCONF_TNT_SURGE_MINERPM 1500
+#endif
+
+// Surge Max Ramp Rate
+#ifndef APPCONF_TNT_SURGE_DUTY
+#define APPCONF_TNT_SURGE_DUTY 150
+#endif
+
+// Surge Return Speed
+#ifndef APPCONF_TNT_TILTBACK_SURGE_SPEED
+#define APPCONF_TNT_TILTBACK_SURGE_SPEED 20
 #endif
 
 // Enable Traction Control
@@ -379,8 +394,8 @@
 #endif
 
 // Beep on Sensor Fault
-#ifndef APPCONF_TNT_IS_FOOTBUZZ_ENABLED
-#define APPCONF_TNT_IS_FOOTBUZZ_ENABLED 0
+#ifndef APPCONF_TNT_IS_FOOTBEEP_ENABLED
+#define APPCONF_TNT_IS_FOOTBEEP_ENABLED 0
 #endif
 
 // Pitch Fault Delay
@@ -434,8 +449,8 @@
 #endif
 
 // Beep on Duty Tiltback
-#ifndef APPCONF_TNT_IS_DUTYBUZZ_ENABLED
-#define APPCONF_TNT_IS_DUTYBUZZ_ENABLED 0
+#ifndef APPCONF_TNT_IS_DUTYBEEP_ENABLED
+#define APPCONF_TNT_IS_DUTYBEEP_ENABLED 0
 #endif
 
 // Angle
@@ -450,7 +465,7 @@
 
 // High Voltage Threshold
 #ifndef APPCONF_TNT_TILTBACK_HV
-#define APPCONF_TNT_TILTBACK_HV 63.5
+#define APPCONF_TNT_TILTBACK_HV 84.5
 #endif
 
 // Angle
@@ -465,7 +480,7 @@
 
 // Low Voltage Threshold
 #ifndef APPCONF_TNT_TILTBACK_LV
-#define APPCONF_TNT_TILTBACK_LV 45
+#define APPCONF_TNT_TILTBACK_LV 60
 #endif
 
 // Angle
@@ -491,6 +506,41 @@
 // Constant Tiltback ERPM
 #ifndef APPCONF_TNT_TILTBACK_CONSTANT_ERPM
 #define APPCONF_TNT_TILTBACK_CONSTANT_ERPM 500
+#endif
+
+// Haptic Buzz Intensity
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_INTENSITY
+#define APPCONF_TNT_HAPTIC_BUZZ_INTENSITY 0
+#endif
+
+// Haptic Buzz Minimum Intensity
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_MIN
+#define APPCONF_TNT_HAPTIC_BUZZ_MIN 0
+#endif
+
+// Haptic Buzz Duty
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_DUTY
+#define APPCONF_TNT_HAPTIC_BUZZ_DUTY 0
+#endif
+
+// Haptic Buzz High Voltage
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_HV
+#define APPCONF_TNT_HAPTIC_BUZZ_HV 0
+#endif
+
+// Haptic Buzz Low Voltage
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_LV
+#define APPCONF_TNT_HAPTIC_BUZZ_LV 0
+#endif
+
+// Haptic Buzz Temperature
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_TEMP
+#define APPCONF_TNT_HAPTIC_BUZZ_TEMP 0
+#endif
+
+// Haptic Buzz High Current
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_CURRENT
+#define APPCONF_TNT_HAPTIC_BUZZ_CURRENT 0
 #endif
 
 // Nose Angling Speed
@@ -588,9 +638,34 @@
 #define APPCONF_TNT_BRAKE_CURRENT 6
 #endif
 
-// Enable Buzzer on Servo/PPM
-#ifndef APPCONF_TNT_IS_BUZZER_ENABLED
-#define APPCONF_TNT_IS_BUZZER_ENABLED 0
+// Haptic Buzz Current Margin
+#ifndef APPCONF_TNT_OVERCURRENT_MARGIN
+#define APPCONF_TNT_OVERCURRENT_MARGIN 10
+#endif
+
+// High Current Haptic Buzz Time
+#ifndef APPCONF_TNT_OVERCURRENT_PERIOD
+#define APPCONF_TNT_OVERCURRENT_PERIOD 0.3
+#endif
+
+// Enable Beeper on Servo/PPM
+#ifndef APPCONF_TNT_IS_BEEPER_ENABLED
+#define APPCONF_TNT_IS_BEEPER_ENABLED 0
+#endif
+
+// Enable Surge Debug Info
+#ifndef APPCONF_TNT_IS_SURGEDEBUG_ENABLED
+#define APPCONF_TNT_IS_SURGEDEBUG_ENABLED 0
+#endif
+
+// Enable Traction Control Debug Info
+#ifndef APPCONF_TNT_IS_TCDEBUG_ENABLED
+#define APPCONF_TNT_IS_TCDEBUG_ENABLED 0
+#endif
+
+// Enable Tune Debug Info
+#ifndef APPCONF_TNT_IS_TRIPDEBUG_ENABLED
+#define APPCONF_TNT_IS_TRIPDEBUG_ENABLED 0
 #endif
 
 // Disable Package
@@ -600,7 +675,7 @@
 
 // Package Version
 #ifndef APPCONF_TNT_VERSION
-#define APPCONF_TNT_VERSION 1.1
+#define APPCONF_TNT_VERSION 1.2
 #endif
 
 // CONF_DEFAULT_H_

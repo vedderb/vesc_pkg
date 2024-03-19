@@ -9,17 +9,51 @@ Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and
  * Current output defined by a series of points, input by the user
  * Alternative proportional gain user inputs
  * Optional independent brake curve
- * Roll kp curves for acceleration and braking
- * Roll kp modification for low speeds
+ * Roll gain curves for acceleration and braking
+ * Roll gain modification for low speeds
  * Surge
  * Traction control
  * Sticky tilt
  * Dynamic Stability
+ * Haptic Buzz
 
 ### Default Settings
-Default settings are based on 15s Hypercore (Future Motion motor) board set up. The default settings are what I ride for trails. The exceptions are surge and traction control which are disabled by default. These are more advanced behaviors that should be tuned by the user. For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
+Default settings are based on 20s Hypercore (Future Motion motor) board set up. The default settings are what I ride for trails. The exceptions are surge and traction control which are disabled by default. These are more advanced behaviors that should be tuned by the user. For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.2
+ * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
+ * _Features_
+   *  Haptic Buzz
+     *  Adopted haptic buzz implementation from Float Package 2.0
+       *  Overcurrent haptic buzz modifed to be instantaneous instead of continuous. Now called High Current.
+       *  High Current haptic buzz now has a user input duration to limit continuous buzz in high current situations.
+       *  BMS haptic buzz not implemented yet.
+   * New Section "High Current" in Tune Modifiers
+       *  Allows the user to configure the maximum current of the motor
+       *  Adjust max current for higher duty cycles
+       *  Haptic buzz will activate at a user input margin from max current, if high current haptic buzz is enabled 
+       *  Surge will activate at the max current, if surge is enabled
+       *  User input minimum ERPM implemented to prevent surge and/or haptic buzz in low speed situations.
+   *  Surge Overhaul
+       *  Changed surge trigger from pitch differential to high current, configured in the High Current section
+       *  Changed surge end condition to be based on a user input pitch to allow more flexible and stronger surges.
+       *  Adjustable surge ramp rate for more powerful boards.
+   *  AppUI Overhaul
+       *  Debug Overhaul
+           *  New options on Specs tab allow for different debug text on the AppUI screen.
+           *  Traction control debug
+           *  Surge debug
+           *  Tune debug. This includes pitch kp, stability, and roll kp information previously under Tune
+       *  New Trip data replaces Tune
+           *  Monitors board state to determine when the board is idle and displays ride vs rest time.
+           *  Ride/rest time is used to correct RT data for better ride data including current, speed and power averages.
+       *  Added last beep reason from Float Package 1.2 to AppUI screen
+ * _Fixes/Improvements_
+   *  Dynamic stability now works while riding switch
+   *  Fixed a bug originating in 1.1 that prevented traction control while riding switch
+   *  **Default settings are now based on 20S Hypercore configuration (30A battery, 150A peak)**
+ 
 ### 1.1
  * **Version 1.1 parameters are not compatible with v1.0 and will be set to default. Screenshot your tunes to save.**
  * _Features_

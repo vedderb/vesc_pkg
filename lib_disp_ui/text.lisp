@@ -10,10 +10,19 @@
 
         (looprange i 0 rows {
                 (var chars (str-len (ix txt i)))
-                (img-text img
-                    (- cx (* font-w chars 0.5))
-                    (+ (- cy (* font-h rows 0.5)) (* i font-h))
-                    col -1 font (ix txt i)
+
+                (if (eq (type-of col) type-list)
+                    (img-text img
+                        (- cx (* font-w chars 0.5))
+                        (+ (- cy (* font-h rows 0.5)) (* i font-h))
+                        col font (ix txt i)
+                    )
+
+                    (img-text img
+                        (- cx (* font-w chars 0.5))
+                        (+ (- cy (* font-h rows 0.5)) (* i font-h))
+                        col -1 font (ix txt i)
+                    )
                 )
         })
 })
@@ -28,10 +37,18 @@
 
         (looprange i 0 rows {
                 (var chars (str-len (ix txt i)))
-                (img-text img
-                    x
-                    (+ y (* i font-h))
-                    col -1 font (ix txt i)
+
+                (if (eq (type-of col) type-list)
+                    (img-text img
+                        x
+                        (+ y (* i font-h))
+                        col font (ix txt i)
+                    )
+                    (img-text img
+                        x
+                        (+ y (* i font-h))
+                        col -1 font (ix txt i)
+                    )
                 )
         })
 })

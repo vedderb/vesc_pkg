@@ -29,9 +29,9 @@
 #include <math.h>
 #include <string.h>
 
-#define ACCEL_ARRAY_SIZE1 10 // For Tration Control acceleration average
-#define ERPM_ARRAY_SIZE1 250 // For traction control erpm tracking
-
+#define ACCEL_ARRAY_SIZE1 10 // For Traction Control acceleration average
+#define ERPM_ARRAY_SIZE1 25 // For traction control erpm tracking
+#define CURRENT_ARRAY_SIZE1 20 // For surge current tracking
 
 HEADER
 
@@ -62,13 +62,29 @@ typedef enum {
 } FloatState;
 
 typedef enum {
+	BEEP_NONE = 0,
+	BEEP_LV = 1,
+	BEEP_HV = 2,
+	BEEP_TEMPFET = 3,
+	BEEP_TEMPMOT = 4,
+	BEEP_CURRENT = 5,
+	BEEP_DUTY = 6,
+	BEEP_SENSORS = 7,
+	BEEP_LOWBATT = 8,
+	BEEP_IDLE = 9,
+	BEEP_ERROR = 10
+} BeepReason;
+
+typedef enum {
 	CENTERING = 0,
 	REVERSESTOP,
     	TILTBACK_NONE,
 	TILTBACK_DUTY,
 	TILTBACK_HV,
 	TILTBACK_LV,
-	TILTBACK_TEMP
+	TILTBACK_TEMP,
+	TILTBACK_SURGE,
+	TILTBACK_UNSURGE
 } SetpointAdjustmentType;
 
 typedef enum {
@@ -106,7 +122,8 @@ typedef struct {
 	int beep_num_left;
 	int beep_duration;
 	int beep_countdown;
-	bool buzzer_enabled;
+	int beep_reason;
+	bool beeper_enabled;
 
 	// Config values
 	float loop_time_seconds;
@@ -119,6 +136,7 @@ typedef struct {
 	float mc_current_max, mc_current_min, max_continuous_current;
 	bool current_beeping;
 	bool duty_beeping;
+	bool overcurrent;
 
 	// Feature: True Pitch
 	ATTITUDE_INFO m_att_ref;
@@ -153,7 +171,7 @@ typedef struct {
 	float motor_timeout_seconds;
 	float brake_timeout; // Seconds
 	float overcurrent_timer, tb_highvoltage_timer;
-	float switch_warn_buzz_erpm;
+	float switch_warn_beep_erpm;
 	float quickstop_erpm;
 	bool traction_control;
 
@@ -184,7 +202,15 @@ typedef struct {
 	float surge_timer;			//Timer to monitor surge cycle and period
 	bool surge;				//Identifies surge state which drives duty to max
 	float differential;			//Pitch differential
-	float surge_diffcount;			//Counter to watch for continuous start angle speed or else reset to zero
+	float new_duty_cycle;
+	float currenthist1[CURRENT_ARRAY_SIZE1];
+	float currentavg1;
+	int currentidx1;
+	bool surge_off;
+	float tiltback_surge_step_size;
+	float surge_setpoint;
+	float surge_start_current;
+	float surge_ramp_rate;
 	
 	//Traction Control
 	float wheelslip_timeron;
@@ -236,10 +262,19 @@ typedef struct {
 	// Dynamic Stability
 	float stabl;
 	float stabl_step_size;
-	
+
+	//Haptic Buzz
+	float applied_haptic_current, haptic_timer;
+	int haptic_counter, haptic_mode;
+	HAPTIC_BUZZ_TYPE haptic_type;
+	bool haptic_tone_in_progress;
+
+	//Trip Debug
+	float rest_time, last_rest_time, ride_time, last_ride_time;
+	bool run_flag;
 
 	//Debug
-	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11, debug12;
+	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11, debug12, debug13, debug14, debug15, debug16, debug17, debug18, debug19;
 
 	// Log values
 	float float_setpoint, float_inputtilt;
@@ -252,42 +287,42 @@ static void set_current(data *d, float current);
 /**
  * BUZZER / BEEPER on Servo Pin
  */
-const VESC_PIN buzzer_pin = VESC_PIN_PPM;
+const VESC_PIN beeper_pin = VESC_PIN_PPM;
 
-#define EXT_BUZZER_ON()  VESC_IF->io_write(buzzer_pin, 1)
-#define EXT_BUZZER_OFF() VESC_IF->io_write(buzzer_pin, 0)
+#define EXT_BEEPER_ON()  VESC_IF->io_write(beeper_pin, 1)
+#define EXT_BEEPER_OFF() VESC_IF->io_write(beeper_pin, 0)
 
-void buzzer_init()
+void beeper_init()
 {
-	VESC_IF->io_set_mode(buzzer_pin, VESC_PIN_MODE_OUTPUT);
+	VESC_IF->io_set_mode(beeper_pin, VESC_PIN_MODE_OUTPUT);
 }
 
-void buzzer_update(data *d)
+void beeper_update(data *d)
 {
-	if (d->buzzer_enabled && (d->beep_num_left > 0)) {
+	if (d->beeper_enabled && (d->beep_num_left > 0)) {
 		d->beep_countdown--;
 		if (d->beep_countdown <= 0) {
 			d->beep_countdown = d->beep_duration;
 			d->beep_num_left--;	
 			if (d->beep_num_left & 0x1)
-				EXT_BUZZER_ON();
+				EXT_BEEPER_ON();
 			else
-				EXT_BUZZER_OFF();
+				EXT_BEEPER_OFF();
 		}
 	}
 }
 
-void buzzer_enable(data *d, bool enable)
+void beeper_enable(data *d, bool enable)
 {
-	d->buzzer_enabled = enable;
+	d->beeper_enabled = enable;
 	if (!enable) {
-		EXT_BUZZER_OFF();
+		EXT_BEEPER_OFF();
 	}
 }
 
 void beep_alert(data *d, int num_beeps, bool longbeep)
 {
-	if (!d->buzzer_enabled)
+	if (!d->beeper_enabled)
 		return;
 	if (d->beep_num_left == 0) {
 		d->beep_num_left = num_beeps * 2 + 1;
@@ -298,18 +333,18 @@ void beep_alert(data *d, int num_beeps, bool longbeep)
 
 void beep_off(data *d, bool force)
 {
-	// don't mess with the buzzer if we're in the process of doing a multi-beep
+	// don't mess with the beeper if we're in the process of doing a multi-beep
 	if (force || (d->beep_num_left == 0))
-		EXT_BUZZER_OFF();
+		EXT_BEEPER_OFF();
 }
 
 void beep_on(data *d, bool force)
 {
-	if (!d->buzzer_enabled)
+	if (!d->beeper_enabled)
 		return;
-	// don't mess with the buzzer if we're in the process of doing a multi-beep
+	// don't mess with the beeper if we're in the process of doing a multi-beep
 	if (force || (d->beep_num_left == 0))
-		EXT_BUZZER_ON();
+		EXT_BEEPER_ON();
 }
 
 // Utility Functions
@@ -379,7 +414,7 @@ static void app_init(data *d) {
 	if (d->state != DISABLED) {
 		d->state = STARTUP;
 	}
-	d->buzzer_enabled = true;
+	d->beeper_enabled = true;
 	
 	// Allow saving of odometer
 	d->odometer_dirty = 0;
@@ -388,8 +423,8 @@ static void app_init(data *d) {
 
 static void configure(data *d) {
 
-	// This timer is used to determine how long the board has been disengaged / idle
-	d->disengage_timer = d->current_time;
+	// This timer is used to determine how long the board has been disengaged / idle. subtract 1 second to prevent the haptic buzz disengage click on "write config"
+	d->disengage_timer = d->current_time - 1;
 
 	// Set calculated values from config
 	d->loop_time_seconds = 1.0 / d->tnt_conf.hertz;
@@ -404,7 +439,8 @@ static void configure(data *d) {
 	d->inputtilt_step_size = d->tnt_conf.inputtilt_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
 	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
-
+	d->tiltback_surge_step_size = d->tnt_conf.tiltback_surge_speed / d->tnt_conf.hertz;
+	
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
 	// Feature: Soft Start
@@ -420,33 +456,11 @@ static void configure(data *d) {
 	d->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
 	d->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
 
-	d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-	int mcm = d->mc_current_max;
-	float mc_max_reduce = d->mc_current_max - mcm;
-	if (mc_max_reduce >= 0.5) {
-		// reduce the max current by X% to save that for torque tilt situations
-		// less than 60 peak amps makes no sense though so I'm not allowing it
-		d->mc_current_max = fmaxf(mc_max_reduce * d->mc_current_max, 60);
-	}
-
+	// less than 60 peak amps makes no sense though so I'm not allowing it
+	d->mc_current_max = fmaxf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_max), 60);
 	// min current is a positive value here!
-	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-	mcm = d->mc_current_min;
-	float mc_min_reduce = fabsf(d->mc_current_min - mcm);
-	if (mc_min_reduce >= 0.5) {
-		// reduce the max current by X% to save that for torque tilt situations
-		// less than 50 peak breaking amps makes no sense though so I'm not allowing it
-		d->mc_current_min = fmaxf(mc_min_reduce * d->mc_current_min, 50);
-	}
-
-	// Decimals of abs-max specify max continuous current
-	float max_abs = VESC_IF->get_cfg_float(CFG_PARAM_l_abs_current_max);
-	int mabs = max_abs;
-	d->max_continuous_current = (max_abs - mabs) * 100;
-	if (d->max_continuous_current < 25) {
-		// anything below 25A is suspicious and will be ignored!
-		d->max_continuous_current = d->mc_current_max;
-	}
+	// less than 50 peak breaking amps makes no sense though so I'm not allowing it
+	d->mc_current_min = fmaxf(fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min)), 50);
 
 	// Maximum amps change when braking
 	d->pid_brake_increment = 5;
@@ -463,7 +477,7 @@ static void configure(data *d) {
 						loop_time_filter + 1.0);
 		
 	float Fc1, Fc2; 
-	Fc1 = 5.0 / (float)d->tnt_conf.hertz; 
+	Fc1 = 3.0 / (float)d->tnt_conf.hertz; 
 	Fc2 = d->tnt_conf.pitch_filter / (float)d->tnt_conf.hertz; 
 	biquad_config1(&d->atr_current_biquad, BQ_LOWPASS, Fc1);
 	biquad_config2(&d->pitch_biquad, BQ_LOWPASS, Fc2);
@@ -472,7 +486,7 @@ static void configure(data *d) {
 	d->inputtilt_ramped_step_size = 0;
 
 	// Speed above which to warn users about an impending full switch fault
-	d->switch_warn_buzz_erpm = d->tnt_conf.is_footbuzz_enabled ? 2000 : 100000;
+	d->switch_warn_beep_erpm = d->tnt_conf.is_footbeep_enabled ? 2000 : 100000;
 
 	// Speed below which we check for quickstop conditions
 	d->quickstop_erpm = 200;
@@ -481,7 +495,7 @@ static void configure(data *d) {
 	d->last_time = 0.0;
 	d->filtered_loop_overshoot = 0.0;
 
-	d->buzzer_enabled = d->tnt_conf.is_buzzer_enabled;
+	d->beeper_enabled = d->tnt_conf.is_beeper_enabled;
 	if (d->tnt_conf.disable_pkg) {
 		d->state = DISABLED;
 		beep_alert(d, 3, false);
@@ -576,6 +590,9 @@ static void configure(data *d) {
 	} else if (d->tnt_conf.brkroll_kp1 >0 && d->tnt_conf.brkroll1>0) {
 		d->brkroll_count = 1;
 	} else {d->brkroll_count = 0;}
+
+	//Surge
+	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / (float)d->tnt_conf.hertz;
 }
 
 static void reset_vars(data *d) {
@@ -591,6 +608,8 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
+	d->overcurrent = false;
+	d->overcurrent_timer = 0;
 	
 	//Input tilt/ Sticky tilt
 	d->atr_filtered_current = 0;
@@ -621,6 +640,12 @@ static void reset_vars(data *d) {
 	
 	// Surge
 	d->last_proportional = 0;
+	for (int i = 0; i < CURRENT_ARRAY_SIZE1; i++)
+		d->currenthist1[i] = 0;
+	d->currentidx1 = 0;
+	d->currentavg1 = 0;
+	d->surge = false;
+	d->surge_off = false;
 	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
@@ -638,6 +663,11 @@ static void reset_vars(data *d) {
 
 	//Stability
 	d->stabl = 0;
+
+	// Haptic Buzz:
+	d->haptic_tone_in_progress = false;
+	d->haptic_timer = d->current_time;
+	d->applied_haptic_current = 0;
 }
 
 
@@ -676,6 +706,10 @@ static float get_setpoint_adjustment_step_size(data *d) {
 			return d->tiltback_ht_step_size;
 		case (TILTBACK_LV):
 			return d->tiltback_lv_step_size;
+		case (TILTBACK_UNSURGE):
+			return d->tiltback_surge_step_size;
+		case (TILTBACK_SURGE):
+			return 25;
 		case (TILTBACK_NONE):
 			return d->tiltback_return_step_size;
 		default:
@@ -721,18 +755,19 @@ static SwitchState check_adcs(data *d) {
 	}
 
 	if ((sw_state == OFF) && (d->state <= RUNNING_TILTBACK)) {
-		if (d->abs_erpm > d->switch_warn_buzz_erpm) {
+		if (d->abs_erpm > d->switch_warn_beep_erpm) {
 			// If we're at riding speed and the switch is off => ALERT the user
 			// set force=true since this could indicate an imminent shutdown/nosedive
 			beep_on(d, true);
+			d->beep_reason = BEEP_SENSORS;
 		}
 		else {
-			// if we drop below riding speed stop buzzing
+			// if we drop below riding speed stop beeping
 			beep_off(d, false);
 		}
 	}
 	else {
-		// if the switch comes back on we stop buzzing
+		// if the switch comes back on we stop beeping
 		beep_off(d, false);
 	}
 
@@ -819,6 +854,17 @@ static void calculate_setpoint_target(data *d) {
 		d->state = RUNNING;
 	} else if (d->state == RUNNING_WHEELSLIP) {
 		d->setpointAdjustmentType = TILTBACK_NONE;
+	} else if (d->surge_off) { 
+		d->setpoint_target = 0;
+		d->setpointAdjustmentType = TILTBACK_UNSURGE;
+		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
+			d->surge_off = false;
+		}
+	} else if (d->surge) {
+		if (d->proportional*SIGN(d->erpm) < d->tnt_conf.surge_pitchmargin) {
+			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * SIGN(d->erpm);
+			d->setpointAdjustmentType = TILTBACK_SURGE;
+		}
 	} else if (d->abs_duty_cycle > d->tnt_conf.tiltback_duty) {
 		if (d->erpm > 0) {
 			d->setpoint_target = d->tnt_conf.tiltback_duty_angle;
@@ -829,6 +875,7 @@ static void calculate_setpoint_target(data *d) {
 		d->state = RUNNING_TILTBACK;
 	} else if (d->abs_duty_cycle > 0.05 && input_voltage > d->tnt_conf.tiltback_hv) {
 		beep_alert(d, 3, false);	// Triple-beep
+		d->beep_reason = BEEP_HV;
 		if (((d->current_time - d->tb_highvoltage_timer) > .5) ||
 		   (input_voltage > d->tnt_conf.tiltback_hv + 1)) {
 			// 500ms have passed or voltage is another volt higher, time for some tiltback
@@ -849,6 +896,7 @@ static void calculate_setpoint_target(data *d) {
 	} else if(VESC_IF->mc_temp_fet_filtered() > d->mc_max_temp_fet){
 		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
 		beep_alert(d, 3, true);	// Triple-beep (long beeps)
+		d->beep_reason = BEEP_TEMPFET;
 		if(VESC_IF->mc_temp_fet_filtered() > (d->mc_max_temp_fet + 1)) {
 			if(d->erpm > 0){
 				d->setpoint_target = d->tnt_conf.tiltback_ht_angle;
@@ -866,6 +914,7 @@ static void calculate_setpoint_target(data *d) {
 	} else if(VESC_IF->mc_temp_motor_filtered() > d->mc_max_temp_mot){
 		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
 		beep_alert(d, 3, true);	// Triple-beep (long beeps)
+		d->beep_reason = BEEP_TEMPMOT;
 		if(VESC_IF->mc_temp_motor_filtered() > (d->mc_max_temp_mot + 1)) {
 			if(d->erpm > 0){
 				d->setpoint_target = d->tnt_conf.tiltback_ht_angle;
@@ -882,6 +931,7 @@ static void calculate_setpoint_target(data *d) {
 		}
 	} else if (d->abs_duty_cycle > 0.05 && input_voltage < d->tnt_conf.tiltback_lv) {
 		beep_alert(d, 3, false);	// Triple-beep
+		d->beep_reason = BEEP_LV;
 		float abs_motor_current = fabsf(d->motor_current);
 		float vdelta = d->tnt_conf.tiltback_lv - input_voltage;
 		float ratio = vdelta * 20 / abs_motor_current;
@@ -915,8 +965,9 @@ static void calculate_setpoint_target(data *d) {
 	}
 	
 	if (d->setpointAdjustmentType == TILTBACK_DUTY) {
-		if (d->tnt_conf.is_dutybuzz_enabled || (d->tnt_conf.tiltback_duty_angle == 0)) {
+		if (d->tnt_conf.is_dutybeep_enabled || (d->tnt_conf.tiltback_duty_angle == 0)) {
 			beep_on(d, true);
+			d->beep_reason = BEEP_DUTY;
 			d->duty_beeping = true;
 		}
 	}
@@ -1045,6 +1096,78 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		d->setpoint += d->inputtilt_interpolated;
 	}
 }
+/*
+static void activate_haptic_short_timer(data *d, float duration) {
+	// to activate:	d->haptic_short_timer = d->current_time;	activate_haptic_short_timer(d, 1);
+	if (d->activate_haptic_short && d->current_time - d->haptic_short_timer > duration) { //If we are buzzing and outside the duration, stop
+		d->activate_haptic_short = false;
+	} else {
+		d->activate_haptic_short = true;
+	}
+}
+*/
+static float haptic_buzz(data *d, float note_period) {
+	if (d->setpointAdjustmentType == TILTBACK_DUTY) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_duty;
+	} else if (d->setpointAdjustmentType == TILTBACK_HV) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_hv;
+	} else if (d->setpointAdjustmentType == TILTBACK_LV) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_lv;
+	} else if (d->setpointAdjustmentType == TILTBACK_TEMP) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_temp;
+	} else if (d->overcurrent) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_current;
+	} else { d->haptic_type = HAPTIC_BUZZ_NONE;}
+
+	// This kicks it off till at least one ~300ms tone is completed
+	if (d->haptic_type != HAPTIC_BUZZ_NONE) {
+		d->haptic_tone_in_progress = true;
+	}
+
+	if (d->haptic_tone_in_progress) {
+		d->haptic_counter += 1;
+
+		float buzz_current = fminf(20, d->tnt_conf.haptic_buzz_intensity);
+		// small periods (1,2) produce audible tone, higher periods produce vibration
+		int buzz_period = d->haptic_type;
+		if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
+			buzz_period = 1;
+		}
+
+		// alternate frequencies, depending on "mode"
+		buzz_period += d->haptic_mode;
+		
+		if ((d->abs_erpm < 10000) && (buzz_current > 5)) {
+			// scale high currents down to as low as 5A for lower erpms
+			buzz_current = fmaxf(d->tnt_conf.haptic_buzz_min, d->abs_erpm / 10000 * buzz_current);
+		}
+
+		if (d->haptic_counter > buzz_period) {
+			d->haptic_counter = 0;
+		}
+
+		if (d->haptic_counter == 0) {
+			if (d->applied_haptic_current > 0) {
+				d->applied_haptic_current = -buzz_current;
+			} else { d->applied_haptic_current = buzz_current; }
+
+			if (fabsf(d->haptic_timer - d->current_time) > note_period) {
+				d->haptic_tone_in_progress = false;
+				if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
+					d->haptic_mode = 5 - d->haptic_mode;
+				} else { d->haptic_mode = 1 - d->haptic_mode; }
+				d->haptic_timer = d->current_time;
+			}
+		}
+	}
+	else {
+		d->haptic_mode = 0;
+		d->haptic_counter = 0;
+		d->haptic_timer = d->current_time;
+		d->applied_haptic_current = 0;
+	}
+	return d->applied_haptic_current;
+}
 
 static void brake(data *d) {
 	// Brake timeout logic
@@ -1066,10 +1189,11 @@ static void brake(data *d) {
 
 static void set_current(data *d, float current){
 	// Limit current output to configured max output
-	if (current > 0 && current > VESC_IF->get_cfg_float(CFG_PARAM_l_current_max)) {
-		current = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-	} else if(current < 0 && current < VESC_IF->get_cfg_float(CFG_PARAM_l_current_min)) {
-		current = VESC_IF->get_cfg_float(CFG_PARAM_l_current_min);
+	if (current > d->mc_current_max) {
+		current = d->mc_current_max;
+		d->overcurrent = true;
+	} else if(current < -d->mc_current_min) {
+		current = -d->mc_current_min;
 	}
 
 	// Reset the timeout
@@ -1097,51 +1221,72 @@ static void set_dutycycle(data *d, float dutycycle){
 	VESC_IF->mc_set_duty_noramp(dutycycle);
 }
 
-static void check_surge(data *d, float new_pid_value){
+static void check_surge(data *d){
 	//Start Surge Code
-	//Counter for high nose angle speed
-	if (d->differential * SIGN(d->erpm) > d->tnt_conf.surge_startanglespeed / d->tnt_conf.hertz) {
-		d->surge_diffcount += d->differential * SIGN(d->erpm);	// Add until diff limit. 
-	} else if (d->differential * SIGN(d->erpm) < 0) { 	//Pitch is travelling back to center
-		d->surge_diffcount = 0;				// reset
-	}
-
 	//Initialize Surge Cycle
-	if ((d->surge_diffcount >= d->tnt_conf.surge_difflimit) && 		//Nose dip condition 
-	     (SIGN(d->erpm) * d->proportional - d->tnt_conf.surge_difflimit > 0) &&	//Minimum angle for acceleration
-	     (SIGN(d->proportional) == SIGN(d->erpm)) && 				//Not braking
-	     (d->current_time - d->surge_timer > d->tnt_conf.surge_period) &&	//Not during an active surge period
-	     (d->state != RUNNING_WHEELSLIP) &&				//Not during traction control
-	     (d->setpointAdjustmentType != CENTERING)) { 		//Not during startup
+	if ((d->currentavg1 * SIGN(d->erpm) > d->surge_start_current) && 	//High current condition 
+	     (d->overcurrent) && 						//If overcurrent is triggered this satifies traction control, min erpm, braking, centering and direction
+	     (d->abs_duty_cycle < 0.8) &&					//Prevent surge when pushing top speed
+	     (d->current_time - d->surge_timer > 0.7)) {	//Not during an active surge period			
 		d->surge_timer = d->current_time; 			//Reset surge timer
 		d->surge = true; 					//Indicates we are in the surge cycle of the surge period
+		d->surge_setpoint = d->setpoint;			//Records setpoint at the start of surge because surge changes the setpoint
+		d->new_duty_cycle = SIGN(d->erpm) * d->abs_duty_cycle;
+		d->debug13 = d->proportional;				
 		d->debug5 = 0;
+		d->debug16 = 0;
+		d->debug18 = 0;
+		d->debug17 = d->currentavg1;
+		d->debug14 = 0;
+		d->debug15 = d->surge_start_current;
+		d->debug19 = d->duty_cycle;
 	}
-
+	
 	//Conditions to stop surge and increment the duty cycle
 	if (d->surge){	
-		d->duty_cycle = SIGN(d->erpm); 					// Max duty during surge cycle	
-		d->surge_diffcount = 0;						// Reset surge initialization counter
-		//Conditions that will cause surge cycle to end
-		if ((d->current_time - d->surge_timer > d->tnt_conf.surge_cycle) ||		//Outside the surge cycle portion of the surge period
-		 (d->state == RUNNING_WHEELSLIP) ||						//In traction control
-		 ((SIGN(d->erpm) * d->proportional - 0.05) < 0) ||			//The pitch is less than our minimum angle
-		 (new_pid_value <= d->motor_current / d->tnt_conf.surge_currentmargin && SIGN(d->erpm) * d->differential < 0)) {
-		 //PID current demand has lowered below our surge current / margin and the nose is lifting (to prevent nuisance trips)
+		d->new_duty_cycle += SIGN(d->erpm) * d->surge_ramp_rate; 	
+		if((d->current_time - d->surge_timer > 0.5) ||			//Outside the surge cycle portion of the surge period
+		 (-1 * (d->surge_setpoint - d->pitch_angle) * SIGN(d->erpm) > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
+		 (d->state == RUNNING_WHEELSLIP)) {						//In traction control		
 			d->surge = false;
-			d->pid_value = d->motor_current;	//This allows a smooth transition to PID current control
-			if (d->current_time - d->surge_timer < d->tnt_conf.surge_cycle) { 	//If we are still in the surge cycle
-				d->debug5 = d->current_time - d->surge_timer;	//Register how long the surge cycle lasted
+			d->surge_off = true;							//Identifies the end of surge to change the setpoint back to before surge 
+			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();	//This allows a smooth transition to PID current control
+			d->debug5 = d->current_time - d->surge_timer;				//Register how long the surge cycle lasted
+			d->debug18 = d->duty_cycle - d->debug19;
+			d->debug14 = d->debug18 / (d->current_time - d->surge_timer) * 100;
+			if (d->current_time - d->surge_timer >= 0.5) {
+				d->debug16 = 111;
+			} else if (-1 * (d->surge_setpoint - d->pitch_angle) * SIGN(d->erpm) > d->tnt_conf.surge_maxangle){
+				d->debug16 = d->pitch_angle;
+			} else if (d->state == RUNNING_WHEELSLIP){
+				d->debug16 = 222;
 			}
 		}
 	}
 }
 
+static void check_current(data *d){
+	d->overcurrent = false;
+	float scale_start_current;
+	scale_start_current = ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * d->abs_duty_cycle			//linear scaling mx
+		+ (d->tnt_conf.surge_start_hd_current - ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * .95); 	//+b
+	d->surge_start_current = fminf(d->tnt_conf.surge_startcurrent, scale_start_current); 
+	if ((d->currentavg1 * SIGN(d->erpm) > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
+	     (SIGN(d->proportional) == SIGN(d->erpm)) && 				//Not braking
+	     (d->state != RUNNING_WHEELSLIP) &&						//Not during traction control
+	     (fabsf(d->erpm) > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
+	     (SIGN(d->direction) == SIGN(d->erpm)) &&					//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
+	     (d->setpointAdjustmentType != CENTERING)) { 				//Not during startup
+		// High current, just haptic buzz don't actually limit currents
+		if (d->current_time - d->overcurrent_timer < d->tnt_conf.overcurrent_period) {	//Not during an active overcurrent period
+			d->overcurrent = true;
+		}
+	} else { d->overcurrent_timer = d->current_time; } //reset timer to restrict haptic buzz period once it renters overcurrent
+}
+
 static void check_traction(data *d){
 	float wheelslip_erpmfactor = d->tnt_conf.wheelslip_scaleaccel - fminf(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
 	bool erpm_check;
-
-	d->direction = 0.999 * d->direction + (1-0.999) * SIGN(d->erpm);
 	
 	int last_accelidx1 = d->accelidx1 - 1; // Identify the last cycles accel
 	if (d->accelidx1 == 0) {
@@ -1213,7 +1358,7 @@ static void check_traction(data *d){
 		}
 	}	
 	if (SIGN(d->erpmhist1[current_erpmidx]) == SIGN(d->erpmhist1[last_erpmidx])) { // We check sign to make sure erpm is increasing or has changed direction. 
-		if (d->erpmhist1[current_erpmidx] > d-> erpmhist1[last_erpmidx]) {
+		if (fabsf(d->erpmhist1[current_erpmidx]) > fabsf(d-> erpmhist1[last_erpmidx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (SIGN(d->direction) != SIGN(d->accelavg1)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
@@ -1478,9 +1623,9 @@ static void apply_stability(data *d) {
 	if (d->tnt_conf.enable_throttle_stability) {
 		throttle_stabl_mod = fabsf(d->inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; //using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
 	}
-	if (d->tnt_conf.enable_speed_stability && d->erpm > d->tnt_conf.stabl_min_erpm) {		
+	if (d->tnt_conf.enable_speed_stability && fabsf(d->erpm) > d->tnt_conf.stabl_min_erpm) {		
 		speed_stabl_mod = fminf(1 ,	// Do not exceed the max value. Divided by 100 for percentage.					
-				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->erpm				//linear scaling mx
+				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * fabsf(d->erpm)				//linear scaling mx
 				+ (1 - ((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->tnt_conf.stabl_max_erpm) 	//+b
 				);
 	}
@@ -1504,7 +1649,7 @@ static void tnt_thd(void *arg) {
 	app_init(d);
 
 	while (!VESC_IF->should_terminate()) {
-		buzzer_update(d);
+		beeper_update(d);
 
 		// Update times
 		d->current_time = VESC_IF->system_time();
@@ -1551,7 +1696,7 @@ static void tnt_thd(void *arg) {
 		if (d->adc2 < 0.0) {
 			d->adc2 = 0.0;
 		}
-
+		
 		// UART/PPM Remote Throttle ///////////////////////
 		bool remote_connected = false;
 		float servo_val = 0;
@@ -1603,19 +1748,34 @@ static void tnt_thd(void *arg) {
 			d->accelidx1 = 0;
 		}
 
+		d->currentavg1 += (d->atr_filtered_current - d->currenthist1[d->currentidx1]) / CURRENT_ARRAY_SIZE1;
+		d->currenthist1[d->currentidx1] = d->atr_filtered_current;
+		d->currentidx1++;
+ 		if (d->currentidx1 == CURRENT_ARRAY_SIZE1) {
+			d->currentidx1 = 0;
+		}	
+		
 		d->switch_state = check_adcs(d);
 
 		// Log Values
 		d->float_setpoint = d->setpoint;
 		d->float_inputtilt = d->inputtilt_interpolated;
 
-		float new_pid_value = 0;
+		float new_pid_value = 0;		
 
 		// Control Loop State Logic
 		switch(d->state) {
 		case (STARTUP):
 				// Disable output
 				brake(d);
+				
+				//Rest Timer
+				if(!d->run_flag) { //First trigger run flag and reset last rest time
+					d->rest_time += d->current_time - d->last_rest_time;
+				}
+				d->run_flag = false;
+				d->last_rest_time = d->current_time;
+							
 				if (VESC_IF->imu_startup_done()) {
 					reset_vars(d);
 					d->state = FAULT_STARTUP; // Trigger a fault so we need to meet start conditions to start
@@ -1626,6 +1786,7 @@ static void tnt_thd(void *arg) {
 					if (bat_volts < threshold) {
 						int beeps = (int)fminf(6, threshold - bat_volts);
 						beep_alert(d, beeps + 1, true);
+						d->beep_reason = BEEP_LOWBATT;
 					}
 					else {
 						// // Let the rider know that the board is ready (one long beep)
@@ -1649,7 +1810,14 @@ static void tnt_thd(void *arg) {
 			}
 			d->odometer_dirty = 1;
 			d->disengage_timer = d->current_time;
-
+			
+			//Ride Timer
+			if(d->run_flag) { //First trigger run flag and reset last ride time
+				d->ride_time += d->current_time - d->last_ride_time;
+			}
+			d->run_flag = true;
+			d->last_ride_time = d->current_time;
+			
 			// Calculate setpoint and interpolation
 			calculate_setpoint_target(d);
 			calculate_setpoint_interpolated(d);
@@ -1668,6 +1836,7 @@ static void tnt_thd(void *arg) {
 				new_pid_value = select_kp_brake(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
 			} else {new_pid_value = select_kp(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
 			d->last_proportional = d->proportional; 
+			d->direction = 0.999 * d->direction + (1-0.999) * SIGN(d->erpm);  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
@@ -1709,21 +1878,8 @@ static void tnt_thd(void *arg) {
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = SIGN(new_pid_value) * current_limit;
 			}
-			else {
-				// Over continuous current for more than 3 seconds? Just beep, don't actually limit currents
-				if (fabsf(d->atr_filtered_current) < d->max_continuous_current) {
-					d->overcurrent_timer = d->current_time;
-					if (d->current_beeping) {
-						d->current_beeping = false;
-						beep_off(d, false);
-					}
-				} else {
-					if (d->current_time - d->overcurrent_timer > 3) {
-						beep_on(d, true);
-						d->current_beeping = true;
-					}
-				}
-			}
+			
+			check_current(d);
 			
 			// Modifiers to PID control
 			if (d->tnt_conf.is_traction_enabled) {
@@ -1731,7 +1887,7 @@ static void tnt_thd(void *arg) {
 				check_traction(d);
 			}
 			if (d->tnt_conf.is_surge_enabled){
-			check_surge(d, new_pid_value);
+			check_surge(d);
 			}
 						
 			d->last_erpm = d->erpm; //moved here so last erpm can be used in traction control
@@ -1760,8 +1916,12 @@ static void tnt_thd(void *arg) {
 				else
 					set_current(d, d->pid_value + d->tnt_conf.startup_click_current);
 			} else if (d->surge) { 	
-				set_dutycycle(d, d->duty_cycle); 		// Set the duty to surge
+				set_dutycycle(d, d->new_duty_cycle); 		// Set the duty to surge
 			} else {
+				// modulate haptic buzz onto pid_value unconditionally to allow
+				// checking for haptic conditions, and to finish minimum duration haptic effect
+				// even after short pulses of hitting the condition(s)
+				d->pid_value += haptic_buzz(d, 0.3);
 				set_current(d, d->pid_value); 	// Set current as normal.
 				d->surge = false;		// Don't re-engage surge if we have left surge cycle until new surge period
 			}
@@ -1786,6 +1946,7 @@ static void tnt_thd(void *arg) {
 					else {
 						//if (d->current_time - d->disengage_timer < 5400) { 		// stop alerting after 1 hour
 							beep_alert(d, 2, 1);					// 2 long beeps
+							d->beep_reason = BEEP_IDLE;
 						//	set_current(d, d->tnt_conf.startup_click_current);	// Startup click
 						//}
 					}
@@ -1802,6 +1963,13 @@ static void tnt_thd(void *arg) {
 
 			check_odometer(d);
 
+			//Rest Timer
+			if(!d->run_flag) { //First trigger run flag and reset last rest time
+				d->rest_time += d->current_time - d->last_rest_time;
+			}
+			d->run_flag = false;
+			d->last_rest_time = d->current_time;
+			
 			// Check for valid startup position and switch state
 			if (fabsf(d->pitch_angle) < d->startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->tnt_conf.startup_roll_tolerance && 
@@ -1951,44 +2119,70 @@ enum {
 } float_commands;
 
 static void send_realtime_data(data *d){
-	#define BUFSIZE 100
+	#define BUFSIZE 101
 	uint8_t send_buffer[BUFSIZE];
 	int32_t ind = 0;
 	send_buffer[ind++] = 111;//Magic Number
 	send_buffer[ind++] = FLOAT_COMMAND_GET_RTDATA;
+	float corr_factor;
 
-	// RT Data
-	buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
-	buffer_append_float32_auto(send_buffer, d->debug11, &ind); //rollkp
-	buffer_append_float32_auto(send_buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
-	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->debug10, &ind); // scaled angle P
-	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind); // current
-	buffer_append_float32_auto(send_buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
-	buffer_append_float32_auto(send_buffer, d->debug12, &ind); // added stability rate P
-	
+	// Board State
 	send_buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
-	send_buffer[ind++] = d->switch_state;
+	send_buffer[ind++] = (d->switch_state & 0xF) + (d->beep_reason << 4);
 	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
 	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
+	buffer_append_float32_auto(send_buffer, d->currentavg1, &ind); // current atr_filtered_current
+	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
+	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
 
+	//Tune Modifiers
 	buffer_append_float32_auto(send_buffer, d->float_setpoint, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
-	buffer_append_float32_auto(send_buffer, d->stabl, &ind);
 	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
+	buffer_append_float32_auto(send_buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
+	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
+
+	// Trip
+	if (d->ride_time > 0) {
+		corr_factor =  d->current_time / d->ride_time;
+	} else {corr_factor = 1;}
+	buffer_append_float32_auto(send_buffer, d->ride_time, &ind); //Temporary debug. Ride Time
+	buffer_append_float32_auto(send_buffer, d->rest_time, &ind); //Temporary debug. Rest time
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //Temporary debug. speed avg convert m/s to mph
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //Temporary debug. current avg
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //Temporary debug. power avg
+	buffer_append_float32_auto(send_buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //Temporary debug. efficiency
 	
 	// DEBUG
-	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
-	buffer_append_float32_auto(send_buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
-	buffer_append_float32_auto(send_buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(send_buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
-	buffer_append_float32_auto(send_buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
-	buffer_append_float32_auto(send_buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
-	buffer_append_float32_auto(send_buffer, d->debug9, &ind); //Temporary debug. erpm at wheel slip
-	buffer_append_float32_auto(send_buffer, d->debug4, &ind); //Temporary debug. Debug condition or last accel
-	buffer_append_float32_auto(send_buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
-
+	if (d->tnt_conf.is_tcdebug_enabled) {
+		send_buffer[ind++] = 1;
+		buffer_append_float32_auto(send_buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
+		buffer_append_float32_auto(send_buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
+		buffer_append_float32_auto(send_buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
+		buffer_append_float32_auto(send_buffer, d->debug9, &ind); //Temporary debug. erpm at wheel slip
+		buffer_append_float32_auto(send_buffer, d->debug4, &ind); //Temporary debug. Debug condition or last accel
+		buffer_append_float32_auto(send_buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
+	} else if (d->tnt_conf.is_surgedebug_enabled) {
+		send_buffer[ind++] = 2;
+		buffer_append_float32_auto(send_buffer, d->debug13, &ind); //Temporary debug. surge start proportional
+		buffer_append_float32_auto(send_buffer, d->debug18, &ind); //Temporary debug. surge added duty cycle
+		buffer_append_float32_auto(send_buffer, d->debug15, &ind); //Temporary debug. surge start current threshold
+		buffer_append_float32_auto(send_buffer, d->debug16, &ind); //Temporary debug. surge end early from proportional
+		buffer_append_float32_auto(send_buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
+		buffer_append_float32_auto(send_buffer, d->debug17, &ind); //Temporary debug. start current value
+		buffer_append_float32_auto(send_buffer, d->debug14, &ind); //Temporary debug. ramp rate
+	} else if (d->tnt_conf.is_tunedebug_enabled) {
+		send_buffer[ind++] = 3;
+		buffer_append_float32_auto(send_buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
+		buffer_append_float32_auto(send_buffer, d->debug10, &ind); // scaled angle P
+		buffer_append_float32_auto(send_buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
+		buffer_append_float32_auto(send_buffer, d->debug12, &ind); // added stability rate P
+		buffer_append_float32_auto(send_buffer, d->stabl, &ind);
+		buffer_append_float32_auto(send_buffer, d->debug11, &ind); //rollkp
+	} else { 
+		send_buffer[ind++] = 0; 
+	}
 	if (ind > BUFSIZE) {
 		VESC_IF->printf("BUFSIZE too small...\n");
 	}
@@ -2147,7 +2341,7 @@ static void stop(void *arg) {
 INIT_FUN(lib_info *info) {
 	INIT_START
 	if (!VESC_IF->app_is_output_disabled()) {
-		VESC_IF->printf("Init Float v%.1f - Surge3\n", (double)APPCONF_TNT_VERSION);
+		VESC_IF->printf("Init Float v%.1fd\n", (double)APPCONF_TNT_VERSION);
 	}
 
 	data *d = VESC_IF->malloc(sizeof(data));
@@ -2168,8 +2362,8 @@ INIT_FUN(lib_info *info) {
 
 	configure(d);
 
-	if ((d->tnt_conf.is_buzzer_enabled) || (d->tnt_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
-		buzzer_init();
+	if ((d->tnt_conf.is_beeper_enabled) || (d->tnt_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
+		beeper_init();
 	}
 
 	VESC_IF->ahrs_init_attitude_info(&d->m_att_ref);

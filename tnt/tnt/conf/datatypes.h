@@ -29,6 +29,17 @@ typedef enum {
 	INPUTTILT_PPM
 } INPUTTILT_REMOTE_TYPE;
 
+typedef enum {
+	HAPTIC_BUZZ_NONE = 0,
+	HAPTIC_BUZZ_AUDIBLE1,
+	HAPTIC_BUZZ_AUDIBLE2,
+	HAPTIC_BUZZ_AUDIBLE3,
+	HAPTIC_BUZZ_VIBRATING1,
+	HAPTIC_BUZZ_VIBRATING2,
+	HAPTIC_BUZZ_VIBRATING3,
+	HAPTIC_BUZZ_ALTERNATING
+} HAPTIC_BUZZ_TYPE;
+
 typedef struct {
 	float version;
 	float disable_pkg;
@@ -84,11 +95,14 @@ typedef struct {
 	float rollkp_lowerpm;
 	float rollkp_maxscale;
 	bool is_surge_enabled;
-	float surge_period;
-	float surge_cycle;
-	float surge_startanglespeed;
-	float surge_difflimit;
-	float surge_currentmargin;
+	float surge_startcurrent;
+	float surge_start_hd_current;
+	float surge_scaleduty;
+	float surge_pitchmargin;
+	float surge_maxangle;
+	float surge_minerpm;
+	float surge_duty;
+	float tiltback_surge_speed;
 	bool is_traction_enabled;
 	float wheelslip_margin;
 	float wheelslip_accelstart;
@@ -128,6 +142,13 @@ typedef struct {
 	float tiltback_return_speed;
 	float tiltback_constant;
 	uint16_t tiltback_constant_erpm;
+	int haptic_buzz_intensity;
+	int haptic_buzz_min;
+	HAPTIC_BUZZ_TYPE haptic_buzz_duty;
+	HAPTIC_BUZZ_TYPE haptic_buzz_hv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_lv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_temp;
+	HAPTIC_BUZZ_TYPE haptic_buzz_current;
 	INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
 	float inputtilt_speed;
 	float inputtilt_angle_limit;
@@ -147,9 +168,14 @@ typedef struct {
 	bool startup_pushstart_enabled;
 	bool startup_dirtylandings_enabled;
 	float brake_current;
-	bool is_buzzer_enabled;
-	bool is_dutybuzz_enabled;
-	bool is_footbuzz_enabled;
+	int overcurrent_margin;
+	float overcurrent_period;
+	bool is_beeper_enabled;
+	bool is_dutybeep_enabled;
+	bool is_footbeep_enabled;
+	bool is_surgedebug_enabled;
+	bool is_tcdebug_enabled;
+	bool is_tunedebug_enabled;
 } tnt_config;
 
 // DATATYPES_H_

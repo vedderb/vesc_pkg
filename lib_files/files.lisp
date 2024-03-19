@@ -1,4 +1,5 @@
 (import "fonts/font_16_26.bin" 'font_16_26)
+(import "fonts/font_16_26_aa.bin" 'font_16_26_aa)
 
 (import "images/img_test_160_80.jpg" 'jpg_test_160_80)
 (import "images/img_test_320_240.jpg" 'jpg_test_320_240)

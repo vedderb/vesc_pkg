@@ -3,7 +3,6 @@
 confxml.c
 confxml.h
 
-*.bin
 *.elf
 *.o
 *.obj
