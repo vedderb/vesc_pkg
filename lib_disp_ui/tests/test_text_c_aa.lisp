@@ -8,7 +8,7 @@
 (hw-init)
 
 (def img (img-buffer 'indexed4 200 200))
-(txt-block-c img 3 100 50 font '("First Line" "Line 2"))
-(txt-block-c img '(0 1 2 3) 100 100 font_aa '("First Line" "Line 2"))
+(txt-block-c img 3 100 40 font '("Antialiasing" "Disabled"))
+(txt-block-c img '(0 1 2 3) 100 100 font_aa '("Antialiasing" "Enabled"))
 
 (disp-render img 0 0 '(0 0x550000 0xAA0000 0xFF0000))
