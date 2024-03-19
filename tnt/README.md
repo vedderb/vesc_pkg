@@ -25,7 +25,7 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
  * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
  * _Features_
    *  Haptic Buzz
-       *  Adopted haptic buzz implementation from Float Package 2.0
+     *  Adopted haptic buzz implementation from Float Package 2.0
        *  Overcurrent haptic buzz modifed to be instantaneous instead of continuous. Now called High Current.
        *  High Current haptic buzz now has a user input duration to limit continuous buzz in high current situations.
        *  BMS haptic buzz not implemented yet.
