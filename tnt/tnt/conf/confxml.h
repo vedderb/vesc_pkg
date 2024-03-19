@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 // Constants
-#define DATA_TNT_CONFIG__SIZE		15379
+#define DATA_TNT_CONFIG__SIZE		16231
 
 // Variables
 extern uint8_t data_tnt_config_[];

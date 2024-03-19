@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 // Constants
-#define TNT_CONFIG_SIGNATURE		3058639305
+#define TNT_CONFIG_SIGNATURE		462520272
 
 // Functions
 int32_t confparser_serialize_tnt_config(uint8_t *buffer, const tnt_config *conf);

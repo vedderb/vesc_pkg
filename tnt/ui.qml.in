@@ -52,7 +52,7 @@ Item {
     property ConfigParams mAppConf: VescIf.appConfig()
     property ConfigParams mCustomConf: VescIf.customConfig(0)
     property var quicksaveNames: []
-
+    property var beep_reason: 0
     
 
     // property var dialogParent: ApplicationWindow.overlay
@@ -97,41 +97,59 @@ Item {
                 return;
             }
             if (msgtype == 1) {
-                var voltage = dv.getFloat32(ind); ind += 4;
-                var rollkp = dv.getFloat32(ind); ind += 4;
-                var smoothpitch = dv.getFloat32(ind); ind += 4;
-                var pitch = dv.getFloat32(ind); ind += 4;
-                var roll = dv.getFloat32(ind); ind += 4;
-                var basekp = dv.getFloat32(ind); ind += 4;
-                var current = dv.getFloat32(ind); ind += 4;
-                var stablkp = dv.getFloat32(ind); ind += 4;
-                var stablkprate = dv.getFloat32(ind); ind += 4;
-                
-                var state = dv.getInt8(ind); ind += 1;
+		var state = dv.getInt8(ind); ind += 1;
                 var setpointAdjustmentType = state >> 4;
                 state = state &0xF;
                 var switch_state = dv.getInt8(ind); ind += 1;
+              	var new_beep_reason = switch_state >> 4;
+		switch_state = switch_state & 0x3;
                 var adc1 = dv.getFloat32(ind); ind += 4;
                 var adc2 = dv.getFloat32(ind); ind += 4;
+                var voltage = dv.getFloat32(ind); ind += 4;
+                var current = dv.getFloat32(ind); ind += 4;
+                var pitch = dv.getFloat32(ind); ind += 4;
+                var roll = dv.getFloat32(ind); ind += 4;
 
                 var float_setpoint = dv.getFloat32(ind); ind += 4;
                 var float_inputtilt = dv.getFloat32(ind); ind += 4;
-                var stabl = dv.getFloat32(ind); ind += 4;
                 var throttle_val = dv.getFloat32(ind); ind += 4;
-               
-                var surge_lasttime = dv.getFloat32(ind); ind += 4;
-                var surge_lastcycle = dv.getFloat32(ind); ind += 4;
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
-                var erpmfactor = dv.getFloat32(ind); ind += 4;                
-                var wheelslipstart = dv.getFloat32(ind); ind += 4;
-                var wheelsliplasterpm = dv.getFloat32(ind); ind += 4;
-                var wheelsliperpm = dv.getFloat32(ind); ind += 4;
-                var debugwheelslip = dv.getFloat32(ind); ind += 4;
-                var wheelslipend = dv.getFloat32(ind); ind += 4;                
-                
-                // var debug1 = dv.getFloat32(ind); ind += 4;
-                // var debug2 = dv.getFloat32(ind); ind += 4;
+                var surge_lasttime = dv.getFloat32(ind); ind += 4; 
+		
+		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
+	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
+	        var speed = dv.getFloat32(ind); ind += 4; //speed avg
+	        var currentavg = dv.getFloat32(ind); ind += 4; //current avg
+	        var power = dv.getFloat32(ind); ind += 4; //power avg
+	        var eff = dv.getFloat32(ind); ind += 4; //efficiency
 
+                var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
+                if (debug_state == 1) { 
+                    var debug1 = dv.getFloat32(ind); ind += 4; // erpmfactor
+                    var debug2 = dv.getFloat32(ind); ind += 4; // wheelslipstart
+                    var debug3 = dv.getFloat32(ind); ind += 4; // wheelsliplasterpm 
+                    var debug4 = dv.getFloat32(ind); ind += 4; // wheelsliperpm 
+                    var debug5 = dv.getFloat32(ind); ind += 4; // debugwheelslip 
+                    var debug6 = dv.getFloat32(ind); ind += 4; // wheelslipend 
+                } else if (debug_state == 2) {
+                    var debug1 = dv.getFloat32(ind); ind += 4; //surge_startprop 
+                    var debug3 = dv.getFloat32(ind); ind += 4; //surge_added duty
+                    var debug4 = dv.getFloat32(ind); ind += 4; //surge_start_current 
+                    var debug5 = dv.getFloat32(ind); ind += 4; //surge_endangle  
+                    var debug6 = dv.getFloat32(ind); ind += 4; //surge_lastcycle  
+                    var debug7 = dv.getFloat32(ind); ind += 4; //surge_startcurrent 
+		    var debug2 = dv.getFloat32(ind); ind += 4; //ramp rate
+                } else if (debug_state == 3) {
+		    var debug1 = dv.getFloat32(ind); ind += 4; //smoothpitch
+		    var debug2 = dv.getFloat32(ind); ind += 4; //basekp
+		    var debug3 = dv.getFloat32(ind); ind += 4; //stablkp
+		    var debug4 = dv.getFloat32(ind); ind += 4; //stablkprate
+        	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
+		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
+                } else {
+		    //space for temporary debugs
+                }
+		
                 var stateString
                 if(state == 0){
                     stateString = "BOOT"	// we're in this state only for the first second or so then never again
@@ -165,7 +183,30 @@ Item {
                 }else{
                     stateString = "UNKNOWN"
                 }
-
+           
+                var beepString
+                if(beep_reason == 1){
+                    beepString = "Low Voltage"
+                }else if(beep_reason == 2){
+                    beepString = "High Voltage"
+                }else if(beep_reason == 3){
+                    beepString = "Controller Temp"
+                }else if(beep_reason == 4){
+                    beepString = "Motor Temp"
+                }else if(beep_reason == 5){
+                    beepString = "Overcurrent"
+                }else if(beep_reason == 6){
+                    beepString = "Duty Cycle"
+                }else if(beep_reason == 7){
+                    beepString = "Foot Sensors"
+                }else if(beep_reason == 8){
+                    beepString = "Low Battery"
+                }else if(beep_reason == 9){
+                    beepString = "Board Idle"
+                }else if(beep_reason == 10){
+                    beepString = "Other"
+                }
+                
                 var suffix = ""
                 if (setpointAdjustmentType == 0) {
                     suffix = "[CENTERING]";
@@ -202,13 +243,30 @@ Item {
                     switchString = "On"
                 }
 
+        		if(new_beep_reason > 0) {
+        		    beep_reason = new_beep_reason;
+        		}
+
+  		var wheelsliptime1 = ("0" + Math.trunc(lastwheelslip/3600)).slice(-2);
+    		var wheelsliptime2 = ("0" + Math.trunc(lastwheelslip/60 - wheelsliptime1*60)).slice(-2);
+    		var wheelsliptime3 = ("0" + Math.trunc(lastwheelslip - wheelsliptime1*3600 - wheelsliptime2*60)).slice(-2);
+  		var surgetime1 = ("0" + Math.trunc(surge_lasttime/3600)).slice(-2);
+    		var surgetime2 = ("0" + Math.trunc(surge_lasttime/60 - surgetime1*60)).slice(-2);
+    		var surgetime3 = ("0" + Math.trunc(surge_lasttime - surgetime1*3600 - surgetime2*60)).slice(-2);
+        	var ridetime1 = ("0" + Math.trunc(ridetime/3600)).slice(-2);
+    		var ridetime2 = ("0" + Math.trunc(ridetime/60 - ridetime1*60)).slice(-2);
+    		var ridetime3 = ("0" + Math.trunc(ridetime - ridetime1*3600 - ridetime2*60)).slice(-2);
+        	var resttime1 = ("0" + Math.trunc(resttime/3600)).slice(-2);
+    		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
+    		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
+   
                 if(state == 15){
                     stateString = "DISABLED"
                     switchString = "Enable in TNT Cfg: Specs"
                     rt_state.text = "TNT Package is Disabled\n\n" +
                                     "You can re-enable it in\nTNT Cfg: Specs\n\n"
                     tune.text = "-- n/a --"
-                    setpoints.text = "-- n/a --"
+                    trip.text = "-- n/a --"
                     debug.text = "-- n/a --"
                 }
                 else {
@@ -216,34 +274,56 @@ Item {
                     "State               : " + stateString + "\n" +
                     "Switch              : " + switchString + "\n" +
                     "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
+                    "Last Beep Reason    : " + beepString + "\n" +
                     "Voltage             : " + voltage.toFixed(1) + "V\n" +
-                    "Current             : " + current.toFixed(0) + " A\n" 
+                    "Current             : " + current.toFixed(0) + " A\n" +
+		    "Pitch               : " + pitch.toFixed(2) + "°\n" +
+   		    "Roll                : " + roll.toFixed(2) + "°\n" 
                 
                 tune.text =
-                    "Pitch               : " + pitch.toFixed(2) + "°\n" +
-                    "Smooth Pitch        : " + smoothpitch.toFixed(2) + "°\n" +
-                    "Base Pitch Kp       : " + basekp.toFixed(0) + " \n" +         
-                    "Stability Kp        : " + stablkp.toFixed(0) + " \n" + 
-                    "Stability Rate Kp   : " + stablkprate.toFixed(2) + " \n" +
-                    "Roll                : " + roll.toFixed(2) + "°\n" +
-                    "Roll Kp             : " + rollkp.toFixed(2) + "\n" 
-                    
-                setpoints.text =
                     "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
                     "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
                     "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
-                    "Relative Stability  : " + (stabl * 100).toFixed(0) + "%\n" +
-                    "Last Surge Time     : " + surge_lasttime.toFixed(0) + " s\n" +
-                    "Last Surge Duration : " + surge_lastcycle.toFixed(3) + " s\n" +
-                    "Last Wheelslip Time : " + lastwheelslip.toFixed(0) + " s \n" 
+                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
+                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"       
                     
+                trip.text =
+                    "Ride Time	        : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
+                    "Rest Time	        : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
+                    "Speed Avg	        : " + speed.toFixed(1) + " mph\n" +
+                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
+                    "Power Avg	        : " + power.toFixed(1) + " W\n" +
+		    "Efficiency	        : " + eff.toFixed(1) + " Wh/mi\n" 
+             
+		if (debug_state == 1) {
+                    debug.text =
+                        "Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
+                        "Wheelslip Start Acce: " + debug2.toFixed(1) + "\n" +
+                        "Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
+                        "Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
+                        "Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
+                        "Wheelslip End Accel : " + debug6.toFixed(1) + "\n" 
+                } else if (debug_state == 2) {
                 debug.text =
-                    "Start ERPM Factor   : " + erpmfactor.toFixed(1) + "\n" +  
-                    "Wheelslip Start Acce: " + wheelslipstart.toFixed(1) + "\n" +
-                    "Wheelslip ERPM      : " + wheelsliperpm.toFixed(0) + "\n" +
-                    "Wheelslip Last ERPM : " + wheelsliplasterpm.toFixed(0) + "\n" +
-                    "Wheelslip Debug/Last: " + debugwheelslip.toFixed(1) + "\n" +
-                    "Wheelslip End Accel : " + wheelslipend.toFixed(1) + "\n" 
+                    "Surge Start Current : " + debug7.toFixed(0) + " A\n" +
+		    "Surge Start Threshld: " + debug4.toFixed(0) + " A\n" +
+                    "Start Proportional  : " + debug1.toFixed(1) + " °\n" +
+                    "Surge Ramp Rate     : " + debug2.toFixed(0) + " %/s\n" +
+		    "Surge Added Duty    : " + (debug3 * 100).toFixed(1) + " %\n" +
+		    "Surge End Trigger   : " + debug5.toFixed(1) + " °\n" +
+                    "Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
+		} else if (debug_state == 3) {
+                debug.text =
+                    "Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
+                    "Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
+                    "Stability Kp        : " + debug3.toFixed(0) + " \n" + 
+                    "Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
+                    "Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
+		    "Roll Kp             : " + debug6.toFixed(2) + "\n" 
+                } else { 
+		debug.text = 
+  		    "-- n/a --"       
+  		}
                 }
             }
         }
@@ -448,7 +528,7 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Tune"
+                            text: "Tune Modifiers"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
@@ -469,13 +549,13 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Tune Modifiers"
+                            text: "Trip"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
                         }
                         Text {
-                            id: setpoints
+                            id: trip
                             color: Utility.getAppHexColor("lightText")
                             font.family: "DejaVu Sans Mono"
                             Layout.margins: 0
@@ -490,7 +570,7 @@ Item {
                             Layout.margins: 0
                             Layout.leftMargin: 0
                             Layout.fillWidth: true
-                            text: "Wheelslip Debug"
+                            text: "Debug"
                             font.underline: true
                             font.weight: Font.Black
                             font.pointSize: 14
