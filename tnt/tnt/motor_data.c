@@ -73,10 +73,15 @@ void motor_data_update(MotorData *m) {
     float current_acceleration = m->erpm - m->last_erpm;
     m->acceleration += (current_acceleration - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
     m->accel_history[m->accel_idx] = current_acceleration;
+    m->last_accel_idx = accel_idx;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
 
     m->erpm_history[m->erpm_idx] = m->erpm;
     m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE;
+    m->last_erpmidx = d->erpmidx1 - ACCEL_ARRAY_SIZE; // Identify ERPM at the start of the acceleration array
+	if (m->last_erpmidx < 0) {
+		m->last_erpmidx += ERPM_ARRAY_SIZE;
+	}
     
     m->current_avg += (m->atr_filtered_current - m->current_history[d->current_idx]) / CURRENT_ARRAY_SIZE;
     m->current_history[m->current_idx] = m->atr_filtered_current;
