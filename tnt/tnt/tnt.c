@@ -128,17 +128,12 @@ typedef struct {
 	float stickytilt_maxval; 
 	float last_throttle_val;
 	bool stickytiltoff;  
-	float atr_filtered_current;
-	Biquad atr_current_biquad;
 	
 	// Feature: Surge
 	float surge_timer;			//Timer to monitor surge cycle and period
 	bool surge;				//Identifies surge state which drives duty to max
 	float differential;			//Pitch differential
 	float new_duty_cycle;
-	float currenthist1[CURRENT_ARRAY_SIZE1];
-	float currentavg1;
-	int currentidx1;
 	bool surge_off;
 	float tiltback_surge_step_size;
 	float surge_setpoint;
@@ -153,12 +148,6 @@ typedef struct {
 	bool wheelslip_highaccelon2;
 	float wheelslip_lasterpm;
 	float wheelslip_erpm;
-	float accelhist1[ACCEL_ARRAY_SIZE1];
-	float accelavg1;
-	int accelidx1;
-	float erpmhist1[ERPM_ARRAY_SIZE1];
-	float erpmavg1;
-	int erpmidx1;
 	float direction;
 	
 	// Drop Detection
