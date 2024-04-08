@@ -24,12 +24,21 @@
 #include <math.h>
 
 void motor_data_reset(MotorData *m) {
-    m->duty_smooth = 0;
-
     m->acceleration = 0;
     m->accel_idx = 0;
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < ACCEL_ARRAY_SIZE; i++) {
         m->accel_history[i] = 0;
+    }
+
+    m->erpm_idx = 0;
+    for (int i = 0; i < ERPM_ARRAY_SIZE; i++) {
+        m->erpm_history[i] = 0;
+    }
+    
+    m->current_avg = 0;
+    m->current_idx = 0;
+    for (int i = 0; i < CURRENT_ARRAY_SIZE; i++) {
+        m->current_history[i] = 0;
     }
 
     biquad_reset(&m->atr_current_biquad);
@@ -53,18 +62,25 @@ void motor_data_update(MotorData *m) {
     m->braking = m->abs_erpm > 250 && sign(m->current) != m->erpm_sign;
 
     m->duty_cycle = fabsf(VESC_IF->mc_get_duty_cycle_now());
-    m->duty_smooth = m->duty_smooth * 0.9f + m->duty_cycle * 0.1f;
-
-    float current_acceleration = m->erpm - m->last_erpm;
-    m->last_erpm = m->erpm;
-
-    m->acceleration += (current_acceleration - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
-    m->accel_history[m->accel_idx] = current_acceleration;
-    m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
-
+    
     if (m->atr_filter_enabled) {
         m->atr_filtered_current = biquad_process(&m->atr_current_biquad, m->current);
     } else {
         m->atr_filtered_current = m->current;
     }
+
+    //Averaging/tracking for acceleration, erpm, and current
+    float current_acceleration = m->erpm - m->last_erpm;
+    m->acceleration += (current_acceleration - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
+    m->accel_history[m->accel_idx] = current_acceleration;
+    m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
+
+    m->erpm_history[m->erpm_idx] = m->erpm;
+    m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE;
+    
+    m->current_avg += (m->atr_filtered_current - m->current_history[d->current_idx]) / CURRENT_ARRAY_SIZE;
+    m->current_history[m->current_idx] = m->atr_filtered_current;
+    m->current_idx = (m->current_idx + 1) % CURRENT_ARRAY_SIZE;
+    
+    m->last_erpm = m->erpm;
 }
