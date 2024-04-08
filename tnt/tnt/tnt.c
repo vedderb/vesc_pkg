@@ -1096,16 +1096,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		d->setpoint += d->inputtilt_interpolated;
 	}
 }
-/*
-static void activate_haptic_short_timer(data *d, float duration) {
-	// to activate:	d->haptic_short_timer = d->current_time;	activate_haptic_short_timer(d, 1);
-	if (d->activate_haptic_short && d->current_time - d->haptic_short_timer > duration) { //If we are buzzing and outside the duration, stop
-		d->activate_haptic_short = false;
-	} else {
-		d->activate_haptic_short = true;
-	}
-}
-*/
+
 static float haptic_buzz(data *d, float note_period) {
 	if (d->setpointAdjustmentType == TILTBACK_DUTY) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_duty;
@@ -1670,7 +1661,7 @@ static void tnt_thd(void *arg) {
 		d->atr_filtered_current = biquad_process1(&d->atr_current_biquad, d->motor_current);
 		
 		// Get the IMU Values
-		d->roll_angle = RAD2DEG_f(VESC_IF->ahrs_get_roll(&d->m_att_ref));
+		d->roll_angle = RAD2DEG_f(VESC_IF->imu_get_roll());
 		d->abs_roll_angle = fabsf(d->roll_angle);
 		d->last_pitch_angle = d->pitch_angle;
 		d->true_pitch_angle = RAD2DEG_f(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
