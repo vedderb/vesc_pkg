@@ -19,8 +19,10 @@
 #pragma once
 
 typedef struct {
-    float a0, a1, a2, b1, b2;
-    float z1, z2;
+	float a0, a1, a2, b1, b2;
+	float c1, c2;
+	float x0, x1, x2, y1, y2;
+	float z1, z2;
 } Biquad;
 
 typedef enum {
