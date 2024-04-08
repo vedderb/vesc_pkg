@@ -264,7 +264,7 @@ void beep_on(data *d, bool force)
 
 
 static void reconfigure(data *d) {
-    balance_filter_configure(&d->balance_filter, &d->tnt_conf);
+    motor_data_configure(&d->motor, 3.0 / d->tnt_conf.hertz);
 }
 
 static void configure(data *d) {
