@@ -22,7 +22,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ACCEL_ARRAY_SIZE 40
+#define ACCEL_ARRAY_SIZE 10 // For Traction Control acceleration average
+#define ERPM_ARRAY_SIZE 25 // For traction control erpm tracking
+#define CURRENT_ARRAY_SIZE 20 // For surge current tracking
 
 typedef struct {
     float erpm;
@@ -34,12 +36,19 @@ typedef struct {
     bool braking;
 
     float duty_cycle;
-    float duty_smooth;
 
     // an average calculated over last ACCEL_ARRAY_SIZE values
-    float acceleration;
+    float accel_avg;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
+	
+    float erpm_avg;
+	float erpm_history[ERPM_ARRAY_SIZE];
+	int8_t erpm_idx;
+
+    float current_avg;
+	float current_history[ERPM_ARRAY_SIZE];
+	int8_t current_idx;
 
     bool atr_filter_enabled;
     Biquad atr_current_biquad;
