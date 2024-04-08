@@ -320,7 +320,7 @@ static void configure(data *d) {
 	
 	float Fc2; 
 	Fc2 = d->tnt_conf.pitch_filter / (float)d->tnt_conf.hertz; 
-	biquad_config2(&d->pitch_biquad, BQ_LOWPASS, Fc2);
+	biquad_configure(&d->pitch_biquad, BQ_LOWPASS, Fc2);
 	
 	reconfigure(d);
 	
@@ -457,6 +457,7 @@ static void reset_vars(data *d) {
 	//Low pass pitch filter
 	d->prop_smooth = 0;
 	d->abs_prop_smooth = 0;
+	biquad_reset(&d->pitch_biquad);
 	
 	//Kalman filter
 	d->P00 = 0;
@@ -1354,7 +1355,7 @@ static void tnt_thd(void *arg) {
 
 		//Apply low pass and Kalman filters to pitch
 		if (d->tnt_conf.pitch_filter > 0) {
-			d->pitch_smooth = biquad_process2(&d->pitch_biquad, d->pitch_angle);
+			d->pitch_smooth = biquad_process(&d->pitch_biquad, d->pitch_angle);
 		} else {d->pitch_smooth = d->pitch_angle;}
 		if (d->tnt_conf.kalman_factor1 > 0) {
 			apply_kalman(d);
