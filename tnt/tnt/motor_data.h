@@ -38,7 +38,7 @@ typedef struct {
     float duty_cycle;
 
     // an average calculated over last ACCEL_ARRAY_SIZE values
-    float accel_avg;
+    float acceleration;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
 	
