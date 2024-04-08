@@ -275,7 +275,7 @@ void beep_on(data *d, bool force)
 
 
 static void reconfigure(data *d) {
-    balance_filter_configure(&d->balance_filter, &d->float_conf);
+    balance_filter_configure(&d->balance_filter, &d->tnt_conf);
 }
 
 static void configure(data *d) {
@@ -285,10 +285,10 @@ static void configure(data *d) {
 	d->disengage_timer = d->current_time - 1;
 
 	// Loop time in microseconds
-	d->loop_time_us = 1e6 / d->float_conf.hertz;
+	d->loop_time_us = 1e6 / d->tnt_conf.hertz;
 
 	// Loop time in seconds times 20 for a nice long grace period
-	d->motor_timeout_s = 20.0f / d->float_conf.hertz;
+	d->motor_timeout_s = 20.0f / d->tnt_conf.hertz;
 	
 	d->startup_step_size = d->tnt_conf.startup_speed / d->tnt_conf.hertz;
 	d->tiltback_duty_step_size = d->tnt_conf.tiltback_duty_speed / d->tnt_conf.hertz;
@@ -541,9 +541,9 @@ bool is_engaged(const data *d) {
     if (d->footpad_sensor.state == FS_LEFT || d->footpad_sensor.state == FS_RIGHT) {
         // 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
         bool is_simple_start =
-            d->float_conf.startup_simplestart_enabled && (d->current_time - d->disengage_timer > 5);
+            d->tnt_conf.startup_simplestart_enabled && (d->current_time - d->disengage_timer > 5);
 
-        if (d->float_conf.fault_is_dual_switch || is_simple_start) {
+        if (d->tnt_conf.fault_is_dual_switch || is_simple_start) {
             return true;
         }
     }
@@ -551,12 +551,11 @@ bool is_engaged(const data *d) {
 }
 
 
-// Fault checking order does not really matter. From a UX perspective, switch should be before
-// angle.
+// Fault checking order does not really matter. From a UX perspective, switch should be before angle.
 static bool check_faults(data *d) {
-        bool disable_switch_faults = d->float_conf.fault_moving_fault_disabled &&
+        bool disable_switch_faults = d->tnt_conf.fault_moving_fault_disabled &&
             // Rolling forward (not backwards!)
-            d->motor.erpm > (d->float_conf.fault_adc_half_erpm * 2) &&
+            d->motor.erpm > (d->tnt_conf.fault_adc_half_erpm * 2) &&
             // Not tipped over
             fabsf(d->roll) < 40;
 
@@ -565,15 +564,15 @@ static bool check_faults(data *d) {
         if (d->footpad_sensor.state == FS_NONE) {
             if (!disable_switch_faults) {
                 if ((1000.0 * (d->current_time - d->fault_switch_timer)) >
-                    d->float_conf.fault_delay_switch_full) {
+                    d->tnt_conf.fault_delay_switch_full) {
                     state_stop(&d->state, STOP_SWITCH_FULL);
                     return true;
                 }
                 // low speed (below 6 x half-fault threshold speed):
                 else if (
-                    (d->motor.abs_erpm < d->float_conf.fault_adc_half_erpm * 6) &&
+                    (d->motor.abs_erpm < d->tnt_conf.fault_adc_half_erpm * 6) &&
                     (1000.0 * (d->current_time - d->fault_switch_timer) >
-                     d->float_conf.fault_delay_switch_half)) {
+                     d->tnt_conf.fault_delay_switch_half)) {
                     state_stop(&d->state, STOP_SWITCH_FULL);
                     return true;
                 }
@@ -589,10 +588,10 @@ static bool check_faults(data *d) {
         }
 
         // Switch partially open and stopped
-        if (!d->float_conf.fault_is_dual_switch) {
-            if (!is_engaged(d) && d->motor.abs_erpm < d->float_conf.fault_adc_half_erpm) {
+        if (!d->tnt_conf.fault_is_dual_switch) {
+            if (!is_engaged(d) && d->motor.abs_erpm < d->tnt_conf.fault_adc_half_erpm) {
                 if ((1000.0 * (d->current_time - d->fault_switch_half_timer)) >
-                    d->float_conf.fault_delay_switch_half) {
+                    d->tnt_conf.fault_delay_switch_half) {
                     state_stop(&d->state, STOP_SWITCH_HALF);
                     return true;
                 }
@@ -602,16 +601,16 @@ static bool check_faults(data *d) {
         }
 
         // Check roll angle
-        if (fabsf(d->roll) > d->float_conf.fault_roll) {
+        if (fabsf(d->roll) > d->tnt_conf.fault_roll) {
             if ((1000.0 * (d->current_time - d->fault_angle_roll_timer)) >
-                d->float_conf.fault_delay_roll) {
+                d->tnt_conf.fault_delay_roll) {
                 state_stop(&d->state, STOP_ROLL);
                 return true;
             }
         } else {
             d->fault_angle_roll_timer = d->current_time;
 
-            if (d->float_conf.fault_darkride_enabled) {
+            if (d->tnt_conf.fault_darkride_enabled) {
                 if (fabsf(d->roll) > 100 && fabsf(d->roll) < 135) {
                     state_stop(&d->state, STOP_ROLL);
                     return true;
@@ -620,9 +619,9 @@ static bool check_faults(data *d) {
         }
 
     // Check pitch angle
-    if (fabsf(d->pitch) > d->float_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
+    if (fabsf(d->pitch) > d->tnt_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
         if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) >
-            d->float_conf.fault_delay_pitch) {
+            d->tnt_conf.fault_delay_pitch) {
             state_stop(&d->state, STOP_PITCH);
             return true;
         }
@@ -656,83 +655,82 @@ static void calculate_setpoint_target(data *d) {
 			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * SIGN(d->erpm);
 			d->state.sat = SAT_SURGE;
 		}
-	 } else if (d->motor.duty_cycle > d->float_conf.tiltback_duty) {
-//FIX FORMAT
-        if (d->motor.erpm > 0) {
-            d->setpoint_target = d->float_conf.tiltback_duty_angle;
-        } else {
-            d->setpoint_target = -d->float_conf.tiltback_duty_angle;
-        }
-    } else if (d->motor.duty_cycle > 0.05 && input_voltage > d->float_conf.tiltback_hv) {
-        d->beep_reason = BEEP_HV;
-        beep_alert(d, 3, false);
-        if (((d->current_time - d->tb_highvoltage_timer) > .5) ||
-            (input_voltage > d->float_conf.tiltback_hv + 1)) {
-            // 500ms have passed or voltage is another volt higher, time for some tiltback
-            if (d->motor.erpm > 0) {
-                d->setpoint_target = d->float_conf.tiltback_hv_angle;
-            } else {
-                d->setpoint_target = -d->float_conf.tiltback_hv_angle;
-            }
-
-            d->state.sat = SAT_PB_HIGH_VOLTAGE;
-        } else {
-            // The rider has 500ms to react to the triple-beep, or maybe it was just a short spike
-            d->state.sat = SAT_NONE;
-        }
-    } else if (VESC_IF->mc_temp_fet_filtered() > d->mc_max_temp_fet) {
-        // Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
-        beep_alert(d, 3, true);
-        d->beep_reason = BEEP_TEMPFET;
-        if (VESC_IF->mc_temp_fet_filtered() > (d->mc_max_temp_fet + 1)) {
-            if (d->motor.erpm > 0) {
-                d->setpoint_target = d->float_conf.tiltback_lv_angle;
-            } else {
-                d->setpoint_target = -d->float_conf.tiltback_lv_angle;
-            }
-            d->state.sat = SAT_PB_TEMPERATURE;
-        } else {
-            // The rider has 1 degree Celsius left before we start tilting back
-            d->state.sat = SAT_NONE;
-        }
-    } else if (VESC_IF->mc_temp_motor_filtered() > d->mc_max_temp_mot) {
-        // Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
-        beep_alert(d, 3, true);
-        d->beep_reason = BEEP_TEMPMOT;
-        if (VESC_IF->mc_temp_motor_filtered() > (d->mc_max_temp_mot + 1)) {
-            if (d->motor.erpm > 0) {
-                d->setpoint_target = d->float_conf.tiltback_lv_angle;
-            } else {
-                d->setpoint_target = -d->float_conf.tiltback_lv_angle;
-            }
-            d->state.sat = SAT_PB_TEMPERATURE;
-        } else {
-            // The rider has 1 degree Celsius left before we start tilting back
-            d->state.sat = SAT_NONE;
-        }
-    } else if (d->motor.duty_cycle > 0.05 && input_voltage < d->float_conf.tiltback_lv) {
-        beep_alert(d, 3, false);
-        d->beep_reason = BEEP_LV;
-        float abs_motor_current = fabsf(d->motor.current);
-        float vdelta = d->float_conf.tiltback_lv - input_voltage;
-        float ratio = vdelta * 20 / abs_motor_current;
-        // When to do LV tiltback:
-        // a) we're 2V below lv threshold
-        // b) motor current is small (we cannot assume vsag)
-        // c) we have more than 20A per Volt of difference (we tolerate some amount of vsag)
-        if ((vdelta > 2) || (abs_motor_current < 5) || (ratio > 1)) {
-            if (d->motor.erpm > 0) {
-                d->setpoint_target = d->float_conf.tiltback_lv_angle;
-            } else {
-                d->setpoint_target = -d->float_conf.tiltback_lv_angle;
-            }
-
-            d->state.sat = SAT_PB_LOW_VOLTAGE;
-        } else {
-            d->state.sat = SAT_NONE;
-            d->setpoint_target = 0;
-        }
-    }
+	 } else if (d->motor.duty_cycle > d->tnt_conf.tiltback_duty) {
+		if (d->motor.erpm > 0) {
+			d->setpoint_target = d->tnt_conf.tiltback_duty_angle;
+		} else {
+			d->setpoint_target = -d->tnt_conf.tiltback_duty_angle;
+		}
+	} else if (d->motor.duty_cycle > 0.05 && input_voltage > d->tnt_conf.tiltback_hv) {
+		d->beep_reason = BEEP_HV;
+		beep_alert(d, 3, false);
+		if (((d->current_time - d->tb_highvoltage_timer) > .5) ||
+		   (input_voltage > d->tnt_conf.tiltback_hv + 1)) {
+		// 500ms have passed or voltage is another volt higher, time for some tiltback
+			if (d->motor.erpm > 0) {
+		d->setpoint_target = d->tnt_conf.tiltback_hv_angle;
+			} else {
+				d->setpoint_target = -d->tnt_conf.tiltback_hv_angle;
+			}
+	
+			d->state.sat = SAT_PB_HIGH_VOLTAGE;
+		} else {
+		// The rider has 500ms to react to the triple-beep, or maybe it was just a short spike
+		d->state.sat = SAT_NONE;
+		}
+	} else if (VESC_IF->mc_temp_fet_filtered() > d->mc_max_temp_fet) {
+		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
+		beep_alert(d, 3, true);
+		d->beep_reason = BEEP_TEMPFET;
+		if (VESC_IF->mc_temp_fet_filtered() > (d->mc_max_temp_fet + 1)) {
+			if (d->motor.erpm > 0) {
+				d->setpoint_target = d->tnt_conf.tiltback_lv_angle;
+			} else {
+			d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
+			}
+		d->state.sat = SAT_PB_TEMPERATURE;
+		} else {
+		// The rider has 1 degree Celsius left before we start tilting back
+		d->state.sat = SAT_NONE;
+		}
+	} else if (VESC_IF->mc_temp_motor_filtered() > d->mc_max_temp_mot) {
+		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
+		beep_alert(d, 3, true);
+		d->beep_reason = BEEP_TEMPMOT;
+		if (VESC_IF->mc_temp_motor_filtered() > (d->mc_max_temp_mot + 1)) {
+			if (d->motor.erpm > 0) {
+				d->setpoint_target = d->tnt_conf.tiltback_lv_angle;
+			} else {
+				d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
+			}
+		d->state.sat = SAT_PB_TEMPERATURE;
+		} else {
+		// The rider has 1 degree Celsius left before we start tilting back
+		d->state.sat = SAT_NONE;
+		}
+	} else if (d->motor.duty_cycle > 0.05 && input_voltage < d->tnt_conf.tiltback_lv) {
+		beep_alert(d, 3, false);
+		d->beep_reason = BEEP_LV;
+		float abs_motor_current = fabsf(d->motor.current);
+		float vdelta = d->tnt_conf.tiltback_lv - input_voltage;
+		float ratio = vdelta * 20 / abs_motor_current;
+		// When to do LV tiltback:
+		// a) we're 2V below lv threshold
+		// b) motor current is small (we cannot assume vsag)
+		// c) we have more than 20A per Volt of difference (we tolerate some amount of vsag)
+		if ((vdelta > 2) || (abs_motor_current < 5) || (ratio > 1)) {
+			if (d->motor.erpm > 0) {
+				d->setpoint_target = d->tnt_conf.tiltback_lv_angle;
+			} else {
+				d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
+			}
+	
+			d->state.sat = SAT_PB_LOW_VOLTAGE;
+		} else {
+		d->state.sat = SAT_NONE;
+		d->setpoint_target = 0;
+		}
+	}
 }
 
 static void calculate_setpoint_interpolated(data *d) {
@@ -747,8 +745,8 @@ static void calculate_setpoint_interpolated(data *d) {
 
 static void apply_noseangling(data *d){
 	float noseangling_target = 0;
-	if (d->motor.abs_erpm > d->float_conf.tiltback_constant_erpm) {
-		noseangling_target += d->float_conf.tiltback_constant * d->motor.erpm_sign;
+	if (d->motor.abs_erpm > d->tnt_conf.tiltback_constant_erpm) {
+		noseangling_target += d->tnt_conf.tiltback_constant * d->motor.erpm_sign;
 	}
 	
 	rate_limitf(&d->noseangling_interpolated, noseangling_target, d->noseangling_step_size);
@@ -916,7 +914,7 @@ static void brake(data *d) {
     }
 
     VESC_IF->timeout_reset();
-    VESC_IF->mc_set_brake_current(d->float_conf.brake_current);
+    VESC_IF->mc_set_brake_current(d->tnt_conf.brake_current);
 }
 
 static void set_current(data *d, float current) {
@@ -1458,7 +1456,7 @@ static void tnt_thd(void *arg) {
 	
 				// if within 5V of LV tiltback threshold, issue 1 beep for each volt below that
 				float bat_volts = VESC_IF->mc_get_input_voltage_filtered();
-				float threshold = d->float_conf.tiltback_lv + 5;
+				float threshold = d->tnt_conf.tiltback_lv + 5;
 				if (bat_volts < threshold) {
 					int beeps = (int) fminf(6, threshold - bat_volts);
 					beep_alert(d, beeps + 1, true);
@@ -1472,9 +1470,9 @@ static void tnt_thd(void *arg) {
 		case (STATE_RUNNING):
 			// Check for faults
 			if (check_faults(d)) {
-				if (d->state.stop_condition == STOP_SWITCH_FULL && !d->state.darkride) {
+				if (d->state.stop_condition == STOP_SWITCH_FULL) {
 					// dirty landings: add extra margin when rightside up
-					d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance + d->startup_pitch_trickmargin;
+					d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance + d->startup_pitch_trickmargin;
 					d->fault_angle_pitch_timer = d->current_time;
 				}
 				break;
@@ -1558,7 +1556,7 @@ static void tnt_thd(void *arg) {
 			d->last_erpm = d->erpm; //moved here so last erpm can be used in traction control
 				
 			// PID value application
-			if (d->state == RUNNING_WHEELSLIP) { //Reduce acceleration if we are in traction control
+			if (d->state.wheelslip) { //Reduce acceleration if we are in traction control
 				d->pid_value = 0;
 			} else if (SIGN(d->erpm) * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
 				if (new_pid_value > d->pid_value) {
@@ -1569,7 +1567,7 @@ static void tnt_thd(void *arg) {
 				}
 			}
 			else {
-				d->pid_value = new_pid_value; //d->pid_value * 0.8 + new_pid_value * 0.2; // Normal application of PID current control
+				d->pid_value = new_pid_value;
 			}
 
 			// Output to motor
@@ -1593,13 +1591,7 @@ static void tnt_thd(void *arg) {
 
 			break;
 
-		case (FAULT_ANGLE_PITCH):
-		case (FAULT_ANGLE_ROLL):
-		case (FAULT_REVERSE):
-		case (FAULT_QUICKSTOP):
-		case (FAULT_SWITCH_HALF):
-		case (FAULT_SWITCH_FULL):
-		case (FAULT_STARTUP):
+		case (STATE_READY):
 			if (d->current_time - d->disengage_timer > 1800) {	// alert user after 30 minutes
 				if (d->current_time - d->nag_timer > 60) {		// beep every 60 seconds
 					d->nag_timer = d->current_time;
@@ -1609,11 +1601,8 @@ static void tnt_thd(void *arg) {
 						d->idle_voltage = input_voltage;
 					}
 					else {
-						//if (d->current_time - d->disengage_timer < 5400) { 		// stop alerting after 1 hour
-							beep_alert(d, 2, 1);					// 2 long beeps
-							d->beep_reason = BEEP_IDLE;
-						//	set_current(d, d->tnt_conf.startup_click_current);	// Startup click
-						//}
+						beep_alert(d, 2, 1);					// 2 long beeps
+						d->beep_reason = BEEP_IDLE;
 					}
 				}
 			} else {
@@ -1654,19 +1643,24 @@ static void tnt_thd(void *arg) {
 			}
 			brake(d);
 			break;
-		case (DISABLED):;
+		case (STATE_DISABLED):;
 			// no set_current, no brake_current
 		default:;
 		}
 
 		// Delay between loops
-		VESC_IF->sleep_us((uint32_t)((d->loop_time_seconds - roundf(d->filtered_loop_overshoot)) * 1000000.0));
+		VESC_IF->sleep_us(d->loop_time_us);
 	}
 }
 
 static void write_cfg_to_eeprom(data *d) {
 	uint32_t ints = sizeof(tnt_config) / 4 + 1;
 	uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
+	if (!buffer) {
+		log_error("Failed to write config to EEPROM: Out of memory.");
+		return;
+	}
+	
 	bool write_ok = true;
 	memcpy(buffer, &(d->tnt_conf), sizeof(tnt_config));
 	for (uint32_t i = 0;i < ints;i++) {
@@ -1684,7 +1678,9 @@ static void write_cfg_to_eeprom(data *d) {
 		eeprom_var v;
 		v.as_u32 = TNT_CONFIG_SIGNATURE;
 		VESC_IF->store_eeprom_var(&v, 0);
-	}
+	} else {
+        	log_error("Failed to write config to EEPROM.");
+   	}
 
 	// Emit 1 short beep to confirm writing all settings to eeprom
 	beep_alert(d, 1, 0);
@@ -1692,166 +1688,149 @@ static void write_cfg_to_eeprom(data *d) {
 
 static void read_cfg_from_eeprom(data *d) {
 	// Read config from EEPROM if signature is correct
-	eeprom_var v;
 	uint32_t ints = sizeof(tnt_config) / 4 + 1;
 	uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
+	if (!buffer) {
+        	log_error("Failed to read config from EEPROM: Out of memory.");
+        	return;
+    	}
+	
+	eeprom_var v;	
 	bool read_ok = VESC_IF->read_eeprom_var(&v, 0);
-	if (read_ok && v.as_u32 == TNT_CONFIG_SIGNATURE) {
-		for (uint32_t i = 0;i < ints;i++) {
-			if (!VESC_IF->read_eeprom_var(&v, i + 1)) {
-				read_ok = false;
-				break;
+	if (read_ok) {
+		if (v.as_u32 == TNT_CONFIG_SIGNATURE) {
+			for (uint32_t i = 0;i < ints;i++) {
+				if (!VESC_IF->read_eeprom_var(&v, i + 1)) {
+					read_ok = false;
+					break;
+				}
+				buffer[i] = v.as_u32;
 			}
-			buffer[i] = v.as_u32;
-		}
-	} else {
-		read_ok = false;
+		} else {
+			log_error("Failed signature check while reading config from EEPROM, using defaults.");
+			confparser_set_defaults_refloatconfig(config);
+			return;
+	        }
 	}
 
 	if (read_ok) {
 		memcpy(&(d->tnt_conf), buffer, sizeof(tnt_config));
-
-		if (d->tnt_conf.version != APPCONF_TNT_VERSION) {
-			if (!VESC_IF->app_is_output_disabled()) {
-				VESC_IF->printf("Version change since last config write (%.1f vs %.1f) !",
-								(double)d->tnt_conf.version,
-								(double)APPCONF_TNT_VERSION);
-			}
-			d->tnt_conf.version = APPCONF_TNT_VERSION;
-		}
 	} else {
 		confparser_set_defaults_tnt_config(&(d->tnt_conf));
-		if (!VESC_IF->app_is_output_disabled()) {
-			VESC_IF->printf("Package Error: Reverting to default config!\n");
-		}
+		log_error("Failed to read config from EEPROM, using defaults.");
 	}
 
 	VESC_IF->free(buffer);
 }
 
-static float app_tnt_get_debug(int index) {
-	data *d = (data*)ARG;
 
-	switch(index){
-		case(1):
-			return d->setpoint;
-		case(2):
-			return d->float_setpoint;
-		case(3):
-			return d->filtered_current;
-		case(4):
-			return d->pid_mod;
-		case(5):
-			return d->last_pitch_angle - d->pitch_angle;
-		case(6):
-			return d->motor_current;
-		case(7):
-			return d->erpm;
-		case(8):
-			return d->abs_erpm;
-		case(9):
-			return d->loop_time_seconds;
-		case(10):
-			return d->diff_time;
-		case(11):
-			return d->loop_overshoot;
-		case(12):
-			return d->filtered_loop_overshoot;
-		case(13):
-			return d->filtered_diff_time;
-		case(14):
-			return 0;
-		case(15):
-			return 0;
-		case(16):
-			return 0;
-		case(17):
-			return 0;
-		default:
-			return 0;
-	}
+static void data_init(data *d) {
+    memset(d, 0, sizeof(data));
+    read_cfg_from_eeprom(&d->tnt_conf);
+    d->odometer = VESC_IF->mc_get_odometer();
+}
+
+static float app_get_debug(int index) {
+    data *d = (data *) ARG;
+
+    switch (index) {
+    case (1):
+        return d->pid_value;
+    case (2):
+        return d->proportional;
+    case (3):
+        return d->integral;
+    case (4):
+        return d->rate_p;
+    case (5):
+        return d->setpoint;
+    case (6):
+        return d->atr.offset;
+    case (7):
+        return d->motor.erpm;
+    case (8):
+        return d->motor.current;
+    case (9):
+        return d->motor.atr_filtered_current;
+    default:
+        return 0;
+    }
 }
 
 enum {
-	FLOAT_COMMAND_GET_INFO = 0,		// get version / package info
-	FLOAT_COMMAND_GET_RTDATA = 1,	// get rt data
-	FLOAT_COMMAND_TUNE_DEFAULTS = 3,// set tune to defaults (no eeprom)
-	FLOAT_COMMAND_CFG_SAVE = 4,		// save config to eeprom
-	FLOAT_COMMAND_CFG_RESTORE = 5,	// restore config from eeprom
-	FLOAT_COMMAND_PRINT_INFO = 9,	// print verbose info
-	FLOAT_COMMAND_GET_ALLDATA = 10,	// send all data, compact
-	FLOAT_COMMAND_EXPERIMENT = 11,  // generic cmd for sending data, used for testing/tuning new features
-} float_commands;
+    COMMAND_GET_INFO = 0,  // get version / package info
+    COMMAND_GET_RTDATA = 1,  // get rt data
+    COMMAND_CFG_SAVE = 2,  // save config to eeprom
+    COMMAND_CFG_RESTORE = 3,  // restore config from eeprom
+} Commands;
 
 static void send_realtime_data(data *d){
-	#define BUFSIZE 101
-	uint8_t send_buffer[BUFSIZE];
+	static const int bufsize = 101;
+	uint8_t buffer[bufsize];
 	int32_t ind = 0;
-	send_buffer[ind++] = 111;//Magic Number
-	send_buffer[ind++] = FLOAT_COMMAND_GET_RTDATA;
+	buffer[ind++] = 111;//Magic Number
+	buffer[ind++] = COMMAND_GET_RTDATA;
 	float corr_factor;
 
 	// Board State
-	send_buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
-	send_buffer[ind++] = (d->switch_state & 0xF) + (d->beep_reason << 4);
-	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
-	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
-	buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
-	buffer_append_float32_auto(send_buffer, d->currentavg1, &ind); // current atr_filtered_current
-	buffer_append_float32_auto(send_buffer, d->pitch_angle, &ind);
-	buffer_append_float32_auto(send_buffer, d->roll_angle, &ind);
+	buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
+	buffer[ind++] = (d->switch_state & 0xF) + (d->beep_reason << 4);
+	buffer_append_float32_auto(buffer, d->adc1, &ind);
+	buffer_append_float32_auto(buffer, d->adc2, &ind);
+	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
+	buffer_append_float32_auto(buffer, d->currentavg1, &ind); // current atr_filtered_current
+	buffer_append_float32_auto(buffer, d->pitch_angle, &ind);
+	buffer_append_float32_auto(buffer, d->roll_angle, &ind);
 
 	//Tune Modifiers
-	buffer_append_float32_auto(send_buffer, d->float_setpoint, &ind);
-	buffer_append_float32_auto(send_buffer, d->float_inputtilt, &ind);
-	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
-	buffer_append_float32_auto(send_buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(send_buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
+	buffer_append_float32_auto(buffer, d->float_setpoint, &ind);
+	buffer_append_float32_auto(buffer, d->float_inputtilt, &ind);
+	buffer_append_float32_auto(buffer, d->throttle_val, &ind);
+	buffer_append_float32_auto(buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
+	buffer_append_float32_auto(buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
 
 	// Trip
 	if (d->ride_time > 0) {
 		corr_factor =  d->current_time / d->ride_time;
 	} else {corr_factor = 1;}
-	buffer_append_float32_auto(send_buffer, d->ride_time, &ind); //Temporary debug. Ride Time
-	buffer_append_float32_auto(send_buffer, d->rest_time, &ind); //Temporary debug. Rest time
-	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //Temporary debug. speed avg convert m/s to mph
-	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //Temporary debug. current avg
-	buffer_append_float32_auto(send_buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //Temporary debug. power avg
-	buffer_append_float32_auto(send_buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //Temporary debug. efficiency
+	buffer_append_float32_auto(buffer, d->ride_time, &ind); //Temporary debug. Ride Time
+	buffer_append_float32_auto(buffer, d->rest_time, &ind); //Temporary debug. Rest time
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //Temporary debug. speed avg convert m/s to mph
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //Temporary debug. current avg
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //Temporary debug. power avg
+	buffer_append_float32_auto(buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //Temporary debug. efficiency
 	
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
-		send_buffer[ind++] = 1;
-		buffer_append_float32_auto(send_buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
-		buffer_append_float32_auto(send_buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
-		buffer_append_float32_auto(send_buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
-		buffer_append_float32_auto(send_buffer, d->debug9, &ind); //Temporary debug. erpm at wheel slip
-		buffer_append_float32_auto(send_buffer, d->debug4, &ind); //Temporary debug. Debug condition or last accel
-		buffer_append_float32_auto(send_buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
+		buffer[ind++] = 1;
+		buffer_append_float32_auto(buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
+		buffer_append_float32_auto(buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
+		buffer_append_float32_auto(buffer, d->debug9, &ind); //Temporary debug. erpm at wheel slip
+		buffer_append_float32_auto(buffer, d->debug4, &ind); //Temporary debug. Debug condition or last accel
+		buffer_append_float32_auto(buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
-		send_buffer[ind++] = 2;
-		buffer_append_float32_auto(send_buffer, d->debug13, &ind); //Temporary debug. surge start proportional
-		buffer_append_float32_auto(send_buffer, d->debug18, &ind); //Temporary debug. surge added duty cycle
-		buffer_append_float32_auto(send_buffer, d->debug15, &ind); //Temporary debug. surge start current threshold
-		buffer_append_float32_auto(send_buffer, d->debug16, &ind); //Temporary debug. surge end early from proportional
-		buffer_append_float32_auto(send_buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
-		buffer_append_float32_auto(send_buffer, d->debug17, &ind); //Temporary debug. start current value
-		buffer_append_float32_auto(send_buffer, d->debug14, &ind); //Temporary debug. ramp rate
+		buffer[ind++] = 2;
+		buffer_append_float32_auto(buffer, d->debug13, &ind); //Temporary debug. surge start proportional
+		buffer_append_float32_auto(buffer, d->debug18, &ind); //Temporary debug. surge added duty cycle
+		buffer_append_float32_auto(buffer, d->debug15, &ind); //Temporary debug. surge start current threshold
+		buffer_append_float32_auto(buffer, d->debug16, &ind); //Temporary debug. surge end early from proportional
+		buffer_append_float32_auto(buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
+		buffer_append_float32_auto(buffer, d->debug17, &ind); //Temporary debug. start current value
+		buffer_append_float32_auto(buffer, d->debug14, &ind); //Temporary debug. ramp rate
 	} else if (d->tnt_conf.is_tunedebug_enabled) {
-		send_buffer[ind++] = 3;
-		buffer_append_float32_auto(send_buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
-		buffer_append_float32_auto(send_buffer, d->debug10, &ind); // scaled angle P
-		buffer_append_float32_auto(send_buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
-		buffer_append_float32_auto(send_buffer, d->debug12, &ind); // added stability rate P
-		buffer_append_float32_auto(send_buffer, d->stabl, &ind);
-		buffer_append_float32_auto(send_buffer, d->debug11, &ind); //rollkp
+		buffer[ind++] = 3;
+		buffer_append_float32_auto(buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
+		buffer_append_float32_auto(buffer, d->debug10, &ind); // scaled angle P
+		buffer_append_float32_auto(buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
+		buffer_append_float32_auto(buffer, d->debug12, &ind); // added stability rate P
+		buffer_append_float32_auto(buffer, d->stabl, &ind);
+		buffer_append_float32_auto(buffer, d->debug11, &ind); //rollkp
 	} else { 
-		send_buffer[ind++] = 0; 
+		buffer[ind++] = 0; 
 	}
-	if (ind > BUFSIZE) {
-		VESC_IF->printf("BUFSIZE too small...\n");
-	}
-	VESC_IF->send_app_data(send_buffer, ind);
+
+	SEND_APP_DATA(buffer, bufsize, ind);
 }
 
 // Handler for incoming app commands
@@ -1861,69 +1840,40 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 	uint8_t command = buffer[1];
 
 	if(len < 2){
-		if (!VESC_IF->app_is_output_disabled()) {
-			VESC_IF->printf("Float App: Missing Args\n");
-		}
+		log_error("Received command data too short.");
 		return;
 	}
 	if (magicnr != 111) {
-		if (!VESC_IF->app_is_output_disabled()) {
-			VESC_IF->printf("Float App: Wrong magic number %d\n", magicnr);
-		}
+		log_error("Invalid Package ID: %u", magicnr);
 		return;
 	}
 
 	switch(command) {
-		case FLOAT_COMMAND_GET_INFO: {
+		case COMMAND_GET_INFO: {
 			int32_t ind = 0;
-			uint8_t send_buffer[10];
-			send_buffer[ind++] = 111;	// magic nr.
-			send_buffer[ind++] = 0x0;	// command ID
-			send_buffer[ind++] = (uint8_t) (10 * APPCONF_TNT_VERSION);
-			send_buffer[ind++] = 1;
-			VESC_IF->send_app_data(send_buffer, ind);
+			uint8_t buffer[10];
+			buffer[ind++] = 111;	// magic nr.
+			buffer[ind++] = 0x0;	// command ID
+			buffer[ind++] = (uint8_t) (10 * APPCONF_TNT_VERSION);
+			buffer[ind++] = 1;
+			VESC_IF->send_app_data(buffer, ind);
 			return;
 		}
-		case FLOAT_COMMAND_GET_RTDATA: {
+		case COMMAND_GET_RTDATA: {
 			send_realtime_data(d);
 			return;
 		}
-		case FLOAT_COMMAND_CFG_RESTORE: {
-			read_cfg_from_eeprom(d);
-			VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->tnt_conf.mahony_kp);
+		case COMMAND_CFG_RESTORE: {
+			read_cfg_from_eeprom(&d->tnt_conf);
 			return;
 		}
-		case FLOAT_COMMAND_TUNE_DEFAULTS: {
-			//cmd_tune_defaults(d);
-			VESC_IF->set_cfg_float(CFG_PARAM_IMU_mahony_kp + 100, d->tnt_conf.mahony_kp);
-			return;
-		}
-		case FLOAT_COMMAND_CFG_SAVE: {
+		case COMMAND_CFG_SAVE: {
 			write_cfg_to_eeprom(d);
-			return;
-		}
-		case FLOAT_COMMAND_PRINT_INFO: {
-			//cmd_print_info(d);
-			return;
-		}
-		case FLOAT_COMMAND_GET_ALLDATA: {
-			if (len == 3) {
-				//cmd_send_all_data(d, buffer[2]);
-			}
-                        else {
-                                if (!VESC_IF->app_is_output_disabled()) {
-                                        VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
-                                }
-                        }
-			return;
-		}
-		case FLOAT_COMMAND_EXPERIMENT: {
-			//cmd_experiment(d, &buffer[2]);
 			return;
 		}
 		default: {
 			if (!VESC_IF->app_is_output_disabled()) {
-				VESC_IF->printf("Float App: Unknown command received %d vs %d\n", command, FLOAT_COMMAND_PRINT_INFO);
+				log_error("Unknown command received: %u", command);
 			}
 		}
 	}
@@ -1946,38 +1896,51 @@ static lbm_value ext_set_fw_version(lbm_value *args, lbm_uint argn) {
 		d->fw_version_minor = VESC_IF->lbm_dec_as_i32(args[1]);
 		d->fw_version_beta = VESC_IF->lbm_dec_as_i32(args[2]);
 	}
-	//VESC_IF->printf("Version is set: %d.%d [%d]\n", d->fw_version_major, d->fw_version_minor, d->fw_version_beta);
 	return VESC_IF->lbm_enc_sym_true;
 }
 
 // These functions are used to send the config page to VESC Tool
 // and to make persistent read and write work
 static int get_cfg(uint8_t *buffer, bool is_default) {
-	data *d = (data*)ARG;
-	tnt_config *cfg = VESC_IF->malloc(sizeof(tnt_config));
+	data *d = (data *) ARG;
 
-	*cfg = d->tnt_conf;
-
+	tnt_config *cfg;
 	if (is_default) {
-		confparser_set_defaults_tnt_config(cfg);
+		cfg = VESC_IF->malloc(sizeof(tnt_config));
+		if (!cfg) {
+			log_error("Failed to send default config to VESC tool: Out of memory.");
+			return 0;
+		}
+		confparser_set_defaults_refloatconfig(cfg);
+	} else {
+		cfg = &d->tnt_conf;
 	}
 
-	int res = confparser_serialize_tnt_config(buffer, cfg);
-	VESC_IF->free(cfg);
+	int res = confparser_serialize_refloatconfig(buffer, cfg);
+
+	if (is_default) {
+		VESC_IF->free(cfg);
+	}
 
 	return res;
 }
 
 static bool set_cfg(uint8_t *buffer) {
-	data *d = (data*)ARG;
-	bool res = confparser_deserialize_tnt_config(buffer, &(d->tnt_conf));
+	data *d = (data *) ARG;
 
+	// don't let users use the TNT Cfg "write" button in special modes
+	if (d->state.mode != MODE_NORMAL) {
+		return false;
+	}
+	
+	bool res = confparser_deserialize_refloatconfig(buffer, &d->tnt_conf);
+	
 	// Store to EEPROM
 	if (res) {
 		write_cfg_to_eeprom(d);
 		configure(d);
 	}
-
+	
 	return res;
 }
 
@@ -1992,40 +1955,30 @@ static int get_cfg_xml(uint8_t **buffer) {
 
 // Called when code is stopped
 static void stop(void *arg) {
-	data *d = (data*)arg;
+	data *d = (data *) arg;
 	VESC_IF->imu_set_read_callback(NULL);
 	VESC_IF->set_app_data_handler(NULL);
 	VESC_IF->conf_custom_clear_configs();
-	VESC_IF->request_terminate(d->thread);
-	if (!VESC_IF->app_is_output_disabled()) {
-		VESC_IF->printf("Float App Terminated");
-	}
+	VESC_IF->request_terminate(d->main_thread);
+	log_msg("Terminating.");
 	VESC_IF->free(d);
 }
 
 INIT_FUN(lib_info *info) {
 	INIT_START
-	if (!VESC_IF->app_is_output_disabled()) {
-		VESC_IF->printf("Init Float v%.1fd\n", (double)APPCONF_TNT_VERSION);
-	}
+	log_msg("Initializing TNT v" PACKAGE_VERSION);
 
 	data *d = VESC_IF->malloc(sizeof(data));
-	memset(d, 0, sizeof(data));
 	if (!d) {
-		if (!VESC_IF->app_is_output_disabled()) {
-			VESC_IF->printf("Float App: Out of memory, startup failed!");
-		}
+		log_error("Out of memory, startup failed.");
 		return false;
 	}
-
-	read_cfg_from_eeprom(d);
+	data_init(d);
 
 	info->stop_fun = stop;	
 	info->arg = d;
 	
 	VESC_IF->conf_custom_add_config(get_cfg, set_cfg, get_cfg_xml);
-
-	configure(d);
 
 	if ((d->tnt_conf.is_beeper_enabled) || (d->tnt_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
 		beeper_init();
@@ -2036,12 +1989,23 @@ INIT_FUN(lib_info *info) {
 	d->m_att_ref.kp = 0.2;
 
 	VESC_IF->imu_set_read_callback(imu_ref_callback);
+	
+	footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
+	
 
-	d->thread = VESC_IF->spawn(tnt_thd, 2048, "Float Main", d);
+	d->main_thread = VESC_IF->spawn(tnt_thd, 1024, "TNT Main", d);
+	if (!d->main_thread) {
+		log_error("Failed to spawn TNT Main thread.");
+		return false;
+	}
 
 	VESC_IF->set_app_data_handler(on_command_received);
 	VESC_IF->lbm_add_extension("ext-tnt-dbg", ext_bal_dbg);
 	VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
 
 	return true;
+}
+
+void send_app_data_overflow_terminate() {
+    VESC_IF->request_terminate(((data *) ARG)->main_thread);
 }
