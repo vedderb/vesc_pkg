@@ -41,14 +41,16 @@ typedef struct {
     float acceleration;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
+    uint8_t last_accel_idx;
 	
     float erpm_avg;
-	float erpm_history[ERPM_ARRAY_SIZE];
-	int8_t erpm_idx;
+    float erpm_history[ERPM_ARRAY_SIZE];
+    int8_t erpm_idx;
+    uint8_t last_erpm_idx;
 
     float current_avg;
-	float current_history[ERPM_ARRAY_SIZE];
-	int8_t current_idx;
+    float current_history[CURRENT_ARRAY_SIZE];
+    int8_t current_idx;
 
     bool atr_filter_enabled;
     Biquad atr_current_biquad;
