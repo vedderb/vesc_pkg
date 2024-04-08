@@ -115,7 +115,6 @@ typedef struct {
 	float brake_timeout; // Seconds
 	float overcurrent_timer, tb_highvoltage_timer;
 	float switch_warn_beep_erpm;
-	bool traction_control;
 
 	// Odometer
 	float odo_timer;
@@ -318,7 +317,11 @@ static void configure(data *d) {
 	d->switch_warn_beep_erpm = d->tnt_conf.is_footbeep_enabled ? 2000 : 100000;
 
 	d->beeper_enabled = d->tnt_conf.is_beeper_enabled;
-
+	
+	float Fc2; 
+	Fc2 = d->tnt_conf.pitch_filter / (float)d->tnt_conf.hertz; 
+	biquad_config2(&d->pitch_biquad, BQ_LOWPASS, Fc2);
+	
 	reconfigure(d);
 	
 	if (d->state.state == STATE_DISABLED) {
@@ -444,7 +447,6 @@ static void reset_vars(data *d) {
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
 	// Traction Control
-	d->traction_control = false;
 	d->direction = 0;
 	
 	// Surge
@@ -509,8 +511,9 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	case (SAT_PB_DUTY):
 		return d->tiltback_duty_step_size;
 	case (SAT_PB_HIGH_VOLTAGE):
-	case (SAT_PB_TEMPERATURE):
 		return d->tiltback_hv_step_size;
+	case (SAT_PB_TEMPERATURE):
+		return d->tiltback_ht_step_size;
 	case (SAT_PB_LOW_VOLTAGE):
 		return d->tiltback_lv_step_size;
 	case (SAT_UNSURGE):
@@ -598,12 +601,6 @@ static bool check_faults(data *d) {
             }
         } else {
             d->fault_angle_roll_timer = d->current_time;
-
-            if (d->tnt_conf.fault_darkride_enabled) {
-                if (fabsf(d->roll) > 100 && fabsf(d->roll) < 135) {
-                    state_stop(&d->state, STOP_ROLL);
-                    return true;
-                }
             }
         }
 
@@ -640,8 +637,8 @@ static void calculate_setpoint_target(data *d) {
 			d->surge_off = false;
 		}
 	} else if (d->surge) {
-		if (d->proportional*SIGN(d->erpm) < d->tnt_conf.surge_pitchmargin) {
-			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * SIGN(d->erpm);
+		if (d->proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
+			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
 			d->state.sat = SAT_SURGE;
 		}
 	 } else if (d->motor.duty_cycle > d->tnt_conf.tiltback_duty) {
@@ -664,8 +661,8 @@ static void calculate_setpoint_target(data *d) {
 	
 			d->state.sat = SAT_PB_HIGH_VOLTAGE;
 		} else {
-		// The rider has 500ms to react to the triple-beep, or maybe it was just a short spike
-		d->state.sat = SAT_NONE;
+			// The rider has 500ms to react to the triple-beep, or maybe it was just a short spike
+			d->state.sat = SAT_NONE;
 		}
 	} else if (VESC_IF->mc_temp_fet_filtered() > d->mc_max_temp_fet) {
 		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
@@ -673,14 +670,14 @@ static void calculate_setpoint_target(data *d) {
 		d->beep_reason = BEEP_TEMPFET;
 		if (VESC_IF->mc_temp_fet_filtered() > (d->mc_max_temp_fet + 1)) {
 			if (d->motor.erpm > 0) {
-				d->setpoint_target = d->tnt_conf.tiltback_lv_angle;
+				d->setpoint_target = d->tnt_conf.tiltback_ht_angle;
 			} else {
-			d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
+			d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
 			}
 		d->state.sat = SAT_PB_TEMPERATURE;
 		} else {
-		// The rider has 1 degree Celsius left before we start tilting back
-		d->state.sat = SAT_NONE;
+			// The rider has 1 degree Celsius left before we start tilting back
+			d->state.sat = SAT_NONE;
 		}
 	} else if (VESC_IF->mc_temp_motor_filtered() > d->mc_max_temp_mot) {
 		// Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
@@ -688,14 +685,14 @@ static void calculate_setpoint_target(data *d) {
 		d->beep_reason = BEEP_TEMPMOT;
 		if (VESC_IF->mc_temp_motor_filtered() > (d->mc_max_temp_mot + 1)) {
 			if (d->motor.erpm > 0) {
-				d->setpoint_target = d->tnt_conf.tiltback_lv_angle;
+				d->setpoint_target = d->tnt_conf.tiltback_ht_angle;
 			} else {
-				d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
+				d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
 			}
 		d->state.sat = SAT_PB_TEMPERATURE;
 		} else {
-		// The rider has 1 degree Celsius left before we start tilting back
-		d->state.sat = SAT_NONE;
+			// The rider has 1 degree Celsius left before we start tilting back
+			d->state.sat = SAT_NONE;
 		}
 	} else if (d->motor.duty_cycle > 0.05 && input_voltage < d->tnt_conf.tiltback_lv) {
 		beep_alert(d, 3, false);
@@ -716,8 +713,8 @@ static void calculate_setpoint_target(data *d) {
 	
 			d->state.sat = SAT_PB_LOW_VOLTAGE;
 		} else {
-		d->state.sat = SAT_NONE;
-		d->setpoint_target = 0;
+			d->state.sat = SAT_NONE;
+			d->setpoint_target = 0;
 		}
 	}
 }
@@ -758,7 +755,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		// Monitor the throttle to start sticky tilt
 		if ((fabsf(d->throttle_val) - fabsf(d->last_throttle_val) > .001) || // If the throttle is travelling away from center
 		   (fabsf(d->throttle_val) > 0.95)) {					// Or close to max
-			d->stickytilt_maxval = SIGN(d->throttle_val) * fmaxf(fabsf(d->throttle_val), fabsf(d->stickytilt_maxval)); // Monitor the maximum throttle value
+			d->stickytilt_maxval = sign(d->throttle_val) * max(fabsf(d->throttle_val), fabsf(d->stickytilt_maxval)); // Monitor the maximum throttle value
 		}
 		// Check for conditions to start stop and swap sticky tilt
 		if ((d->throttle_val == 0) && // The throttle is at the center
@@ -769,11 +766,11 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 					if (((fabsf(d->atr_filtered_current) < d->tnt_conf.stickytilt_holdcurrent) &&
 					   (fabsf(d->stickytilt_val) == stickytilt_val2)) ||				//If we are val2 we must be below max current to change
 					   (fabsf(d->stickytilt_val) == stickytilt_val1)) {				//If we are at val1 the current restriction is not required
-						d->stickytilt_val = SIGN(d->stickytilt_maxval) * ((fabsf(d->stickytilt_val) == stickytilt_val1) ? stickytilt_val2 : stickytilt_val1); //switch sticky tilt values from 1 to 2
+						d->stickytilt_val = sign(d->stickytilt_maxval) * ((fabsf(d->stickytilt_val) == stickytilt_val1) ? stickytilt_val2 : stickytilt_val1); //switch sticky tilt values from 1 to 2
 					}
 				} else { //else apply sticky tilt value 1
 					d->stickytilton = true;
-					d->stickytilt_val = SIGN(d->stickytilt_maxval) * stickytilt_val1; // Apply val 1 for initial sticky tilt application							
+					d->stickytilt_val = sign(d->stickytilt_maxval) * stickytilt_val1; // Apply val 1 for initial sticky tilt application							
 				} 
 			}
 			d->stickytiltoff = false; // We can turn off this flag after 1 cycle of throttle ==0. Avoids getting stuck on sticky tilt when turning sticky tilt off
@@ -782,7 +779,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		
 		if (d->stickytilton) { 	//Apply sticky tilt. Check for exit condition
 			//Apply sticky tilt value or throttle values higher than sticky tilt value
-			if ((SIGN(d->inputtilt_interpolated) == SIGN(input_tiltback_target)) || (d->throttle_val == 0)) { // If the throttle is at zero or pushed to the direction of the sticky tilt value. 
+			if ((sign(d->inputtilt_interpolated) == sign(input_tiltback_target)) || (d->throttle_val == 0)) { // If the throttle is at zero or pushed to the direction of the sticky tilt value. 
 				if (fabsf(d->stickytilt_val) >= fabsf(input_tiltback_target)) { // If sticky tilt value greater than throttle value keep at sticky value
 					input_tiltback_target = d->stickytilt_val; // apply our sticky tilt value
 				} //else we will apply the normal throttle value calculated at the beginning of apply_inputtilt() in the direction of sticky tilt
@@ -806,21 +803,21 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 		float smooth_center_window = 1.5 + (0.5 * d->tnt_conf.inputtilt_smoothing_factor); // Sets the angle away from Target that step size begins ramping down
 		if (fabsf(input_tiltback_target_diff) < smooth_center_window) { // Within X degrees of Target Angle, start ramping down step size
 			d->inputtilt_ramped_step_size = (smoothing_factor * d->inputtilt_step_size * (input_tiltback_target_diff / 2)) + ((1 - smoothing_factor) * d->inputtilt_ramped_step_size); // Target step size is reduced the closer to center you are (needed for smoothly transitioning away from center)
-			float centering_step_size = fminf(fabsf(d->inputtilt_ramped_step_size), fabsf(input_tiltback_target_diff / 2) * d->inputtilt_step_size) * SIGN(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
+			float centering_step_size = min(fabsf(d->inputtilt_ramped_step_size), fabsf(input_tiltback_target_diff / 2) * d->inputtilt_step_size) * sign(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
 			if (fabsf(input_tiltback_target_diff) < fabsf(centering_step_size)) {
 				d->inputtilt_interpolated = input_tiltback_target;
 			} else {
 				d->inputtilt_interpolated += centering_step_size;
 			}
 		} else { // Ramp up step size until the configured tilt speed is reached
-			d->inputtilt_ramped_step_size = (smoothing_factor * d->inputtilt_step_size * SIGN(input_tiltback_target_diff)) + ((1 - smoothing_factor) * d->inputtilt_ramped_step_size);
+			d->inputtilt_ramped_step_size = (smoothing_factor * d->inputtilt_step_size * sign(input_tiltback_target_diff)) + ((1 - smoothing_factor) * d->inputtilt_ramped_step_size);
 			d->inputtilt_interpolated += d->inputtilt_ramped_step_size;
 		}
 	} else { // Constant step size; no smoothing
 		if (fabsf(input_tiltback_target_diff) < d->inputtilt_step_size){
 		d->inputtilt_interpolated = input_tiltback_target;
 	} else {
-		d->inputtilt_interpolated += d->inputtilt_step_size * SIGN(input_tiltback_target_diff);
+		d->inputtilt_interpolated += d->inputtilt_step_size * sign(input_tiltback_target_diff);
 	}
 	}
 	if (!d->tnt_conf.enable_throttle_stability) {
@@ -849,7 +846,7 @@ static float haptic_buzz(data *d, float note_period) {
 	if (d->haptic_tone_in_progress) {
 		d->haptic_counter += 1;
 
-		float buzz_current = fminf(20, d->tnt_conf.haptic_buzz_intensity);
+		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
 		// small periods (1,2) produce audible tone, higher periods produce vibration
 		int buzz_period = d->haptic_type;
 		if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
@@ -859,9 +856,9 @@ static float haptic_buzz(data *d, float note_period) {
 		// alternate frequencies, depending on "mode"
 		buzz_period += d->haptic_mode;
 		
-		if ((d->abs_erpm < 10000) && (buzz_current > 5)) {
+		if ((d->motor.abs_erpm < 10000) && (buzz_current > 5)) {
 			// scale high currents down to as low as 5A for lower erpms
-			buzz_current = fmaxf(d->tnt_conf.haptic_buzz_min, d->abs_erpm / 10000 * buzz_current);
+			buzz_current = max(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
 		}
 
 		if (d->haptic_counter > buzz_period) {
@@ -932,41 +929,41 @@ static void set_dutycycle(data *d, float dutycycle){
 static void check_surge(data *d){
 	//Start Surge Code
 	//Initialize Surge Cycle
-	if ((d->currentavg1 * SIGN(d->erpm) > d->surge_start_current) && 	//High current condition 
+	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current) && 	//High current condition 
 	     (d->overcurrent) && 						//If overcurrent is triggered this satifies traction control, min erpm, braking, centering and direction
-	     (d->abs_duty_cycle < 0.8) &&					//Prevent surge when pushing top speed
+	     (d->motor.duty_cycle < 0.8) &&					//Prevent surge when pushing top speed
 	     (d->current_time - d->surge_timer > 0.7)) {	//Not during an active surge period			
 		d->surge_timer = d->current_time; 			//Reset surge timer
 		d->surge = true; 					//Indicates we are in the surge cycle of the surge period
 		d->surge_setpoint = d->setpoint;			//Records setpoint at the start of surge because surge changes the setpoint
-		d->new_duty_cycle = SIGN(d->erpm) * d->abs_duty_cycle;
+		d->new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
 		d->debug13 = d->proportional;				
 		d->debug5 = 0;
 		d->debug16 = 0;
 		d->debug18 = 0;
-		d->debug17 = d->currentavg1;
+		d->debug17 = d->motor.current_avg;
 		d->debug14 = 0;
 		d->debug15 = d->surge_start_current;
-		d->debug19 = d->duty_cycle;
+		d->debug19 = d->motor.erpm_sign * d->motor.duty_cycle;
 	}
 	
 	//Conditions to stop surge and increment the duty cycle
 	if (d->surge){	
-		d->new_duty_cycle += SIGN(d->erpm) * d->surge_ramp_rate; 	
+		d->new_duty_cycle += d->motor.erpm_sign * d->surge_ramp_rate; 	
 		if((d->current_time - d->surge_timer > 0.5) ||			//Outside the surge cycle portion of the surge period
-		 (-1 * (d->surge_setpoint - d->pitch_angle) * SIGN(d->erpm) > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
-		 (d->state == RUNNING_WHEELSLIP)) {						//In traction control		
+		 (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
+		 (d->state.wheelslip)) {						//In traction control		
 			d->surge = false;
 			d->surge_off = true;							//Identifies the end of surge to change the setpoint back to before surge 
 			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();	//This allows a smooth transition to PID current control
 			d->debug5 = d->current_time - d->surge_timer;				//Register how long the surge cycle lasted
-			d->debug18 = d->duty_cycle - d->debug19;
+			d->debug18 = d->motor.duty_cycle - d->debug19;
 			d->debug14 = d->debug18 / (d->current_time - d->surge_timer) * 100;
 			if (d->current_time - d->surge_timer >= 0.5) {
 				d->debug16 = 111;
-			} else if (-1 * (d->surge_setpoint - d->pitch_angle) * SIGN(d->erpm) > d->tnt_conf.surge_maxangle){
+			} else if (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle){
 				d->debug16 = d->pitch_angle;
-			} else if (d->state == RUNNING_WHEELSLIP){
+			} else if (d->state.wheelslip){
 				d->debug16 = 222;
 			}
 		}
@@ -976,15 +973,15 @@ static void check_surge(data *d){
 static void check_current(data *d){
 	d->overcurrent = false;
 	float scale_start_current;
-	scale_start_current = ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * d->abs_duty_cycle			//linear scaling mx
+	scale_start_current = ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * d->motor.duty_cycle			//linear scaling mx
 		+ (d->tnt_conf.surge_start_hd_current - ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * .95); 	//+b
-	d->surge_start_current = fminf(d->tnt_conf.surge_startcurrent, scale_start_current); 
-	if ((d->currentavg1 * SIGN(d->erpm) > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
-	     (SIGN(d->proportional) == SIGN(d->erpm)) && 				//Not braking
-	     (d->state != RUNNING_WHEELSLIP) &&						//Not during traction control
-	     (fabsf(d->erpm) > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
-	     (SIGN(d->direction) == SIGN(d->erpm)) &&					//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
-	     (d->setpointAdjustmentType != CENTERING)) { 				//Not during startup
+	d->surge_start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
+	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
+	     (sign(d->proportional) == d->motor.erpm_sign) && 				//Not braking
+	     (!d->state.wheelslip) &&							//Not during traction control
+	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
+	     (sign(d->direction) == d->motor.erpm_sign) &&				//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
+	     (d->state.sat != SAT_CENTERING)) { 					//Not during startup
 		// High current, just haptic buzz don't actually limit currents
 		if (d->current_time - d->overcurrent_timer < d->tnt_conf.overcurrent_period) {	//Not during an active overcurrent period
 			d->overcurrent = true;
@@ -993,115 +990,99 @@ static void check_current(data *d){
 }
 
 static void check_traction(data *d){
-	float wheelslip_erpmfactor = d->tnt_conf.wheelslip_scaleaccel - fminf(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
+	float wheelslip_erpmfactor = d->tnt_conf.wheelslip_scaleaccel - min(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->motor.abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
 	bool erpm_check;
 	
-	int last_accelidx1 = d->accelidx1 - 1; // Identify the last cycles accel
-	if (d->accelidx1 == 0) {
-		last_accelidx1 = ACCEL_ARRAY_SIZE1 - 1;
-	}
-	
-	int last_erpmidx = d->erpmidx1 -10; // Identify ERPM at the start of the acceleration array
-	if (last_erpmidx < 0) {
-		last_erpmidx += ERPM_ARRAY_SIZE1;
-	}
-	int current_erpmidx = d->erpmidx1 -1;
-	if (current_erpmidx < 0) {
-		current_erpmidx += ERPM_ARRAY_SIZE1;
-	}
-	
 	// Conditons to end traction control
-	if (d->state == RUNNING_WHEELSLIP) {
+	if (d->state.wheelslip) {
 		if (d->current_time - d->wheelslip_droptimeroff < 0.5) {		// Drop has ended recently
-			d->state = RUNNING;
+			d->state.wheelslip = false;
 			d->wheelslip_timeroff = d->current_time;
 			d->debug4 = 6666;
-			d->debug8 = d->accelavg1;
+			d->debug8 = d->motor.acceleration;
 		} else	if (d->current_time - d->wheelslip_timeron > .5) {		// Time out at 500ms
-			d->state = RUNNING;
+			d->state.wheelslip = false;
 			d->wheelslip_timeroff = d->current_time;
 			d->debug4 = 5000;
-			d->debug8 = d->accelavg1;
+			d->debug8 = d->motor.acceleration;
 		} else {
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration direction change
 			if (d->wheelslip_highaccelon2) { 
-				if (SIGN(d->wheelslip_accelstartval) != SIGN(d->accelhist1[d->accelidx1])) { 
+				if (sign(d->wheelslip_accelstartval) != sign(d->accelhist1[d->accelidx1])) { 
 				// First we identify that the wheel has deccelerated due to traciton control, switching the sign
 					d->wheelslip_highaccelon2 = false;				
 					d->debug1 = d->current_time - d->wheelslip_timeron;
 				} else if (d->current_time - d->wheelslip_timeron > .18) {	// Time out at 150ms if wheel does not deccelerate
-					d->state = RUNNING;
+					d->state.wheelslip = false;
 					d->wheelslip_timeroff = d->current_time;
 					d->debug4 = 1800;
-					d->debug8 = d->accelavg1;
+					d->debug8 = d->motor.acceleration;
 				}
-			} else if (SIGN(d->accelhist1[d->accelidx1])!= SIGN(d->accelhist1[last_accelidx1])) { 
+			} else if (sign(d->accelhist1[d->accelidx1])!= sign(d->accelhist1[last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				d->state = RUNNING;
+				d->state.wheelslip = false;
 				d->wheelslip_timeroff = d->current_time;
-				d->debug4 = d->accelhist1[last_accelidx1];
+				d->debug4 = d->accelhist1[last_accel_idx];
 				d->debug8 = d->accelhist1[d->accelidx1];	
 			}
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
-			if (d->state == RUNNING_WHEELSLIP) { // skip this if we are already out of wheelslip to preserve debug values
+			if (d->state.wheelslip) { // skip this if we are already out of wheelslip to preserve debug values
 				if (d->wheelslip_highaccelon1) {		
-					if (SIGN(d->wheelslip_accelstartval) * d->accelavg1 < d->tnt_conf.wheelslip_accelend) {	
+					if (sign(d->wheelslip_accelstartval) * d->motor.acceleration < d->tnt_conf.wheelslip_accelend) {	
 					// First we identify that the wheel has deccelerated due to traciton control
 						d->wheelslip_highaccelon1 = false;
 						d->debug7 = d->current_time - d->wheelslip_timeron;
 					} else if (d->current_time - d->wheelslip_timeron > .2) {	// Time out at 200ms if wheel does not deccelerate
-						d->state = RUNNING;
+						d->state.wheelslip = false;
 						d->wheelslip_timeroff = d->current_time;
 						d->debug4 = 2000;
-						d->debug8 = d->accelavg1;
+						d->debug8 = d->motor.acceleration;
 					}
-				} else if (fabsf(d->accelavg1) > d->tnt_conf.wheelslip_margin) { 
+				} else if (fabsf(d->motor.acceleration) > d->tnt_conf.wheelslip_margin) { 
 				// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-					d->state = RUNNING;
+					d->state.wheelslip = false;
 					d->wheelslip_timeroff = d->current_time;
 					d->debug4 = 2222;
-					d->debug8 = d->accelavg1;		
+					d->debug8 = d->motor.acceleration;		
 				}
 			}
 		}
 	}	
-	if (SIGN(d->erpmhist1[current_erpmidx]) == SIGN(d->erpmhist1[last_erpmidx])) { // We check sign to make sure erpm is increasing or has changed direction. 
-		if (fabsf(d->erpmhist1[current_erpmidx]) > fabsf(d-> erpmhist1[last_erpmidx])) {
+	if (sign(d->motor.erpm) == sign(d->motor.erpm_history[d->motor.last_erpmidx])) { // We check sign to make sure erpm is increasing or has changed direction. 
+		if (fabsf(d->motor.erpm_history[current_erpmidx]) > fabsf(d->motor.erpm_history[d->motor.last_erpmidx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
-	} else if (SIGN(d->direction) != SIGN(d->accelavg1)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+	} else if (sign(d->direction) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 	} else {erpm_check = false;}
 		
 		
 	// Initiate traction control
-	if ((SIGN(d->motor_current) * d->accelavg1 > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
-	   (d->state != RUNNING_WHEELSLIP) &&									// Not in traction control
-	   (SIGN(d->motor_current) == SIGN(d->accelhist1[d->accelidx1])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
-	   (SIGN(d->proportional) == SIGN(d->erpmhist1[current_erpmidx])) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
+	if ((sign(d->motor_current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+	   (!d->state.wheelslip) &&									// Not in traction control
+	   (sign(d->motor_current) == sign(d->accelhist1[d->accelidx1])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
+	   (sign(d->proportional) == sign(d->motor.erpm_history[current_erpmidx])) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
 	   (d->current_time - d->wheelslip_timeroff > .2) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
-		d->state = RUNNING_WHEELSLIP;
-		d->wheelslip_accelstartval = d->accelavg1;
+		d->state.wheelslip = true;
+		d->wheelslip_accelstartval = d->motor.acceleration;
 		d->wheelslip_highaccelon1 = true; 	
 		d->wheelslip_highaccelon2 = true; 	
 		d->wheelslip_timeron = d->current_time;
-		d->wheelslip_erpm = d->erpmhist1[current_erpmidx];
-		d->wheelslip_lasterpm = d->erpmhist1[last_erpmidx];
-		d->debug6 = d->accelavg1;
-		d->debug3 = d->erpmhist1[last_erpmidx];
+		d->debug6 = d->motor.acceleration;
+		d->debug3 = d->motor.erpm_history[d->motor.last_erpmidx];
 		d->debug1 = 0;
 		d->debug2 = wheelslip_erpmfactor;
 		d->debug4 = 0;
 		d->debug8 = 0;
-		d->debug9 = d->erpmhist1[current_erpmidx];
+		d->debug9 = d->motor.erpm;
 	}
 }
 
 static void check_drop(data *d){
 	d->last_accel_z = d->accel[2];
 	VESC_IF->imu_get_accel(d->accel);
-	float accel_z_reduction = cosf(DEG2RAD_f(d->roll_angle)) * cosf(DEG2RAD_f(d->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
+	float accel_z_reduction = cosf(deg2rad(d->roll_angle)) * cosf(deg2rad(d->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (d->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		d->applied_accel_z_reduction = accel_z_reduction ;						// Roll or pitch are increasing. Do not delay
 	} else {
@@ -1139,7 +1120,7 @@ static void apply_rollkp(data *d, float new_pid_value){
 	float erpmscale = 1;
 
 	//Determine the correct kp to use based on abs_roll_angle
-	if (SIGN(d->proportional) != SIGN(d->erpm)) { //Braking
+	if (sign(d->proportional) != d->motor.erpm_sign) { //Braking
 		if (d->abs_roll_angle > d->tnt_conf.brkroll3 && d->brkroll_count==3) {
 			kp_min = d->tnt_conf.brkroll_kp3;
 			kp_max = d->tnt_conf.brkroll_kp3;
@@ -1166,7 +1147,7 @@ static void apply_rollkp(data *d, float new_pid_value){
 				scale_angle_max = 90;
 			}
 		} 
-		if (fabsf(d->erpm) < 750) { // If we want to actually stop at low speed reduce kp to 0
+		if (d->motor.abs_erpm < 750) { // If we want to actually stop at low speed reduce kp to 0
 			erpmscale = 0;
 		}
 	} else { //Accelerating
@@ -1196,18 +1177,18 @@ static void apply_rollkp(data *d, float new_pid_value){
 				scale_angle_max = 90;
 			}
 		}
-		if (fabsf(d->erpm) < d->tnt_conf.rollkp_higherpm) { 
-			erpmscale = 1 + fminf(1,fmaxf(0,1-(d->abs_erpm-d->tnt_conf.rollkp_lowerpm)/(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
+		if (d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
+			erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
 		}
 	}
 	m = (kp_max - kp_min) / (scale_angle_max - scale_angle_min); 	//calcs slope between points (scale angle min, min kp) and (scale angle max, max kp)
 	b = kp_max - m * scale_angle_max;				//calcs y-int between points (scale angle min, min kp) and (scale angle max, max kp)
-	rollkp = fmaxf(kp_min, fminf(kp_max, m * fabsf(d->abs_roll_angle) + b)); // scale kp between min and max with the calculated equation
+	rollkp = max(kp_min, min(kp_max, m * fabsf(d->abs_roll_angle) + b)); // scale kp between min and max with the calculated equation
 	rollkp *= erpmscale;
-	if (d->setpointAdjustmentType == CENTERING) {
+	if (s->state.sat == SAT_CENTERING) {
 		rollkp=0; 
 	}
-	d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * SIGN(d->erpm); //always act in the direciton of travel
+	d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
 	d->debug11 = rollkp;
 }
 
@@ -1331,17 +1312,17 @@ static void apply_stability(data *d) {
 	if (d->tnt_conf.enable_throttle_stability) {
 		throttle_stabl_mod = fabsf(d->inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; //using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
 	}
-	if (d->tnt_conf.enable_speed_stability && fabsf(d->erpm) > d->tnt_conf.stabl_min_erpm) {		
-		speed_stabl_mod = fminf(1 ,	// Do not exceed the max value. Divided by 100 for percentage.					
-				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * fabsf(d->erpm)				//linear scaling mx
+	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > d->tnt_conf.stabl_min_erpm) {		
+		speed_stabl_mod = min(1 ,	// Do not exceed the max value. Divided by 100 for percentage.					
+				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->motor.abs_erpm				//linear scaling mx
 				+ (1 - ((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->tnt_conf.stabl_max_erpm) 	//+b
 				);
 	}
-	stabl_mod = fmaxf(speed_stabl_mod,throttle_stabl_mod);
+	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
 	if (d->stabl > stabl_mod) {
-		d->stabl = fmaxf(d->stabl - d->stabl_step_size, 0); //ramp stifness down but not below zero. Ramp is a percentage of max scale
+		d->stabl = max(d->stabl - d->stabl_step_size, 0); //ramp stifness down but not below zero. Ramp is a percentage of max scale
 	} else if (d->stabl < stabl_mod) {
-		d->stabl = fminf(d->stabl + d->stabl_step_size, stabl_mod); //ramp stability up but do not exceed stabl_mod
+		d->stabl = min(d->stabl + d->stabl_step_size, stabl_mod); //ramp stability up but do not exceed stabl_mod
 	}
 }
 
@@ -1363,11 +1344,11 @@ static void tnt_thd(void *arg) {
 		d->current_time = VESC_IF->system_time();
 
 		// Get the IMU Values
-		d->roll_angle = RAD2DEG_f(VESC_IF->imu_get_roll());
+		d->roll_angle = rad2deg(VESC_IF->imu_get_roll());
 		d->abs_roll_angle = fabsf(d->roll_angle);
 		d->last_pitch_angle = d->pitch_angle;
-		d->true_pitch_angle = RAD2DEG_f(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
-		d->pitch_angle = RAD2DEG_f(VESC_IF->imu_get_pitch());
+		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
+		d->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		d->last_gyro_y = d->gyro[1];
 		VESC_IF->imu_get_gyro(d->gyro);
 
@@ -1407,7 +1388,7 @@ static void tnt_thd(void *arg) {
 			if (fabsf(servo_val) < deadband) {
 				servo_val = 0.0;
 			} else {
-				servo_val = SIGN(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
+				servo_val = sign(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
 			}
 
 			// Invert Throttle
@@ -1447,7 +1428,7 @@ static void tnt_thd(void *arg) {
 				float bat_volts = VESC_IF->mc_get_input_voltage_filtered();
 				float threshold = d->tnt_conf.tiltback_lv + 5;
 				if (bat_volts < threshold) {
-					int beeps = (int) fminf(6, threshold - bat_volts);
+					int beeps = (int) min(6, threshold - bat_volts);
 					beep_alert(d, beeps + 1, true);
 					d->beep_reason = BEEP_LOWBATT;
 				} else {
@@ -1490,18 +1471,18 @@ static void tnt_thd(void *arg) {
 			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			d->differential = d->proportional - d->last_proportional;
-			if (d->tnt_conf.brake_curve && SIGN(d->proportional) != SIGN(d->erpm)) { 	//If braking and user allows braking curve
+			if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
 				new_pid_value = select_kp_brake(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
 			} else {new_pid_value = select_kp(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
 			d->last_proportional = d->proportional; 
-			d->direction = 0.999 * d->direction + (1-0.999) * SIGN(d->erpm);  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
+			d->direction = 0.999 * d->direction + (1-0.999) * d->motor.erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
 				// Rate P
 				float rate_prop = -d->gyro[1];
-				if (d->tnt_conf.brake_curve && SIGN(d->proportional) != SIGN(d->erpm)) { 	//If braking and user allows braking curve
+				if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
 					d->pid_mod = d->tnt_conf.brakekp_rate * rate_prop*(1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100);			// Use separate braking function
 					d->debug12 = -d->tnt_conf.brakekp_rate * d->stabl*d->tnt_conf.stabl_rate_max_scale/100;					// negative for braking
 				} else {
@@ -1516,7 +1497,7 @@ static void tnt_thd(void *arg) {
 				}
 
 				if (d->softstart_pid_limit < d->mc_current_max) {
-					d->pid_mod = fminf(fabs(d->pid_mod), d->softstart_pid_limit) * SIGN(d->pid_mod);
+					d->pid_mod = min(fabs(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
 				}
 
@@ -1547,7 +1528,7 @@ static void tnt_thd(void *arg) {
 			// PID value application
 			if (d->state.wheelslip) { //Reduce acceleration if we are in traction control
 				d->pid_value = 0;
-			} else if (SIGN(d->erpm) * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
+			} else if (d->motor.erpm_sign * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
 				if (new_pid_value > d->pid_value) {
 					d->pid_value += d->pid_brake_increment;
 				}
@@ -1622,7 +1603,7 @@ static void tnt_thd(void *arg) {
 			}
 			
 			// Push-start aka dirty landing Part II
-			if(d->tnt_conf.startup_pushstart_enabled && (d->abs_erpm > 1000) && (d->switch_state == ON)) {
+			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && (d->switch_state == ON)) {
 				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
@@ -1767,7 +1748,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->adc1, &ind);
 	buffer_append_float32_auto(buffer, d->adc2, &ind);
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
-	buffer_append_float32_auto(buffer, d->currentavg1, &ind); // current atr_filtered_current
+	buffer_append_float32_auto(buffer, d->motor.current_avg, &ind); // current atr_filtered_current
 	buffer_append_float32_auto(buffer, d->pitch_angle, &ind);
 	buffer_append_float32_auto(buffer, d->roll_angle, &ind);
 
