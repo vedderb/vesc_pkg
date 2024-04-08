@@ -1,0 +1,91 @@
+Line 23 #include "conf/conf_general.h" instead of _default
+
+Move to motor data.h
+#define ACCEL_ARRAY_SIZE1 10 // For Traction Control acceleration average
+#define ERPM_ARRAY_SIZE1 25 // For traction control erpm tracking
+#define CURRENT_ARRAY_SIZE1 20 // For surge current tracking
+
+Move these
+// Return the sign of the argument. -1.0 if negative, 1.0 if zero or positive.
+#define SIGN(x)				(((x) < 0.0) ? -1.0 : 1.0)
+#define DEG2RAD_f(deg)		((deg) * (float)(M_PI / 180.0))
+#define RAD2DEG_f(rad) 		((rad) * (float)(180.0 / M_PI))
+#define UNUSED(x) (void)(x)
+
+add surge and unsurge
+typedef enum {
+	CENTERING = 0,
+	REVERSESTOP,
+    	TILTBACK_NONE,
+	TILTBACK_DUTY,
+	TILTBACK_HV,
+	TILTBACK_LV,
+	TILTBACK_TEMP,
+	TILTBACK_SURGE,
+	TILTBACK_UNSURGE
+} SetpointAdjustmentType;
+
+add second set of biquad variables
+typedef struct{
+	float a0, a1, a2, b1, b2;
+	float c1, c2;
+	float x0, x1, x2, y1, y2;
+	float z1, z2;
+} Biquad;
+
+should i move this 	bool overcurrent;
+
+
+where does this go
+// First start only, set initial state
+static void app_init(data *d) {
+	if (d->state != DISABLED) {
+		d->state = STARTUP;
+	}
+	d->beeper_enabled = true;
+	
+	// Allow saving of odometer
+	d->odometer_dirty = 0;
+	d->odometer = VESC_IF->mc_get_odometer();
+}
+
+where does this go
+	// Maximum amps change when braking
+	d->pid_brake_increment = 5;
+	if (d->pid_brake_increment < 0.1) {
+		d->pid_brake_increment = 5;
+	}
+	
+Add to biquad	
+float Fc1, Fc2; 
+	Fc1 = 3.0 / (float)d->tnt_conf.hertz; 
+	Fc2 = d->tnt_conf.pitch_filter / (float)d->tnt_conf.hertz; 
+	biquad_config1(&d->atr_current_biquad, BQ_LOWPASS, Fc1);
+	biquad_config2(&d->pitch_biquad, BQ_LOWPASS, Fc2);
+	
+do i need this 	d->current_time = 0;
+
+find a place for all this
+		//d->erpmavg1 += (d->erpm - d->erpmhist1[d->erpmidx1]) / ERPM_ARRAY_SIZE1;
+		d->erpmhist1[d->erpmidx1] = d->erpm;
+		d->erpmidx1++;
+ 		if (d->erpmidx1 == ERPM_ARRAY_SIZE1) {
+			d->erpmidx1 = 0;
+		}	
+		
+		float acceleration_raw = d->erpm - d->last_erpm;
+		d->accelavg1 += (acceleration_raw - d->accelhist1[d->accelidx1]) / ACCEL_ARRAY_SIZE1;
+		d->accelhist1[d->accelidx1] = acceleration_raw;
+		d->accelidx1++;
+ 		if (d->accelidx1 == ACCEL_ARRAY_SIZE1) {
+			d->accelidx1 = 0;
+		}
+
+		d->currentavg1 += (d->atr_filtered_current - d->currenthist1[d->currentidx1]) / CURRENT_ARRAY_SIZE1;
+		d->currenthist1[d->currentidx1] = d->atr_filtered_current;
+		d->currentidx1++;
+ 		if (d->currentidx1 == CURRENT_ARRAY_SIZE1) {
+			d->currentidx1 = 0;
+		}	
+
+
