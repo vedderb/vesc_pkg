@@ -83,7 +83,7 @@ void motor_data_update(MotorData *m) {
 		m->last_erpm_idx += ERPM_ARRAY_SIZE;
 	}
     
-    m->current_avg += (m->atr_filtered_current - m->current_history[d->current_idx]) / CURRENT_ARRAY_SIZE;
+    m->current_avg += (m->atr_filtered_current - m->current_history[m->current_idx]) / CURRENT_ARRAY_SIZE;
     m->current_history[m->current_idx] = m->atr_filtered_current;
     m->current_idx = (m->current_idx + 1) % CURRENT_ARRAY_SIZE;
     
