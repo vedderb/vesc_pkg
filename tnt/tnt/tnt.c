@@ -1703,7 +1703,7 @@ static void read_cfg_from_eeprom(tnt_config *config) {
 			}
 		} else {
 			log_error("Failed signature check while reading config from EEPROM, using defaults.");
-			confparser_set_defaults_refloatconfig(config);
+			confparser_set_defaults_tnt_config(config);
 			return;
 	        }
 	}
@@ -1711,7 +1711,7 @@ static void read_cfg_from_eeprom(tnt_config *config) {
 	if (read_ok) {
 		memcpy(config, buffer, sizeof(tnt_config));
 	} else {
-		confparser_set_defaults_refloatconfig(&(d->tnt_conf));
+		confparser_set_defaults_tnt_config(&(d->tnt_conf));
 		log_error("Failed to read config from EEPROM, using defaults.");
 	}
 
@@ -1906,12 +1906,12 @@ static int get_cfg(uint8_t *buffer, bool is_default) {
 			log_error("Failed to send default config to VESC tool: Out of memory.");
 			return 0;
 		}
-		confparser_set_defaults_refloatconfig(cfg);
+		confparser_set_defaults_tnt_config(cfg);
 	} else {
 		cfg = &d->tnt_conf;
 	}
 
-	int res = confparser_serialize_refloatconfig(buffer, cfg);
+	int res = confparser_serialize_tnt_config(buffer, cfg);
 
 	if (is_default) {
 		VESC_IF->free(cfg);
@@ -1928,7 +1928,7 @@ static bool set_cfg(uint8_t *buffer) {
 		return false;
 	}
 	
-	bool res = confparser_deserialize_refloatconfig(buffer, &d->tnt_conf);
+	bool res = confparser_deserialize_tnt_config(buffer, &d->tnt_conf);
 	
 	// Store to EEPROM
 	if (res) {
