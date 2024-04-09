@@ -1628,7 +1628,7 @@ static void tnt_thd(void *arg) {
 			}
 			
 			// Push-start aka dirty landing Part II
-			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && isengaged(d)) {
+			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && is_engaged(d)) {
 				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
@@ -1648,7 +1648,7 @@ static void tnt_thd(void *arg) {
 	}
 }
 
-static void write_cfg_to_eeprom(tnt_config *config) {
+static void write_cfg_to_eeprom(data *d) {
 	uint32_t ints = sizeof(tnt_config) / 4 + 1;
 	uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
 	if (!buffer) {
@@ -1711,7 +1711,7 @@ static void read_cfg_from_eeprom(tnt_config *config) {
 	if (read_ok) {
 		memcpy(config, buffer, sizeof(tnt_config));
 	} else {
-		confparser_set_defaults_tnt_config(&(d->tnt_conf));
+		confparser_set_defaults_tnt_config(config);
 		log_error("Failed to read config from EEPROM, using defaults.");
 	}
 
@@ -1880,7 +1880,7 @@ static lbm_value ext_bal_dbg(lbm_value *args, lbm_uint argn) {
 		return VESC_IF->lbm_enc_sym_eerror;
 	}
 
-	return VESC_IF->lbm_enc_float(app_tnt_get_debug(VESC_IF->lbm_dec_as_i32(args[0])));
+	return VESC_IF->lbm_enc_float(app_get_debug(VESC_IF->lbm_dec_as_i32(args[0])));
 }
 
 // Called from Lisp on init to pass in the version info of the firmware
