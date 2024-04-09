@@ -56,8 +56,7 @@ typedef enum {
 // main firmware and managed from there). This is probably the main limitation of
 // loading applications in runtime, but it is not too bad to work around.
 typedef struct {
-	lib_thread thread; // Balance Thread
-
+	lib_thread main_thread;
 	tnt_config tnt_conf;
 
 	// Firmware version, passed in from Lisp
@@ -85,8 +84,14 @@ typedef struct {
 	bool duty_beeping;
 	bool overcurrent;
 
+	// Feature: Soft Start
+	float softstart_pid_limit, softstart_ramp_step_size;
+
 	// Feature: True Pitch
 	ATTITUDE_INFO m_att_ref;
+
+	// Brake Amp Rate Limiting:
+	float pid_brake_increment;
 
 	// Runtime values read from elsewhere
 	float pitch_angle, last_pitch_angle, roll_angle, abs_roll_angle, last_gyro_y;
@@ -166,6 +171,7 @@ typedef struct {
 	
 	// Kalman Filter
 	float P00, P01, P10, P11, bias, pitch_smooth_kalman;
+	float diff_time, last_time;
 
 	// Throttle/Brake Scaling
 	float roll_pid_mod;
@@ -267,7 +273,7 @@ static void reconfigure(data *d) {
 }
 
 static void configure(data *d) {
-	state_init(&d->state, d->tnt_conf.disabled);
+	state_init(&d->state, d->tnt_conf.disable_pkg);
 	
 	// This timer is used to determine how long the board has been disengaged / idle. subtract 1 second to prevent the haptic buzz disengage click on "write config"
 	d->disengage_timer = d->current_time - 1;
@@ -307,9 +313,14 @@ static void configure(data *d) {
 	// min current is a positive value here!
 	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
 
-
 	d->max_duty_with_margin = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty) - 0.1;
 
+	// Maximum amps change when braking
+	d->pid_brake_increment = 5;
+	if (d->pid_brake_increment < 0.1) {
+		d->pid_brake_increment = 5;
+	}
+	
 	// Allows smoothing of Remote Tilt
 	d->inputtilt_ramped_step_size = 0;
 
@@ -550,7 +561,7 @@ static bool check_faults(data *d) {
             // Rolling forward (not backwards!)
             d->motor.erpm > (d->tnt_conf.fault_adc_half_erpm * 2) &&
             // Not tipped over
-            fabsf(d->roll) < 40;
+            fabsf(d->roll_angle) < 40;
 
         // Check switch
         // Switch fully open
@@ -571,8 +582,8 @@ static bool check_faults(data *d) {
                 }
             }
 
-            if (d->motor.abs_erpm < 200 && fabsf(d->pitch) > 14 &&
-                fabsf(d->inputtilt_interpolated) < 30 && sign(d->pitch) == d->motor.erpm_sign) {
+            if (d->motor.abs_erpm < 200 && fabsf(d->pitch_angle) > 14 &&
+                fabsf(d->inputtilt_interpolated) < 30 && sign(d->pitch_angle) == d->motor.erpm_sign) {
                 state_stop(&d->state, STOP_QUICKSTOP);
                 return true;
             }
@@ -594,7 +605,7 @@ static bool check_faults(data *d) {
         }
 
         // Check roll angle
-        if (fabsf(d->roll) > d->tnt_conf.fault_roll) {
+        if (fabsf(d->roll_angle) > d->tnt_conf.fault_roll) {
             if ((1000.0 * (d->current_time - d->fault_angle_roll_timer)) >
                 d->tnt_conf.fault_delay_roll) {
                 state_stop(&d->state, STOP_ROLL);
@@ -602,11 +613,11 @@ static bool check_faults(data *d) {
             }
         } else {
             d->fault_angle_roll_timer = d->current_time;
-            }
         }
+        
 
     // Check pitch angle
-    if (fabsf(d->pitch) > d->tnt_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
+    if (fabsf(d->pitch_angle) > d->tnt_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
         if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) >
             d->tnt_conf.fault_delay_pitch) {
             state_stop(&d->state, STOP_PITCH);
@@ -764,7 +775,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 			if ((!d->stickytiltoff) && // Don't apply sticky tilt if we just left sticky tilt
 			   (fabsf(d->stickytilt_maxval) < .95)) { //Check that we have not pushed beyond this limit
 				if (d->stickytilton) {//if sticky tilt is activated, switch values
-					if (((fabsf(d->atr_filtered_current) < d->tnt_conf.stickytilt_holdcurrent) &&
+					if (((fabsf(d->motor.current_avg) < d->tnt_conf.stickytilt_holdcurrent) &&
 					   (fabsf(d->stickytilt_val) == stickytilt_val2)) ||				//If we are val2 we must be below max current to change
 					   (fabsf(d->stickytilt_val) == stickytilt_val1)) {				//If we are at val1 the current restriction is not required
 						d->stickytilt_val = sign(d->stickytilt_maxval) * ((fabsf(d->stickytilt_val) == stickytilt_val1) ? stickytilt_val2 : stickytilt_val1); //switch sticky tilt values from 1 to 2
@@ -827,13 +838,13 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 }
 
 static float haptic_buzz(data *d, float note_period) {
-	if (d->setpointAdjustmentType == TILTBACK_DUTY) {
+	if (d->state.sat == SAT_PB_DUTY) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_duty;
-	} else if (d->setpointAdjustmentType == TILTBACK_HV) {
+	} else if (d->state.sat == SAT_PB_HIGH_VOLTAGE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_hv;
-	} else if (d->setpointAdjustmentType == TILTBACK_LV) {
+	} else if (d->state.sat == SAT_PB_LOW_VOLTAGE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_lv;
-	} else if (d->setpointAdjustmentType == TILTBACK_TEMP) {
+	} else if (d->state.sat == SAT_PB_TEMPERATURE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_temp;
 	} else if (d->overcurrent) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_current;
@@ -921,7 +932,7 @@ static void set_dutycycle(data *d, float dutycycle){
 	// Reset the timeout
 	VESC_IF->timeout_reset();
 	// Set the current delay
-	VESC_IF->mc_set_current_off_delay(d->motor_timeout_seconds);
+	VESC_IF->mc_set_current_off_delay(d->motor_timeout_s);
 	// Set Duty
 	//VESC_IF->mc_set_duty(dutycycle); 
 	VESC_IF->mc_set_duty_noramp(dutycycle);
@@ -1009,7 +1020,7 @@ static void check_traction(data *d){
 		} else {
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration direction change
 			if (d->wheelslip_highaccelon2) { 
-				if (sign(d->wheelslip_accelstartval) != sign(d->accelhist1[d->accelidx1])) { 
+				if (sign(d->wheelslip_accelstartval) != sign(d->motor.accel_history[d->motor.accel_idx])) { 
 				// First we identify that the wheel has deccelerated due to traciton control, switching the sign
 					d->wheelslip_highaccelon2 = false;				
 					d->debug1 = d->current_time - d->wheelslip_timeron;
@@ -1019,12 +1030,12 @@ static void check_traction(data *d){
 					d->debug4 = 1800;
 					d->debug8 = d->motor.acceleration;
 				}
-			} else if (sign(d->accelhist1[d->accelidx1])!= sign(d->accelhist1[last_accel_idx])) { 
+			} else if (sign(d->motor.accel_history[d->motor.accel_idx])!= sign(d->motor.accel_history[d->motor.last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
 				d->state.wheelslip = false;
 				d->wheelslip_timeroff = d->current_time;
-				d->debug4 = d->accelhist1[last_accel_idx];
-				d->debug8 = d->accelhist1[d->accelidx1];	
+				d->debug4 = d->motor.accel_history[d->motor.last_accel_idx];
+				d->debug8 = d->motor.accel_history[d->motor.accel_idx];	
 			}
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
 			if (d->state.wheelslip) { // skip this if we are already out of wheelslip to preserve debug values
@@ -1049,8 +1060,8 @@ static void check_traction(data *d){
 			}
 		}
 	}	
-	if (sign(d->motor.erpm) == sign(d->motor.erpm_history[d->motor.last_erpmidx])) { // We check sign to make sure erpm is increasing or has changed direction. 
-		if (fabsf(d->motor.erpm_history[current_erpmidx]) > fabsf(d->motor.erpm_history[d->motor.last_erpmidx])) {
+	if (sign(d->motor.erpm) == sign(d->motor.erpm_history[d->motor.last_erpm_idx])) { // We check sign to make sure erpm is increasing or has changed direction. 
+		if (fabsf(d->motor.erpm_history[current_erpmidx]) > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(d->direction) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
@@ -1059,10 +1070,10 @@ static void check_traction(data *d){
 		
 		
 	// Initiate traction control
-	if ((sign(d->motor_current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+	if ((sign(d->motor.current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (!d->state.wheelslip) &&									// Not in traction control
-	   (sign(d->motor_current) == sign(d->accelhist1[d->accelidx1])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
-	   (sign(d->proportional) == sign(d->motor.erpm_history[current_erpmidx])) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
+	   (sign(d->motor.current) == sign(d->motor.accel_history[d->motor.accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
+	   (sign(d->proportional) == sign(d->motor.erpm)) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
 	   (d->current_time - d->wheelslip_timeroff > .2) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
 		d->state.wheelslip = true;
@@ -1071,7 +1082,7 @@ static void check_traction(data *d){
 		d->wheelslip_highaccelon2 = true; 	
 		d->wheelslip_timeron = d->current_time;
 		d->debug6 = d->motor.acceleration;
-		d->debug3 = d->motor.erpm_history[d->motor.last_erpmidx];
+		d->debug3 = d->motor.erpm_history[d->motor.last_erpm_idx];
 		d->debug1 = 0;
 		d->debug2 = wheelslip_erpmfactor;
 		d->debug4 = 0;
@@ -1328,7 +1339,7 @@ static void apply_stability(data *d) {
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
-	UNUSED(mag);
+	//UNUSED(mag);
 	data *d = (data*)ARG;
 	VESC_IF->ahrs_update_mahony_imu(gyro, acc, dt, &d->m_att_ref);
 }
@@ -1343,7 +1354,12 @@ static void tnt_thd(void *arg) {
 
 		// Update times
 		d->current_time = VESC_IF->system_time();
-
+		if (d->last_time == 0) {
+			d->last_time = d->current_time;
+		}
+		d->diff_time = d->current_time - d->last_time;
+		d->last_time = d->current_time;
+		
 		// Get the IMU Values
 		d->roll_angle = rad2deg(VESC_IF->imu_get_roll());
 		d->abs_roll_angle = fabsf(d->roll_angle);
@@ -1399,7 +1415,19 @@ static void tnt_thd(void *arg) {
 		d->throttle_val = servo_val;
 		///////////////////////////////////////////////////
 		
-		d->switch_state = check_adcs(d);
+
+	        footpad_sensor_update(&d->footpad_sensor, &d->float_conf);
+	
+	        if (d->footpad_sensor.state == FS_NONE && d->state.state == STATE_RUNNING &&
+	            d->state.mode != MODE_FLYWHEEL && d->motor.abs_erpm > d->switch_warn_beep_erpm) {
+	            // If we're at riding speed and the switch is off => ALERT the user
+	            // set force=true since this could indicate an imminent shutdown/nosedive
+	            beep_on(d, true);
+	            d->beep_reason = BEEP_SENSORS;
+	        } else {
+	            // if the switch comes back on we stop beeping
+	            beep_off(d, false);
+	        }
 
 		// Log Values
 		d->float_setpoint = d->setpoint;
@@ -1523,8 +1551,6 @@ static void tnt_thd(void *arg) {
 			if (d->tnt_conf.is_surge_enabled){
 			check_surge(d);
 			}
-						
-			d->last_erpm = d->erpm; //moved here so last erpm can be used in traction control
 				
 			// PID value application
 			if (d->state.wheelslip) { //Reduce acceleration if we are in traction control
@@ -1598,13 +1624,13 @@ static void tnt_thd(void *arg) {
 			// Check for valid startup position and switch state
 			if (fabsf(d->pitch_angle) < d->startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->tnt_conf.startup_roll_tolerance && 
-				d->switch_state == ON) {
+				is_engaged(d)) {
 				reset_vars(d);
 				break;
 			}
 			
 			// Push-start aka dirty landing Part II
-			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && (d->switch_state == ON)) {
+			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && isengaged(d)) {
 				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
@@ -1624,7 +1650,7 @@ static void tnt_thd(void *arg) {
 	}
 }
 
-static void write_cfg_to_eeprom(data *d) {
+static void write_cfg_to_eeprom(tnt_config *config) {
 	uint32_t ints = sizeof(tnt_config) / 4 + 1;
 	uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
 	if (!buffer) {
@@ -1657,7 +1683,7 @@ static void write_cfg_to_eeprom(data *d) {
 	beep_alert(d, 1, 0);
 }
 
-static void read_cfg_from_eeprom(data *d) {
+static void read_cfg_from_eeprom(tnt_config *config) {
 	// Read config from EEPROM if signature is correct
 	uint32_t ints = sizeof(tnt_config) / 4 + 1;
 	uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
@@ -1687,7 +1713,7 @@ static void read_cfg_from_eeprom(data *d) {
 	if (read_ok) {
 		memcpy(&(d->tnt_conf), buffer, sizeof(tnt_config));
 	} else {
-		confparser_set_defaults_tnt_config(&(d->tnt_conf));
+		confparser_set_defaults_refloatconfig(&(d->tnt_conf));
 		log_error("Failed to read config from EEPROM, using defaults.");
 	}
 
@@ -1710,13 +1736,13 @@ static float app_get_debug(int index) {
     case (2):
         return d->proportional;
     case (3):
-        return d->integral;
+        return d->proportional;
     case (4):
-        return d->rate_p;
+        return d->proportional;
     case (5):
         return d->setpoint;
     case (6):
-        return d->atr.offset;
+        return d->proportional;
     case (7):
         return d->motor.erpm;
     case (8):
@@ -1744,10 +1770,10 @@ static void send_realtime_data(data *d){
 	float corr_factor;
 
 	// Board State
-	buffer[ind++] = (d->state & 0xF) + (d->setpointAdjustmentType << 4);
-	buffer[ind++] = (d->switch_state & 0xF) + (d->beep_reason << 4);
-	buffer_append_float32_auto(buffer, d->adc1, &ind);
-	buffer_append_float32_auto(buffer, d->adc2, &ind);
+	buffer[ind++] = (d->state.state & 0xF) + (d->state.sat << 4);
+	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
+	buffer_append_float32_auto(buffer, d->footpad_sensor.adc1, &ind);
+	buffer_append_float32_auto(buffer, d->footpad_sensor.adc2, &ind);
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
 	buffer_append_float32_auto(buffer, d->motor.current_avg, &ind); // current atr_filtered_current
 	buffer_append_float32_auto(buffer, d->pitch_angle, &ind);
@@ -1937,8 +1963,8 @@ static void stop(void *arg) {
 
 INIT_FUN(lib_info *info) {
 	INIT_START
-	log_msg("Initializing TNT v" PACKAGE_VERSION);
-
+	VESC_IF->printf("Init TNT v%.1fd\n", (double)APPCONF_TNT_VERSION);
+	
 	data *d = VESC_IF->malloc(sizeof(data));
 	if (!d) {
 		log_error("Out of memory, startup failed.");
