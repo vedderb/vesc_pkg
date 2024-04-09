@@ -52,8 +52,8 @@ typedef enum {
     SAT_PB_DUTY = 6,
     SAT_PB_HIGH_VOLTAGE = 10,
     SAT_PB_LOW_VOLTAGE = 11,
-    SAT_PB_TEMPERATURE = 12
-    SAT_UNSURGE = 13
+    SAT_PB_TEMPERATURE = 12,
+    SAT_UNSURGE = 13,
     SAT_SURGE = 14
 } SetpointAdjustmentType;
 
