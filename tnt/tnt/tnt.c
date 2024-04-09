@@ -518,8 +518,6 @@ static float get_setpoint_adjustment_step_size(data *d) {
 		return d->tiltback_return_step_size;
 	case (SAT_CENTERING):
 		return d->startup_step_size;
-	case (SAT_REVERSESTOP):
-		return d->reverse_stop_step_size;
 	case (SAT_PB_DUTY):
 		return d->tiltback_duty_step_size;
 	case (SAT_PB_HIGH_VOLTAGE):
@@ -1061,7 +1059,7 @@ static void check_traction(data *d){
 		}
 	}	
 	if (sign(d->motor.erpm) == sign(d->motor.erpm_history[d->motor.last_erpm_idx])) { // We check sign to make sure erpm is increasing or has changed direction. 
-		if (fabsf(d->motor.erpm_history[current_erpmidx]) > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
+		if (d->motor.abs_erpm > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(d->direction) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
@@ -1197,7 +1195,7 @@ static void apply_rollkp(data *d, float new_pid_value){
 	b = kp_max - m * scale_angle_max;				//calcs y-int between points (scale angle min, min kp) and (scale angle max, max kp)
 	rollkp = max(kp_min, min(kp_max, m * fabsf(d->abs_roll_angle) + b)); // scale kp between min and max with the calculated equation
 	rollkp *= erpmscale;
-	if (s->state.sat == SAT_CENTERING) {
+	if (d->state.sat == SAT_CENTERING) {
 		rollkp=0; 
 	}
 	d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
@@ -1416,7 +1414,7 @@ static void tnt_thd(void *arg) {
 		///////////////////////////////////////////////////
 		
 
-	        footpad_sensor_update(&d->footpad_sensor, &d->float_conf);
+	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
 	
 	        if (d->footpad_sensor.state == FS_NONE && d->state.state == STATE_RUNNING &&
 	            d->state.mode != MODE_FLYWHEEL && d->motor.abs_erpm > d->switch_warn_beep_erpm) {
@@ -1711,7 +1709,7 @@ static void read_cfg_from_eeprom(tnt_config *config) {
 	}
 
 	if (read_ok) {
-		memcpy(&(d->tnt_conf), buffer, sizeof(tnt_config));
+		memcpy(config, buffer, sizeof(tnt_config));
 	} else {
 		confparser_set_defaults_refloatconfig(&(d->tnt_conf));
 		log_error("Failed to read config from EEPROM, using defaults.");
