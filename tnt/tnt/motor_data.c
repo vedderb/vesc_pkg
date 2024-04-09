@@ -73,7 +73,7 @@ void motor_data_update(MotorData *m) {
     float current_acceleration = m->erpm - m->last_erpm;
     m->acceleration += (current_acceleration - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
     m->accel_history[m->accel_idx] = current_acceleration;
-    m->last_accel_idx = accel_idx;
+    m->last_accel_idx = m->accel_idx;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
 
     m->erpm_history[m->erpm_idx] = m->erpm;
