@@ -1524,10 +1524,10 @@ static void tnt_thd(void *arg) {
 				}
 
 				if (d->softstart_pid_limit < d->mc_current_max) {
-					d->pid_mod = min(fabs(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
+					d->pid_mod = fminf(fabs(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
 				}
-
+				
 				new_pid_value += d->pid_mod;
 			} else {
 				d->pid_mod = 0;
