@@ -98,11 +98,12 @@ Item {
             }
             if (msgtype == 1) {
 		var state = dv.getInt8(ind); ind += 1;
-                var setpointAdjustmentType = state >> 4;
+                var state_sat = state >> 4;
                 state = state &0xF;
                 var switch_state = dv.getInt8(ind); ind += 1;
               	var new_beep_reason = switch_state >> 4;
 		switch_state = switch_state & 0x3;
+  		var state_stop = dv.getInt8(ind); ind += 1;
                 var adc1 = dv.getFloat32(ind); ind += 4;
                 var adc2 = dv.getFloat32(ind); ind += 4;
                 var voltage = dv.getFloat32(ind); ind += 4;
@@ -152,38 +153,41 @@ Item {
 		
                 var stateString
                 if(state == 0){
-                    stateString = "BOOT"	// we're in this state only for the first second or so then never again
+                    stateString = "DISABLED"	
                 }else if(state == 1){
+                    stateString = "STARTUP"
+                }else if(state == 2){		//If we are in ready state the board has stopped recently, add the stop reason.
+                    stateString = "READY"
+		    
+      		    if(state_stop == 0){
+			stateString += "-NONE"	
+		    }else if(state_stop == 1){
+			stateString += "-PITCH"
+		    }else if(state_stop == 2){ 
+   			stateString += "-ROLL"
+		    }else if(state_stop == 3){ 
+		        stateString += "-HALF SWITCH"
+		    }else if(state_stop == 4){ 
+		        stateString += "-FULL SWITCH"
+		    }else if(state_stop == 6){ 
+		        stateString += "-QUICKSTOP"
+                }else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "RUNNING"
-                }else if(state == 2){
-                    stateString = "RUNNING_TILTBACK"
-                }else if(state == 3){
-                    stateString = "RUNNING_WHEELSLIP"
-                }else if(state == 4){
-                    stateString = "RUNNING_UPSIDEDOWN"
-                }else if(state == 6){
-                    stateString = "STOP_ANGLE_PITCH"
-                }else if(state == 7){
-                    stateString = "STOP_ANGLE_ROLL"
-                }else if(state == 8){
-                    stateString = "STOP_SWITCH_HALF"
-                }else if(state == 9){
-                    stateString = "STOP_SWITCH_FULL"
-                }else if(state == 11){
-                    if ((roll > 120) || (roll < -120)) {
-                        stateString = "STARTUP UPSIDEDOWN"
-                    }
-                    else {
-                        stateString = "STARTUP"
-                    }
-                }else if(state == 12){
-                    stateString = "STOP_REVERSE"
-                }else if(state == 13){
-                    stateString = "STOP_QUICKSTOP"
-                }else{
-                    stateString = "UNKNOWN"
-                }
-           
+      		    
+		    if(state_sat == 1){
+			stateString += "-CENTERING"
+		    }else if(state_sat == 6){ 
+   			stateString += "-DUTY"
+		    }else if(state_sat == 10){ 
+		        stateString += "-HIGH VOLTAGE"
+		    }else if(state_sat == 11){ 
+		        stateString += "-LOW VOLTAGE"
+		    }else if(state_sat == 12){ 
+		        stateString += "-TEMPERATURE"		    	
+	  	    }
+	
+  		}
+
                 var beepString
                 if(beep_reason == 1){
                     beepString = "Low Voltage"
@@ -206,25 +210,7 @@ Item {
                 }else if(beep_reason == 10){
                     beepString = "Other"
                 }
-                
-                var suffix = ""
-                if (setpointAdjustmentType == 0) {
-                    suffix = "[CENTERING]";
-                } else if (setpointAdjustmentType == 1) {
-                    suffix = "[REVERSESTOP]";
-                } else if (setpointAdjustmentType == 3) {
-                    suffix = "[DUTY]";
-                } else if (setpointAdjustmentType == 4) {
-                    suffix = "[HV]";
-                } else if (setpointAdjustmentType == 5) {
-                    suffix = "[LV]";
-                } else if (setpointAdjustmentType == 6) {
-                    suffix = "[TEMP]";
-                }
-                if ((state > 0) && (state < 6)) {
-                    stateString += suffix;
-                }
-
+        
                 var switchString
                 if(switch_state == 0){
                     switchString = "Off"
