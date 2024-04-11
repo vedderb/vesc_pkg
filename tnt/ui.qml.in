@@ -228,7 +228,9 @@ Item {
                         switchString += "On]"
                     else
                         switchString += "Off]"*/
-                }else{
+                }else if(switch_state == 2){
+                    switchString = "Half"
+		}else{
                     switchString = "On"
                 }
 
