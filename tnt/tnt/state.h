@@ -24,7 +24,8 @@ typedef enum {
     STATE_DISABLED = 0,
     STATE_STARTUP = 1,
     STATE_READY = 2,
-    STATE_RUNNING = 3
+    STATE_RUNNING = 3,
+    STATE_WHEELSLIP = 4
 } RunState;
 
 typedef enum {
