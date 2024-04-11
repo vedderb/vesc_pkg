@@ -1772,7 +1772,7 @@ static void send_realtime_data(data *d){
 	// Board State
 	buffer[ind++] = (d->state.state & 0xF) + (d->state.sat << 4);
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
-	buffer[ind++] = d->state.stop_condition;
+	//buffer[ind++] = d->state.stop_condition;
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc1, &ind);
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc2, &ind);
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
