@@ -429,8 +429,6 @@ static void configure(data *d) {
 
 	//Surge
 	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / (float)d->tnt_conf.hertz;
-
-	state_engage(&d->state);
 }
 
 static void reset_vars(data *d) {
@@ -488,6 +486,8 @@ static void reset_vars(data *d) {
 	d->haptic_tone_in_progress = false;
 	d->haptic_timer = d->current_time;
 	d->applied_haptic_current = 0;
+
+	state_engage(&d->state);
 }
 
 
