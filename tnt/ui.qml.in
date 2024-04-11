@@ -171,7 +171,8 @@ Item {
 		        stateString += "-FULL SWITCH"
 		    }else if(state_stop == 6){ 
 		        stateString += "-QUICKSTOP"
-                }else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
+            	    }
+		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "RUNNING"
       		    
 		    if(state_sat == 1){
@@ -246,7 +247,7 @@ Item {
     		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
     		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
    
-                if(state == 15){
+                if(state == 0){
                     stateString = "DISABLED"
                     switchString = "Enable in TNT Cfg: Specs"
                     rt_state.text = "TNT Package is Disabled\n\n" +
