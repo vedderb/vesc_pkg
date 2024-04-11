@@ -23,7 +23,6 @@ void state_init(State *state, bool disable) {
     state->sat = SAT_NONE;
     state->stop_condition = STOP_NONE;
     state->charging = false;
-    state->wheelslip = false;
     state->darkride = false;
 }
 
