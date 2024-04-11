@@ -100,7 +100,7 @@ Item {
 		var state = dv.getInt8(ind); ind += 1;
                 var state_sat = state >> 4;
                 state = state &0xF;
-                var switch_state = dv.getInt8(ind); ind += 1;
+                var switch_state = 0; //dv.getInt8(ind); ind += 1;
               	var new_beep_reason = switch_state >> 4;
 		switch_state = switch_state & 0x3;
   		var state_stop = dv.getInt8(ind); ind += 1;
@@ -157,7 +157,7 @@ Item {
                 }else if(state == 1){
                     stateString = "STARTUP"
                 }else if(state == 2){		//If we are in ready state the board has stopped recently, add the stop reason.
-                    stateString = "READY"
+                    stateString = "READY";
 		    
       		    if(state_stop == 0){
 			stateString += "-NONE"	
@@ -173,7 +173,7 @@ Item {
 		        stateString += "-QUICKSTOP"
             	    }
 		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
-                    stateString = "RUNNING"
+                    stateString = "RUNNING";
       		    
 		    if(state_sat == 1){
 			stateString += "-CENTERING"
