@@ -640,7 +640,7 @@ static void calculate_setpoint_target(data *d) {
 	if (d->state.sat != SAT_CENTERING && d->setpoint_target_interpolated != d->setpoint_target) {
 		// Ignore tiltback during centering sequence
 		d->state.sat = SAT_NONE;
-	} else if (d->state.wheelslip) {
+	} else if (d->state.state == STATE_WHEELSLIP) {
 		d->state.sat = SAT_NONE;
 	} else if (d->surge_off) { 
 		d->setpoint_target = 0;
@@ -964,7 +964,7 @@ static void check_surge(data *d){
 		d->new_duty_cycle += d->motor.erpm_sign * d->surge_ramp_rate; 	
 		if((d->current_time - d->surge_timer > 0.5) ||			//Outside the surge cycle portion of the surge period
 		 (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
-		 (d->state.wheelslip)) {						//In traction control		
+		 (d->state.state == STATE_WHEELSLIP)) {						//In traction control		
 			d->surge = false;
 			d->surge_off = true;							//Identifies the end of surge to change the setpoint back to before surge 
 			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();	//This allows a smooth transition to PID current control
@@ -975,7 +975,7 @@ static void check_surge(data *d){
 				d->debug16 = 111;
 			} else if (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle){
 				d->debug16 = d->pitch_angle;
-			} else if (d->state.wheelslip){
+			} else if (d->state.state == STATE_WHEELSLIP){
 				d->debug16 = 222;
 			}
 		}
@@ -990,7 +990,7 @@ static void check_current(data *d){
 	d->surge_start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
 	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
 	     (sign(d->proportional) == d->motor.erpm_sign) && 				//Not braking
-	     (!d->state.wheelslip) &&							//Not during traction control
+	     (d->state.state != STATE_WHEELSLIP) &&					//Not during traction control
 	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
 	     (sign(d->direction) == d->motor.erpm_sign) &&				//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
 	     (d->state.sat != SAT_CENTERING)) { 					//Not during startup
@@ -1006,14 +1006,14 @@ static void check_traction(data *d){
 	bool erpm_check;
 	
 	// Conditons to end traction control
-	if (d->state.wheelslip) {
+	if (d->state.state == STATE_WHEELSLIP) {
 		if (d->current_time - d->wheelslip_droptimeroff < 0.5) {		// Drop has ended recently
-			d->state.wheelslip = false;
+			d->state.state = STATE_RUNNING;
 			d->wheelslip_timeroff = d->current_time;
 			d->debug4 = 6666;
 			d->debug8 = d->motor.acceleration;
 		} else	if (d->current_time - d->wheelslip_timeron > .5) {		// Time out at 500ms
-			d->state.wheelslip = false;
+			d->state.state = STATE_RUNNING;
 			d->wheelslip_timeroff = d->current_time;
 			d->debug4 = 5000;
 			d->debug8 = d->motor.acceleration;
@@ -1025,34 +1025,34 @@ static void check_traction(data *d){
 					d->wheelslip_highaccelon2 = false;				
 					d->debug1 = d->current_time - d->wheelslip_timeron;
 				} else if (d->current_time - d->wheelslip_timeron > .18) {	// Time out at 150ms if wheel does not deccelerate
-					d->state.wheelslip = false;
+					d->state.state = STATE_RUNNING;
 					d->wheelslip_timeroff = d->current_time;
 					d->debug4 = 1800;
 					d->debug8 = d->motor.acceleration;
 				}
 			} else if (sign(d->motor.accel_history[d->motor.accel_idx])!= sign(d->motor.accel_history[d->motor.last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				d->state.wheelslip = false;
+				d->state.state = STATE_RUNNING;
 				d->wheelslip_timeroff = d->current_time;
 				d->debug4 = d->motor.accel_history[d->motor.last_accel_idx];
 				d->debug8 = d->motor.accel_history[d->motor.accel_idx];	
 			}
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
-			if (d->state.wheelslip) { // skip this if we are already out of wheelslip to preserve debug values
+			if (d->state.state == STATE_WHEELSLIP) { // skip this if we are already out of wheelslip to preserve debug values
 				if (d->wheelslip_highaccelon1) {		
 					if (sign(d->wheelslip_accelstartval) * d->motor.acceleration < d->tnt_conf.wheelslip_accelend) {	
 					// First we identify that the wheel has deccelerated due to traciton control
 						d->wheelslip_highaccelon1 = false;
 						d->debug7 = d->current_time - d->wheelslip_timeron;
 					} else if (d->current_time - d->wheelslip_timeron > .2) {	// Time out at 200ms if wheel does not deccelerate
-						d->state.wheelslip = false;
+						d->state.state = STATE_RUNNING;
 						d->wheelslip_timeroff = d->current_time;
 						d->debug4 = 2000;
 						d->debug8 = d->motor.acceleration;
 					}
 				} else if (fabsf(d->motor.acceleration) > d->tnt_conf.wheelslip_margin) { 
 				// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-					d->state.wheelslip = false;
+					d->state.state = STATE_RUNNING;
 					d->wheelslip_timeroff = d->current_time;
 					d->debug4 = 2222;
 					d->debug8 = d->motor.acceleration;		
@@ -1071,12 +1071,12 @@ static void check_traction(data *d){
 		
 	// Initiate traction control
 	if ((sign(d->motor.current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
-	   (!d->state.wheelslip) &&									// Not in traction control
+	   (d->state.state != STATE_WHEELSLIP) &&									// Not in traction control
 	   (sign(d->motor.current) == sign(d->motor.accel_history[d->motor.accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
 	   (sign(d->proportional) == sign(d->motor.erpm)) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
 	   (d->current_time - d->wheelslip_timeroff > .2) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
-		d->state.wheelslip = true;
+		d->state.state = STATE_WHEELSLIP;
 		d->wheelslip_accelstartval = d->motor.acceleration;
 		d->wheelslip_highaccelon1 = true; 	
 		d->wheelslip_highaccelon2 = true; 	
@@ -1553,7 +1553,7 @@ static void tnt_thd(void *arg) {
 			}
 				
 			// PID value application
-			if (d->state.wheelslip) { //Reduce acceleration if we are in traction control
+			if (d->state.state == STATE_WHEELSLIP) { //Reduce acceleration if we are in traction control
 				d->pid_value = 0;
 			} else if (d->motor.erpm_sign * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
 				if (new_pid_value > d->pid_value) {
@@ -1772,7 +1772,7 @@ static void send_realtime_data(data *d){
 	// Board State
 	buffer[ind++] = (d->state.state & 0xF) + (d->state.sat << 4);
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
-	//buffer[ind++] = d->state.stop_condition;
+	buffer[ind++] = d->state.stop_condition;
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc1, &ind);
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc2, &ind);
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
