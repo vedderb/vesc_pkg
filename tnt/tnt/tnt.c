@@ -728,6 +728,10 @@ static void calculate_setpoint_target(data *d) {
 			d->state.sat = SAT_NONE;
 			d->setpoint_target = 0;
 		}
+	} else if (d->state.sat != SAT_CENTERING || d->setpoint_target_interpolated == d->setpoint_target) {
+        	// Normal running
+         	d->state.sat = SAT_NONE;
+	        d->setpoint_target = 0;
 	}
 }
 
