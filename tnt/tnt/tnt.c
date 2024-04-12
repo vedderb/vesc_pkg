@@ -659,7 +659,7 @@ static void calculate_setpoint_target(data *d) {
 		} else {
 			d->setpoint_target = -d->tnt_conf.tiltback_duty_angle;
 		}
-		d->state.sat == SAT_PB_DUTY
+		d->state.sat = SAT_PB_DUTY;
 	} else if (d->motor.duty_cycle > 0.05 && input_voltage > d->tnt_conf.tiltback_hv) {
 		d->beep_reason = BEEP_HV;
 		beep_alert(d, 3, false);
