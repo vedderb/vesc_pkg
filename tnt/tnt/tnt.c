@@ -1545,20 +1545,17 @@ static void tnt_thd(void *arg) {
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = sign(new_pid_value) * current_limit;
 			}
-			
-			check_current(d);
+			check_current(d); // Check for high current conditions
 			
 			// Modifiers to PID control
-			if (d->tnt_conf.is_traction_enabled) {
-				check_drop(d);
-				check_traction(d);
-			}
+			check_drop(d);
+			check_traction(d);
 			if (d->tnt_conf.is_surge_enabled){
 			check_surge(d);
 			}
 				
 			// PID value application
-			if (d->state.state == STATE_WHEELSLIP) { //Reduce acceleration if we are in traction control
+			if (d->state.state == STATE_WHEELSLIP && d->tnt_conf.is_traction_enabled) { //Reduce acceleration if we are in traction control and enabled
 				d->pid_value = 0;
 			} else if (d->motor.erpm_sign * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
 				if (new_pid_value > d->pid_value) {
