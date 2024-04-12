@@ -1471,6 +1471,7 @@ static void tnt_thd(void *arg) {
             		}
            		break;
 		case (STATE_RUNNING):
+		case (STATE_WHEELSLIP):			
 			// Check for faults
 			if (check_faults(d)) {
 				if (d->state.stop_condition == STOP_SWITCH_FULL) {
