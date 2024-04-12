@@ -54,6 +54,7 @@ void send_app_data_overflow_terminate();
 
 #define deg2rad(deg) ((deg) * (M_PI / 180.0f))
 #define rad2deg(rad) ((rad) * (180.0f / M_PI))
+#define UNUSED(x) (void)(x)
 
 #define min(a, b)                                                                                  \
     ({                                                                                             \
