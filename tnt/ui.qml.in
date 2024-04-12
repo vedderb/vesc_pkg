@@ -98,8 +98,8 @@ Item {
             }
             if (msgtype == 1) {
 		var state = dv.getInt8(ind); ind += 1;
-                var state_sat = state >> 4;
-                state = state &0xF;
+                var state_sat = dv.getInt8(ind); ind += 1; // state >> 4;
+                //state = state &0xF;
                 var switch_state = dv.getInt8(ind); ind += 1;
               	var new_beep_reason = switch_state >> 4;
 		switch_state = switch_state & 0x3;
