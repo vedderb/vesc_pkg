@@ -1,28 +1,5 @@
 Line 23 #include "conf/conf_general.h" instead of _default
 
-add surge and unsurge
-typedef enum {
-	CENTERING = 0,
-	REVERSESTOP,
-    	TILTBACK_NONE,
-	TILTBACK_DUTY,
-	TILTBACK_HV,
-	TILTBACK_LV,
-	TILTBACK_TEMP,
-	TILTBACK_SURGE,
-	TILTBACK_UNSURGE
-} SetpointAdjustmentType;
-
-add second set of biquad variables
-typedef struct{
-	float a0, a1, a2, b1, b2;
-	float c1, c2;
-	float x0, x1, x2, y1, y2;
-	float z1, z2;
-} Biquad;
-
-should i move this 	bool overcurrent;
-
 
 where does this go
 // First start only, set initial state
@@ -44,7 +21,7 @@ where does this go
 		d->pid_brake_increment = 5;
 	}
 	
-Add to biquad	
+
 
 do i need this 	d->current_time = 0;
 
