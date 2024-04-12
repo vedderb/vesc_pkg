@@ -316,7 +316,7 @@ static void configure(data *d) {
 	d->max_duty_with_margin = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty) - 0.1;
 
 	// Maximum amps change when braking
-	d->pid_brake_increment = 5;
+	d->pid_brake_increment = 100;
 	if (d->pid_brake_increment < 0.1) {
 		d->pid_brake_increment = 5;
 	}
