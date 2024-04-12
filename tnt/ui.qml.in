@@ -174,7 +174,8 @@ Item {
             	    }
 		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "RUNNING";
-
+		    stateString += "-" + state_sat
+/*
 		    if(state_sat == 1){
 			stateString += "-CENTERING"
 		    }else if(state_sat == 6){ 
@@ -186,6 +187,8 @@ Item {
 		    }else if(state_sat == 12){ 
 		        stateString += "-HIGH TEMP"		    	
 	  	    }
+	*?
+ 
 		}else if(state == 4){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "WHEELSLIP";
   		}
