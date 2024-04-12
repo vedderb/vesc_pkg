@@ -685,7 +685,7 @@ static void calculate_setpoint_target(data *d) {
 			if (d->motor.erpm > 0) {
 				d->setpoint_target = d->tnt_conf.tiltback_ht_angle;
 			} else {
-			d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
+				d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
 			}
 			d->state.sat = SAT_PB_TEMPERATURE;
 		} else {
@@ -723,7 +723,6 @@ static void calculate_setpoint_target(data *d) {
 			} else {
 				d->setpoint_target = -d->tnt_conf.tiltback_lv_angle;
 			}
-	
 			d->state.sat = SAT_PB_LOW_VOLTAGE;
 		} else {
 			d->state.sat = SAT_NONE;
