@@ -637,7 +637,7 @@ static void calculate_setpoint_target(data *d) {
 		d->tb_highvoltage_timer = d->current_time;
 	}
 
-	if (d->state.sat != SAT_CENTERING && d->setpoint_target_interpolated != d->setpoint_target) {
+	if (d->state.sat == SAT_CENTERING && d->setpoint_target_interpolated != d->setpoint_target) {
 		// Ignore tiltback during centering sequence
 		d->state.sat = SAT_NONE;
 	} else if (d->state.state == STATE_WHEELSLIP) {
@@ -728,7 +728,7 @@ static void calculate_setpoint_target(data *d) {
 			d->state.sat = SAT_NONE;
 			d->setpoint_target = 0;
 		}
-	} else if (d->state.sat != SAT_CENTERING || d->setpoint_target_interpolated == d->setpoint_target) {
+	} else {
         	// Normal running
          	d->state.sat = SAT_NONE;
 	        d->setpoint_target = 0;
