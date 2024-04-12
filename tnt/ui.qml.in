@@ -187,7 +187,7 @@ Item {
 		    }else if(state_sat == 12){ 
 		        stateString += "-HIGH TEMP"		    	
 	  	    }
-	*?
+	*/
  
 		}else if(state == 4){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "WHEELSLIP";
