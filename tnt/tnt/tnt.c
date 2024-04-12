@@ -1767,7 +1767,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 102;
+	static const int bufsize = 103;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -1775,7 +1775,8 @@ static void send_realtime_data(data *d){
 	float corr_factor;
 
 	// Board State
-	buffer[ind++] = (d->state.state & 0xF) + (d->state.sat << 4);
+	buffer[ind++] = d->state.state; // (d->state.state & 0xF) + (d->state.sat << 4);
+	buffer[ind++] = d->state.sat; 
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
 	buffer[ind++] = d->state.stop_condition;
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc1, &ind);
