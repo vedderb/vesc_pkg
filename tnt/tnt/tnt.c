@@ -36,6 +36,8 @@
 
 HEADER
 
+#define UNUSED(x) (void)(x)
+
 typedef enum {
 	BEEP_NONE = 0,
 	BEEP_LV = 1,
@@ -1339,7 +1341,7 @@ static void apply_stability(data *d) {
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
-	//UNUSED(mag);
+	UNUSED(mag);
 	data *d = (data*)ARG;
 	VESC_IF->ahrs_update_mahony_imu(gyro, acc, dt, &d->m_att_ref);
 }
