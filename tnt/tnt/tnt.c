@@ -659,6 +659,7 @@ static void calculate_setpoint_target(data *d) {
 		} else {
 			d->setpoint_target = -d->tnt_conf.tiltback_duty_angle;
 		}
+		d->state.sat == SAT_PB_DUTY
 	} else if (d->motor.duty_cycle > 0.05 && input_voltage > d->tnt_conf.tiltback_hv) {
 		d->beep_reason = BEEP_HV;
 		beep_alert(d, 3, false);
@@ -666,7 +667,7 @@ static void calculate_setpoint_target(data *d) {
 		   (input_voltage > d->tnt_conf.tiltback_hv + 1)) {
 		// 500ms have passed or voltage is another volt higher, time for some tiltback
 			if (d->motor.erpm > 0) {
-		d->setpoint_target = d->tnt_conf.tiltback_hv_angle;
+				d->setpoint_target = d->tnt_conf.tiltback_hv_angle;
 			} else {
 				d->setpoint_target = -d->tnt_conf.tiltback_hv_angle;
 			}
@@ -686,7 +687,7 @@ static void calculate_setpoint_target(data *d) {
 			} else {
 			d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
 			}
-		d->state.sat = SAT_PB_TEMPERATURE;
+			d->state.sat = SAT_PB_TEMPERATURE;
 		} else {
 			// The rider has 1 degree Celsius left before we start tilting back
 			d->state.sat = SAT_NONE;
@@ -701,7 +702,7 @@ static void calculate_setpoint_target(data *d) {
 			} else {
 				d->setpoint_target = -d->tnt_conf.tiltback_ht_angle;
 			}
-		d->state.sat = SAT_PB_TEMPERATURE;
+			d->state.sat = SAT_PB_TEMPERATURE;
 		} else {
 			// The rider has 1 degree Celsius left before we start tilting back
 			d->state.sat = SAT_NONE;
