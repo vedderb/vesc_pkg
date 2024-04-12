@@ -73,14 +73,3 @@ void state_init(State *state, bool disable);
 void state_stop(State *state, StopCondition stop_condition);
 
 void state_engage(State *state);
-
-/**
- * Compatibility function for the Float State enum for the app data commands.
- */
-uint8_t state_compat(const State *state);
-
-/**
- * Compatibility function for the Float SetpointAdjustmentType enum for the app
- * data commands.
- */
-uint8_t sat_compat(const State *state);
