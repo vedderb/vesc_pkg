@@ -1,6 +1,6 @@
 // Copyright 2024 Michael Silberstein
 //
-// This file is part of the Refloat VESC package.
+// This file is part of the VESC package.
 //
 // This VESC package is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by the
@@ -15,71 +15,72 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-static float select_kp(float abs_prop_smooth, float pitch[], float kp[], int current_count) {
+static float pitch_kp_select(float abs_prop_smooth, KpArray *k) {
 	float kp_mod = 0;
 	float kp_min = 0;
 	float scale_angle_min = 0;
 	float scale_angle_max = 1;
 	float kp_max = 0;
-	int i = current_count;
+	int i = k->count;
 	//Determine the correct current to use based on prop_smooth
 	while (i >= 0) {
-		if (abs_prop_smooth>= pitch[i]) {
-			kp_min = kp[i];
-			scale_angle_min = pitch[i];
-			if (i == current_count) { //if we are at the highest current only use highest kp
-				kp_max = kp[i];
+		if (abs_prop_smooth>= k->pitch_kp[i][0]) {
+			kp_min = k->pitch_kp[i][1];
+			scale_angle_min = k->pitch_kp[i][0];
+			if (i == k->count) { //if we are at the highest current only use highest kp
+				kp_max = k->pitch_kp[i][1];
 				scale_angle_max = 90;
 			} else {
-				kp_max = kp[i+1];
-				scale_angle_max = pitch[i+1];
+				kp_max = k->pitch_kp[i+1][1];
+				scale_angle_max = k->pitch_kp[i+1][0];
 			}
 			i=-1;
 		}
 		i--;
 	}
 	
-	//Scale the kp values according to d->prop_smooth
-	kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * d->abs_prop_smooth			//linear scaling mx
+	//Scale the kp values according to prop_smooth
+	kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * abs_prop_smooth			//linear scaling mx
 			+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
 	}
 	return kp_mod;
 }
 
-//initialize current and pitch arrays for acceleration
-	d->pitch[0] = 0;
-	d->pitch[1] = d->tnt_conf.pitch1;
-	d->pitch[2] = d->tnt_conf.pitch2;
-	d->pitch[3] = d->tnt_conf.pitch3;
-	d->pitch[4] = d->tnt_conf.pitch4;
-	d->pitch[5] = d->tnt_conf.pitch5;
-	d->pitch[6] = d->tnt_conf.pitch6;
-	d->current[0] = 0;
-	d->current[1] = d->tnt_conf.current1;
-	d->current[2] = d->tnt_conf.current2;
-	d->current[3] = d->tnt_conf.current3;
-	d->current[4] = d->tnt_conf.current4;
-	d->current[5] = d->tnt_conf.current5;
-	d->current[6] = d->tnt_conf.current6;
+struct KpArray pitch_kp_configure(const tnt_config *config){
+	//initialize current and pitch arrays	
+	struct KpArray k;
+	
+	float pitch_current[7][2] = {
+	{0, 0},
+	{config->tnt_conf.pitch1, config->tnt_conf.current1},
+	{config->tnt_conf.pitch2, config->tnt_conf.current2},
+	{config->tnt_conf.pitch3, config->tnt_conf.current3},
+	{config->tnt_conf.pitch4, config->tnt_conf.current4},
+	{config->tnt_conf.pitch5, config->tnt_conf.current5},
+	{config->tnt_conf.pitch6, config->tnt_conf.current6},
+	};
+	
 	//Check for current inputs
-	d->current_count=0;
+	k->count=0;
 	int i = 1;
 	while (i <= 6){
-		if (d->current[i]!=0 && d->pitch[i]>d->pitch[i-1]) {
-			d->current_count = i;
-			if (d->tnt_conf.pitch_kp_input) {
-				d->kp[i]=d->current[i];
-			} else {d->kp[i]=d->current[i]/d->pitch[i];}
+		if (pitch_current[i][1]!=0 && pitch_current[i][0]>pitch_current[i-1][0]) {
+			k->count = i;
+			k->pitch_kp[i][0]=pitch_current[i][0];
+			if (config->tnt_conf.pitch_kp_input) {
+				k->pitch_kp[i][1]=pitch_current[i][1];
+			} else {k->pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
 		} else { i=7; }
 		i++;
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
-	if (d->current_count > 0) {
-		if (d->kp[1]<d->tnt_conf.kp0) {
-			d->kp[0]= d->kp[1];
-		} else { d->kp[0] = d->tnt_conf.kp0; }
-	} else { d->kp[0] = d->tnt_conf.kp0; }
-	
-	if (d->current_count == 0 && d->kp[0]==0) { //If no currents 
-		d->kp[0] = 5; //If no kp use 5
-	}
+	if (k->count > 0) {
+		if (k->pitch_kp[1][1]<config->tnt_conf.kp0) {
+			k->pitch_kp[0][1]= k->pitch_kp[1][1];
+		} else { k->pitch_kp[0][1] = config->tnt_conf.kp0; }
+	} else if (k->count == 0 && k->pitch_kp[0][1]==0) { //If no currents 
+		k->pitch_kp[0][1] = 5; //If no kp use 5
+	} else { k->pitch_kp[0][1] = config->tnt_conf.kp0; }
+
+	return k;
+}
