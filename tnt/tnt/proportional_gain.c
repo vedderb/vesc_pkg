@@ -53,22 +53,22 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	if (mode==1) {
 		float pitch_current[7][2] = {
 		{0, 0}, //reserved for kp0 assigned at the end
-		{config->tnt_conf.pitch1, config->tnt_conf.current1},
-		{config->tnt_conf.pitch2, config->tnt_conf.current2},
-		{config->tnt_conf.pitch3, config->tnt_conf.current3},
-		{config->tnt_conf.pitch4, config->tnt_conf.current4},
-		{config->tnt_conf.pitch5, config->tnt_conf.current5},
-		{config->tnt_conf.pitch6, config->tnt_conf.current6},
+		{config->pitch1, config->current1},
+		{config->pitch2, config->current2},
+		{config->pitch3, config->current3},
+		{config->pitch4, config->current4},
+		{config->pitch5, config->current5},
+		{config->pitch6, config->current6},
 		};
 	} else if (mode ==2) {
 		float pitch_current[7][2] = {
 		{0, 0}, //reserved for kp0 assigned at the end
-		{config->tnt_conf.brakepitch1, config->tnt_conf.brakecurrent1},
-		{config->tnt_conf.brakepitch2, config->tnt_conf.brakecurrent2},
-		{config->tnt_conf.brakepitch3, config->tnt_conf.brakecurrent3},
-		{config->tnt_conf.brakepitch4, config->tnt_conf.brakecurrent4},
-		{config->tnt_conf.brakepitch5, config->tnt_conf.brakecurrent5},
-		{config->tnt_conf.brakepitch6, config->tnt_conf.brakecurrent6},
+		{config->brakepitch1, config->brakecurrent1},
+		{config->brakepitch2, config->brakecurrent2},
+		{config->brakepitch3, config->brakecurrent3},
+		{config->brakepitch4, config->brakecurrent4},
+		{config->brakepitch5, config->brakecurrent5},
+		{config->brakepitch6, config->brakecurrent6},
 		};
 	}
 	//Check for current inputs
@@ -78,7 +78,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 		if (pitch_current[i][1]!=0 && pitch_current[i][0]>pitch_current[i-1][0]) {
 			k->count = i;
 			k->pitch_kp[i][0]=pitch_current[i][0];
-			if (config->tnt_conf.pitch_kp_input) {
+			if (config->pitch_kp_input) {
 				k->pitch_kp[i][1]=pitch_current[i][1];
 			} else {k->pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
 		} else { i=7; }
@@ -86,12 +86,12 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
 	if (k->count > 0) {
-		if (k->pitch_kp[1][1]<config->tnt_conf.kp0) {
+		if (k->pitch_kp[1][1]<config->kp0) {
 			k->pitch_kp[0][1]= k->pitch_kp[1][1];
-		} else { k->pitch_kp[0][1] = config->tnt_conf.kp0; }
+		} else { k->pitch_kp[0][1] = config->kp0; }
 	} else if (k->count == 0 && k->pitch_kp[0][1]==0) { //If no currents 
 		k->pitch_kp[0][1] = 5; //If no kp use 5
-	} else { k->pitch_kp[0][1] = config->tnt_conf.kp0; }
+	} else { k->pitch_kp[0][1] = config->kp0; }
 
 	return k;
 }
