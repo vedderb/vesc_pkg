@@ -27,6 +27,6 @@ typedef struct {
 	int count;
 } KpArray;
 
-struct KpArray pitch_kp_configure(const tnt_config *config);
+struct KpArray pitch_kp_configure(const tnt_config *config, int mode);
 
 float pitch_kp_select(float abs_prop_smooth, KpArray *k);
