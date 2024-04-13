@@ -23,10 +23,10 @@
 #include <stdint.h>
 
 typedef struct {
-	float kp[7][2];
+	float pitch_kp[7][2];
 	int count;
-} kplist;
+} KpArray;
 
-struct kplist pitch_kp_configure(const tnt_config *config);
+struct KpArray pitch_kp_configure(const tnt_config *config);
 
-float pitch_kp_select(kplist *kpl);
+float pitch_kp_select(float abs_prop_smooth, KpArray *k);
