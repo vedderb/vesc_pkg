@@ -17,10 +17,7 @@
 
 #pragma once
 
-#include "biquad.h"
-
-#include <stdbool.h>
-#include <stdint.h>
+#include "conf/datatypes.h"
 
 typedef struct {
 	float pitch_kp[7][2];
