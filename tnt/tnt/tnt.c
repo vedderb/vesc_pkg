@@ -24,6 +24,7 @@
 #include "motor_data.h"
 #include "state.h"
 #include "utils.h"
+#include "proportional_gain.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
