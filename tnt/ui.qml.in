@@ -176,15 +176,15 @@ Item {
                     stateString = "RUNNING";
 
 		    if(state_sat == 1){
-			stateString = "-CENTERING"
+			stateString += "-CENTERING"
 		    }else if(state_sat == 6){ 
-   			stateString = "-HIGH DUTY"
+   			stateString += "-HIGH DUTY"
 		    }else if(state_sat == 10){ 
-		        stateString = "-HIGH VOLTAGE"
+		        stateString += "-HIGH VOLTAGE"
 		    }else if(state_sat == 11){ 
-		        stateString = "-LOW VOLTAGE"
+		        stateString += "-LOW VOLTAGE"
 		    }else if(state_sat == 12){ 
-		        stateString = "-HIGH TEMP"		    	
+		        stateString += "-HIGH TEMP"		    	
 	  	    }
  
 		}else if(state == 4){		//If the board is running we can receive setpoint adjustment, add SAT reason.
