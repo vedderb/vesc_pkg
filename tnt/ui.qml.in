@@ -173,7 +173,7 @@ Item {
 		        stateString += "-QUICKSTOP"
             	    }
 		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
-                    //stateString = "RUNNING";
+                    stateString = "RUNNING";
 
 		    if(state_sat == 1){
 			stateString = "-CENTERING"
