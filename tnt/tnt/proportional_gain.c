@@ -17,6 +17,7 @@
 
 #include "proportional_gain.h"
 #include "utils.h"
+#include <array>
 
 float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	float kp_mod = 0;
@@ -52,7 +53,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	KpArray k;
 	float kp0 = config->kp0;
 
-	float pitch_current[7][2] = {
+	std::array<std::array<float, 2>, 7>   pitch_current = {{
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
 	{config->pitch2, config->current2},
@@ -60,9 +61,9 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->pitch4, config->current4},
 	{config->pitch5, config->current5},
 	{config->pitch6, config->current6},
-	};
+	}};
 	
-	float temp_pitch_current[7][2] = {
+	std::array<std::array<float, 2>, 7>   temp_pitch_current = {{
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->brakepitch1, config->brakecurrent1},
 	{config->brakepitch2, config->brakecurrent2},
@@ -70,10 +71,10 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->brakepitch4, config->brakecurrent4},
 	{config->brakepitch5, config->brakecurrent5},
 	{config->brakepitch6, config->brakecurrent6},
-	};
+	}};
 
 	if (mode==2) {
-		memcpy(pitch_current, temp_pitch_current, sizeof temp_pitch_current);
+		pitch_current = temp_pitch_current;
 		kp0 = config->brake_kp0;
 	}
 
