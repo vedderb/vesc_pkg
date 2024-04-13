@@ -1363,8 +1363,8 @@ static void tnt_thd(void *arg) {
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			d->differential = d->proportional - d->last_proportional;
 			if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
-				new_pid_value = pitch_kp_select(d->abs_prop_smooth, &d->brake_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
-			} else {new_pid_value = pitch_kp_select(d->abs_prop_smooth, &d->accel_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
+				new_pid_value = pitch_kp_select(d->abs_prop_smooth, d->brake_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
+			} else {new_pid_value = pitch_kp_select(d->abs_prop_smooth, d->accel_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
 			d->last_proportional = d->proportional; 
 			d->direction = 0.999 * d->direction + (1-0.999) * d->motor.erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
 			
