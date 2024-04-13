@@ -50,6 +50,7 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	//initialize current and pitch arrays	
 	KpArray k;
+	float kp0 = config->kp0;
 
 	float pitch_current[7][2] = {
 	{0, 0}, //reserved for kp0 assigned at the end
@@ -73,6 +74,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 
 	if (mode==2) {
 		memcpy(pitch_current, temp_pitch_current, sizeof temp_pitch_current);
+		kp0 = config->brake_kp0;
 	}
 
 	//Check for current inputs
@@ -90,12 +92,12 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
 	if (k.count > 0) {
-		if (k.pitch_kp[1][1]<config->kp0) {
+		if (k.pitch_kp[1][1] < kp0) {
 			k.pitch_kp[0][1]= k.pitch_kp[1][1];
-		} else { k.pitch_kp[0][1] = config->kp0; }
+		} else { k.pitch_kp[0][1] = kp0; }
 	} else if (k.count == 0 && k.pitch_kp[0][1]==0) { //If no currents 
 		k.pitch_kp[0][1] = 5; //If no kp use 5
-	} else { k.pitch_kp[0][1] = config->kp0; }
+	} else { k.pitch_kp[0][1] = kp0; }
 
 	return k;
 }
