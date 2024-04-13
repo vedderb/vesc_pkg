@@ -49,7 +49,7 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 
 KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	//initialize current and pitch arrays	
-	struct KpArray k;
+	KpArray k;
 	//if (mode==1) {
 		float pitch_current[7][2] = {
 		{0, 0}, //reserved for kp0 assigned at the end
