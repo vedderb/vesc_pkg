@@ -17,7 +17,7 @@
 
 #include "proportional_gain.h"
 #include "utils.h"
-#include <array>
+#include <array.h>
 
 float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	float kp_mod = 0;
