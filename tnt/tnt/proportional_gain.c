@@ -73,8 +73,8 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	};
 
 	if (mode==2) {
-		for (int x = 0; i < 6; x++) {
-			for (int y = 0; i < 1; x++) {
+		for (int x = 0; x < 6; x++) {
+			for (int y = 0; y < 1; y++) {
 				pitch_current[x][y] = temp_pitch_current[x][y];
 			}
 		}
