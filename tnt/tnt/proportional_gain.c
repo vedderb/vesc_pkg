@@ -45,3 +45,41 @@ static float select_kp(float abs_prop_smooth, float pitch[], float kp[], int cur
 	}
 	return kp_mod;
 }
+
+//initialize current and pitch arrays for acceleration
+	d->pitch[0] = 0;
+	d->pitch[1] = d->tnt_conf.pitch1;
+	d->pitch[2] = d->tnt_conf.pitch2;
+	d->pitch[3] = d->tnt_conf.pitch3;
+	d->pitch[4] = d->tnt_conf.pitch4;
+	d->pitch[5] = d->tnt_conf.pitch5;
+	d->pitch[6] = d->tnt_conf.pitch6;
+	d->current[0] = 0;
+	d->current[1] = d->tnt_conf.current1;
+	d->current[2] = d->tnt_conf.current2;
+	d->current[3] = d->tnt_conf.current3;
+	d->current[4] = d->tnt_conf.current4;
+	d->current[5] = d->tnt_conf.current5;
+	d->current[6] = d->tnt_conf.current6;
+	//Check for current inputs
+	d->current_count=0;
+	int i = 1;
+	while (i <= 6){
+		if (d->current[i]!=0 && d->pitch[i]>d->pitch[i-1]) {
+			d->current_count = i;
+			if (d->tnt_conf.pitch_kp_input) {
+				d->kp[i]=d->current[i];
+			} else {d->kp[i]=d->current[i]/d->pitch[i];}
+		} else { i=7; }
+		i++;
+	}
+	//Check kp0 for an appropriate value, prioritizing kp1
+	if (d->current_count > 0) {
+		if (d->kp[1]<d->tnt_conf.kp0) {
+			d->kp[0]= d->kp[1];
+		} else { d->kp[0] = d->tnt_conf.kp0; }
+	} else { d->kp[0] = d->tnt_conf.kp0; }
+	
+	if (d->current_count == 0 && d->kp[0]==0) { //If no currents 
+		d->kp[0] = 5; //If no kp use 5
+	}
