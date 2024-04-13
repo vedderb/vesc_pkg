@@ -72,7 +72,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	};
 
 	if (mode==2) {
-		std::memcpy(pitch_current, temp_pitch_current, sizeof temp_pitch_current);
+		memcpy(pitch_current, temp_pitch_current, sizeof temp_pitch_current);
 	}
 
 	//Check for current inputs
