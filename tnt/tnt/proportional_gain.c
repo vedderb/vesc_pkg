@@ -17,7 +17,6 @@
 
 #include "proportional_gain.h"
 #include "utils.h"
-#include <array>
 
 float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	float kp_mod = 0;
@@ -53,7 +52,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	KpArray k;
 	float kp0 = config->kp0;
 
-	std::array<std::array<float, 2>, 7>   pitch_current = {{
+	float pitch_current[7][2] = {
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
 	{config->pitch2, config->current2},
@@ -61,9 +60,9 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->pitch4, config->current4},
 	{config->pitch5, config->current5},
 	{config->pitch6, config->current6},
-	}};
+	};
 	
-	std::array<std::array<float, 2>, 7>   temp_pitch_current = {{
+	float temp_pitch_current[7][2] = {
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->brakepitch1, config->brakecurrent1},
 	{config->brakepitch2, config->brakecurrent2},
@@ -71,10 +70,14 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->brakepitch4, config->brakecurrent4},
 	{config->brakepitch5, config->brakecurrent5},
 	{config->brakepitch6, config->brakecurrent6},
-	}};
+	};
 
 	if (mode==2) {
-		pitch_current = temp_pitch_current;
+		for (int x = 0; i < 6; x++) {
+			for (int y = 0; i < 1; x++) {
+				pitch_current[x][y] = temp_pitch_current[x][y];
+			}
+		}
 		kp0 = config->brake_kp0;
 	}
 
