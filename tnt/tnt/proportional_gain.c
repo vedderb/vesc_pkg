@@ -46,20 +46,30 @@ static float pitch_kp_select(float abs_prop_smooth, KpArray *k) {
 	return kp_mod;
 }
 
-struct KpArray pitch_kp_configure(const tnt_config *config){
+struct KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	//initialize current and pitch arrays	
 	struct KpArray k;
-	
-	float pitch_current[7][2] = {
-	{0, 0}, //reserved for kp0 assigned at the end
-	{config->tnt_conf.pitch1, config->tnt_conf.current1},
-	{config->tnt_conf.pitch2, config->tnt_conf.current2},
-	{config->tnt_conf.pitch3, config->tnt_conf.current3},
-	{config->tnt_conf.pitch4, config->tnt_conf.current4},
-	{config->tnt_conf.pitch5, config->tnt_conf.current5},
-	{config->tnt_conf.pitch6, config->tnt_conf.current6},
-	};
-	
+	if (mode==1) {
+		float pitch_current[7][2] = {
+		{0, 0}, //reserved for kp0 assigned at the end
+		{config->tnt_conf.pitch1, config->tnt_conf.current1},
+		{config->tnt_conf.pitch2, config->tnt_conf.current2},
+		{config->tnt_conf.pitch3, config->tnt_conf.current3},
+		{config->tnt_conf.pitch4, config->tnt_conf.current4},
+		{config->tnt_conf.pitch5, config->tnt_conf.current5},
+		{config->tnt_conf.pitch6, config->tnt_conf.current6},
+		};
+	} else if (mode ==2) {
+		float pitch_current[7][2] = {
+		{0, 0}, //reserved for kp0 assigned at the end
+		{config->tnt_conf.brakepitch1, config->tnt_conf.brakecurrent1},
+		{config->tnt_conf.brakepitch2, config->tnt_conf.brakecurrent2},
+		{config->tnt_conf.brakepitch3, config->tnt_conf.brakecurrent3},
+		{config->tnt_conf.brakepitch4, config->tnt_conf.brakecurrent4},
+		{config->tnt_conf.brakepitch5, config->tnt_conf.brakecurrent5},
+		{config->tnt_conf.brakepitch6, config->tnt_conf.brakecurrent6},
+		};
+	}
 	//Check for current inputs
 	k->count=0;
 	int i = 1;
