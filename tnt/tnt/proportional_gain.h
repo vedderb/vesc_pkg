@@ -18,7 +18,7 @@
 #pragma once
 
 #include "conf/datatypes.h"
-
+#include <array>
 typedef struct {
 	float pitch_kp[7][2];
 	int count;
