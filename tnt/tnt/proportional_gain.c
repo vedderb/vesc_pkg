@@ -98,6 +98,6 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	} else if (k.count == 0 && k.pitch_kp[0][1]==0) { //If no currents 
 		k.pitch_kp[0][1] = 5; //If no kp use 5
 	} else { k.pitch_kp[0][1] = kp0; }
-
+	k.pitch_kp[0][0] = 0;
 	return k;
 }
