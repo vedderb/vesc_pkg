@@ -177,14 +177,8 @@ typedef struct {
 	float roll_pid_mod;
 	int roll_count;
 	int brkroll_count;
-	int current_count;
-	float pitch[7];
-	float kp[7];
-	float current[7];
-	int brake_current_count;
-	float brakepitch[7];
-	float brakekp[7];
-	float brakecurrent[7];
+	KpArray accel_kp;
+	KpArray brake_kp;
 
 	// Dynamic Stability
 	float stabl;
@@ -342,73 +336,10 @@ static void configure(data *d) {
 	}
 
 	//initialize current and pitch arrays for acceleration
-	d->pitch[0] = 0;
-	d->pitch[1] = d->tnt_conf.pitch1;
-	d->pitch[2] = d->tnt_conf.pitch2;
-	d->pitch[3] = d->tnt_conf.pitch3;
-	d->pitch[4] = d->tnt_conf.pitch4;
-	d->pitch[5] = d->tnt_conf.pitch5;
-	d->pitch[6] = d->tnt_conf.pitch6;
-	d->current[0] = 0;
-	d->current[1] = d->tnt_conf.current1;
-	d->current[2] = d->tnt_conf.current2;
-	d->current[3] = d->tnt_conf.current3;
-	d->current[4] = d->tnt_conf.current4;
-	d->current[5] = d->tnt_conf.current5;
-	d->current[6] = d->tnt_conf.current6;
-	//Check for current inputs
-	d->current_count=0;
-	int i = 1;
-	while (i <= 6){
-		if (d->current[i]!=0 && d->pitch[i]>d->pitch[i-1]) {
-			d->current_count = i;
-			if (d->tnt_conf.pitch_kp_input) {
-				d->kp[i]=d->current[i];
-			} else {d->kp[i]=d->current[i]/d->pitch[i];}
-		} else { i=7; }
-		i++;
-	}
-	//Check kp0 for an appropriate value, prioritizing kp1
-	if (d->current_count > 0) {
-		if (d->kp[1]<d->tnt_conf.kp0) {
-			d->kp[0]= d->kp[1];
-		} else { d->kp[0] = d->tnt_conf.kp0; }
-	} else { d->kp[0] = d->tnt_conf.kp0; }
-
+	d->accel_kp = pitch_kp_configure(&d->tnt_conf, 1);
 	//initialize current and pitch arrays for braking
 	if (d->tnt_conf.brake_curve) {
-		d->brakepitch[0] = 0;
-		d->brakepitch[1] = d->tnt_conf.brakepitch1;
-		d->brakepitch[2] = d->tnt_conf.brakepitch2;
-		d->brakepitch[3] = d->tnt_conf.brakepitch3;
-		d->brakepitch[4] = d->tnt_conf.brakepitch4;
-		d->brakepitch[5] = d->tnt_conf.brakepitch5;
-		d->brakepitch[6] = d->tnt_conf.brakepitch6;
-		d->brakecurrent[0] = 0;
-		d->brakecurrent[1] = d->tnt_conf.brakecurrent1;
-		d->brakecurrent[2] = d->tnt_conf.brakecurrent2;
-		d->brakecurrent[3] = d->tnt_conf.brakecurrent3;
-		d->brakecurrent[4] = d->tnt_conf.brakecurrent4;
-		d->brakecurrent[5] = d->tnt_conf.brakecurrent5;
-		d->brakecurrent[6] = d->tnt_conf.brakecurrent6;
-		//Check for current inputs
-		d->brake_current_count=0;
-		int i = 1;
-		while (i <= 6){
-			if (d->brakecurrent[i]!=0 && d->brakepitch[i]>d->brakepitch[i-1]) {
-				d->brake_current_count = i;
-				if (d->tnt_conf.pitch_kp_input_brake) {
-					d->brakekp[i]=d->brakecurrent[i];
-				} else {d->brakekp[i]=d->brakecurrent[i]/d->brakepitch[i];}
-			} else { i=7; }
-			i++;
-		}
-		//Check kp0 for an appropriate value, prioritizing kp1
-		if (d->brake_current_count > 0) {
-			if (d->brakekp[1]<d->tnt_conf.brake_kp0) {
-				d->brakekp[0]= d->brakekp[1];
-			} else { d->brakekp[0] = d->tnt_conf.brake_kp0; }
-		} else { d->brakekp[0] = d->tnt_conf.brake_kp0; }
+		d->brake_kp = pitch_kp_configure(&d->tnt_conf, 2);
 	}
 	
 	//Check for roll inputs
@@ -1246,78 +1177,6 @@ static void apply_kalman(data *d){
 	d->P11 -= K1 * P01_temp;
 }
 
-static float select_kp(data *d) {
-	float kp_mod = 0;
-	float kp_min = 0;
-	float scale_angle_min = 0;
-	float scale_angle_max = 1;
-	float kp_max = 0;
-	int i = d->current_count;
-	//Determine the correct current to use based on d->prop_smooth
-	while (i >= 0) {
-		if (d->abs_prop_smooth>= d->pitch[i]) {
-			kp_min = d->kp[i];
-			scale_angle_min = d->pitch[i];
-			if (i == d->current_count) { //if we are at the highest current only use highest kp
-				kp_max = d->kp[i];
-				scale_angle_max = 90;
-			} else {
-				kp_max = d->kp[i+1];
-				scale_angle_max = d->pitch[i+1];
-			}
-			i=-1;
-		}
-		i--;
-	}
-	
-	if (d->current_count == 0) { //If no currents 
-		if (d->kp[0]==0) {
-			kp_mod = 5; //If no kp use 5
-		} else { kp_mod = d->kp[0]; }
-	} else { //Scale the kp values according to d->prop_smooth
-		kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * d->abs_prop_smooth			//linear scaling mx
-				+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
-	}
-	d->debug10 = kp_mod;
-	return kp_mod;
-}
-
-static float select_kp_brake(data *d) {
-	float kp_mod = 0;
-	float kp_min = 0;
-	float scale_angle_min = 0;
-	float scale_angle_max = 1;
-	float kp_max = 0;
-	int i = d->brake_current_count;
-	//Determine the correct current to use based on d->prop_smooth
-	while (i >= 0) {
-		if (d->abs_prop_smooth>= d->brakepitch[i]) {
-			kp_min = d->brakekp[i];
-			scale_angle_min = d->brakepitch[i];
-			if (i == d->brake_current_count) { //if we are at the highest current only use highest kp
-				kp_max = d->brakekp[i];
-				scale_angle_max = 90;
-			} else {
-				kp_max = d->brakekp[i+1];
-				scale_angle_max = d->brakepitch[i+1];
-			}
-			i=-1;
-		}
-		i--;
-	}
-	
-	if (d->brake_current_count == 0) { //If no currents 
-		if (d->brakekp[0]==0) {
-			kp_mod = 5; //If no kp use 5
-		} else { kp_mod = d->brakekp[0]; }
-	} else { //Scale the kp values according to d->prop_smooth
-		kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * d->abs_prop_smooth			//linear scaling mx
-				+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
-	}
-	d->debug10 = -kp_mod; //negative to indicate braking on AppUI
-	return kp_mod;
-}
-
 static void apply_stability(data *d) {
 	float speed_stabl_mod = 0;
 	float throttle_stabl_mod = 0;	
@@ -1503,8 +1362,8 @@ static void tnt_thd(void *arg) {
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			d->differential = d->proportional - d->last_proportional;
 			if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
-				new_pid_value = select_kp_brake(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
-			} else {new_pid_value = select_kp(d)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
+				new_pid_value = pitch_kp_select(d->abs_prop_smooth, d->brake_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100);			// Use separate braking function
+			} else {new_pid_value = pitch_kp_select(d->abs_prop_smooth, d->accel_kp)*d->proportional*(1+d->stabl*d->tnt_conf.stabl_pitch_max_scale/100); }				// Else use normal function
 			d->last_proportional = d->proportional; 
 			d->direction = 0.999 * d->direction + (1-0.999) * d->motor.erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
 			
@@ -1548,7 +1407,7 @@ static void tnt_thd(void *arg) {
 			check_drop(d);
 			check_traction(d);
 			if (d->tnt_conf.is_surge_enabled){
-			check_surge(d);
+				check_surge(d);
 			}
 				
 			// PID value application
@@ -1582,7 +1441,6 @@ static void tnt_thd(void *arg) {
 				// even after short pulses of hitting the condition(s)
 				d->pid_value += haptic_buzz(d, 0.3);
 				set_current(d, d->pid_value); 	// Set current as normal.
-				d->surge = false;		// Don't re-engage surge if we have left surge cycle until new surge period
 			}
 
 			break;
