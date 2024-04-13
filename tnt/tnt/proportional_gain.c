@@ -51,7 +51,7 @@ struct KpArray pitch_kp_configure(const tnt_config *config){
 	struct KpArray k;
 	
 	float pitch_current[7][2] = {
-	{0, 0},
+	{0, 0}, //reserved for kp0 assigned at the end
 	{config->tnt_conf.pitch1, config->tnt_conf.current1},
 	{config->tnt_conf.pitch2, config->tnt_conf.current2},
 	{config->tnt_conf.pitch3, config->tnt_conf.current3},
