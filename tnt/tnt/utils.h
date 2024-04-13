@@ -82,6 +82,8 @@ void send_app_data_overflow_terminate();
         }                                                                                          \
     } while (0)
 
+float lerp(float x1, float x2, float y1, float y2, float val);
+
 uint32_t rnd(uint32_t seed);
 
 float clampf(float value, float min, float max);
