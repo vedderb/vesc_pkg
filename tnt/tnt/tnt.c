@@ -342,10 +342,20 @@ static void configure(data *d) {
 	}
 
 	//initialize current and pitch arrays for acceleration
-	d->pitch[] = {0, d->tnt_conf.pitch1, d->tnt_conf.pitch2, d->tnt_conf.pitch3,
-		d->tnt_conf.pitch4, d->tnt_conf.pitch5, d->tnt_conf.pitch6};
-	d->current[] = {0, d->tnt_conf.current1, d->tnt_conf.current2, d->tnt_conf.current3,
-		d->tnt_conf.current4, d->tnt_conf.current5, d->tnt_conf.current6};
+	d->pitch[0] = 0;
+	d->pitch[1] = d->tnt_conf.pitch1;
+	d->pitch[2] = d->tnt_conf.pitch2;
+	d->pitch[3] = d->tnt_conf.pitch3;
+	d->pitch[4] = d->tnt_conf.pitch4;
+	d->pitch[5] = d->tnt_conf.pitch5;
+	d->pitch[6] = d->tnt_conf.pitch6;
+	d->current[0] = 0;
+	d->current[1] = d->tnt_conf.current1;
+	d->current[2] = d->tnt_conf.current2;
+	d->current[3] = d->tnt_conf.current3;
+	d->current[4] = d->tnt_conf.current4;
+	d->current[5] = d->tnt_conf.current5;
+	d->current[6] = d->tnt_conf.current6;
 	//Check for current inputs
 	d->current_count=0;
 	int i = 1;
@@ -367,10 +377,20 @@ static void configure(data *d) {
 
 	//initialize current and pitch arrays for braking
 	if (d->tnt_conf.brake_curve) {
-		d->brakepitch[] = {0, d->tnt_conf.brakepitch1, d->tnt_conf.brakepitch2, d->tnt_conf.brakepitch3,
-			d->tnt_conf.brakepitch4, d->tnt_conf.brakepitch5, d->tnt_conf.brakepitch6};
-		d->brakecurrent[] = {0, d->tnt_conf.brakecurrent1, d->tnt_conf.brakecurrent2, d->tnt_conf.brakecurrent3,
-			d->tnt_conf.brakecurrent4, d->tnt_conf.brakecurrent5, d->tnt_conf.brakecurrent6};
+		d->brakepitch[0] = 0;
+		d->brakepitch[1] = d->tnt_conf.brakepitch1;
+		d->brakepitch[2] = d->tnt_conf.brakepitch2;
+		d->brakepitch[3] = d->tnt_conf.brakepitch3;
+		d->brakepitch[4] = d->tnt_conf.brakepitch4;
+		d->brakepitch[5] = d->tnt_conf.brakepitch5;
+		d->brakepitch[6] = d->tnt_conf.brakepitch6;
+		d->brakecurrent[0] = 0;
+		d->brakecurrent[1] = d->tnt_conf.brakecurrent1;
+		d->brakecurrent[2] = d->tnt_conf.brakecurrent2;
+		d->brakecurrent[3] = d->tnt_conf.brakecurrent3;
+		d->brakecurrent[4] = d->tnt_conf.brakecurrent4;
+		d->brakecurrent[5] = d->tnt_conf.brakecurrent5;
+		d->brakecurrent[6] = d->tnt_conf.brakecurrent6;
 		//Check for current inputs
 		d->brake_current_count=0;
 		int i = 1;
