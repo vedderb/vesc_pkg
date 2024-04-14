@@ -97,13 +97,17 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 		i++;
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
-	if (k.count > 0) {
+	if (k.pitch_kp[1][1] !=0) {
 		if (k.pitch_kp[1][1] < kp0) {
-			k.pitch_kp[0][1]= k.pitch_kp[1][1];
-		} else { k.pitch_kp[0][1] = kp0; }
-	} else if (k.count == 0 && k.pitch_kp[0][1]==0) { //If no currents 
-		k.pitch_kp[0][1] = 5; //If no kp use 5
-	} else { k.pitch_kp[0][1] = kp0; }
+			k.pitch_kp[0][1]= k.pitch_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
+		} else { k.pitch_kp[0][1] = kp0; } //If less than kp1 it is OK
+	} else if (k.pitch_kp[0][1]==0) { //If no currents and no kp0
+		k.pitch_kp[0][1] = 5; //default 5
+		k.count = 0;
+	} else { 
+		k.pitch_kp[0][1] = kp0; //passes all checks, it is ok
+		k.count = 0;
+	       } 
 	k.pitch_kp[0][0] = 0;
 	return k;
 }
