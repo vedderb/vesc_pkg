@@ -43,19 +43,16 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	}
 	
 	//Scale the kp values according to prop_smooth
-	//kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, abs_prop_smooth);
-	kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * abs_prop_smooth			//linear scaling mx
-			+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
+	kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, abs_prop_smooth);
 	return kp_mod;
 }
 
-KpArray pitch_kp_configure(const tnt_config *config, int mode){
+KpArray pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	//initialize current and pitch arrays	
-	KpArray k;
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
 	
-	float pitch_current[7][2] = {
+	float pitch_current[7][2] = { //Accel curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
 	{config->pitch2, config->current2},
@@ -65,7 +62,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->pitch6, config->current6},
 	};
 	
-	float temp_pitch_current[7][2] = {
+	float temp_pitch_current[7][2] = { //Brake Curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->brakepitch1, config->brakecurrent1},
 	{config->brakepitch2, config->brakecurrent2},
@@ -75,7 +72,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	{config->brakepitch6, config->brakecurrent6},
 	};
 
-	if (mode==2) {
+	if (mode==2) { //Brake curve
 		for (int x = 0; x <= 6; x++) {
 			for (int y = 0; y <= 1; y++) {
 				pitch_current[x][y] = temp_pitch_current[x][y];
@@ -86,40 +83,33 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	}
 
 	//Check for current inputs
-	k.count=0;
 	int i = 1;
 	while (i <= 6){
 		if (pitch_current[i][1]!=0 && pitch_current[i][0]>pitch_current[i-1][0]) {
-			k.count = i;
-			k.pitch_kp[i][0]=pitch_current[i][0];
+			k->count = i;
+			k->pitch_kp[i][0]=pitch_current[i][0];
 			if (kp_input) {
-				k.pitch_kp[i][1]=pitch_current[i][1];
-			} else {k.pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
+				k->pitch_kp[i][1]=pitch_current[i][1];
+			} else {k->pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
 		} else { i=7; }
 		i++;
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
-	if (k.pitch_kp[1][1] !=0) {
-		if (k.pitch_kp[1][1] < kp0) {
-			k.pitch_kp[0][1]= k.pitch_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
-		} else { k.pitch_kp[0][1] = kp0; } //If less than kp1 it is OK
-	} else if (k.pitch_kp[0][1]==0) { //If no currents and no kp0
-		k.pitch_kp[0][1] = 5; //default 5
-		k.count = 0;
-	} else { 
-		k.pitch_kp[0][1] = kp0; //passes all checks, it is ok
-		k.count = 0;
-	       } 
-	k.pitch_kp[0][0] = 0;
+	if (k->pitch_kp[1][1] !=0) {
+		if (k->pitch_kp[1][1] < kp0) {
+			k->pitch_kp[0][1]= k->pitch_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
+		} else { k->pitch_kp[0][1] = kp0; } //If less than kp1 it is OK
+	} else if (k->pitch_kp[0][1]==0) { //If no currents and no kp0
+		k->pitch_kp[0][1] = 5; //default 5
+	} else { k->pitch_kp[0][1] = kp0; }//passes all checks, it is ok 
 	return k;
 }
 
-KpArray pitch_kp_reset() {
-	KpArray k;
+void pitch_kp_reset(KpArray *k) {
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
-			k.pitch_kp[7][2] = 0;
+			k->pitch_kp[7][2] = 0;
 		}
 	}
-	k.count = 0;
+	k->count = 0;
 }
