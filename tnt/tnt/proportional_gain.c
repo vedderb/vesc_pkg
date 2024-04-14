@@ -43,7 +43,9 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	}
 	
 	//Scale the kp values according to prop_smooth
-	kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, abs_prop_smooth);
+	//kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, abs_prop_smooth);
+	kp_mod = ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * abs_prop_smooth			//linear scaling mx
+			+ (kp_max - ((kp_max - kp_min) / (scale_angle_max - scale_angle_min)) * scale_angle_max); 	//+b
 	return kp_mod;
 }
 
