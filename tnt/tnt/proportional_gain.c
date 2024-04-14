@@ -51,7 +51,8 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	//initialize current and pitch arrays	
 	KpArray k;
 	float kp0 = config->kp0;
-
+	bool kp_input = config->pitch_kp_input;
+	
 	float pitch_current[7][2] = {
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
@@ -79,6 +80,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 			}
 		}
 		kp0 = config->brake_kp0;
+		kp_input = config->pitch_kp_input_brake;
 	}
 
 	//Check for current inputs
@@ -88,7 +90,7 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 		if (pitch_current[i][1]!=0 && pitch_current[i][0]>pitch_current[i-1][0]) {
 			k.count = i;
 			k.pitch_kp[i][0]=pitch_current[i][0];
-			if (config->pitch_kp_input) {
+			if (kp_input) {
 				k.pitch_kp[i][1]=pitch_current[i][1];
 			} else {k.pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
 		} else { i=7; }
