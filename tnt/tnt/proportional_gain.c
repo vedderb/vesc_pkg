@@ -47,7 +47,7 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	return kp_mod;
 }
 
-KpArray pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
+void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	//initialize current and pitch arrays	
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
