@@ -24,6 +24,9 @@ uint32_t rnd(uint32_t seed) {
 }
 
 float lerp(float x1, float x2, float y1, float y2, float val){
+    if (x2 - x1 == 0) {
+        return y1;
+    }
     float t= (val - x1)/(x2 - x1);
     return (y1 * (1 - t) + y2 * t);
 }
