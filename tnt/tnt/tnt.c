@@ -137,7 +137,6 @@ typedef struct {
 	// Feature: Surge
 	float surge_timer;			//Timer to monitor surge cycle and period
 	bool surge;				//Identifies surge state which drives duty to max
-	float differential;			//Pitch differential
 	float new_duty_cycle;
 	bool surge_off;
 	float tiltback_surge_step_size;
@@ -197,9 +196,6 @@ typedef struct {
 
 	//Debug
 	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11, debug12, debug13, debug14, debug15, debug16, debug17, debug18, debug19;
-
-	// Log values
-	float float_setpoint, float_inputtilt;
 
 } data;
 
@@ -395,7 +391,6 @@ static void reset_vars(data *d) {
 	d->direction = 0;
 	
 	// Surge
-	d->last_proportional = 0;
 	d->surge = false;
 	d->surge_off = false;
 	
@@ -1242,10 +1237,9 @@ static void tnt_thd(void *arg) {
 
 		motor_data_update(&d->motor);
 		
-		// UART/PPM Remote Throttle ///////////////////////
+		// UART/PPM Remote Throttle 
 		bool remote_connected = false;
 		float servo_val = 0;
-
 		switch (d->tnt_conf.inputtilt_remote_type) {
 		case (INPUTTILT_PPM):
 			servo_val = VESC_IF->get_ppm();
@@ -1270,17 +1264,13 @@ static void tnt_thd(void *arg) {
 			} else {
 				servo_val = sign(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
 			}
-
 			// Invert Throttle
 			servo_val *= (d->tnt_conf.inputtilt_invert_throttle ? -1.0 : 1.0);
 		}
-
 		d->throttle_val = servo_val;
-		///////////////////////////////////////////////////
-		
 
+		//Footpad Sensor
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
-	
 	        if (d->footpad_sensor.state == FS_NONE && d->state.state == STATE_RUNNING &&
 	            d->state.mode != MODE_FLYWHEEL && d->motor.abs_erpm > d->switch_warn_beep_erpm) {
 	            // If we're at riding speed and the switch is off => ALERT the user
@@ -1291,10 +1281,6 @@ static void tnt_thd(void *arg) {
 	            // if the switch comes back on we stop beeping
 	            beep_off(d, false);
 	        }
-
-		// Log Values
-		d->float_setpoint = d->setpoint;
-		d->float_inputtilt = d->inputtilt_interpolated;
 
 		float new_pid_value = 0;		
 
@@ -1363,18 +1349,17 @@ static void tnt_thd(void *arg) {
 			d->proportional = d->setpoint - d->pitch_angle;
 			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
-			d->differential = d->proportional - d->last_proportional;
 			float kp_mod;
 			if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
-				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->brake_kp);			// Use separate braking function
+				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->brake_kp);		// Use separate braking function
 				d->debug10 = -kp_mod;
-			} else { 
+			} else { 									// Else use normal function
 				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->accel_kp); 
 				d->debug10 = kp_mod;
-			}				// Else use normal function
-
-			new_pid_value = kp_mod * d->proportional * (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100);
-			d->last_proportional = d->proportional; 
+			}				
+			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
+			new_pid_value = kp_mod * d->proportional;
+			
 			d->direction = 0.999 * d->direction + (1-0.999) * d->motor.erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
@@ -1382,12 +1367,13 @@ static void tnt_thd(void *arg) {
 			if (d->start_counter_clicks == 0) {
 				// Rate P
 				float rate_prop = -d->gyro[1];
+				d->pid_mod = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; // Calc rate stability first
 				if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
-					d->pid_mod = d->tnt_conf.brakekp_rate * rate_prop*(1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100);			// Use separate braking function
-					d->debug12 = -d->tnt_conf.brakekp_rate * d->stabl*d->tnt_conf.stabl_rate_max_scale/100;					// negative for braking
+					d->debug12 = -d->tnt_conf.brakekp_rate * (d->pid_mod -1);		// record the extra kp rate from stability, negative for braking
+					d->pid_mod *= d->tnt_conf.brakekp_rate * rate_prop;			// Use separate braking function, apply kp rate to stability
 				} else {
-					d->pid_mod = d->tnt_conf.kp_rate * rate_prop*(1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100); 			// Else use normal function
-					d->debug12 = d->tnt_conf.kp_rate * d->stabl*d->tnt_conf.stabl_rate_max_scale/100;
+					d->debug12 = -d->tnt_conf.kp_rate * (d->pid_mod -1);			// record the extra kp rate from stability
+					d->pid_mod *= d->tnt_conf.kp_rate * rate_prop;				// apply kp rate to stability
 				}				
 				
 				// Apply Turn Boost
@@ -1649,8 +1635,8 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->roll_angle, &ind);
 
 	//Tune Modifiers
-	buffer_append_float32_auto(buffer, d->float_setpoint, &ind);
-	buffer_append_float32_auto(buffer, d->float_inputtilt, &ind);
+	buffer_append_float32_auto(buffer, d->setpoint, &ind);
+	buffer_append_float32_auto(buffer, d->inputtilt_interpolated, &ind);
 	buffer_append_float32_auto(buffer, d->throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
