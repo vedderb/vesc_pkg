@@ -102,13 +102,12 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	} else if (k->pitch_kp[0][1]==0) { //If no currents and no kp0
 		k->pitch_kp[0][1] = 5; //default 5
 	} else { k->pitch_kp[0][1] = kp0; }//passes all checks, it is ok 
-	return k;
 }
 
 void pitch_kp_reset(KpArray *k) {
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
-			k->pitch_kp[7][2] = 0;
+			k->pitch_kp[x][y] = 0;
 		}
 	}
 	k->count = 0;
