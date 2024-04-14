@@ -338,7 +338,7 @@ static void configure(data *d) {
 
 	//initialize current and pitch arrays for acceleration
 	pitch_kp_reset(&d->accel_kp);
-	itch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
+	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
 	//initialize current and pitch arrays for braking
 	if (d->tnt_conf.brake_curve) {
 		pitch_kp_reset(&d->brake_kp);
