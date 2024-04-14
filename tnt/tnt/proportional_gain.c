@@ -113,3 +113,13 @@ KpArray pitch_kp_configure(const tnt_config *config, int mode){
 	k.pitch_kp[0][0] = 0;
 	return k;
 }
+
+KpArray pitch_kp_reset() {
+	KpArray k;
+	for (int x = 0; x <= 6; x++) {
+		for (int y = 0; y <= 1; y++) {
+			k.pitch_kp[7][2] = 0;
+		}
+	}
+	k.count = 0;
+}
