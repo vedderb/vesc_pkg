@@ -176,10 +176,10 @@ typedef struct {
 
 	// Throttle/Brake Scaling
 	float roll_pid_mod;
-	int roll_count;
-	int brkroll_count;
 	KpArray accel_kp;
 	KpArray brake_kp;
+	KpArray roll_accel_kp;
+	KpArray roll_brake_kp;
 
 	// Dynamic Stability
 	float stabl;
@@ -334,29 +334,17 @@ static void configure(data *d) {
 	}
 
 	//initialize current and pitch arrays for acceleration
-	pitch_kp_reset(&d->accel_kp);
+	angle_kp_reset(&d->accel_kp);
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
 	//initialize current and pitch arrays for braking
 	if (d->tnt_conf.brake_curve) {
-		pitch_kp_reset(&d->brake_kp);
+		angle_kp_reset(&d->brake_kp);
 		pitch_kp_configure(&d->tnt_conf, &d->brake_kp, 2);
 	}
 	
 	//Check for roll inputs
-	if (d->tnt_conf.roll_kp1<d->tnt_conf.roll_kp2 && d->tnt_conf.roll1<d->tnt_conf.roll2) {
-		if (d->tnt_conf.roll_kp2<d->tnt_conf.roll_kp3 && d->tnt_conf.roll2<d->tnt_conf.roll3) {
-			d->roll_count = 3;
-		} else {d->roll_count = 2;}
-	} else if (d->tnt_conf.roll_kp1 >0 && d->tnt_conf.roll1>0) {
-		d->roll_count = 1;
-	} else {d->roll_count = 0;}
-	if (d->tnt_conf.brkroll_kp1<d->tnt_conf.brkroll_kp2 && d->tnt_conf.brkroll1<d->tnt_conf.brkroll2) {
-		if (d->tnt_conf.brkroll_kp2<d->tnt_conf.brkroll_kp3 && d->tnt_conf.brkroll2<d->tnt_conf.brkroll3) {
-			d->brkroll_count = 3;
-		} else {d->brkroll_count = 2;}
-	} else if (d->tnt_conf.brkroll_kp1 >0 && d->tnt_conf.brkroll1>0) {
-		d->brkroll_count = 1;
-	} else {d->brkroll_count = 0;}
+	roll_kp_configure(&d->tnt_conf, &d->roll_accel_kp, 1);
+	roll_kp_configure(&d->tnt_conf, &d->roll_brake_kp, 2);
 
 	//Surge
 	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / (float)d->tnt_conf.hertz;
@@ -1049,89 +1037,6 @@ static void check_drop(data *d){
 	}
 }
 
-static void apply_rollkp(data *d, float new_pid_value){
-	float m = 0;
-	float b = 0;
-	float rollkp = 0;
-	float kp_min = 0;
-	float scale_angle_min = 0;
-	float scale_angle_max = 1;
-	float kp_max = 0;
-	float erpmscale = 1;
-
-	//Determine the correct kp to use based on abs_roll_angle
-	if (d->braking_pos) { //Braking
-		if (d->abs_roll_angle > d->tnt_conf.brkroll3 && d->brkroll_count==3) {
-			kp_min = d->tnt_conf.brkroll_kp3;
-			kp_max = d->tnt_conf.brkroll_kp3;
-			scale_angle_min = d->tnt_conf.brkroll3;
-			scale_angle_max = 90;
-		} else if (d->abs_roll_angle > d->tnt_conf.brkroll2 && d->brkroll_count>=2) {
-			kp_min = d->tnt_conf.brkroll_kp2;
-			scale_angle_min = d->tnt_conf.brkroll2;
-			if (d->brkroll_count==3) {
-				kp_max = d->tnt_conf.brkroll_kp3;
-				scale_angle_max = d->tnt_conf.brkroll3;
-			} else {
-				kp_max = d->tnt_conf.brkroll_kp2;
-				scale_angle_max = 90;
-			}
-		} else if (d->abs_roll_angle > d->tnt_conf.brkroll1 && d->brkroll_count>=1) {
-			kp_min = d->tnt_conf.brkroll_kp1;
-			scale_angle_min = d->tnt_conf.brkroll1;
-			if (d->brkroll_count>=2) {
-				kp_max = d->tnt_conf.brkroll_kp2;
-				scale_angle_max = d->tnt_conf.brkroll2;
-			} else {
-				kp_max = d->tnt_conf.brkroll_kp1;
-				scale_angle_max = 90;
-			}
-		} 
-		if (d->motor.abs_erpm < 750) { // If we want to actually stop at low speed reduce kp to 0
-			erpmscale = 0;
-		}
-	} else { //Accelerating
-		if (d->abs_roll_angle > d->tnt_conf.roll3 && d->roll_count == 3) {
-			kp_min = d->tnt_conf.roll_kp3;
-			kp_max = d->tnt_conf.roll_kp3;
-			scale_angle_min = d->tnt_conf.roll3;
-			scale_angle_max = 90;
-		} else if (d->abs_roll_angle > d->tnt_conf.roll2 && d->roll_count>=2) {
-			kp_min = d->tnt_conf.roll_kp2;
-			scale_angle_min = d->tnt_conf.roll2;
-			if (d->roll_count==3) {
-				kp_max = d->tnt_conf.roll_kp3;
-				scale_angle_max = d->tnt_conf.roll3;
-			} else {
-				kp_max = d->tnt_conf.roll_kp2;
-				scale_angle_max = 90;
-			}
-		} else if (d->abs_roll_angle > d->tnt_conf.roll1 && d->roll_count>=1) {
-			kp_min = d->tnt_conf.roll_kp1;
-			scale_angle_min = d->tnt_conf.roll1;
-			if (d->roll_count>=2) {
-				kp_max = d->tnt_conf.roll_kp2;
-				scale_angle_max = d->tnt_conf.roll2;
-			} else {
-				kp_max = d->tnt_conf.roll_kp1;
-				scale_angle_max = 90;
-			}
-		}
-		if (d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
-			erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
-		}
-	}
-	m = (kp_max - kp_min) / (scale_angle_max - scale_angle_min); 	//calcs slope between points (scale angle min, min kp) and (scale angle max, max kp)
-	b = kp_max - m * scale_angle_max;				//calcs y-int between points (scale angle min, min kp) and (scale angle max, max kp)
-	rollkp = max(kp_min, min(kp_max, m * fabsf(d->abs_roll_angle) + b)); // scale kp between min and max with the calculated equation
-	rollkp *= erpmscale;
-	if (d->state.sat == SAT_CENTERING) {
-		rollkp=0; 
-	}
-	d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
-	d->debug11 = rollkp;
-}
-
 static void apply_kalman(data *d){
     // KasBot V2  -  Kalman filter module - http://www.x-firm.com/?page_id=145
     // Modified by Kristian Lauszus
@@ -1361,22 +1266,37 @@ static void tnt_thd(void *arg) {
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
-				// Rate P
+				// Apply Rate P
 				float rate_prop = -d->gyro[1];
-				d->pid_mod = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; // Calc rate stability first
-				if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
-					d->debug12 = -d->tnt_conf.brakekp_rate * (d->pid_mod -1);		// record the extra kp rate from stability, negative for braking
-					d->pid_mod *= d->tnt_conf.brakekp_rate * rate_prop;			// Use separate braking function, apply kp rate to stability
-				} else {
-					d->debug12 = -d->tnt_conf.kp_rate * (d->pid_mod -1);			// record the extra kp rate from stability
-					d->pid_mod *= d->tnt_conf.kp_rate * rate_prop;				// apply kp rate to stability
-				}				
+				float kp_rate = (d->tnt_conf.brake_curve && d->braking_pos) ? d->tnt_conf.brakekp_rate : d->tnt_conf.kp_rate;		
+				float rate_stable = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			// Calc rate stability first to simplify math
+				//if (d->tnt_conf.brake_curve && d->braking_pos) { 				//If braking and user allows braking curve
+				//	kp_rate = d->tnt_conf.brakekp_rate;		
+				//} else {
+				//	kp_rate = d->tnt_conf.brakekp_rate;		
+				//}		
+				d->debug12 = kp_rate * (rate_stable - 1);				// Calc the contribution of stability to kp_rate
+				d->pid_mod = kp_rate * rate_prop * rate_stable;
 				
-				// Apply Turn Boost
-				if (d->roll_count > 0 || d->brkroll_count > 0) {
-					apply_rollkp(d, new_pid_value);
-					d->pid_mod += d->roll_pid_mod;
-				}
+				// Apply Roll Boost
+				float rollkp = 0;
+				float erpmscale = 1;
+				if (d->roll_brake_kp.count!=0 && d->braking_pos) { 				
+					rollkp = angle_kp_select(d->abs_roll_angle, &d->brake_roll_kp);
+					if (d->motor.abs_erpm < 750) { 						// If we want to actually stop at low speed reduce kp to 0
+						erpmscale = 0;
+					}
+				} else if (d->roll_accel_kp.count!=0) { 
+					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_kp);
+					if (d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
+						erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/
+							(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
+					}
+				}	
+				rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
+				d->debug11 = rollkp;			
+				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
+				d->pid_mod += d->roll_pid_mod;
 
 				if (d->softstart_pid_limit < d->mc_current_max) {
 					d->pid_mod = fminf(fabsf(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
