@@ -15,15 +15,16 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#include "motor_data.h"
+#include "motor_data_tnt.h"
 
-#include "utils.h"
+#include "utils_tnt.h"
 
 #include "vesc_c_if.h"
 
 #include <math.h>
 
 void motor_data_reset(MotorData *m) {
+    m->erpm_sign_soft = 0;
     m->acceleration = 0;
     m->accel_idx = 0;
     for (int i = 0; i < ACCEL_ARRAY_SIZE; i++) {
@@ -57,6 +58,8 @@ void motor_data_update(MotorData *m) {
     m->erpm = VESC_IF->mc_get_rpm();
     m->abs_erpm = fabsf(m->erpm);
     m->erpm_sign = sign(m->erpm);
+    m->erpm_sign_soft = 0.999 * m->erpm_sign_soft + (1-0.999) * m->erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
+    m->erpm_sign_check = m->erpm_sign == sign(m->erpm_sign_soft);
 
     m->current = VESC_IF->mc_get_tot_current_directional_filtered();
     m->braking = m->abs_erpm > 250 && sign(m->current) != m->erpm_sign;
