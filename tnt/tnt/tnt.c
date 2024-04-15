@@ -121,6 +121,7 @@ typedef struct {
 	float brake_timeout; // Seconds
 	float overcurrent_timer, tb_highvoltage_timer;
 	float switch_warn_beep_erpm;
+	bool braking_pos;
 
 	// Odometer
 	float odo_timer;
