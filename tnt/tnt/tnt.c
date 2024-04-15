@@ -1244,7 +1244,8 @@ static void tnt_thd(void *arg) {
 			d->setpoint = d->setpoint_target_interpolated;
 			apply_inputtilt(d); 
 			apply_noseangling(d);
-			if (d->tnt_conf.enable_speed_stability || d->tnt_conf.enable_throttle_stability) {
+			if (d->tnt_conf.enable_speed_stability || 
+			    d->tnt_conf.enable_throttle_stability) {
 				apply_stability(d);
 			}
 			// Do PID maths
@@ -1323,6 +1324,7 @@ static void tnt_thd(void *arg) {
 			}
 				
 			// PID value application
+			// d->pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
 			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) { //Reduce acceleration if we are in traction control and enabled
 				d->pid_value = 0;
 			} else if (d->motor.erpm_sign * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
