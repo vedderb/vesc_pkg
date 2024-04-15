@@ -18,20 +18,20 @@
 #include "proportional_gain.h"
 #include "utils_tnt.h"
 
-float angle_kp_select(float angle, KpArray k) {
+float angle_kp_select(float angle, const KpArray *k) {
 	float kp_mod, kp_min, kp_max, scale_angle_min, scale_angle_max;
-	int i = k.count;
+	int i = k->count;
 	//Determine the correct kp to use based on angle
 	while (i >= 0) {
-		if (angle>= k.angle_kp[i][0]) {
-			kp_min = k.angle_kp[i][1];
-			scale_angle_min = k.angle_kp[i][0];
-			if (i == k.count) { //if we are at the highest current only use highest kp
-				kp_max = k.angle_kp[i][1];
+		if (angle>= k->angle_kp[i][0]) {
+			kp_min = k->angle_kp[i][1];
+			scale_angle_min = k->angle_kp[i][0];
+			if (i == k->count) { //if we are at the highest current only use highest kp
+				kp_max = k->angle_kp[i][1];
 				scale_angle_max = 90;
 			} else {
-				kp_max = k.angle_kp[i+1][1];
-				scale_angle_max = k.angle_kp[i+1][0];
+				kp_max = k->angle_kp[i+1][1];
+				scale_angle_max = k->angle_kp[i+1][0];
 			}
 			i=-1;
 		}
@@ -137,9 +137,9 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	
 	if (k->angle_kp[1][1]<k->angle_kp[2][1] && k->angle_kp[1][0]<k->angle_kp[2][0]) {
 		if (k->angle_kp[2][1]<k->angle_kp[3][1] && k->angle_kp[2][0]<k->angle_kp[3][0]) {
-			k.count = 3;
-		} else {k.count = 2;}
+			k->count = 3;
+		} else {k->count = 2;}
 	} else if (k->angle_kp[1][1] >0 && k->angle_kp[1][0]>0) {
-		k.count = 1;
-	} else {k.count = 0;}
+		k->count = 1;
+	} else {k->count = 0;}
 }
