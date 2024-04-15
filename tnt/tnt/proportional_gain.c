@@ -21,7 +21,7 @@
 float angle_kp_select(float angle, KpArray k) {
 	float kp_mod, kp_min, kp_max, scale_angle_min, scale_angle_max;
 	int i = k.count;
-	//Determine the correct current to use based on angle
+	//Determine the correct kp to use based on angle
 	while (i >= 0) {
 		if (angle>= k.angle_kp[i][0]) {
 			kp_min = k.angle_kp[i][1];
