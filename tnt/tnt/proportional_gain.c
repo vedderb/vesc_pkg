@@ -109,7 +109,7 @@ void angle_kp_reset(KpArray *k) {
 }
 
 void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
-	float roll_kp[7][2] = { //Accel curve
+	float accel_roll_kp[7][2] = { //Accel curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->roll1, config->roll_kp1},
 	{config->roll2, config->roll_kp2},
@@ -119,7 +119,7 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	{0, 0},
 	};
 	
-	float temp_roll_kp[7][2] = { //Brake Curve
+	float brake_roll_kp[7][2] = { //Brake Curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->brkroll1, config->brkroll_kp1},
 	{config->brkroll2, config->brkroll_kp2},
@@ -131,7 +131,7 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
-			k->angle_kp[x][y] = (mode==2) ? temp_roll_kp[x][y] : roll_kp[x][y];
+			k->angle_kp[x][y] = (mode==2) ? brake_roll_kp[x][y] : accel_roll_kp[x][y];
 		}
 	}
 	
