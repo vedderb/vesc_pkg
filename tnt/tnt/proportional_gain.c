@@ -19,13 +19,9 @@
 #include "utils_tnt.h"
 
 float angle_kp_select(float angle, KpArray k) {
-	float kp_mod = 0;
-	float kp_min = 0;
-	float scale_angle_min = 0;
-	float scale_angle_max = 1;
-	float kp_max = 0;
+	float kp_mod, kp_min, kp_max, scale_angle_min, scale_angle_max;
 	int i = k.count;
-	//Determine the correct current to use based on prop_smooth
+	//Determine the correct current to use based on angle
 	while (i >= 0) {
 		if (angle>= k.angle_kp[i][0]) {
 			kp_min = k.angle_kp[i][1];
@@ -42,7 +38,7 @@ float angle_kp_select(float angle, KpArray k) {
 		i--;
 	}
 	
-	//Scale the kp values according to prop_smooth
+	//Interpolate the kp values according to angle
 	kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, angle);
 	return kp_mod;
 }
