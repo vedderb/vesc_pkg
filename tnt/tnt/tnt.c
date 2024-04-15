@@ -21,9 +21,9 @@
 #include "vesc_c_if.h"
 
 #include "footpad_sensor.h"
-#include "motor_data.h"
-#include "state.h"
-#include "utils.h"
+#include "motor_data_tnt.h"
+#include "state_tnt.h"
+#include "utils_tnt.h"
 #include "proportional_gain.h"
 
 #include "conf/datatypes.h"
