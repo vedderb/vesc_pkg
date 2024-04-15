@@ -16,7 +16,7 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "proportional_gain.h"
-#include "utils.h"
+#include "utils_tnt.h"
 
 float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	float kp_mod = 0;
