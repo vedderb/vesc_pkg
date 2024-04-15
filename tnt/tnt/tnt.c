@@ -387,9 +387,6 @@ static void reset_vars(data *d) {
 	// Feature: click on start
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
-	// Traction Control
-	d->direction = 0;
-	
 	// Surge
 	d->surge = false;
 	d->surge_off = false;
@@ -919,10 +916,10 @@ static void check_current(data *d){
 		+ (d->tnt_conf.surge_start_hd_current - ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * .95); 	//+b
 	d->surge_start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
 	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
-	     (sign(d->proportional) == d->motor.erpm_sign) && 				//Not braking
+	     (!d->braking_pos) && 				//Not braking
 	     (d->state.state != STATE_WHEELSLIP) &&					//Not during traction control
 	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
-	     (sign(d->direction) == d->motor.erpm_sign) &&				//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
+	     (d->motor.erpm_sign_check) &&				//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
 	     (d->state.sat != SAT_CENTERING)) { 					//Not during startup
 		// High current, just haptic buzz don't actually limit currents
 		if (d->current_time - d->overcurrent_timer < d->tnt_conf.overcurrent_period) {	//Not during an active overcurrent period
@@ -994,7 +991,7 @@ static void check_traction(data *d){
 		if (d->motor.abs_erpm > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
-	} else if (sign(d->direction) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+	} else if (sign(d->motor_erpm_sign_soft) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 	} else {erpm_check = false;}
 		
@@ -1003,7 +1000,7 @@ static void check_traction(data *d){
 	if ((sign(d->motor.current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * wheelslip_erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (d->state.state != STATE_WHEELSLIP) &&									// Not in traction control
 	   (sign(d->motor.current) == sign(d->motor.accel_history[d->motor.accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
-	   (sign(d->proportional) == sign(d->motor.erpm)) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
+	   (!d->braking_pos) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
 	   (d->current_time - d->wheelslip_timeroff > .2) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
 		d->state.state = STATE_WHEELSLIP;
@@ -1062,7 +1059,7 @@ static void apply_rollkp(data *d, float new_pid_value){
 	float erpmscale = 1;
 
 	//Determine the correct kp to use based on abs_roll_angle
-	if (sign(d->proportional) != d->motor.erpm_sign) { //Braking
+	if (d->braking_pos) { //Braking
 		if (d->abs_roll_angle > d->tnt_conf.brkroll3 && d->brkroll_count==3) {
 			kp_min = d->tnt_conf.brkroll_kp3;
 			kp_max = d->tnt_conf.brkroll_kp3;
@@ -1349,8 +1346,9 @@ static void tnt_thd(void *arg) {
 			d->proportional = d->setpoint - d->pitch_angle;
 			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
+			d->braking_pos = sign(d->proportional) != d->motor.erpm_sign;
 			float kp_mod;
-			if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
+			if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
 				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->brake_kp);		// Use separate braking function
 				d->debug10 = -kp_mod;
 			} else { 									// Else use normal function
@@ -1360,15 +1358,13 @@ static void tnt_thd(void *arg) {
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
 			new_pid_value = kp_mod * d->proportional;
 			
-			d->direction = 0.999 * d->direction + (1-0.999) * d->motor.erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
-			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
 				// Rate P
 				float rate_prop = -d->gyro[1];
 				d->pid_mod = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; // Calc rate stability first
-				if (d->tnt_conf.brake_curve && sign(d->proportional) != d->motor.erpm_sign) { 	//If braking and user allows braking curve
+				if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
 					d->debug12 = -d->tnt_conf.brakekp_rate * (d->pid_mod -1);		// record the extra kp rate from stability, negative for braking
 					d->pid_mod *= d->tnt_conf.brakekp_rate * rate_prop;			// Use separate braking function, apply kp rate to stability
 				} else {
