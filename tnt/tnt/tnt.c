@@ -1255,10 +1255,10 @@ static void tnt_thd(void *arg) {
 			d->braking_pos = sign(d->proportional) != d->motor.erpm_sign;
 			float kp_mod;
 			if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
-				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->brake_kp);		// Use separate braking function
+				kp_mod = angle_kp_select(d->abs_prop_smooth, d->brake_kp);		// Use separate braking function
 				d->debug10 = -kp_mod;
 			} else { 									// Else use normal function
-				kp_mod = pitch_kp_select(d->abs_prop_smooth, d->accel_kp); 
+				kp_mod = angle_kp_select(d->abs_prop_smooth, d->accel_kp); 
 				d->debug10 = kp_mod;
 			}				
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
@@ -1283,12 +1283,12 @@ static void tnt_thd(void *arg) {
 				float rollkp = 0;
 				float erpmscale = 1;
 				if (d->roll_brake_kp.count!=0 && d->braking_pos) { 				
-					rollkp = angle_kp_select(d->abs_roll_angle, &d->brake_roll_kp);
+					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_brake_kp);
 					if (d->motor.abs_erpm < 750) { 						// If we want to actually stop at low speed reduce kp to 0
 						erpmscale = 0;
 					}
 				} else if (d->roll_accel_kp.count!=0) { 
-					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_kp);
+					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_accel_kp);
 					if (d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
 						erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/
 							(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
