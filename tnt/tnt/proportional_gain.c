@@ -48,10 +48,6 @@ float angle_kp_select(float angle, KpArray k) {
 }
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
-	//initialize current and pitch arrays	
-	float kp0 = config->kp0;
-	bool kp_input = config->pitch_kp_input;
-	
 	float pitch_current[7][2] = { //Accel curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
@@ -61,18 +57,19 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	{config->pitch5, config->current5},
 	{config->pitch6, config->current6},
 	};
+	float kp0 = config->kp0;
+	bool kp_input = config->pitch_kp_input;
 	
-	float temp_pitch_current[7][2] = { //Brake Curve
-	{0, 0}, //reserved for kp0 assigned at the end
-	{config->brakepitch1, config->brakecurrent1},
-	{config->brakepitch2, config->brakecurrent2},
-	{config->brakepitch3, config->brakecurrent3},
-	{config->brakepitch4, config->brakecurrent4},
-	{config->brakepitch5, config->brakecurrent5},
-	{config->brakepitch6, config->brakecurrent6},
-	};
-
 	if (mode==2) { //Brake curve
+		float temp_pitch_current[7][2] = {
+		{0, 0}, //reserved for kp0 assigned at the end
+		{config->brakepitch1, config->brakecurrent1},
+		{config->brakepitch2, config->brakecurrent2},
+		{config->brakepitch3, config->brakecurrent3},
+		{config->brakepitch4, config->brakecurrent4},
+		{config->brakepitch5, config->brakecurrent5},
+		{config->brakepitch6, config->brakecurrent6},
+		};
 		for (int x = 0; x <= 6; x++) {
 			for (int y = 0; y <= 1; y++) {
 				pitch_current[x][y] = temp_pitch_current[x][y];
@@ -94,6 +91,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 		} else { i=7; }
 		i++;
 	}
+	
 	//Check kp0 for an appropriate value, prioritizing kp1
 	if (k->angle_kp[1][1] !=0) {
 		if (k->angle_kp[1][1] < kp0) {
@@ -105,6 +103,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 }
 
 void angle_kp_reset(KpArray *k) {
+	//necessary only for the pitch kparray
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
 			k->angle_kp[x][y] = 0;
