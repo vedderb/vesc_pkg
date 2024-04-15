@@ -1255,10 +1255,10 @@ static void tnt_thd(void *arg) {
 			d->braking_pos = sign(d->proportional) != d->motor.erpm_sign;
 			float kp_mod;
 			if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
-				kp_mod = angle_kp_select(d->abs_prop_smooth, d->brake_kp);		// Use separate braking function
+				kp_mod = angle_kp_select(d->abs_prop_smooth, &d->brake_kp);		// Use separate braking function
 				d->debug10 = -kp_mod;
 			} else { 									// Else use normal function
-				kp_mod = angle_kp_select(d->abs_prop_smooth, d->accel_kp); 
+				kp_mod = angle_kp_select(d->abs_prop_smooth, &d->accel_kp); 
 				d->debug10 = kp_mod;
 			}				
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
