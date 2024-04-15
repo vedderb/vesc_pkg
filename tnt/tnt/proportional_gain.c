@@ -18,7 +18,7 @@
 #include "proportional_gain.h"
 #include "utils_tnt.h"
 
-float pitch_kp_select(float abs_prop_smooth, KpArray k) {
+float angle_kp_select(float angle, KpArray k) {
 	float kp_mod = 0;
 	float kp_min = 0;
 	float scale_angle_min = 0;
@@ -27,15 +27,15 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	int i = k.count;
 	//Determine the correct current to use based on prop_smooth
 	while (i >= 0) {
-		if (abs_prop_smooth>= k.pitch_kp[i][0]) {
-			kp_min = k.pitch_kp[i][1];
-			scale_angle_min = k.pitch_kp[i][0];
+		if (angle>= k.angle_kp[i][0]) {
+			kp_min = k.angle_kp[i][1];
+			scale_angle_min = k.angle_kp[i][0];
 			if (i == k.count) { //if we are at the highest current only use highest kp
-				kp_max = k.pitch_kp[i][1];
+				kp_max = k.angle_kp[i][1];
 				scale_angle_max = 90;
 			} else {
-				kp_max = k.pitch_kp[i+1][1];
-				scale_angle_max = k.pitch_kp[i+1][0];
+				kp_max = k.angle_kp[i+1][1];
+				scale_angle_max = k.angle_kp[i+1][0];
 			}
 			i=-1;
 		}
@@ -43,7 +43,7 @@ float pitch_kp_select(float abs_prop_smooth, KpArray k) {
 	}
 	
 	//Scale the kp values according to prop_smooth
-	kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, abs_prop_smooth);
+	kp_mod = lerp(scale_angle_min, scale_angle_max, kp_min, kp_max, angle);
 	return kp_mod;
 }
 
@@ -87,28 +87,64 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	while (i <= 6){
 		if (pitch_current[i][1]!=0 && pitch_current[i][0]>pitch_current[i-1][0]) {
 			k->count = i;
-			k->pitch_kp[i][0]=pitch_current[i][0];
+			k->angle_kp[i][0]=pitch_current[i][0];
 			if (kp_input) {
-				k->pitch_kp[i][1]=pitch_current[i][1];
-			} else {k->pitch_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
+				k->angle_kp[i][1]=pitch_current[i][1];
+			} else {k->angle_kp[i][1]=pitch_current[i][1]/pitch_current[i][0];}
 		} else { i=7; }
 		i++;
 	}
 	//Check kp0 for an appropriate value, prioritizing kp1
-	if (k->pitch_kp[1][1] !=0) {
-		if (k->pitch_kp[1][1] < kp0) {
-			k->pitch_kp[0][1]= k->pitch_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
-		} else { k->pitch_kp[0][1] = kp0; } //If less than kp1 it is OK
-	} else if (k->pitch_kp[0][1]==0) { //If no currents and no kp0
-		k->pitch_kp[0][1] = 5; //default 5
-	} else { k->pitch_kp[0][1] = kp0; }//passes all checks, it is ok 
+	if (k->angle_kp[1][1] !=0) {
+		if (k->angle_kp[1][1] < kp0) {
+			k->angle_kp[0][1]= k->angle_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
+		} else { k->angle_kp[0][1] = kp0; } //If less than kp1 it is OK
+	} else if (k->angle_kp[0][1]==0) { //If no currents and no kp0
+		k->angle_kp[0][1] = 5; //default 5
+	} else { k->angle_kp[0][1] = kp0; }//passes all checks, it is ok 
 }
 
-void pitch_kp_reset(KpArray *k) {
+void angle_kp_reset(KpArray *k) {
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
-			k->pitch_kp[x][y] = 0;
+			k->angle_kp[x][y] = 0;
 		}
 	}
 	k->count = 0;
+}
+
+void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
+	float roll_kp[7][2] = { //Accel curve
+	{0, 0}, //reserved for kp0 assigned at the end
+	{config->roll1, config->roll_kp1},
+	{config->roll2, config->roll_kp2},
+	{config->roll3, config->roll_kp3},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	};
+	
+	float temp_roll_kp[7][2] = { //Brake Curve
+	{0, 0}, //reserved for kp0 assigned at the end
+	{config->brkroll1, config->brkroll_kp1},
+	{config->brkroll2, config->brkroll_kp2},
+	{config->brkroll3, config->brkroll_kp3},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	};	
+
+	for (int x = 0; x <= 6; x++) {
+		for (int y = 0; y <= 1; y++) {
+			k->angle_kp[x][y] = (mode==2) ? temp_roll_kp[x][y] : roll_kp[x][y];
+		}
+	}
+	
+	if (k->angle_kp[1][1]<k->angle_kp[2][1] && k->angle_kp[1][0]<k->angle_kp[2][0]) {
+		if (k->angle_kp[2][1]<k->angle_kp[3][1] && k->angle_kp[2][0]<k->angle_kp[3][0]) {
+			k.count = 3;
+		} else {k.count = 2;}
+	} else if (k->angle_kp[1][1] >0 && k->angle_kp[1][0]>0) {
+		k.count = 1;
+	} else {k.count = 0;}
 }
