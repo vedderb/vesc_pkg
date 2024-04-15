@@ -20,12 +20,14 @@
 #include "conf/datatypes.h"
 
 typedef struct {
-	float pitch_kp[7][2];
+	float angle_kp[7][2];
 	int count;
 } KpArray;
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode);
 
-float pitch_kp_select(float abs_prop_smooth, KpArray k);
+void roll_kp_configure(const tnt_config *config, KpArray *k, int mode);
 
-void pitch_kp_reset(KpArray *k);
+float angle_kp_select(float angle, KpArray k);
+
+void angle_kp_reset(KpArray *k);
