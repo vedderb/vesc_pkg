@@ -25,6 +25,7 @@
 #include "state_tnt.h"
 #include "utils_tnt.h"
 #include "proportional_gain.h"
+#include "kalman.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
