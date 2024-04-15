@@ -28,6 +28,6 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode);
 
 void roll_kp_configure(const tnt_config *config, KpArray *k, int mode);
 
-float angle_kp_select(float angle, KpArray k);
+float angle_kp_select(float angle, const KpArray *k);
 
 void angle_kp_reset(KpArray *k);
