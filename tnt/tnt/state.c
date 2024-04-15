@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#include "state.h"
+#include "state_tnt.h"
 
 void state_init(State *state, bool disable) {
     state->state = disable ? STATE_DISABLED : STATE_STARTUP;
