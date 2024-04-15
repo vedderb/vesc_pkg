@@ -992,7 +992,7 @@ static void check_traction(data *d){
 		if (d->motor.abs_erpm > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
-	} else if (sign(d->motor_erpm_sign_soft) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+	} else if (sign(d->motor.erpm_sign_soft) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 	} else {erpm_check = false;}
 		
