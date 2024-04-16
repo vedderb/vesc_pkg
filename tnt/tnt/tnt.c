@@ -112,7 +112,6 @@ typedef struct {
 
 	float proportional;
 	float pid_mod;
-	float last_proportional, abs_proportional;
 	float pid_value;
 	float setpoint, setpoint_target, setpoint_target_interpolated;
 	float inputtilt_interpolated, noseangling_interpolated;
