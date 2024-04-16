@@ -168,7 +168,7 @@ typedef struct {
 	float wheelslip_droplimit;
 	
 	// Low Pass Filter
-	float prop_smooth, abs_prop_smooth, pitch_smooth; 
+	float pitch_smooth; 
 	Biquad pitch_biquad;
 	
 	// Kalman Filter
@@ -177,6 +177,7 @@ typedef struct {
 	float diff_time, last_time;
 
 	// Throttle/Brake Scaling
+	float prop_smooth, abs_prop_smooth;
 	float roll_pid_mod;
 	KpArray accel_kp;
 	KpArray brake_kp;
@@ -1203,54 +1204,55 @@ static void tnt_thd(void *arg) {
 			d->proportional = d->setpoint - d->pitch_angle;
 			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
+			
+			//Select and Apply Kp
 			d->braking_pos = sign(d->proportional) != d->motor.erpm_sign;
+			bool brake_curve = d->tnt_conf.brake_curve && d->braking_pos;
 			float kp_mod;
-			if (d->tnt_conf.brake_curve && d->braking_pos) { 	//If braking and user allows braking curve
-				kp_mod = angle_kp_select(d->abs_prop_smooth, &d->brake_kp);		// Use separate braking function
-				d->debug10 = -kp_mod;
-			} else { 									// Else use normal function
-				kp_mod = angle_kp_select(d->abs_prop_smooth, &d->accel_kp); 
-				d->debug10 = kp_mod;
-			}				
+			kp_mod = angle_kp_select(d->abs_prop_smooth, 
+				kp_array_select(&d->accel_kp, &d->brake_kp, brake_curve));
+			d->debug10 = brake_curve ? -kp_mod : kp_mod
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
 			new_pid_value = kp_mod * d->proportional;
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
 			if (d->start_counter_clicks == 0) {
-				// Apply Rate P
+				// Select and Apply Rate P
 				float rate_prop = -d->gyro[1];
-				float kp_rate = (d->tnt_conf.brake_curve && d->braking_pos) ? d->tnt_conf.brakekp_rate : d->tnt_conf.kp_rate;		
-				float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			// Calc rate stability first to simplify math
-				d->debug12 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
+				float kp_rate = brake_curve ? d->brake_kp.kp_rate : d->accel_kp.kp_rate;		
+				float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			
 				d->pid_mod = kp_rate * rate_prop * rate_stabl;
-				
-				// Apply Roll Boost
+				d->debug12 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
+			
+				// Select Roll Boost
 				float rollkp = 0;
 				float erpmscale = 1;
-				if (d->roll_brake_kp.count!=0 && d->braking_pos) { 				
-					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_brake_kp);
-					if (d->motor.abs_erpm < 750) { 						// If we want to actually stop at low speed reduce kp to 0
-						erpmscale = 0;
-					}
-				} else if (d->roll_accel_kp.count!=0) { 
-					rollkp = angle_kp_select(d->abs_roll_angle, &d->roll_accel_kp);
-					if (d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
-						erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/
-							(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
-					}
-				}	
+				bool brake_roll = d->roll_brake_kp.count!=0 && d->braking_pos;
+				rollkp = angle_kp_select(d->abs_roll_angle, 
+					kp_array_select(&d->roll_accel_kp, &d->roll_brake_kp, brake_roll));
+
+				//Apply ERPM Scale
+				if (brake_roll && d->motor.abs_erpm < 750) { 				
+					// If we want to actually stop at low speed reduce kp to 0
+					erpmscale = 0;
+				} else if (d->roll_accel_kp.count!=0 && d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
+					erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/
+						(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
+				}
 				rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
-				d->debug11 = rollkp;			
+
+				//Apply Roll Boost
 				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
 				d->pid_mod += d->roll_pid_mod;
-
+				d->debug11 = brake_roll ? -rollkp : rollkp;	
+				
 				if (d->softstart_pid_limit < d->mc_current_max) {
 					d->pid_mod = fminf(fabsf(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
 				}
 				
-				new_pid_value += d->pid_mod;
+				new_pid_value += d->pid_mod; // Apply PID modifiers
 			} else {
 				d->pid_mod = 0;
 			}
