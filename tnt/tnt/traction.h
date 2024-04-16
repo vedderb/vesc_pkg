@@ -18,22 +18,22 @@
 #pragma once
 
 typedef struct {
-  float timeron,
-  float timeroff,
-  float accelstartval,
-  bool highaccelon1,
-  bool highaccelon2,
-  float lasterpm,
-  float erpm
+	float timeron,       	 	//Timer from the start of wheelslip
+	float timeroff,      		//Timer from the end of high motor acceleration
+	float accelstartval,		//Starting value to engage wheelslip
+	bool highaccelon1,		//Flag that indicates acceleration magnitude has reduced
+	bool highaccelon2,		//Flag that indicates acceleration direction has changed
+	float lasterpm,			//ERPM before wheelslip
+	float erpm			//ERPM once wheelslip engaged
 } TractionData;
 
 typedef struct {
-  bool state,
-  float timeron,
-  float timeroff,
-  float count,
-  float applied_accel_z_reduction,
-  float limit
+        bool state,				//Drop is occurring
+        float timeron,				//timer for debug info
+        float timeroff,				//timer for debug info
+        float count,				//Required code cycles below the limit before drop engages
+        float applied_accel_z_reduction,	//Geometry compesation for the angle of the board
+        float limit				//Required acceleration to engage drop
 } DropData;
 
 void check_traction(data *d);
