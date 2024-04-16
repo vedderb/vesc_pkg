@@ -24,6 +24,6 @@ typedef struct {
   float Q_angle, Q_bias, R_measure;
 } KalmanFilter;
 
-float apply_kalman(float in, float in_rate, float out, float diff_time, KalmanFilter *k);
+void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFilter *k);
 void configure_kalman(const tnt_config *config, KalmanFilter *k);
 void reset_kalman(KalmanFilter *k);
