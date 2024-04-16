@@ -853,6 +853,8 @@ static void check_surge(data *d){
 		d->surge = true; 					//Indicates we are in the surge cycle of the surge period
 		d->surge_setpoint = d->setpoint;			//Records setpoint at the start of surge because surge changes the setpoint
 		d->new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
+		
+		//Debug Data Section
 		d->debug13 = d->proportional;				
 		d->debug5 = 0;
 		d->debug16 = 0;
@@ -872,6 +874,8 @@ static void check_surge(data *d){
 			d->surge = false;
 			d->surge_off = true;							//Identifies the end of surge to change the setpoint back to before surge 
 			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();	//This allows a smooth transition to PID current control
+			
+			//Debug Data Section
 			d->debug5 = d->current_time - d->surge_timer;				//Register how long the surge cycle lasted
 			d->debug18 = d->motor.duty_cycle - d->debug19;
 			d->debug14 = d->debug18 / (d->current_time - d->surge_timer) * 100;
@@ -902,10 +906,6 @@ static void check_current(data *d){
 		}
 	} else { d->overcurrent_timer = d->current_time; } //reset timer to restrict haptic buzz period once it renters overcurrent
 }
-
-
-
-
 
 static void apply_stability(data *d) {
 	float speed_stabl_mod = 0;
