@@ -47,7 +47,12 @@ float angle_kp_select(float angle, const KpArray *k) {
 	return kp_mod;
 }
 
+KpArray* kp_array_select(KpArray *ak, KpArray *bk, bool braking) {
+	return braking ? &bk : &ak;
+}
+
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
+	
 	float pitch_current[7][2] = { //Accel curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
@@ -59,6 +64,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	};
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
+	k->kp_rate = d->tnt_conf.kp_rate;
 	
 	if (mode==2) { //Brake curve
 		float temp_pitch_current[7][2] = {
@@ -77,6 +83,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 		}
 		kp0 = config->brake_kp0;
 		kp_input = config->pitch_kp_input_brake;
+		k->kp_rate = d->tnt_conf.brakekp_rate;
 	}
 
 	//Check for current inputs
