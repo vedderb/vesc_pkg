@@ -19,7 +19,11 @@
 #include "utils_tnt.h"
 
 float angle_kp_select(float angle, const KpArray *k) {
-	float kp_mod, kp_min, kp_max, scale_angle_min, scale_angle_max;
+	float kp_mod = 0;
+	float kp_min = 0;
+	float scale_angle_min = 0;
+	float scale_angle_max = 1;
+	float kp_max = 0;
 	int i = k->count;
 	//Determine the correct kp to use based on angle
 	while (i >= 0) {
