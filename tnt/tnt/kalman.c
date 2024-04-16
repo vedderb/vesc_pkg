@@ -60,9 +60,9 @@ void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFi
 }
 
 void configure_kalman(const tnt_config *config, KalmanFilter *k) {
-	float Q_angle = d->tnt_conf.kalman_factor1/10000;
-	float Q_bias = d->tnt_conf.kalman_factor2/10000;
-	float R_measure = d->tnt_conf.kalman_factor3/100000;
+	k->Q_angle = d->tnt_conf.kalman_factor1/10000;
+	k->Q_bias = d->tnt_conf.kalman_factor2/10000;
+	k->R_measure = d->tnt_conf.kalman_factor3/100000;
 }
 
 void reset_kalman(KalmanFilter *k) {
