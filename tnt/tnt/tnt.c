@@ -26,6 +26,8 @@
 #include "utils_tnt.h"
 #include "proportional_gain.h"
 #include "kalman.h"
+#include "traction.h"
+#include "high_current.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
@@ -84,7 +86,7 @@ typedef struct {
 	float mc_current_max, mc_current_min;
 	bool current_beeping;
 	bool duty_beeping;
-	bool overcurrent;
+
 
 	// Feature: Soft Start
 	float softstart_pid_limit, softstart_ramp_step_size;
@@ -120,7 +122,7 @@ typedef struct {
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
 	float motor_timeout_s;
 	float brake_timeout; // Seconds
-	float overcurrent_timer, tb_highvoltage_timer;
+	float tb_highvoltage_timer;
 	float switch_warn_beep_erpm;
 	bool braking_pos;
 
@@ -137,14 +139,7 @@ typedef struct {
 	bool stickytiltoff;  
 	
 	// Feature: Surge
-	float surge_timer;			//Timer to monitor surge cycle and period
-	bool surge;				//Identifies surge state which drives duty to max
-	float new_duty_cycle;
-	bool surge_off;
-	float tiltback_surge_step_size;
-	float surge_setpoint;
-	float surge_start_current;
-	float surge_ramp_rate;
+	SurgeData surge;
 	
 	//Traction Control
 	TractionData traction;
@@ -269,10 +264,10 @@ static void configure(data *d) {
 	d->tiltback_return_step_size = d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
 	d->inputtilt_step_size = d->tnt_conf.inputtilt_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
-	d->tiltback_surge_step_size = d->tnt_conf.tiltback_surge_speed / d->tnt_conf.hertz;
+	d->surge.tiltback_step_size = d->tnt_conf.tiltback_surge_speed / d->tnt_conf.hertz;
 	
 	//Surge
-	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / d->tnt_conf.hertz;
+	d->surge.ramp_rate =  d->tnt_conf.surge_duty / 100 / d->tnt_conf.hertz;
 
 	//Dynamic Stability
 	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
@@ -352,8 +347,6 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
-	d->overcurrent = false;
-	d->overcurrent_timer = 0;
 	
 	//Input tilt/ Sticky tilt
 	if (d->inputtilt_interpolated != d->stickytilt_val || !(VESC_IF->get_ppm_age() < 1)) { 	// Persistent sticky tilt value if we are at value with remote connected
@@ -369,8 +362,11 @@ static void reset_vars(data *d) {
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
 	// Surge
-	d->surge = false;
-	d->surge_off = false;
+	d->surge.state = false;
+	d->surge.off = false;
+	d->surge.high_current = false;
+	d->surge.high_current_buzz = false;
+	d->surge.high_current_timer = 0;
 	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
@@ -432,7 +428,7 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	case (SAT_PB_LOW_VOLTAGE):
 		return d->tiltback_lv_step_size;
 	case (SAT_UNSURGE):
-		return d->tiltback_surge_step_size;
+		return d->surge.tiltback_step_size;
 	case (SAT_SURGE):
 		return 25;
 	default:
@@ -542,11 +538,11 @@ static void calculate_setpoint_target(data *d) {
 
 	if (d->state.wheelslip) {
 		d->state.sat = SAT_NONE;
-	} else if (d->surge_off) { 
+	} else if (d->surge.state_off) { 
 		d->setpoint_target = 0;
 		d->state.sat = SAT_UNSURGE;
 		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
-			d->surge_off = false;
+			d->surge.state_off = false;
 		}
 	} else if (d->surge) {
 		if (d->proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
@@ -750,7 +746,7 @@ static float haptic_buzz(data *d, float note_period) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_lv;
 	} else if (d->state.sat == SAT_PB_TEMPERATURE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_temp;
-	} else if (d->overcurrent) {
+	} else if (d->surge.high_current_buzz) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_current;
 	} else { d->haptic_type = HAPTIC_BUZZ_NONE;}
 
@@ -840,71 +836,6 @@ static void set_dutycycle(data *d, float dutycycle){
 	// Set Duty
 	//VESC_IF->mc_set_duty(dutycycle); 
 	VESC_IF->mc_set_duty_noramp(dutycycle);
-}
-
-static void check_surge(data *d){
-	//Start Surge Code
-	//Initialize Surge Cycle
-	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current) && 	//High current condition 
-	     (d->overcurrent) && 						//If overcurrent is triggered this satifies traction control, min erpm, braking, centering and direction
-	     (d->motor.duty_cycle < 0.8) &&					//Prevent surge when pushing top speed
-	     (d->current_time - d->surge_timer > 0.7)) {	//Not during an active surge period			
-		d->surge_timer = d->current_time; 			//Reset surge timer
-		d->surge = true; 					//Indicates we are in the surge cycle of the surge period
-		d->surge_setpoint = d->setpoint;			//Records setpoint at the start of surge because surge changes the setpoint
-		d->new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
-		
-		//Debug Data Section
-		d->debug13 = d->proportional;				
-		d->debug5 = 0;
-		d->debug16 = 0;
-		d->debug18 = 0;
-		d->debug17 = d->motor.current_avg;
-		d->debug14 = 0;
-		d->debug15 = d->surge_start_current;
-		d->debug19 = d->motor.erpm_sign * d->motor.duty_cycle;
-	}
-	
-	//Conditions to stop surge and increment the duty cycle
-	if (d->surge){	
-		d->new_duty_cycle += d->motor.erpm_sign * d->surge_ramp_rate; 	
-		if((d->current_time - d->surge_timer > 0.5) ||			//Outside the surge cycle portion of the surge period
-		 (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
-		 (d->state.wheelslip)) {						//In traction control		
-			d->surge = false;
-			d->surge_off = true;							//Identifies the end of surge to change the setpoint back to before surge 
-			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();	//This allows a smooth transition to PID current control
-			
-			//Debug Data Section
-			d->debug5 = d->current_time - d->surge_timer;				//Register how long the surge cycle lasted
-			d->debug18 = d->motor.duty_cycle - d->debug19;
-			d->debug14 = d->debug18 / (d->current_time - d->surge_timer) * 100;
-			if (d->current_time - d->surge_timer >= 0.5) {
-				d->debug16 = 111;
-			} else if (-1 * (d->surge_setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle){
-				d->debug16 = d->pitch_angle;
-			} else if (d->state.wheelslip){
-				d->debug16 = 222;
-			}
-		}
-	}
-}
-
-static void check_current(data *d){
-	d->overcurrent = false;
-	float scale_start_current = lerp(d->tnt_conf.surge_scaleduty/100, .95, d->tnt_conf.surge_startcurrent, d->tnt_conf.surge_start_hd_current, d->motor.duty_cycle);
-	d->surge_start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
-	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
-	     (!d->braking_pos) && 				//Not braking
-	     (!d->state.wheelslip) &&					//Not during traction control
-	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&				//Above the min erpm threshold
-	     (d->motor.erpm_sign_check) &&				//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
-	     (d->state.sat != SAT_CENTERING)) { 					//Not during startup
-		// High current, just haptic buzz don't actually limit currents
-		if (d->current_time - d->overcurrent_timer < d->tnt_conf.overcurrent_period) {	//Not during an active overcurrent period
-			d->overcurrent = true;
-		}
-	} else { d->overcurrent_timer = d->current_time; } //reset timer to restrict haptic buzz period once it renters overcurrent
 }
 
 static void apply_stability(data *d) {
@@ -1169,7 +1100,7 @@ static void tnt_thd(void *arg) {
 					set_current(d, d->pid_value - d->tnt_conf.startup_click_current);
 				else
 					set_current(d, d->pid_value + d->tnt_conf.startup_click_current);
-			} else if (d->surge) { 	
+			} else if (d->surge.state) { 	
 				set_dutycycle(d, d->new_duty_cycle); 		// Set the duty to surge
 			} else {
 				// modulate haptic buzz onto pid_value unconditionally to allow
@@ -1379,7 +1310,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->inputtilt_interpolated, &ind);
 	buffer_append_float32_auto(buffer, d->throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(buffer, d->current_time - d->surge_timer , &ind); //Temporary debug. Time since last surge
+	buffer_append_float32_auto(buffer, d->current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
 
 	// Trip
 	if (d->ride_time > 0) {
