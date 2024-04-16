@@ -47,10 +47,6 @@ float angle_kp_select(float angle, const KpArray *k) {
 	return kp_mod;
 }
 
-KpArray* kp_array_select(KpArray *ak, KpArray *bk, bool braking) {
-	return braking ? &bk : &ak;
-}
-
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	
 	float pitch_current[7][2] = { //Accel curve
