@@ -17,7 +17,7 @@
 
 #include "traction.h"
 
-static void check_traction(data *d){
+void check_traction(data *d){
 	float erpmfactor = d->tnt_conf.wheelslip_scaleaccel - min(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->motor.abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
 	bool erpm_check;
 	
@@ -107,7 +107,7 @@ static void check_traction(data *d){
 	}
 }
 
-static void check_drop(data *d){
+void check_drop(data *d){
 	float accel_z_reduction = cosf(deg2rad(d->roll_angle)) * cosf(deg2rad(d->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (d->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		d->applied_accel_z_reduction = accel_z_reduction ;						// Roll or pitch are increasing. Do not delay
