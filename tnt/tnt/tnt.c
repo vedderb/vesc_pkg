@@ -1096,7 +1096,7 @@ static void tnt_thd(void *arg) {
 			d->pitch_smooth = biquad_process(&d->pitch_biquad, d->pitch_angle);
 		} else {d->pitch_smooth = d->pitch_angle;}
 		if (d->tnt_conf.kalman_factor1 > 0) {
-			d->pitch_smooth_kalman = apply_kalman(d->pitch_smooth, d->gyro[1], d->pitch_smooth_kalman, d->diff_time, &d->pitch_kalman);
+			 apply_kalman(d->pitch_smooth, d->gyro[1], &d->pitch_smooth_kalman, d->diff_time, &d->pitch_kalman);
 		} else {d->pitch_smooth_kalman = d->pitch_smooth;}
 
 		motor_data_update(&d->motor);
