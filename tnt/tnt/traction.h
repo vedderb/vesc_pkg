@@ -17,14 +17,24 @@
 
 #pragma once
 
-	struct {
-	bool traction_control,
-	float wheelslip_timeron,
-	float wheelslip_timeroff,
-	float wheelslip_accelstartval,
-	bool wheelslip_highaccelon1,
-	bool wheelslip_highaccelon2,
-	float wheelslip_lasterpm,
-	float wheelslip_erpm,
-	} TractionData;
+typedef struct {
+float timeron,
+float timeroff,
+float accelstartval,
+bool highaccelon1,
+bool highaccelon2,
+float lasterpm,
+float erpm
+} TractionData;
 
+typedef struct {
+bool state,
+float timeron,
+float timeroff,
+float count,
+float applied_accel_z_reduction,
+float limit
+} DropData;
+
+static void check_traction(data *d);
+static void check_drop(data *d);
