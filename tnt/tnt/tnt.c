@@ -1210,7 +1210,7 @@ static void tnt_thd(void *arg) {
 			bool brake_curve = d->tnt_conf.brake_curve && d->braking_pos;
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
-				kp_array_select(&d->accel_kp, &d->brake_kp, brake_curve));
+				brake_curve ? &d->brake_kp : &d->accel_kp);
 			d->debug10 = brake_curve ? -kp_mod : kp_mod
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
 			new_pid_value = kp_mod * d->proportional;
@@ -1225,12 +1225,12 @@ static void tnt_thd(void *arg) {
 				d->pid_mod = kp_rate * rate_prop * rate_stabl;
 				d->debug12 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
 			
-				// Select Roll Boost
+				// Select Roll Boost Kp
 				float rollkp = 0;
 				float erpmscale = 1;
 				bool brake_roll = d->roll_brake_kp.count!=0 && d->braking_pos;
 				rollkp = angle_kp_select(d->abs_roll_angle, 
-					kp_array_select(&d->roll_accel_kp, &d->roll_brake_kp, brake_roll));
+					brake_roll ? &d->roll_brake_kp : &d->roll_accel_kp);
 
 				//Apply ERPM Scale
 				if (brake_roll && d->motor.abs_erpm < 750) { 				
@@ -1246,7 +1246,8 @@ static void tnt_thd(void *arg) {
 				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
 				d->pid_mod += d->roll_pid_mod;
 				d->debug11 = brake_roll ? -rollkp : rollkp;	
-				
+
+				//Soft Start
 				if (d->softstart_pid_limit < d->mc_current_max) {
 					d->pid_mod = fminf(fabsf(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
 					d->softstart_pid_limit += d->softstart_ramp_step_size;
