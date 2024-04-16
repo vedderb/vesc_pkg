@@ -15,11 +15,9 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#pragma once
-
 #include "kalman.h"
 
-void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFilter *k){
+void apply_kalman(float in, float in_rate, float *out, float dt, KalmanFilter *k){
     // KasBot V2  -  Kalman filter module - http://www.x-firm.com/?page_id=145
     // Modified by Kristian Lauszus
     // See my blog post for more information: http://blog.tkjelectronics.dk/2012/09/a-practical-approach-to-kalman-filter-and-how-to-implement-it
@@ -27,7 +25,7 @@ void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFi
     // Update xhat - Project the state ahead
 	// Step 1
 	float rate = in_rate / 131 - k->bias; 
-	out += dt * rate;
+	*out += dt * rate;
 	// Update estimation error covariance - Project the error covariance ahead
 	// Step 2 
 	k->P00 += dt * (dt * k->P11 - k->P01 - k->P10 + k->Q_angle);
@@ -43,9 +41,9 @@ void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFi
 	float K1 = k->P10 / S;
 	// Calculate angle and bias - Update estimate with measurement zk (newAngle)
 	// Step 3
-	float y = in - out; // Angle difference
+	float y = in - *out; // Angle difference
 	// Step 6
-	out += K0 * y;
+	*out += K0 * y;
 	k->bias += K1 * y;
 	// Calculate estimation error covariance - Update the error covariance
 	// Step 7
@@ -55,8 +53,6 @@ void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFi
 	k->P01 -= K0 * P01_temp;
 	k->P10 -= K1 * P00_temp;
 	k->P11 -= K1 * P01_temp;
-
-	return out;
 }
 
 void configure_kalman(const tnt_config *config, KalmanFilter *k) {
