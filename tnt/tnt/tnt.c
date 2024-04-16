@@ -1047,7 +1047,7 @@ static void apply_stability(data *d) {
 				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
-	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size) {
+	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size); 
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
