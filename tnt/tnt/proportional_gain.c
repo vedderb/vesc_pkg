@@ -93,7 +93,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 		if (k->angle_kp[1][1] < kp0) {
 			k->angle_kp[0][1]= k->angle_kp[1][1]; //If we have a kp1 check to see if it is less than kp0 else reduce kp0
 		} else { k->angle_kp[0][1] = kp0; } //If less than kp1 it is OK
-	} else if (k->angle_kp[0][1]==0) { //If no currents and no kp0
+	} else if (kp0 == 0) { //If no currents and no kp0
 		k->angle_kp[0][1] = 5; //default 5
 	} else { k->angle_kp[0][1] = kp0; }//passes all checks, it is ok 
 }
