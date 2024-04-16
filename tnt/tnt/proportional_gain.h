@@ -31,6 +31,4 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode);
 
 float angle_kp_select(float angle, const KpArray *k);
 
-KpArray* kp_array_select(KpArray *ak, KpArray *bk, bool braking);
-
 void angle_kp_reset(KpArray *k);
