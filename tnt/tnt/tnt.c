@@ -261,11 +261,6 @@ void beep_on(data *d, bool force)
 		EXT_BEEPER_ON();
 }
 
-
-static void reconfigure(data *d) {
-    motor_data_configure(&d->motor, 3.0 / d->tnt_conf.hertz);
-}
-
 static void configure(data *d) {
 	state_init(&d->state, d->tnt_conf.disable_pkg);
 	
@@ -277,7 +272,8 @@ static void configure(data *d) {
 
 	// Loop time in seconds times 20 for a nice long grace period
 	d->motor_timeout_s = 20.0f / d->tnt_conf.hertz;
-	
+
+	//Setpoint Adjustment
 	d->startup_step_size = d->tnt_conf.startup_speed / d->tnt_conf.hertz;
 	d->tiltback_duty_step_size = d->tnt_conf.tiltback_duty_speed / d->tnt_conf.hertz;
 	d->tiltback_hv_step_size = d->tnt_conf.tiltback_hv_speed / d->tnt_conf.hertz;
@@ -285,8 +281,13 @@ static void configure(data *d) {
 	d->tiltback_return_step_size = d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
 	d->inputtilt_step_size = d->tnt_conf.inputtilt_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
-	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
 	d->tiltback_surge_step_size = d->tnt_conf.tiltback_surge_speed / d->tnt_conf.hertz;
+	
+	//Surge
+	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / d->tnt_conf.hertz;
+
+	//Dynamic Stability
+	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
 	
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
@@ -324,24 +325,18 @@ static void configure(data *d) {
 	d->beeper_enabled = d->tnt_conf.is_beeper_enabled;
 
 	//Pitch Biquad Configure
-	float Fc2; 
-	Fc2 = d->tnt_conf.pitch_filter / (float)d->tnt_conf.hertz; 
-	biquad_configure(&d->pitch_biquad, BQ_LOWPASS, Fc2);
+	biquad_configure(&d->pitch_biquad, BQ_LOWPASS, d->tnt_conf.pitch_filter / d->tnt_conf.hertz);
 
 	//Pitch Kalman Configure
 	configure_kalman(&d->tnt_conf, &d->pitch_kalman);
-	
-	reconfigure(d);
-	
-	if (d->state.state == STATE_DISABLED) {
-	    beep_alert(d, 3, false);
-	} else {
-	    beep_alert(d, 1, false);
-	}
 
+	//Motor Data Configure
+	motor_data_configure(&d->motor, 3.0 / d->tnt_conf.hertz);
+	
 	//initialize current and pitch arrays for acceleration
 	angle_kp_reset(&d->accel_kp);
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
+	
 	//initialize current and pitch arrays for braking
 	if (d->tnt_conf.brake_curve) {
 		angle_kp_reset(&d->brake_kp);
@@ -351,9 +346,12 @@ static void configure(data *d) {
 	//Check for roll inputs
 	roll_kp_configure(&d->tnt_conf, &d->roll_accel_kp, 1);
 	roll_kp_configure(&d->tnt_conf, &d->roll_brake_kp, 2);
-
-	//Surge
-	d->surge_ramp_rate =  d->tnt_conf.surge_duty / 100 / (float)d->tnt_conf.hertz;
+	
+	if (d->state.state == STATE_DISABLED) {
+	    beep_alert(d, 3, false);
+	} else {
+	    beep_alert(d, 1, false);
+	}
 }
 
 static void reset_vars(data *d) {
@@ -902,9 +900,7 @@ static void check_surge(data *d){
 
 static void check_current(data *d){
 	d->overcurrent = false;
-	float scale_start_current;
-	scale_start_current = ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * d->motor.duty_cycle			//linear scaling mx
-		+ (d->tnt_conf.surge_start_hd_current - ((d->tnt_conf.surge_start_hd_current - d->tnt_conf.surge_startcurrent) / (.95 - d->tnt_conf.surge_scaleduty/100)) * .95); 	//+b
+	float scale_start_current = lerp(d->tnt_conf.surge_scaleduty/100, .95, d->tnt_conf.surge_startcurrent, d->tnt_conf.surge_start_hd_current, d->motor.duty_cycle);
 	d->surge_start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
 	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge_start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
 	     (!d->braking_pos) && 				//Not braking
@@ -1047,17 +1043,11 @@ static void apply_stability(data *d) {
 		throttle_stabl_mod = fabsf(d->inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; //using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
 	}
 	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > d->tnt_conf.stabl_min_erpm) {		
-		speed_stabl_mod = min(1 ,	// Do not exceed the max value. Divided by 100 for percentage.					
-				((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->motor.abs_erpm				//linear scaling mx
-				+ (1 - ((1 - 0) / (d->tnt_conf.stabl_max_erpm - d->tnt_conf.stabl_min_erpm)) * d->tnt_conf.stabl_max_erpm) 	//+b
-				);
+		speed_stabl_mod = min(1 ,	// Do not exceed the max value.				
+				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
-	if (d->stabl > stabl_mod) {
-		d->stabl = max(d->stabl - d->stabl_step_size, 0); //ramp stifness down but not below zero. Ramp is a percentage of max scale
-	} else if (d->stabl < stabl_mod) {
-		d->stabl = min(d->stabl + d->stabl_step_size, stabl_mod); //ramp stability up but do not exceed stabl_mod
-	}
+	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size) {
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
@@ -1231,14 +1221,9 @@ static void tnt_thd(void *arg) {
 				// Apply Rate P
 				float rate_prop = -d->gyro[1];
 				float kp_rate = (d->tnt_conf.brake_curve && d->braking_pos) ? d->tnt_conf.brakekp_rate : d->tnt_conf.kp_rate;		
-				float rate_stable = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			// Calc rate stability first to simplify math
-				//if (d->tnt_conf.brake_curve && d->braking_pos) { 				//If braking and user allows braking curve
-				//	kp_rate = d->tnt_conf.brakekp_rate;		
-				//} else {
-				//	kp_rate = d->tnt_conf.brakekp_rate;		
-				//}		
-				d->debug12 = kp_rate * (rate_stable - 1);				// Calc the contribution of stability to kp_rate
-				d->pid_mod = kp_rate * rate_prop * rate_stable;
+				float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			// Calc rate stability first to simplify math
+				d->debug12 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
+				d->pid_mod = kp_rate * rate_prop * rate_stabl;
 				
 				// Apply Roll Boost
 				float rollkp = 0;
