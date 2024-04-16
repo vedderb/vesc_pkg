@@ -19,7 +19,7 @@
 
 #include "kalman.h"
 
-float apply_kalman(float in, float in_rate, float out, float diff_time, KalmanFilter *k){
+void apply_kalman(float in, float in_rate, float *out, float diff_time, KalmanFilter *k){
     // KasBot V2  -  Kalman filter module - http://www.x-firm.com/?page_id=145
     // Modified by Kristian Lauszus
     // See my blog post for more information: http://blog.tkjelectronics.dk/2012/09/a-practical-approach-to-kalman-filter-and-how-to-implement-it
