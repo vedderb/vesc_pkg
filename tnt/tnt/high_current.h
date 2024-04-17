@@ -19,9 +19,9 @@
 
 typedef struct {
 	float timer;				//Timer to monitor surge cycle and period
-	bool state;				//Identifies surge state which drives duty to max
+	bool active;				//Identifies surge state which drives duty to max
 	float new_duty_cycle;			//Used to ramp duty cycle
-	bool state_off;				//Used to identify when setpoint should return to nowmal
+	bool deactivate;				//Used to identify when setpoint should return to nowmal
 	float tiltback_step_size;		//Speed that the board returns to setpoint
 	float setpoint;				//Setpoint allowed by surge
 	float start_current;			//Current that starts surge
@@ -29,7 +29,25 @@ typedef struct {
 	bool high_current;			//A state below surge current by amount, overcurrent margin
 	float high_current_timer;		//Limits the duration of haptic buzz
 	bool high_current_buzz;			//A state that allows haptic buzz during high current
+	float maxangle;
+	float scaleduty;
+	float start_ld_current;
+	float start_hd_current;
+	float minerpm;
+	float buzz_time_limit;
 } SurgeData;
 
-void check_current(data *d);
-void check_surge(data *d);
+typedef struct {
+	float debug1;
+	float debug2;
+	float debug3;
+	float debug4;
+	float debug5
+	float debug6;
+	float debug7;
+	float debug8;
+	float debug9;
+} SurgeDebug;
+
+void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
+void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
