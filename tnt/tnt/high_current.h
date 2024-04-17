@@ -30,12 +30,6 @@ typedef struct {
 	bool high_current;			//A state below surge current by amount, overcurrent margin
 	float high_current_timer;		//Limits the duration of haptic buzz
 	bool high_current_buzz;			//A state that allows haptic buzz during high current
-	float maxangle;
-	float scaleduty;
-	float start_ld_current;
-	float start_hd_current;
-	float minerpm;
-	float buzz_time_limit;
 } SurgeData;
 
 typedef struct {
@@ -50,6 +44,7 @@ typedef struct {
 	float debug9;
 } SurgeDebug;
 
-void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
-void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
+void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt, tnt_config *config);
+void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt, tnt_config *config);
 void configure_high_current(SurgeData *surge, tnt_config *config);
+void reset_surge(SurgeData *surge);
