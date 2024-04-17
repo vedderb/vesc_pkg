@@ -16,15 +16,29 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include "vesc_c_if.h"
+#include "conf/datatypes.h"
 
-	struct {
-	bool traction_control,
-	float wheelslip_timeron,
-	float wheelslip_timeroff,
-	float wheelslip_accelstartval,
-	bool wheelslip_highaccelon1,
-	bool wheelslip_highaccelon2,
-	float wheelslip_lasterpm,
-	float wheelslip_erpm,
-	} TractionData;
+struct {
+	float ramped_step_size;
+	float step_size;
+	float throttle_val;
+	float inputtilt_interpolated;
+	float smoothing_factor;
+} RemoteData;
 
+struct {
+	float value; 
+	bool active; 
+	float max_value; 
+	float last_throttle_val;
+	bool deactivate; 
+	float hold_current;
+	float low_value;
+	float high_value;
+} StickyTiltData;
+
+void update_remote(tnt_config *config, RemoteData *r);
+float apply_inputtilt(RemoteData *r, float input_tiltback_target);
+void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float input_tiltback_target);
+void configure_remote_features(tnt_config *config, RemoteData *r, StickyTiltData *s);
