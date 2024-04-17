@@ -28,6 +28,7 @@
 #include "kalman.h"
 #include "traction.h"
 #include "high_current.h"
+#include "runtime.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
@@ -87,7 +88,6 @@ typedef struct {
 	bool current_beeping;
 	bool duty_beeping;
 
-
 	// Feature: Soft Start
 	float softstart_pid_limit, softstart_ramp_step_size;
 
@@ -97,8 +97,11 @@ typedef struct {
 	// Brake Amp Rate Limiting:
 	float pid_brake_increment;
 
+	// Runtime values grouped for easy access in ancillary functions
+	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time
+
 	// Runtime values read from elsewhere
-	float pitch_angle, last_pitch_angle, roll_angle, abs_roll_angle;
+	float last_pitch_angle, roll_angle, abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
 	
@@ -110,12 +113,9 @@ typedef struct {
 	// Rumtime state values
 	State state;
 
-	float proportional;
 	float pid_mod;
-	float pid_value;
-	float setpoint, setpoint_target, setpoint_target_interpolated;
+	float setpoint_target, setpoint_target_interpolated;
 	float inputtilt_interpolated, noseangling_interpolated;
-	float current_time;
 	float disengage_timer, nag_timer;
 	float idle_voltage;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
@@ -246,7 +246,7 @@ static void configure(data *d) {
 	state_init(&d->state, d->tnt_conf.disable_pkg);
 	
 	// This timer is used to determine how long the board has been disengaged / idle. subtract 1 second to prevent the haptic buzz disengage click on "write config"
-	d->disengage_timer = d->current_time - 1;
+	d->disengage_timer = d->rt.current_time - 1;
 
 	// Loop time in microseconds
 	d->loop_time_us = 1e6 / d->tnt_conf.hertz;
@@ -339,8 +339,8 @@ static void reset_vars(data *d) {
 	motor_data_reset(&d->motor);
 	
 	// Set values for startup
-	d->setpoint = d->pitch_angle;
-	d->setpoint_target_interpolated = d->pitch_angle;
+	d->rt.setpoint = d->rt.pitch_angle;
+	d->setpoint_target_interpolated = d->rt.pitch_angle;
 	d->setpoint_target = 0;
 	d->brake_timeout = 0;
 	d->softstart_pid_limit = 0;
@@ -352,7 +352,7 @@ static void reset_vars(data *d) {
 	}
 	
 	//Control variables
-	d->pid_value = 0;
+	d->rt.pid_value = 0;
 	d->pid_mod = 0;
 	d->roll_pid_mod = 0;
 	
@@ -369,19 +369,19 @@ static void reset_vars(data *d) {
 	//Low pass pitch filter
 	d->prop_smooth = 0;
 	d->abs_prop_smooth = 0;
-	d->pitch_smooth = d->pitch_angle;
+	d->pitch_smooth = d->rt.pitch_angle;
 	biquad_reset(&d->pitch_biquad);
 	
 	//Kalman filter
 	reset_kalman(&d->pitch_kalman);
-	d->pitch_smooth_kalman = d->pitch_angle;
+	d->pitch_smooth_kalman = d->rt.pitch_angle;
 
 	//Stability
 	d->stabl = 0;
 
 	// Haptic Buzz:
 	d->haptic_tone_in_progress = false;
-	d->haptic_timer = d->current_time;
+	d->haptic_timer = d->rt.current_time;
 	d->applied_haptic_current = 0;
 
 	state_engage(&d->state);
@@ -399,10 +399,10 @@ static void check_odometer(data *d)
 		if ((stored_odo > d->odometer + 200) || (stored_odo < d->odometer - 10000)) {
 			if (d->odometer_dirty == 1) {
 				// Wait 10 seconds before writing to avoid writing if immediately continuing to ride
-				d->odo_timer = d->current_time;
+				d->odo_timer = d->rt.current_time;
 				d->odometer_dirty++;
 			}
-			else if ((d->current_time - d->odo_timer) > 10) {
+			else if ((d->rt.current_time - d->odo_timer) > 10) {
 				VESC_IF->store_backup_data();
 				d->odometer = VESC_IF->mc_get_odometer();
 				d->odometer_dirty = 0;
@@ -442,7 +442,7 @@ bool is_engaged(const data *d) {
     if (d->footpad_sensor.state == FS_LEFT || d->footpad_sensor.state == FS_RIGHT) {
         // 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
         bool is_simple_start =
-            d->tnt_conf.startup_simplestart_enabled && (d->current_time - d->disengage_timer > 5);
+            d->tnt_conf.startup_simplestart_enabled && (d->rt.current_time - d->disengage_timer > 5);
 
         if (d->tnt_conf.fault_is_dual_switch || is_simple_start) {
             return true;
@@ -464,7 +464,7 @@ static bool check_faults(data *d) {
         // Switch fully open
         if (d->footpad_sensor.state == FS_NONE) {
             if (!disable_switch_faults) {
-                if ((1000.0 * (d->current_time - d->fault_switch_timer)) >
+                if ((1000.0 * (d->rt.current_time - d->fault_switch_timer)) >
                     d->tnt_conf.fault_delay_switch_full) {
                     state_stop(&d->state, STOP_SWITCH_FULL);
                     return true;
@@ -472,56 +472,56 @@ static bool check_faults(data *d) {
                 // low speed (below 6 x half-fault threshold speed):
                 else if (
                     (d->motor.abs_erpm < d->tnt_conf.fault_adc_half_erpm * 6) &&
-                    (1000.0 * (d->current_time - d->fault_switch_timer) >
+                    (1000.0 * (d->rt.current_time - d->fault_switch_timer) >
                      d->tnt_conf.fault_delay_switch_half)) {
                     state_stop(&d->state, STOP_SWITCH_FULL);
                     return true;
                 }
             }
 
-            if (d->motor.abs_erpm < 200 && fabsf(d->pitch_angle) > 14 &&
-                fabsf(d->inputtilt_interpolated) < 30 && sign(d->pitch_angle) == d->motor.erpm_sign) {
+            if (d->motor.abs_erpm < 200 && fabsf(d->rt.pitch_angle) > 14 &&
+                fabsf(d->inputtilt_interpolated) < 30 && sign(d->rt.pitch_angle) == d->motor.erpm_sign) {
                 state_stop(&d->state, STOP_QUICKSTOP);
                 return true;
             }
         } else {
-            d->fault_switch_timer = d->current_time;
+            d->fault_switch_timer = d->rt.current_time;
         }
 
         // Switch partially open and stopped
         if (!d->tnt_conf.fault_is_dual_switch) {
             if (!is_engaged(d) && d->motor.abs_erpm < d->tnt_conf.fault_adc_half_erpm) {
-                if ((1000.0 * (d->current_time - d->fault_switch_half_timer)) >
+                if ((1000.0 * (d->rt.current_time - d->fault_switch_half_timer)) >
                     d->tnt_conf.fault_delay_switch_half) {
                     state_stop(&d->state, STOP_SWITCH_HALF);
                     return true;
                 }
             } else {
-                d->fault_switch_half_timer = d->current_time;
+                d->fault_switch_half_timer = d->rt.current_time;
             }
         }
 
         // Check roll angle
         if (fabsf(d->roll_angle) > d->tnt_conf.fault_roll) {
-            if ((1000.0 * (d->current_time - d->fault_angle_roll_timer)) >
+            if ((1000.0 * (d->rt.current_time - d->fault_angle_roll_timer)) >
                 d->tnt_conf.fault_delay_roll) {
                 state_stop(&d->state, STOP_ROLL);
                 return true;
             }
         } else {
-            d->fault_angle_roll_timer = d->current_time;
+            d->fault_angle_roll_timer = d->rt.current_time;
         }
         
 
     // Check pitch angle
-    if (fabsf(d->pitch_angle) > d->tnt_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
-        if ((1000.0 * (d->current_time - d->fault_angle_pitch_timer)) >
+    if (fabsf(d->rt.pitch_angle) > d->tnt_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
+        if ((1000.0 * (d->rt.current_time - d->fault_angle_pitch_timer)) >
             d->tnt_conf.fault_delay_pitch) {
             state_stop(&d->state, STOP_PITCH);
             return true;
         }
     } else {
-        d->fault_angle_pitch_timer = d->current_time;
+        d->fault_angle_pitch_timer = d->rt.current_time;
     }
 
     return false;
@@ -531,7 +531,7 @@ static void calculate_setpoint_target(data *d) {
 	float input_voltage = VESC_IF->mc_get_input_voltage_filtered();
 	
 	if (input_voltage < d->tnt_conf.tiltback_hv) {
-		d->tb_highvoltage_timer = d->current_time;
+		d->tb_highvoltage_timer = d->rt.current_time;
 	}
 
 	if (d->state.wheelslip) {
@@ -543,8 +543,8 @@ static void calculate_setpoint_target(data *d) {
 			d->surge.deactivate = false;
 		}
 	} else if (d->surge.active) {
-		if (d->proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
-			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
+		if (d->rt.proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
+			d->setpoint_target = d->rt.pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
 			d->state.sat = SAT_SURGE;
 		}
 	 } else if (d->motor.duty_cycle > d->tnt_conf.tiltback_duty) {
@@ -557,7 +557,7 @@ static void calculate_setpoint_target(data *d) {
 	} else if (d->motor.duty_cycle > 0.05 && input_voltage > d->tnt_conf.tiltback_hv) {
 		d->beep_reason = BEEP_HV;
 		beep_alert(d, 3, false);
-		if (((d->current_time - d->tb_highvoltage_timer) > .5) ||
+		if (((d->rt.current_time - d->tb_highvoltage_timer) > .5) ||
 		   (input_voltage > d->tnt_conf.tiltback_hv + 1)) {
 		// 500ms have passed or voltage is another volt higher, time for some tiltback
 			if (d->motor.erpm > 0) {
@@ -647,7 +647,7 @@ static void apply_noseangling(data *d){
 	
 	rate_limitf(&d->noseangling_interpolated, noseangling_target, d->noseangling_step_size);
 
-	d->setpoint += d->noseangling_interpolated;
+	d->rt.setpoint += d->noseangling_interpolated;
 }
 
 static void apply_inputtilt(data *d){ // Input Tiltback
@@ -731,7 +731,7 @@ static void apply_inputtilt(data *d){ // Input Tiltback
 	}
 	}
 	if (!d->tnt_conf.enable_throttle_stability) {
-		d->setpoint += d->inputtilt_interpolated;
+		d->rt.setpoint += d->inputtilt_interpolated;
 	}
 }
 
@@ -780,19 +780,19 @@ static float haptic_buzz(data *d, float note_period) {
 				d->applied_haptic_current = -buzz_current;
 			} else { d->applied_haptic_current = buzz_current; }
 
-			if (fabsf(d->haptic_timer - d->current_time) > note_period) {
+			if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
 				d->haptic_tone_in_progress = false;
 				if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
 					d->haptic_mode = 5 - d->haptic_mode;
 				} else { d->haptic_mode = 1 - d->haptic_mode; }
-				d->haptic_timer = d->current_time;
+				d->haptic_timer = d->rt.current_time;
 			}
 		}
 	}
 	else {
 		d->haptic_mode = 0;
 		d->haptic_counter = 0;
-		d->haptic_timer = d->current_time;
+		d->haptic_timer = d->rt.current_time;
 		d->applied_haptic_current = 0;
 	}
 	return d->applied_haptic_current;
@@ -802,10 +802,10 @@ static void brake(data *d) {
     // Brake timeout logic
     float brake_timeout_length = 1;  // Brake Timeout hard-coded to 1s
     if (d->motor.abs_erpm > 1 || d->brake_timeout == 0) {
-        d->brake_timeout = d->current_time + brake_timeout_length;
+        d->brake_timeout = d->rt.current_time + brake_timeout_length;
     }
 
-    if (d->brake_timeout != 0 && d->current_time > d->brake_timeout) {
+    if (d->brake_timeout != 0 && d->rt.current_time > d->brake_timeout) {
         return;
     }
 
@@ -866,27 +866,27 @@ static void tnt_thd(void *arg) {
 		beeper_update(d);
 
 		// Update times
-		d->current_time = VESC_IF->system_time();
+		d->rt.current_time = VESC_IF->system_time();
 		if (d->last_time == 0) {
-			d->last_time = d->current_time;
+			d->last_time = d->rt.current_time;
 		}
-		d->diff_time = d->current_time - d->last_time;
-		d->last_time = d->current_time;
+		d->diff_time = d->rt.current_time - d->last_time;
+		d->last_time = d->rt.current_time;
 		
 		// Get the IMU Values
 		d->roll_angle = rad2deg(VESC_IF->imu_get_roll());
 		d->abs_roll_angle = fabsf(d->roll_angle);
-		d->last_pitch_angle = d->pitch_angle;
+		d->last_pitch_angle = d->rt.pitch_angle;
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
-		d->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
+		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		VESC_IF->imu_get_gyro(d->gyro);
 		d->last_accel_z = d->accel[2];
 		VESC_IF->imu_get_accel(d->accel); //Used for drop detection
 		
 		//Apply low pass and Kalman filters to pitch
 		if (d->tnt_conf.pitch_filter > 0) {
-			d->pitch_smooth = biquad_process(&d->pitch_biquad, d->pitch_angle);
-		} else {d->pitch_smooth = d->pitch_angle;}
+			d->pitch_smooth = biquad_process(&d->pitch_biquad, d->rt.pitch_angle);
+		} else {d->pitch_smooth = d->rt.pitch_angle;}
 		if (d->tnt_conf.kalman_factor1 > 0) {
 			 apply_kalman(d->pitch_smooth, d->gyro[1], &d->pitch_smooth_kalman, d->diff_time, &d->pitch_kalman);
 		} else {d->pitch_smooth_kalman = d->pitch_smooth;}
@@ -948,10 +948,10 @@ static void tnt_thd(void *arg) {
 			
 			//Rest Timer
 			if(!d->run_flag) { //First trigger run flag and reset last rest time
-				d->rest_time += d->current_time - d->last_rest_time;
+				d->rest_time += d->rt.current_time - d->last_rest_time;
 			}
 			d->run_flag = false;
-			d->last_rest_time = d->current_time;
+			d->last_rest_time = d->rt.current_time;
 						
 			if (VESC_IF->imu_startup_done()) {
 				reset_vars(d);
@@ -977,24 +977,24 @@ static void tnt_thd(void *arg) {
 				if (d->state.stop_condition == STOP_SWITCH_FULL) {
 					// dirty landings: add extra margin when rightside up
 					d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance + d->startup_pitch_trickmargin;
-					d->fault_angle_pitch_timer = d->current_time;
+					d->fault_angle_pitch_timer = d->rt.current_time;
 				}
 				break;
 			}
 			d->odometer_dirty = 1;
-			d->disengage_timer = d->current_time;
+			d->disengage_timer = d->rt.current_time;
 			
 			//Ride Timer
 			if(d->run_flag) { //First trigger run flag and reset last ride time
-				d->ride_time += d->current_time - d->last_ride_time;
+				d->ride_time += d->rt.current_time - d->last_ride_time;
 			}
 			d->run_flag = true;
-			d->last_ride_time = d->current_time;
+			d->last_ride_time = d->rt.current_time;
 			
 			// Calculate setpoint and interpolation
 			calculate_setpoint_target(d);
 			calculate_setpoint_interpolated(d);
-			d->setpoint = d->setpoint_target_interpolated;
+			d->rt.setpoint = d->setpoint_target_interpolated;
 			apply_inputtilt(d); 
 			apply_noseangling(d);
 			if (d->tnt_conf.enable_speed_stability || 
@@ -1002,19 +1002,19 @@ static void tnt_thd(void *arg) {
 				apply_stability(d);
 			}
 			// Do PID maths
-			d->proportional = d->setpoint - d->pitch_angle;
-			d->prop_smooth = d->setpoint - d->pitch_smooth_kalman;
+			d->rt.proportional = d->rt.setpoint - d->rt.pitch_angle;
+			d->prop_smooth = d->rt.setpoint - d->pitch_smooth_kalman;
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			
 			//Select and Apply Kp
-			d->state.braking_pos = sign(d->proportional) != d->motor.erpm_sign;
+			d->state.braking_pos = sign(d->rt.proportional) != d->motor.erpm_sign;
 			bool brake_curve = d->tnt_conf.brake_curve && d->state.braking_pos;
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
 				brake_curve ? &d->brake_kp : &d->accel_kp);
 			d->debug10 = brake_curve ? -kp_mod : kp_mod;
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
-			new_pid_value = kp_mod * d->proportional;
+			new_pid_value = kp_mod * d->rt.proportional;
 			
 			// Start Rate PID and Booster portion a few cycles later, after the start clicks have been emitted
 			// this keeps the start smooth and predictable
@@ -1074,19 +1074,19 @@ static void tnt_thd(void *arg) {
 			}
 				
 			// PID value application
-			// d->pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
+			// d->rt.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
 			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) { //Reduce acceleration if we are in traction control and enabled
-				d->pid_value = 0;
-			} else if (d->motor.erpm_sign * (d->pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
-				if (new_pid_value > d->pid_value) {
-					d->pid_value += d->pid_brake_increment;
+				d->rt.pid_value = 0;
+			} else if (d->motor.erpm_sign * (d->rt.pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
+				if (new_pid_value > d->rt.pid_value) {
+					d->rt.pid_value += d->pid_brake_increment;
 				}
 				else {
-					d->pid_value -= d->pid_brake_increment;
+					d->rt.pid_value -= d->pid_brake_increment;
 				}
 			}
 			else {
-				d->pid_value = new_pid_value;
+				d->rt.pid_value = new_pid_value;
 			}
 
 			// Output to motor
@@ -1094,25 +1094,25 @@ static void tnt_thd(void *arg) {
 				// Generate alternate pulses to produce distinct "click"
 				d->start_counter_clicks--;
 				if ((d->start_counter_clicks & 0x1) == 0)
-					set_current(d, d->pid_value - d->tnt_conf.startup_click_current);
+					set_current(d, d->rt.pid_value - d->tnt_conf.startup_click_current);
 				else
-					set_current(d, d->pid_value + d->tnt_conf.startup_click_current);
+					set_current(d, d->rt.pid_value + d->tnt_conf.startup_click_current);
 			} else if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
 				// modulate haptic buzz onto pid_value unconditionally to allow
 				// checking for haptic conditions, and to finish minimum duration haptic effect
 				// even after short pulses of hitting the condition(s)
-				d->pid_value += haptic_buzz(d, 0.3);
-				set_current(d, d->pid_value); 	// Set current as normal.
+				d->rt.pid_value += haptic_buzz(d, 0.3);
+				set_current(d, d->rt.pid_value); 	// Set current as normal.
 			}
 
 			break;
 
 		case (STATE_READY):
-			if (d->current_time - d->disengage_timer > 1800) {	// alert user after 30 minutes
-				if (d->current_time - d->nag_timer > 60) {		// beep every 60 seconds
-					d->nag_timer = d->current_time;
+			if (d->rt.current_time - d->disengage_timer > 1800) {	// alert user after 30 minutes
+				if (d->rt.current_time - d->nag_timer > 60) {		// beep every 60 seconds
+					d->nag_timer = d->rt.current_time;
 					float input_voltage = VESC_IF->mc_get_input_voltage_filtered();
 					if (input_voltage > d->idle_voltage) {
 						// don't beep if the voltage keeps increasing (board is charging)
@@ -1124,11 +1124,11 @@ static void tnt_thd(void *arg) {
 					}
 				}
 			} else {
-				d->nag_timer = d->current_time;
+				d->nag_timer = d->rt.current_time;
 				d->idle_voltage = 0;
 			}
 
-			if ((d->current_time - d->fault_angle_pitch_timer) > 1) {
+			if ((d->rt.current_time - d->fault_angle_pitch_timer) > 1) {
 				// 1 second after disengaging - set startup tolerance back to normal (aka tighter)
 				d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
 			}
@@ -1137,13 +1137,13 @@ static void tnt_thd(void *arg) {
 
 			//Rest Timer
 			if(!d->run_flag) { //First trigger run flag and reset last rest time
-				d->rest_time += d->current_time - d->last_rest_time;
+				d->rest_time += d->rt.current_time - d->last_rest_time;
 			}
 			d->run_flag = false;
-			d->last_rest_time = d->current_time;
+			d->last_rest_time = d->rt.current_time;
 			
 			// Check for valid startup position and switch state
-			if (fabsf(d->pitch_angle) < d->startup_pitch_tolerance &&
+			if (fabsf(d->rt.pitch_angle) < d->startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->tnt_conf.startup_roll_tolerance && 
 				is_engaged(d)) {
 				reset_vars(d);
@@ -1152,7 +1152,7 @@ static void tnt_thd(void *arg) {
 			
 			// Push-start aka dirty landing Part II
 			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && is_engaged(d)) {
-				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
+				if ((fabsf(d->rt.pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
 					reset_vars(d);
@@ -1253,17 +1253,17 @@ static float app_get_debug(int index) {
 
     switch (index) {
     case (1):
-        return d->pid_value;
+        return d->rt.pid_value;
     case (2):
-        return d->proportional;
+        return d->rt.proportional;
     case (3):
-        return d->proportional;
+        return d->rt.proportional;
     case (4):
-        return d->proportional;
+        return d->rt.proportional;
     case (5):
-        return d->setpoint;
+        return d->rt.setpoint;
     case (6):
-        return d->proportional;
+        return d->rt.proportional;
     case (7):
         return d->motor.erpm;
     case (8):
@@ -1299,19 +1299,19 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->footpad_sensor.adc2, &ind);
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
 	buffer_append_float32_auto(buffer, d->motor.current_avg, &ind); // current atr_filtered_current
-	buffer_append_float32_auto(buffer, d->pitch_angle, &ind);
+	buffer_append_float32_auto(buffer, d->rt.pitch_angle, &ind);
 	buffer_append_float32_auto(buffer, d->roll_angle, &ind);
 
 	//Tune Modifiers
-	buffer_append_float32_auto(buffer, d->setpoint, &ind);
+	buffer_append_float32_auto(buffer, d->rt.setpoint, &ind);
 	buffer_append_float32_auto(buffer, d->inputtilt_interpolated, &ind);
 	buffer_append_float32_auto(buffer, d->throttle_val, &ind);
-	buffer_append_float32_auto(buffer, d->current_time - d->traction.timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(buffer, d->current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Temporary debug. Time since last wheelslip
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
 
 	// Trip
 	if (d->ride_time > 0) {
-		corr_factor =  d->current_time / d->ride_time;
+		corr_factor =  d->rt.current_time / d->ride_time;
 	} else {corr_factor = 1;}
 	buffer_append_float32_auto(buffer, d->ride_time, &ind); //Temporary debug. Ride Time
 	buffer_append_float32_auto(buffer, d->rest_time, &ind); //Temporary debug. Rest time
