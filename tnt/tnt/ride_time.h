@@ -25,5 +25,5 @@ struct {
 	bool run_flag;
 } RideTimeData;
 
-void rest_timer(RideTimeData *ridetime, RuntimeData *rt);
-void ride_timer(RideTimeData *ridetime, RuntimeData *rt);
+void rest_timer(RideTimeData *ridetimer, RuntimeData *rt);
+void ride_timer(RideTimeData *ridetimer, RuntimeData *rt);
