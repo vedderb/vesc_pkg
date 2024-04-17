@@ -107,7 +107,7 @@ void check_traction(MotorData *m, TractionData *traction, StateData *state, Runt
 	}
 }
 
-void check_drop(MotorData *m, TractionData *traction, RuntimeData *rt, tnt_config *config){
+void check_drop(DropData *drop, RuntimeData *rt){
 	float accel_z_reduction = cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_accel_z_reduction = accel_z_reduction ;						// Roll or pitch are increasing. Do not delay
