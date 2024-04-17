@@ -27,7 +27,7 @@ void check_surge(data *d){
 		d->surge.timer = d->current_time; 					//Reset surge timer
 		d->surge.state = true; 							//Indicates we are in the surge cycle of the surge period
 		d->surge.setpoint = d->setpoint;					//Records setpoint at the start of surge because surge changes the setpoint
-		d->new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
+		d->surge.new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
 		
 		//Debug Data Section
 		d->debug13 = d->proportional;				
@@ -41,8 +41,8 @@ void check_surge(data *d){
 	}
 	
 	//Conditions to stop surge and increment the duty cycle
-	if (d->surge){	
-		d->new_duty_cycle += d->motor.erpm_sign * d->surge.ramp_rate; 	
+	if (d->surge.state){	
+		d->surge.new_duty_cycle += d->motor.erpm_sign * d->surge.ramp_rate; 	
 		if((d->current_time - d->surge.timer > 0.5) ||								//Outside the surge cycle portion of the surge period
 		 (-1 * (d->surge.setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
 		 (d->state.wheelslip)) {										//In traction control		
