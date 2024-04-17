@@ -69,7 +69,7 @@ void check_current(data *d){
 	float scale_start_current = lerp(d->tnt_conf.surge_scaleduty/100, .95, d->tnt_conf.surge_startcurrent, d->tnt_conf.surge_start_hd_current, d->motor.duty_cycle);
 	d->surge.start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
 	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge.start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
-	     (!d->braking_pos) && 											//Not braking
+	     (!d->state.braking_pos) && 											//Not braking
 	     (!d->state.wheelslip) &&											//Not during traction control
 	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&								//Above the min erpm threshold
 	     (d->motor.erpm_sign_check) &&										//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
