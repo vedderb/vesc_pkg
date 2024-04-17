@@ -138,6 +138,7 @@ typedef struct {
 	
 	// Feature: Surge
 	SurgeData surge;
+	SurgeDebug surge_dbg;
 	
 	//Traction Control
 	TractionData traction;
@@ -1327,13 +1328,13 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //Temporary debug. surge start proportional
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug5, &ind); //Temporary debug. surge added duty cycle
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug3, &ind); //Temporary debug. surge start current threshold
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug6, &ind); //Temporary debug. surge end early from proportional
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug7, &ind); //Temporary debug. Duration last surge cycle time
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //Temporary debug. start current value
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug8, &ind); //Temporary debug. ramp rate
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //surge start proportional
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug5, &ind); //surge added duty cycle
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug3, &ind); //surge start current threshold
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug6, &ind); //surge end 
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug7, &ind); //Duration last surge cycle time
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug2, &ind); //start current value
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug8, &ind); //ramp rate
 	} else if (d->tnt_conf.is_tunedebug_enabled) {
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
