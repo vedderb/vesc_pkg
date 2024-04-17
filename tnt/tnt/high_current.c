@@ -87,8 +87,9 @@ void check_current(MotorData *m, SurgeData *surge, StateData *state, RuntimeData
 	} 
 }
 
-void configure_high_current(SurgeData *surge, tnt_config *config){
+void configure_surge(SurgeData *surge, tnt_config *config){
 	surge->ramp_rate =  config->surge_duty / 100 / config->hertz;
+	surge->tiltback_step_size = config->tiltback_surge_speed / config->tnt_conf.hertz;
 }
 
 void reset_surge(SurgeData *surge){
