@@ -45,6 +45,6 @@ typedef struct {
 } SurgeDebug;
 
 void check_current(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *rt, tnt_config *config);
-void check_surge(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *rt, tnt_config *config);
+void check_surge(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *rt, tnt_config *config, SurgeDebug *surge_dbg);
 void configure_high_current(SurgeData *surge, tnt_config *config);
 void reset_surge(SurgeData *surge);
