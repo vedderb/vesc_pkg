@@ -123,7 +123,6 @@ typedef struct {
 	float brake_timeout; // Seconds
 	float tb_highvoltage_timer;
 	float switch_warn_beep_erpm;
-	bool braking_pos;
 
 	// Odometer
 	float odo_timer;
@@ -1009,8 +1008,8 @@ static void tnt_thd(void *arg) {
 			d->abs_prop_smooth = fabsf(d->prop_smooth);
 			
 			//Select and Apply Kp
-			d->braking_pos = sign(d->proportional) != d->motor.erpm_sign;
-			bool brake_curve = d->tnt_conf.brake_curve && d->braking_pos;
+			d->state.braking_pos = sign(d->proportional) != d->motor.erpm_sign;
+			bool brake_curve = d->tnt_conf.brake_curve && d->state.braking_pos;
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
 				brake_curve ? &d->brake_kp : &d->accel_kp);
@@ -1031,7 +1030,7 @@ static void tnt_thd(void *arg) {
 				// Select Roll Boost Kp
 				float rollkp = 0;
 				float erpmscale = 1;
-				bool brake_roll = d->roll_brake_kp.count!=0 && d->braking_pos;
+				bool brake_roll = d->roll_brake_kp.count!=0 && d->state.braking_pos;
 				rollkp = angle_kp_select(d->abs_roll_angle, 
 					brake_roll ? &d->roll_brake_kp : &d->roll_accel_kp);
 
