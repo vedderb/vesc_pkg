@@ -29,6 +29,7 @@
 #include "traction.h"
 #include "high_current.h"
 #include "runtime.h"
+#include "ride_time.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
