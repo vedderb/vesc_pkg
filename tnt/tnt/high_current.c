@@ -18,72 +18,74 @@
 #include "high_current.h"
 #include "vesc_c_if.h"
 
-void check_surge(data *d){
+void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt){
 	//Start Surge Code
 	//Initialize Surge Cycle
-	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge.start_current) && 	//High current condition 
-	     (d->surge.high_current) && 						//If overcurrent is triggered this satifies traction control, min erpm, braking, centering and direction
-	     (d->motor.duty_cycle < 0.8) &&						//Prevent surge when pushing top speed
-	     (d->current_time - d->surge.timer > 0.7)) {				//Not during an active surge period			
-		d->surge.timer = d->current_time; 					//Reset surge timer
-		d->surge.state = true; 							//Indicates we are in the surge cycle of the surge period
-		d->surge.setpoint = d->setpoint;					//Records setpoint at the start of surge because surge changes the setpoint
-		d->surge.new_duty_cycle = d->motor.erpm_sign * d->motor.duty_cycle;
+	if ((m->current_avg * m->erpm_sign > surge->start_current) && 	//High current condition 
+	     (surge->high_current) && 							//If overcurrent is triggered this satifies traction control, min erpm, braking, centering and direction
+	     (m->duty_cycle < 0.8) &&						//Prevent surge when pushing top speed
+	     (rt->current_time - surge->timer > 0.7)) {					//Not during an active surge period			
+		surge->timer = rt->current_time; 					//Reset surge timer
+		surge->active = true; 							//Indicates we are in the surge cycle of the surge period
+		surge->setpoint = rt->setpoint;						//Records setpoint at the start of surge because surge changes the setpoint
+		surge->new_duty_cycle = m->erpm_sign * m->duty_cycle;
 		
 		//Debug Data Section
-		d->debug13 = d->proportional;				
-		d->debug5 = 0;
-		d->debug16 = 0;
-		d->debug18 = 0;
-		d->debug17 = d->motor.current_avg;
-		d->debug14 = 0;
-		d->debug15 = d->surge.start_current;
-		d->debug19 = d->motor.duty_cycle;
+		surge_dbg->debug1 = rt->proportional;				
+		surge_dbg->debug2 = m->current_avg;
+		surge_dbg->debug3 = surge->start_current;
+		surge_dbg->debug4 = m->duty_cycle;
+		surge_dbg->debug5 = 0;
+		surge_dbg->debug6 = 0;
+		surge_dbg->debug7 = 0;
+		surge_dbg->debug8 = 0;
 	}
 	
 	//Conditions to stop surge and increment the duty cycle
-	if (d->surge.state){	
-		d->surge.new_duty_cycle += d->motor.erpm_sign * d->surge.ramp_rate; 	
-		if((d->current_time - d->surge.timer > 0.5) ||								//Outside the surge cycle portion of the surge period
-		 (-1 * (d->surge.setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
+	if (surge->active){	
+		surge->new_duty_cycle += m->erpm_sign * surge->ramp_rate; 	
+		if((rt->current_time - surge->timer > 0.5) ||								//Outside the surge cycle portion of the surge period
+		 (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
 		 (d->state.wheelslip)) {										//In traction control		
-			d->surge = false;
-			d->surge.state_off = true;								//Identifies the end of surge to change the setpoint back to before surge 
-			d->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();			//This allows a smooth transition to PID current control
+			surge->active = false;
+			surge->deactivate = true;								//Identifies the end of surge to change the setpoint back to before surge 
+			rt->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();			//This allows a smooth transition to PID current control
 			
 			//Debug Data Section
-			d->debug5 = d->current_time - d->surge.timer;						//Register how long the surge cycle lasted
-			d->debug18 = d->motor.duty_cycle - d->debug19;						//Added surge duty
-			d->debug14 = d->debug18 / (d->current_time - d->surge.timer) * 100;			//Surge ramp rate
-			if (d->current_time - d->surge.timer >= 0.5) {						//End condition
-				d->debug16 = 111;
-			} else if (-1 * (d->surge.setpoint - d->pitch_angle) * d->motor.erpm_sign > d->tnt_conf.surge_maxangle){
-				d->debug16 = d->pitch_angle;
+			surge_dbg->debug7 = rt->current_time - surge->timer;						//Register how long the surge cycle lasted
+			surge_dbg->debug5 = m->duty_cycle - surge_dbg->debug4;						//Added surge duty
+			surge_dbg->debug8 = surge_dbg->debug5/ (rt->current_time - surge->timer) * 100;			//Surge ramp rate
+			if (rt->current_time - surge->timer >= 0.5) {						//End condition
+				surge_dbg->debug6 = 111;
+			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle){
+				surge_dbg->debug6 = rt->pitch_angle;
 			} else if (d->state.wheelslip){
-				d->debug16 = 222;
+				surge_dbg->debug6 = 222;
 			}
 		}
 	}
 }
 
-void check_current(data *d){
-	float scale_start_current = lerp(d->tnt_conf.surge_scaleduty/100, .95, d->tnt_conf.surge_startcurrent, d->tnt_conf.surge_start_hd_current, d->motor.duty_cycle);
-	d->surge.start_current = min(d->tnt_conf.surge_startcurrent, scale_start_current); 
-	if ((d->motor.current_avg * d->motor.erpm_sign > d->surge.start_current - d->tnt_conf.overcurrent_margin) && 	//High current condition 
+void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);{
+	float scale_start_current = lerp(surge->scaleduty/100, .95, surge->start_ld_current, surge->start_hd_current, m->duty_cycle);
+	surge->start_current = min(surge->start_ld_current, scale_start_current); 
+	if ((m->current_avg * m->erpm_sign > surge->start_current - surge->overcurrent_margin) && 	//High current condition 
 	     (!d->state.braking_pos) && 											//Not braking
 	     (!d->state.wheelslip) &&											//Not during traction control
-	     (d->motor.abs_erpm > d->tnt_conf.surge_minerpm) &&								//Above the min erpm threshold
-	     (d->motor.erpm_sign_check) &&										//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
+	     (m->abs_erpm > surge->minerpm) &&								//Above the min erpm threshold
+	     (m->erpm_sign_check) &&										//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
 	     (d->state.sat != SAT_CENTERING)) { 									//Not during startup
 		// High current, just haptic buzz don't actually limit currents
-		d->surge.high_current = true;
-		if (d->current_time - d->surge.high_current_timer < d->tnt_conf.overcurrent_period) {			//Limit haptic buzz duration
-			d->surge.high_current_buzz = true;
-		} else {d->surge.high_current_buzz = false;}
+		surge->high_current = true;
+		if (rt->current_time - surge->high_current_timer < surge->buzz_time_limit) {			//Limit haptic buzz duration
+			surge->high_current_buzz = true;
+		} else {surge->high_current_buzz = false;}
 	} else { 
-		d->surge.high_current_buzz = false;
-		d->surge.high_current = false;
-		d->surge.high_current_timer = d->current_time; 
+		surge->high_current_buzz = false;
+		surge->high_current = false;
+		surge->high_current_timer = rt->current_time; 
 	} 
 }
 
+void configure_high_current(SurgeData *surge, tnt_config *config){
+}
