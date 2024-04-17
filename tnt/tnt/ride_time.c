@@ -15,14 +15,21 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
+#include "ride_time.h"
 
-	struct {
-	bool traction_control,
-	float wheelslip_timeron,
-	float wheelslip_timeroff,
-	float wheelslip_accelstartval,
-	bool wheelslip_highaccelon1,
-	bool wheelslip_highaccelon2,
-	float wheelslip_lasterpm,
-	float wheelslip_erpm,
-	} TractionData;
+void ride_timer(RideTimeData *ridetime, RuntimeData *rt){
+	if(ridetime->run_flag) { //First trigger run flag and reset last ride time
+		ridetime->ride_time += rt->current_time - ridetime->last_ride_time;
+	}
+	ridetime->run_flag = true;
+	ridetime->last_ride_time = rt->current_time;
+}
+
+
+void rest_timer(RideTimeData *ridetime, RuntimeData *rt){
+	if(!ridetime->run_flag) { //First trigger run flag and reset last rest time
+		ridetime->rest_time += rt->current_time - ridetime->last_rest_time;
+	}
+	ridetime->run_flag = false;
+	ridetime->last_rest_time = rt->current_time;
+}
