@@ -102,7 +102,7 @@ typedef struct {
 	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time roll_angle  last_accel_z  accel[3]
 
 	// Runtime values read from elsewhere
-	float last_pitch_angle, abs_roll_angle;
+	float abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
 	
@@ -794,7 +794,6 @@ static void tnt_thd(void *arg) {
 		// Get the IMU Values
 		d->rt.roll_angle = rad2deg(VESC_IF->imu_get_roll());
 		d->abs_roll_angle = fabsf(d->rt.roll_angle);
-		d->last_pitch_angle = d->rt.pitch_angle;
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		VESC_IF->imu_get_gyro(d->gyro);
