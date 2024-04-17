@@ -1100,7 +1100,7 @@ static void tnt_thd(void *arg) {
 				else
 					set_current(d, d->pid_value + d->tnt_conf.startup_click_current);
 			} else if (d->surge.state) { 	
-				set_dutycycle(d, d->new_duty_cycle); 		// Set the duty to surge
+				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
 				// modulate haptic buzz onto pid_value unconditionally to allow
 				// checking for haptic conditions, and to finish minimum duration haptic effect
