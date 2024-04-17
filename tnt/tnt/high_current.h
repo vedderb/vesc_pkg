@@ -16,6 +16,7 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include "conf/datatypes.h"
 
 typedef struct {
 	float timer;				//Timer to monitor surge cycle and period
@@ -51,3 +52,4 @@ typedef struct {
 
 void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
 void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);
+void configure_high_current(SurgeData *surge, tnt_config *config);
