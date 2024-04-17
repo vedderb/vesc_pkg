@@ -174,8 +174,7 @@ typedef struct {
 	bool haptic_tone_in_progress;
 
 	//Trip Debug
-	float rest_time, last_rest_time, ride_time, last_ride_time;
-	bool run_flag;
+	RideTimeData ridetimer;
 
 	//Debug
 	float debug1, debug2;
@@ -942,11 +941,7 @@ static void tnt_thd(void *arg) {
 			brake(d);
 			
 			//Rest Timer
-			if(!d->run_flag) { //First trigger run flag and reset last rest time
-				d->rest_time += d->rt.current_time - d->last_rest_time;
-			}
-			d->run_flag = false;
-			d->last_rest_time = d->rt.current_time;
+			rest_timer(&d->ridetimer, &d->rt);
 						
 			if (VESC_IF->imu_startup_done()) {
 				reset_vars(d);
@@ -980,11 +975,7 @@ static void tnt_thd(void *arg) {
 			d->disengage_timer = d->rt.current_time;
 			
 			//Ride Timer
-			if(d->run_flag) { //First trigger run flag and reset last ride time
-				d->ride_time += d->rt.current_time - d->last_ride_time;
-			}
-			d->run_flag = true;
-			d->last_ride_time = d->rt.current_time;
+			ride_timer(&d->ridetimer, &d->rt);
 			
 			// Calculate setpoint and interpolation
 			calculate_setpoint_target(d);
@@ -1131,11 +1122,7 @@ static void tnt_thd(void *arg) {
 			check_odometer(d);
 
 			//Rest Timer
-			if(!d->run_flag) { //First trigger run flag and reset last rest time
-				d->rest_time += d->rt.current_time - d->last_rest_time;
-			}
-			d->run_flag = false;
-			d->last_rest_time = d->rt.current_time;
+			rest_timer(&d->ridetimer, &d->rt);
 			
 			// Check for valid startup position and switch state
 			if (fabsf(d->rt.pitch_angle) < d->startup_pitch_tolerance &&
@@ -1305,11 +1292,11 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
 
 	// Trip
-	if (d->ride_time > 0) {
-		corr_factor =  d->rt.current_time / d->ride_time;
+	if (d->ridetimer.ride_time > 0) {
+		corr_factor =  d->rt.current_time / d->ridetimer.ride_time;
 	} else {corr_factor = 1;}
-	buffer_append_float32_auto(buffer, d->ride_time, &ind); //Temporary debug. Ride Time
-	buffer_append_float32_auto(buffer, d->rest_time, &ind); //Temporary debug. Rest time
+	buffer_append_float32_auto(buffer, d->ridetimer.ride_time, &ind); //Temporary debug. Ride Time
+	buffer_append_float32_auto(buffer, d->ridetimer.rest_time, &ind); //Temporary debug. Rest time
 	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //Temporary debug. speed avg convert m/s to mph
 	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //Temporary debug. current avg
 	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //Temporary debug. power avg
