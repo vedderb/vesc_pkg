@@ -17,120 +17,120 @@
 
 #include "traction.h"
 
-void check_traction(data *d){
-	float erpmfactor = d->tnt_conf.wheelslip_scaleaccel - min(d->tnt_conf.wheelslip_scaleaccel - 1, (d->tnt_conf.wheelslip_scaleaccel -1) * ( d->motor.abs_erpm / d->tnt_conf.wheelslip_scaleerpm));
+void check_traction(MotorData *m, TractionData *traction, StateData *state, RuntimeData *rt, tnt_config *config, DropData *drop, TractionDebug *traction_dbg){
+	float erpmfactor = config->wheelslip_scaleaccel - min(config->wheelslip_scaleaccel - 1, (config->wheelslip_scaleaccel -1) * ( m->abs_erpm / config->wheelslip_scaleerpm));
 	bool erpm_check;
 	
 	// Conditons to end traction control
-	if (d->state.wheelslip) {
-		if (d->current_time - d->drop.timeroff < 0.5) {		// Drop has ended recently
-			d->state.wheelslip = false;
-			d->traction.timeroff = d->current_time;
-			d->debug4 = 6666;
-			d->debug8 = d->motor.acceleration;
-		} else	if (d->current_time - d->traction.timeron > .5) {		// Time out at 500ms
-			d->state.wheelslip = false;
-			d->traction.timeroff = d->current_time;
-			d->debug4 = 5000;
-			d->debug8 = d->motor.acceleration;
+	if (state->wheelslip) {
+		if (rt->current_time - drop->timeroff < 0.5) {		// Drop has ended recently
+			state->wheelslip = false;
+			traction->timeroff = rt->current_time;
+			traction_dbg->debug4 = 6666;
+			traction_dbg->debug8 = m->acceleration;
+		} else	if (rt->current_time - traction->timeron > .5) {		// Time out at 500ms
+			state->wheelslip = false;
+			traction->timeroff = rt->current_time;
+			traction_dbg->debug4 = 5000;
+			traction_dbg->debug8 = m->acceleration;
 		} else {
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration direction change
-			if (d->traction.highaccelon2) { 
-				if (sign(d->traction.accelstartval) != sign(d->motor.accel_history[d->motor.accel_idx])) { 
+			if (traction->highaccelon2) { 
+				if (sign(traction->accelstartval) != sign(m->accel_history[m->accel_idx])) { 
 				// First we identify that the wheel has deccelerated due to traciton control, switching the sign
-					d->traction.highaccelon2 = false;				
-					d->debug1 = d->current_time - d->traction.timeron;
-				} else if (d->current_time - d->traction.timeron > .18) {	// Time out at 150ms if wheel does not deccelerate
-					d->state.wheelslip = false;
-					d->traction.timeroff = d->current_time;
-					d->debug4 = 1800;
-					d->debug8 = d->motor.acceleration;
+					traction->highaccelon2 = false;				
+					traction_dbg->debug1 = rt->current_time - traction->timeron;
+				} else if (rt->current_time - traction->timeron > .18) {	// Time out at 150ms if wheel does not deccelerate
+					state->wheelslip = false;
+					traction->timeroff = rt->current_time;
+					traction_dbg->debug4 = 1800;
+					traction_dbg->debug8 = m->acceleration;
 				}
-			} else if (sign(d->motor.accel_history[d->motor.accel_idx])!= sign(d->motor.accel_history[d->motor.last_accel_idx])) { 
+			} else if (sign(m->accel_history[m->accel_idx])!= sign(m->accel_history[m->last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				d->state.wheelslip = false;
-				d->traction.timeroff = d->current_time;
-				d->debug4 = d->motor.accel_history[d->motor.last_accel_idx];
-				d->debug8 = d->motor.accel_history[d->motor.accel_idx];	
+				state->wheelslip = false;
+				traction->timeroff = rt->current_time;
+				traction_dbg->debug4 = m->accel_history[m->last_accel_idx];
+				traction_dbg->debug8 = m->accel_history[m->accel_idx];	
 			}
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
-			if (d->state.wheelslip) { // skip this if we are already out of wheelslip to preserve debug values
-				if (d->traction.highaccelon1) {		
-					if (sign(d->traction.accelstartval) * d->motor.acceleration < d->tnt_conf.wheelslip_accelend) {	
+			if (state->wheelslip) { // skip this if we are already out of wheelslip to preserve debug values
+				if (traction->highaccelon1) {		
+					if (sign(traction->accelstartval) * m->acceleration < config->wheelslip_accelend) {	
 					// First we identify that the wheel has deccelerated due to traciton control
-						d->traction.highaccelon1 = false;
-						d->debug7 = d->current_time - d->traction.timeron;
-					} else if (d->current_time - d->traction.timeron > .2) {	// Time out at 200ms if wheel does not deccelerate
-						d->state.wheelslip = false;
-						d->traction.timeroff = d->current_time;
-						d->debug4 = 2000;
-						d->debug8 = d->motor.acceleration;
+						traction->highaccelon1 = false;
+						traction_dbg->debug7 = rt->current_time - traction->timeron;
+					} else if (rt->current_time - traction->timeron > .2) {	// Time out at 200ms if wheel does not deccelerate
+						state->wheelslip = false;
+						traction->timeroff = rt->current_time;
+						traction_dbg->debug4 = 2000;
+						traction_dbg->debug8 = m->acceleration;
 					}
-				} else if (fabsf(d->motor.acceleration) > d->tnt_conf.wheelslip_margin) { 
+				} else if (fabsf(m->acceleration) > config->wheelslip_margin) { 
 				// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-					d->state.wheelslip = false;
-					d->traction.timeroff = d->current_time;
-					d->debug4 = 2222;
-					d->debug8 = d->motor.acceleration;		
+					state->wheelslip = false;
+					traction->timeroff = rt->current_time;
+					traction_dbg->debug4 = 2222;
+					traction_dbg->debug8 = m->acceleration;		
 				}
 			}
 		}
 	}	
-	if (sign(d->motor.erpm) == sign(d->motor.erpm_history[d->motor.last_erpm_idx])) { // We check sign to make sure erpm is increasing or has changed direction. 
-		if (d->motor.abs_erpm > fabsf(d->motor.erpm_history[d->motor.last_erpm_idx])) {
+	if (sign(m->erpm) == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
+		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
-		} else {erpm_check = false;} //If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
-	} else if (sign(d->motor.erpm_sign_soft) != sign(d->motor.acceleration)) { // The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
+	} else if (sign(m->erpm_sign_soft) != sign(m->acceleration)) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 	} else {erpm_check = false;}
 		
 		
 	// Initiate traction control
-	if ((sign(d->motor.current) * d->motor.acceleration > d->tnt_conf.wheelslip_accelstart * erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
-	   (!d->state.wheelslip) &&									// Not in traction control
-	   (sign(d->motor.current) == sign(d->motor.accel_history[d->motor.accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
-	   (!d->braking_pos) &&							// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
-	   (d->current_time - d->traction.timeroff > .2) && 						// Did not recently wheel slip.
+	if ((sign(m->current) * m->acceleration > config->wheelslip_accelstart * erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+	   (!state->wheelslip) &&									// Not in traction control
+	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
+	   (!state->braking_pos) &&									// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
+	   (rt->current_time - traction->timeroff > .2) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
-		d->state.wheelslip = true;
-		d->traction.accelstartval = d->motor.acceleration;
-		d->traction.highaccelon1 = true; 	
-		d->traction.highaccelon2 = true; 	
-		d->traction.timeron = d->current_time;
-		d->debug6 = d->motor.acceleration;
-		d->debug3 = d->motor.erpm_history[d->motor.last_erpm_idx];
-		d->debug1 = 0;
-		d->debug2 = erpmfactor;
-		d->debug4 = 0;
-		d->debug8 = 0;
-		d->debug9 = d->motor.erpm;
+		state->wheelslip = true;
+		traction->accelstartval = m->acceleration;
+		traction->highaccelon1 = true; 	
+		traction->highaccelon2 = true; 	
+		traction->timeron = rt->current_time;
+		traction_dbg->debug6 = m->acceleration;
+		traction_dbg->debug3 = m->erpm_history[m->last_erpm_idx];
+		traction_dbg->debug1 = 0;
+		traction_dbg->debug2 = erpmfactor;
+		traction_dbg->debug4 = 0;
+		traction_dbg->debug8 = 0;
+		traction_dbg->debug9 = m->erpm;
 	}
 }
 
-void check_drop(data *d){
-	float accel_z_reduction = cosf(deg2rad(d->roll_angle)) * cosf(deg2rad(d->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
-	if (d->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
-		d->applied_accel_z_reduction = accel_z_reduction ;						// Roll or pitch are increasing. Do not delay
+void check_drop(MotorData *m, TractionData *traction, RuntimeData *rt, tnt_config *config){
+	float accel_z_reduction = cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
+	if (drop->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
+		drop->applied_accel_z_reduction = accel_z_reduction ;						// Roll or pitch are increasing. Do not delay
 	} else {
-		d->applied_accel_z_reduction = d->applied_accel_z_reduction * .999 + accel_z_reduction * .001;	// Roll or pitch decreasing. Delay to allow accel z to keep pace	
+		drop->applied_accel_z_reduction = drop->applied_accel_z_reduction * .999 + accel_z_reduction * .001;	// Roll or pitch decreasing. Delay to allow accel z to keep pace	
 	}
-	d->drop.limit = 0.92;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
-	if ((d->accel[2] < d->drop.limit * d->applied_accel_z_reduction) && 	// Compare accel z to drop limit with reduction for pitch and roll.
-	    (d->last_accel_z >= d->accel[2]) &&  			// for fastest landing reaction check that we are still dropping
-	    (d->current_time - d->drop.timeroff > 0.5)) {	// Don't re-enter drop state for duration 	
-		d->drop.count += 1;
-		if (d->drop.count > 5) {			// Counter used to reduce nuisance trips
-			d->drop.state = true;
-			if (d->current_time - d->drop.timeron > 3) { // Set the on timer only if it is well past what is normal so it only sets once
-				d->drop.timeron = d->current_time;
+	drop->limit = 0.92;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
+	if ((rt->accel[2] < drop->limit * drop->applied_accel_z_reduction) && 		// Compare accel z to drop limit with reduction for pitch and roll.
+	    (rt->last_accel_z >= rt->accel[2]) &&  					// for fastest landing reaction check that we are still dropping
+	    (rt->current_time - drop->timeroff > 0.5)) {				// Don't re-enter drop state for duration 	
+		drop->count += 1;
+		if (drop->count > 5) {							// Counter used to reduce nuisance trips
+			drop->active = true;
+			if (rt->current_time - drop->timeron > 3) { 			// Set the on timer only if it is well past what is normal so it only sets once
+				drop->timeron = rt->current_time;
 			}
 		}
-	} else if (d->drop.state == true) {		// If any conditions are not met while in drop state, exit drop state
-		d->drop.state = false;
-		d->drop.timeroff = d->current_time;
-		d->drop.count = 0;		// reset
+	} else if (drop->active == true) {		// If any conditions are not met while in drop state, exit drop state
+		drop->active = false;
+		drop->timeroff = rt->current_time;
+		drop->count = 0;			// reset
 	} else {
-		d->drop.state = false;		// Out of drop state by default
-		d->drop.count = 0;		// reset
+		drop->active = false;			// Out of drop state by default
+		drop->count = 0;			// reset
 	}
 }
