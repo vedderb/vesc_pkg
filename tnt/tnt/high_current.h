@@ -17,6 +17,10 @@
 
 #pragma once
 #include "conf/datatypes.h"
+#include "high_current.h"
+#include "motor_data_tnt.h"
+#include "state.h"
+#include "runtime.h"
 
 typedef struct {
 	float timer;				//Timer to monitor surge cycle and period
