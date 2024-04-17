@@ -173,7 +173,7 @@ typedef struct {
 	RideTimeData ridetimer;
 
 	//Debug
-	float debug1, debug2;
+	float debug1, debug2, debug3;
 
 } data;
 
