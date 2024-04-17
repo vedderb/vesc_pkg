@@ -16,6 +16,7 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "high_current.h"
+#include "vesc_c_if.h"
 
 void check_surge(data *d){
 	//Start Surge Code
