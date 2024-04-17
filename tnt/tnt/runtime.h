@@ -17,11 +17,13 @@
 
 #pragma once
 
-typedef struct { //Run time values commonly used in various features
+typedef struct { //Run time values used in various features
 	float proportional;
 	float pid_value;
 	float pitch_angle;
 	float roll_angle;
 	float current_time;
 	float setpoint;
+	float last_accel_z;
+	float accel[3];
 } RuntimeData;
