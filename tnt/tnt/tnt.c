@@ -1308,7 +1308,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->setpoint, &ind);
 	buffer_append_float32_auto(buffer, d->inputtilt_interpolated, &ind);
 	buffer_append_float32_auto(buffer, d->throttle_val, &ind);
-	buffer_append_float32_auto(buffer, d->current_time - d->wheelslip_timeron , &ind); //Temporary debug. Time since last wheelslip
+	buffer_append_float32_auto(buffer, d->current_time - d->traction.timeron , &ind); //Temporary debug. Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
 
 	// Trip
