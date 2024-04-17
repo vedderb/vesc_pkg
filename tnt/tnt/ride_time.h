@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
+#pragma once
 
-	struct {
-	bool traction_control,
-	float wheelslip_timeron,
-	float wheelslip_timeroff,
-	float wheelslip_accelstartval,
-	bool wheelslip_highaccelon1,
-	bool wheelslip_highaccelon2,
-	float wheelslip_lasterpm,
-	float wheelslip_erpm,
-	} TractionData;
+struct {
+	float rest_time
+	float last_rest_time
+	float ride_time
+	float last_ride_time;
+	bool run_flag;
+} RideTimeData;
+
+void rest_timer(RideTimeData *ridetime, RuntimeData *rt);
+void ride_timer(RideTimeData *ridetime, RuntimeData *rt);
