@@ -1014,7 +1014,7 @@ static void tnt_thd(void *arg) {
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
 				brake_curve ? &d->brake_kp : &d->accel_kp);
-			d->debug10 = brake_curve ? -kp_mod : kp_mod
+			d->debug10 = brake_curve ? -kp_mod : kp_mod;
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
 			new_pid_value = kp_mod * d->proportional;
 			
