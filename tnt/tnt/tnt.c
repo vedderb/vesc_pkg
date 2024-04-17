@@ -360,8 +360,8 @@ static void reset_vars(data *d) {
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
 	// Surge
-	d->surge.state = false;
-	d->surge.state_off = false;
+	d->surge.active = false;
+	d->surge.deactivate = false;
 	d->surge.high_current = false;
 	d->surge.high_current_buzz = false;
 	d->surge.high_current_timer = 0;
@@ -536,13 +536,13 @@ static void calculate_setpoint_target(data *d) {
 
 	if (d->state.wheelslip) {
 		d->state.sat = SAT_NONE;
-	} else if (d->surge.state_off) { 
+	} else if (d->surge.deactivate) { 
 		d->setpoint_target = 0;
 		d->state.sat = SAT_UNSURGE;
 		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
-			d->surge.state_off = false;
+			d->surge.deactivate = false;
 		}
-	} else if (d->surge.state) {
+	} else if (d->surge.active) {
 		if (d->proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
 			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
 			d->state.sat = SAT_SURGE;
@@ -1098,7 +1098,7 @@ static void tnt_thd(void *arg) {
 					set_current(d, d->pid_value - d->tnt_conf.startup_click_current);
 				else
 					set_current(d, d->pid_value + d->tnt_conf.startup_click_current);
-			} else if (d->surge.state) { 	
+			} else if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
 				// modulate haptic buzz onto pid_value unconditionally to allow
@@ -1332,13 +1332,13 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
-		buffer_append_float32_auto(buffer, d->debug13, &ind); //Temporary debug. surge start proportional
-		buffer_append_float32_auto(buffer, d->debug18, &ind); //Temporary debug. surge added duty cycle
-		buffer_append_float32_auto(buffer, d->debug15, &ind); //Temporary debug. surge start current threshold
-		buffer_append_float32_auto(buffer, d->debug16, &ind); //Temporary debug. surge end early from proportional
-		buffer_append_float32_auto(buffer, d->debug5, &ind); //Temporary debug. Duration last surge cycle time
-		buffer_append_float32_auto(buffer, d->debug17, &ind); //Temporary debug. start current value
-		buffer_append_float32_auto(buffer, d->debug14, &ind); //Temporary debug. ramp rate
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //Temporary debug. surge start proportional
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug5, &ind); //Temporary debug. surge added duty cycle
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug3, &ind); //Temporary debug. surge start current threshold
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug6, &ind); //Temporary debug. surge end early from proportional
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug7, &ind); //Temporary debug. Duration last surge cycle time
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //Temporary debug. start current value
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug8, &ind); //Temporary debug. ramp rate
 	} else if (d->tnt_conf.is_tunedebug_enabled) {
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
