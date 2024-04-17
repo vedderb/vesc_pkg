@@ -90,3 +90,11 @@ void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt
 void configure_high_current(SurgeData *surge, tnt_config *config){
 	surge->ramp_rate =  config->surge_duty / 100 / config->hertz;
 }
+
+void reset_surge(SurgeData *surge){
+	surge->active = false;
+	surge->deactivate = false;
+	surge->high_current = false;
+	surge->high_current_buzz = false;
+	surge->high_current_timer = 0;
+}
