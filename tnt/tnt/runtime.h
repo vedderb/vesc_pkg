@@ -21,6 +21,7 @@ typedef struct { //Run time values commonly used in various features
 	float proportional;
 	float pid_value;
 	float pitch_angle;
+	float roll_angle;
 	float current_time;
 	float setpoint;
 } RuntimeData;
