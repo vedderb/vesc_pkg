@@ -87,7 +87,6 @@ typedef struct {
 	float noseangling_step_size;
 	float mc_max_temp_fet, mc_max_temp_mot;
 	float mc_current_max, mc_current_min;
-	bool current_beeping;
 	bool duty_beeping;
 
 	// Feature: Soft Start
@@ -616,6 +615,20 @@ static void calculate_setpoint_target(data *d) {
         	// Normal running
          	d->state.sat = SAT_NONE;
 	        d->setpoint_target = 0;
+	}
+	
+	//Duty beep
+	if (d->setpointAdjustmentType == SAT_PB_DUTY) {
+		if (d->tnt_conf.is_dutybeep_enabled || (d->tnt_conf.tiltback_duty_angle == 0)) {
+			beep_on(d, true);
+			d->beep_reason = BEEP_DUTY;
+			d->duty_beeping = true;
+		}
+	}
+	else {
+		if (d->duty_beeping) {
+			beep_off(d, false);
+		}
 	}
 }
 
