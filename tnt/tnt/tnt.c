@@ -98,7 +98,7 @@ typedef struct {
 	float pid_brake_increment;
 
 	// Runtime values read from elsewhere
-	float pitch_angle, last_pitch_angle, roll_angle, abs_roll_angle, last_gyro_y;
+	float pitch_angle, last_pitch_angle, roll_angle, abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
 	
@@ -879,7 +879,6 @@ static void tnt_thd(void *arg) {
 		d->last_pitch_angle = d->pitch_angle;
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 		d->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
-		d->last_gyro_y = d->gyro[1];
 		VESC_IF->imu_get_gyro(d->gyro);
 		d->last_accel_z = d->accel[2];
 		VESC_IF->imu_get_accel(d->accel); //Used for drop detection
