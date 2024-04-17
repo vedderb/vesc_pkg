@@ -16,6 +16,10 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include "conf/datatypes.h"
+#include "motor_data_tnt.h"
+#include "state.h"
+#include "runtime.h"
 
 typedef struct {
 	float timeron;       	 	//Timer from the start of wheelslip
