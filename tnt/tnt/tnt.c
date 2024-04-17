@@ -98,10 +98,10 @@ typedef struct {
 	float pid_brake_increment;
 
 	// Runtime values grouped for easy access in ancillary functions
-	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time
+	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time roll_angle
 
 	// Runtime values read from elsewhere
-	float last_pitch_angle, roll_angle, abs_roll_angle;
+	float last_pitch_angle, abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
 	
@@ -455,7 +455,7 @@ static bool check_faults(data *d) {
             // Rolling forward (not backwards!)
             d->motor.erpm > (d->tnt_conf.fault_adc_half_erpm * 2) &&
             // Not tipped over
-            fabsf(d->roll_angle) < 40;
+            fabsf(d->rt.roll_angle) < 40;
 
         // Check switch
         // Switch fully open
@@ -499,7 +499,7 @@ static bool check_faults(data *d) {
         }
 
         // Check roll angle
-        if (fabsf(d->roll_angle) > d->tnt_conf.fault_roll) {
+        if (fabsf(d->rt.roll_angle) > d->tnt_conf.fault_roll) {
             if ((1000.0 * (d->rt.current_time - d->fault_angle_roll_timer)) >
                 d->tnt_conf.fault_delay_roll) {
                 state_stop(&d->state, STOP_ROLL);
@@ -871,8 +871,8 @@ static void tnt_thd(void *arg) {
 		d->last_time = d->rt.current_time;
 		
 		// Get the IMU Values
-		d->roll_angle = rad2deg(VESC_IF->imu_get_roll());
-		d->abs_roll_angle = fabsf(d->roll_angle);
+		d->rt.roll_angle = rad2deg(VESC_IF->imu_get_roll());
+		d->abs_roll_angle = fabsf(d->rt.roll_angle);
 		d->last_pitch_angle = d->rt.pitch_angle;
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
@@ -1141,7 +1141,7 @@ static void tnt_thd(void *arg) {
 			
 			// Check for valid startup position and switch state
 			if (fabsf(d->rt.pitch_angle) < d->startup_pitch_tolerance &&
-				fabsf(d->roll_angle) < d->tnt_conf.startup_roll_tolerance && 
+				fabsf(d->rt.roll_angle) < d->tnt_conf.startup_roll_tolerance && 
 				is_engaged(d)) {
 				reset_vars(d);
 				break;
@@ -1149,7 +1149,7 @@ static void tnt_thd(void *arg) {
 			
 			// Push-start aka dirty landing Part II
 			if(d->tnt_conf.startup_pushstart_enabled && (d->motor.abs_erpm > 1000) && is_engaged(d)) {
-				if ((fabsf(d->rt.pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
+				if ((fabsf(d->rt.pitch_angle) < 45) && (fabsf(d->rt.roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
 					reset_vars(d);
@@ -1297,7 +1297,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, VESC_IF->mc_get_input_voltage_filtered(), &ind);
 	buffer_append_float32_auto(buffer, d->motor.current_avg, &ind); // current atr_filtered_current
 	buffer_append_float32_auto(buffer, d->rt.pitch_angle, &ind);
-	buffer_append_float32_auto(buffer, d->roll_angle, &ind);
+	buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind);
 
 	//Tune Modifiers
 	buffer_append_float32_auto(buffer, d->rt.setpoint, &ind);
