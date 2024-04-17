@@ -17,8 +17,10 @@
 
 #pragma once
 
-
-typedef struct {
-	float kp[7][2];
-	int count;
+typedef struct { //Run time values commonly used in various features
+	float proportional;
+	float pid_value;
+	float pitch_angle;
+	float current_time;
+	float setpoint;
 } RuntimeData;
