@@ -106,8 +106,6 @@ typedef struct {
  	float true_pitch_angle;
 	float gyro[3];
 	
-	float max_duty_with_margin;
-
 	FootpadSensor footpad_sensor;
 
 	// Rumtime state values
@@ -278,8 +276,6 @@ static void configure(data *d) {
 	d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
 	// min current is a positive value here!
 	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-
-	d->max_duty_with_margin = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty) - 0.1;
 
 	// Maximum amps change when braking
 	d->pid_brake_increment = 100;
