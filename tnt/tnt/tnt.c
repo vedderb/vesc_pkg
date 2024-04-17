@@ -30,6 +30,7 @@
 #include "high_current.h"
 #include "runtime.h"
 #include "ride_time.h"
+#include "remote_input.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
