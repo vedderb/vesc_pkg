@@ -17,6 +17,7 @@
 
 #include "high_current.h"
 #include "vesc_c_if.h"
+#include "utils_tnt.h"
 
 void check_surge(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *rt, tnt_config *config, SurgeDebug *surge_dbg){
 	//Start Surge Code
