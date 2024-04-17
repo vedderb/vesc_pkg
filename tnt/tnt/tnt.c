@@ -362,7 +362,7 @@ static void reset_vars(data *d) {
 	
 	// Surge
 	d->surge.state = false;
-	d->surge.off = false;
+	d->surge.state_off = false;
 	d->surge.high_current = false;
 	d->surge.high_current_buzz = false;
 	d->surge.high_current_timer = 0;
