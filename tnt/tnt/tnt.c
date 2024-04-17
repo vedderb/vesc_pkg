@@ -543,7 +543,7 @@ static void calculate_setpoint_target(data *d) {
 		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
 			d->surge.state_off = false;
 		}
-	} else if (d->surge) {
+	} else if (d->surge.state) {
 		if (d->proportional*d->motor.erpm_sign < d->tnt_conf.surge_pitchmargin) {
 			d->setpoint_target = d->pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
 			d->state.sat = SAT_SURGE;
