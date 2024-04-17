@@ -66,7 +66,7 @@ void check_surge(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *
 	}
 }
 
-void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt, tnt_config *config);{
+void check_current(MotorData *m, SurgeData *surge, StateData *state, RuntimeData *rt, tnt_config *config);{
 	float scale_start_current = lerp(config->scaleduty/100, .95, config->startcurrent, config->start_hd_current, m->duty_cycle);
 	surge->start_current = min(config->startcurrent, scale_start_current); 
 	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
