@@ -17,19 +17,19 @@
 
 #include "ride_time.h"
 
-void ride_timer(RideTimeData *ridetime, RuntimeData *rt){
-	if(ridetime->run_flag) { //First trigger run flag and reset last ride time
-		ridetime->ride_time += rt->current_time - ridetime->last_ride_time;
+void ride_timer(RideTimeData *ridetimer, RuntimeData *rt){
+	if(ridetimer->run_flag) { //First trigger run flag and reset last ride time
+		ridetimer->ride_time += rt->current_time - ridetimer->last_ride_time;
 	}
-	ridetime->run_flag = true;
-	ridetime->last_ride_time = rt->current_time;
+	ridetimer->run_flag = true;
+	ridetimer->last_ride_time = rt->current_time;
 }
 
 
-void rest_timer(RideTimeData *ridetime, RuntimeData *rt){
-	if(!ridetime->run_flag) { //First trigger run flag and reset last rest time
-		ridetime->rest_time += rt->current_time - ridetime->last_rest_time;
+void rest_timer(RideTimeData *ridetimer, RuntimeData *rt){
+	if(!ridetimer->run_flag) { //First trigger run flag and reset last rest time
+		ridetimer->rest_time += rt->current_time - ridetimer->last_rest_time;
 	}
-	ridetime->run_flag = false;
-	ridetime->last_rest_time = rt->current_time;
+	ridetimer->run_flag = false;
+	ridetimer->last_rest_time = rt->current_time;
 }
