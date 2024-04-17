@@ -18,7 +18,7 @@
 #include "high_current.h"
 #include "vesc_c_if.h"
 
-void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt){
+void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt, tnt_config *config){
 	//Start Surge Code
 	//Initialize Surge Cycle
 	if ((m->current_avg * m->erpm_sign > surge->start_current) && 	//High current condition 
@@ -45,7 +45,7 @@ void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt){
 	if (surge->active){	
 		surge->new_duty_cycle += m->erpm_sign * surge->ramp_rate; 	
 		if((rt->current_time - surge->timer > 0.5) ||								//Outside the surge cycle portion of the surge period
-		 (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
+		 (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
 		 (d->state.wheelslip)) {										//In traction control		
 			surge->active = false;
 			surge->deactivate = true;								//Identifies the end of surge to change the setpoint back to before surge 
@@ -57,7 +57,7 @@ void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt){
 			surge_dbg->debug8 = surge_dbg->debug5/ (rt->current_time - surge->timer) * 100;			//Surge ramp rate
 			if (rt->current_time - surge->timer >= 0.5) {						//End condition
 				surge_dbg->debug6 = 111;
-			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle){
+			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->maxangle){
 				surge_dbg->debug6 = rt->pitch_angle;
 			} else if (d->state.wheelslip){
 				surge_dbg->debug6 = 222;
@@ -66,18 +66,18 @@ void check_surge(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt){
 	}
 }
 
-void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt);{
-	float scale_start_current = lerp(surge->scaleduty/100, .95, surge->start_ld_current, surge->start_hd_current, m->duty_cycle);
-	surge->start_current = min(surge->start_ld_current, scale_start_current); 
-	if ((m->current_avg * m->erpm_sign > surge->start_current - surge->overcurrent_margin) && 	//High current condition 
-	     (!d->state.braking_pos) && 											//Not braking
-	     (!d->state.wheelslip) &&											//Not during traction control
-	     (m->abs_erpm > surge->minerpm) &&								//Above the min erpm threshold
-	     (m->erpm_sign_check) &&										//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
-	     (d->state.sat != SAT_CENTERING)) { 									//Not during startup
+void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt, tnt_config *config);{
+	float scale_start_current = lerp(config->scaleduty/100, .95, config->startcurrent, config->start_hd_current, m->duty_cycle);
+	surge->start_current = min(config->startcurrent, scale_start_current); 
+	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
+	     (!d->state.braking_pos) && 								//Not braking
+	     (!d->state.wheelslip) &&									//Not during traction control
+	     (m->abs_erpm > config->minerpm) &&								//Above the min erpm threshold
+	     (m->erpm_sign_check) &&									//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
+	     (d->state.sat != SAT_CENTERING)) { 							//Not during startup
 		// High current, just haptic buzz don't actually limit currents
 		surge->high_current = true;
-		if (rt->current_time - surge->high_current_timer < surge->buzz_time_limit) {			//Limit haptic buzz duration
+		if (rt->current_time - surge->high_current_timer < config->overcurrent_time) {		//Limit haptic buzz duration
 			surge->high_current_buzz = true;
 		} else {surge->high_current_buzz = false;}
 	} else { 
@@ -88,4 +88,5 @@ void check_current(MotorData *m, SurgeData *surge, StateData *d, RuntimeData *rt
 }
 
 void configure_high_current(SurgeData *surge, tnt_config *config){
+	surge->ramp_rate =  config->surge_duty / 100 / config->hertz;
 }
