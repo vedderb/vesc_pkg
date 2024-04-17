@@ -98,7 +98,7 @@ typedef struct {
 	float pid_brake_increment;
 
 	// Runtime values grouped for easy access in ancillary functions
-	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time roll_angle
+	RuntimeData rt // pitch_angle proportional pid_value setpoint current_time roll_angle  last_accel_z  accel[3]
 
 	// Runtime values read from elsewhere
 	float last_pitch_angle, abs_roll_angle;
@@ -144,8 +144,6 @@ typedef struct {
 	TractionData traction;
 	
 	// Drop Detection
-	float last_accel_z;
-	float accel[3];
 	DropData drop;
 	
 	// Low Pass Filter
@@ -180,7 +178,7 @@ typedef struct {
 	bool run_flag;
 
 	//Debug
-	float debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8, debug9, debug10, debug11, debug12, debug13, debug14, debug15, debug16, debug17, debug18, debug19;
+	float debug1, debug2;
 
 } data;
 
@@ -877,8 +875,8 @@ static void tnt_thd(void *arg) {
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		VESC_IF->imu_get_gyro(d->gyro);
-		d->last_accel_z = d->accel[2];
-		VESC_IF->imu_get_accel(d->accel); //Used for drop detection
+		d->rt.last_accel_z = d->rt.accel[2];
+		VESC_IF->imu_get_accel(d->rt.accel); //Used for drop detection
 		
 		//Apply low pass and Kalman filters to pitch
 		if (d->tnt_conf.pitch_filter > 0) {
@@ -1009,7 +1007,7 @@ static void tnt_thd(void *arg) {
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
 				brake_curve ? &d->brake_kp : &d->accel_kp);
-			d->debug10 = brake_curve ? -kp_mod : kp_mod;
+			d->debug1 = brake_curve ? -kp_mod : kp_mod;
 			kp_mod *= (1 + d->stabl * d->tnt_conf.stabl_pitch_max_scale / 100); //apply dynamic stability
 			new_pid_value = kp_mod * d->rt.proportional;
 			
@@ -1021,7 +1019,7 @@ static void tnt_thd(void *arg) {
 				float kp_rate = brake_curve ? d->brake_kp.kp_rate : d->accel_kp.kp_rate;		
 				float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			
 				d->pid_mod = kp_rate * rate_prop * rate_stabl;
-				d->debug12 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
+				d->debug3 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
 			
 				// Select Roll Boost Kp
 				float rollkp = 0;
@@ -1043,7 +1041,7 @@ static void tnt_thd(void *arg) {
 				//Apply Roll Boost
 				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
 				d->pid_mod += d->roll_pid_mod;
-				d->debug11 = brake_roll ? -rollkp : rollkp;	
+				d->debug2 = brake_roll ? -rollkp : rollkp;	
 
 				//Soft Start
 				if (d->softstart_pid_limit < d->mc_current_max) {
@@ -1061,13 +1059,13 @@ static void tnt_thd(void *arg) {
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = sign(new_pid_value) * current_limit;
 			}
-			check_current(d); // Check for high current conditions
+			check_current(&d->moto, &d->surge, &d->state, &d->rt,  &d->tnt_conf); // Check for high current conditions
 			
 			// Modifiers to PID control
-			check_drop(d);
-			check_traction(d);
+			check_drop(&d->drop, &d->rt);
+			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->drop, &d->traction_dbg);
 			if (d->tnt_conf.is_surge_enabled){
-				check_surge(d);
+				check_surge(&d->moto, &d->surge, &d->state, &d->rt,  &d->tnt_conf, &d->surge_dbg);
 			}
 				
 			// PID value application
@@ -1320,12 +1318,12 @@ static void send_realtime_data(data *d){
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
-		buffer_append_float32_auto(buffer, d->debug2, &ind); //Temporary debug. wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->debug6, &ind); //Temporary debug. accel at wheelslip start
-		buffer_append_float32_auto(buffer, d->debug3, &ind); //Temporary debug. erpm before wheel slip
-		buffer_append_float32_auto(buffer, d->debug9, &ind); //Temporary debug. erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->debug4, &ind); //Temporary debug. Debug condition or last accel
-		buffer_append_float32_auto(buffer, d->debug8, &ind); //Temporary debug. accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //Temporary debug. wheelslip erpm factor
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //Temporary debug. accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //Temporary debug. erpm before wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //Temporary debug. erpm at wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Temporary debug. Debug condition or last accel
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //Temporary debug. accel at wheelslip end
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //surge start proportional
@@ -1338,11 +1336,11 @@ static void send_realtime_data(data *d){
 	} else if (d->tnt_conf.is_tunedebug_enabled) {
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
-		buffer_append_float32_auto(buffer, d->debug10, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, d->debug10*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
-		buffer_append_float32_auto(buffer, d->debug12, &ind); // added stability rate P
+		buffer_append_float32_auto(buffer, d->debug1, &ind); // scaled angle P
+		buffer_append_float32_auto(buffer, d->debug1*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
+		buffer_append_float32_auto(buffer, d->debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->stabl, &ind);
-		buffer_append_float32_auto(buffer, d->debug11, &ind); //rollkp
+		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
 	} else { 
 		buffer[ind++] = 0; 
 	}
