@@ -28,6 +28,18 @@ typedef struct {
 } TractionData;
 
 typedef struct {
+	float debug1;
+	float debug2;
+	float debug3;
+	float debug4;
+	float debug5;
+	float debug6;
+	float debug7;
+	float debug8;
+	float debug9;
+} TractionDebug
+
+typedef struct {
         bool state;				//Drop is occurring
         float timeron;				//timer for debug info
         float timeroff;				//timer for debug info
@@ -36,5 +48,5 @@ typedef struct {
         float limit;				//Required acceleration to engage drop
 } DropData;
 
-void check_traction(data *d);
-void check_drop(data *d);
+void check_traction(MotorData *m, TractionData *traction, StateData *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
+void check_drop(DropData *drop, RuntimeData *rt);
