@@ -263,9 +263,6 @@ static void configure(data *d) {
 	d->inputtilt_step_size = d->tnt_conf.inputtilt_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
 	d->surge.tiltback_step_size = d->tnt_conf.tiltback_surge_speed / d->tnt_conf.hertz;
-	
-	//Surge
-	d->surge.ramp_rate =  d->tnt_conf.surge_duty / 100 / d->tnt_conf.hertz;
 
 	//Dynamic Stability
 	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
@@ -327,7 +324,10 @@ static void configure(data *d) {
 	//Check for roll inputs
 	roll_kp_configure(&d->tnt_conf, &d->roll_accel_kp, 1);
 	roll_kp_configure(&d->tnt_conf, &d->roll_brake_kp, 2);
-	
+		
+	//Surge Configure
+	configure_surge(&d->surge, &d->tnt_conf);
+
 	if (d->state.state == STATE_DISABLED) {
 	    beep_alert(d, 3, false);
 	} else {
@@ -360,11 +360,7 @@ static void reset_vars(data *d) {
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
 	// Surge
-	d->surge.active = false;
-	d->surge.deactivate = false;
-	d->surge.high_current = false;
-	d->surge.high_current_buzz = false;
-	d->surge.high_current_timer = 0;
+	reset_surge(&d->surge);
 	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
