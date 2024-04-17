@@ -25,10 +25,10 @@ typedef struct {
 	float tiltback_step_size;		//Speed that the board returns to setpoint
 	float setpoint;				//Setpoint allowed by surge
 	float start_current;			//Current that starts surge
-	float ramp_rate				//Duty cycle ramp rate
-	bool high_current			//A state below surge current by amount, overcurrent margin
-	float high_current_timer		//Limits the duration of haptic buzz
-	bool high_current_buzz			//A state that allows haptic buzz during high current
+	float ramp_rate;			//Duty cycle ramp rate
+	bool high_current;			//A state below surge current by amount, overcurrent margin
+	float high_current_timer;		//Limits the duration of haptic buzz
+	bool high_current_buzz;			//A state that allows haptic buzz during high current
 } SurgeData;
 
 void check_current(data *d);
