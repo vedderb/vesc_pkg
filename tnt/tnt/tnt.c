@@ -137,6 +137,7 @@ typedef struct {
 	
 	//Traction Control
 	TractionData traction;
+	TractionDebug traction_dbg
 	
 	// Drop Detection
 	DropData drop;
