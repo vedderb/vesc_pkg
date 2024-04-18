@@ -16,6 +16,7 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "remote_input.h"
+#include "utils_tnt.h"
 #include <math.h>
 
 void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float *input_tiltback_target){ 
