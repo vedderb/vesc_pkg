@@ -46,7 +46,7 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 	if (surge->active){	
 		surge->new_duty_cycle += m->erpm_sign * surge->ramp_rate; 	
 		if((rt->current_time - surge->timer > 0.5) ||								//Outside the surge cycle portion of the surge period
-		 (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
+		 (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->surge_maxangle) ||	//Limit nose up angle based on the setpoint at start of surge because surge changes the setpoint
 		 (state->wheelslip)) {										//In traction control		
 			surge->active = false;
 			surge->deactivate = true;								//Identifies the end of surge to change the setpoint back to before surge 
@@ -68,12 +68,12 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 }
 
 void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, tnt_config *config) {
-	float scale_start_current = lerp(config->scaleduty/100, .95, config->startcurrent, config->start_hd_current, m->duty_cycle);
-	surge->start_current = min(config->startcurrent, scale_start_current); 
+	float scale_start_current = lerp(surge_scaleduty/100, .95, config->surge_startcurrent, config->surge_start_hd_current, m->duty_cycle);
+	surge->start_current = min(config->surge_startcurrent, scale_start_current); 
 	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
 	     (!state->braking_pos) && 								//Not braking
 	     (!state->wheelslip) &&									//Not during traction control
-	     (m->abs_erpm > config->minerpm) &&								//Above the min erpm threshold
+	     (m->abs_erpm > surge_minerpm) &&								//Above the min erpm threshold
 	     (m->erpm_sign_check) &&									//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
 	     (state->sat != SAT_CENTERING)) { 							//Not during startup
 		// High current, just haptic buzz don't actually limit currents
