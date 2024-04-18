@@ -337,8 +337,8 @@ static void reset_vars(data *d) {
 	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
 	
 	//Input tilt/ Sticky tilt
-	if (d->st_tilt.inputtilt_interpolated != d->st_tilt.value || VESC_IF->get_ppm_age() > 1) { 	// Persistent sticky tilt value if we are at value with remote connected
-		d->st_tilt.inputtilt_interpolated = 0;			// Reset values not at sticky tilt or if remote is off
+	if (d->remote.inputtilt_interpolated != d->st_tilt.value || VESC_IF->get_ppm_age() > 1) { 	// Persistent sticky tilt value if we are at value with remote connected
+		d->remote.inputtilt_interpolated = 0;			// Reset values not at sticky tilt or if remote is off
 	}
 	
 	//Control variables
@@ -615,7 +615,7 @@ static void calculate_setpoint_target(data *d) {
 	}
 	
 	//Duty beep
-	if (d->setpointAdjustmentType == SAT_PB_DUTY) {
+	if (d->state.sat == SAT_PB_DUTY) {
 		if (d->tnt_conf.is_dutybeep_enabled || (d->tnt_conf.tiltback_duty_angle == 0)) {
 			beep_on(d, true);
 			d->beep_reason = BEEP_DUTY;
@@ -874,7 +874,7 @@ static void tnt_thd(void *arg) {
 			//Apply Remote Tilt
 			float input_tiltback_target = d->remote.throttle_val * d->tnt_conf.inputtilt_angle_limit;
 			if (d->tnt_conf.is_stickytilt_enabled) { 
-				input_tiltback_target = apply_stickytilt(&d->remote, &d->st_tilt, d->motor.current_avg, input_tiltback_target);
+				apply_stickytilt(&d->remote, &d->st_tilt, d->motor.current_avg, &input_tiltback_target);
 			}
 			apply_inputtilt(&d->remote, input_tiltback_target); //produces output d->remote.inputtilt_interpolated
 			d->rt.setpoint += d->tnt_conf.enable_throttle_stability ? 0 : d->remote.inputtilt_interpolated; //Don't apply if we are using the throttle for stability
@@ -950,13 +950,13 @@ static void tnt_thd(void *arg) {
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = sign(new_pid_value) * current_limit;
 			}
-			check_current(&d->moto, &d->surge, &d->state, &d->rt,  &d->tnt_conf); // Check for high current conditions
+			check_current(&d->motor, &d->surge, &d->state, &d->rt,  &d->tnt_conf); // Check for high current conditions
 			
 			// Modifiers to PID control
 			check_drop(&d->drop, &d->rt);
 			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->drop, &d->traction_dbg);
 			if (d->tnt_conf.is_surge_enabled){
-				check_surge(&d->moto, &d->surge, &d->state, &d->rt,  &d->tnt_conf, &d->surge_dbg);
+				check_surge(&d->motor, &d->surge, &d->state, &d->rt,  &d->tnt_conf, &d->surge_dbg);
 			}
 				
 			// PID value application
