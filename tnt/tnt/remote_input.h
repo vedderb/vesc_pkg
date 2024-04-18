@@ -19,7 +19,7 @@
 #include "vesc_c_if.h"
 #include "conf/datatypes.h"
 
-struct {
+typedef struct {
 	float ramped_step_size;
 	float step_size;
 	float throttle_val;
@@ -27,7 +27,7 @@ struct {
 	float smoothing_factor;
 } RemoteData;
 
-struct {
+typedef struct {
 	float value; 
 	bool active; 
 	float max_value; 
