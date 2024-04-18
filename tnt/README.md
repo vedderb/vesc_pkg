@@ -3,6 +3,8 @@ by Mike Silberstein (send questions, comments, requests to izzyvesc@gmail.com)
 
 Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and Niko for self-balanced boards. It departs from the traditional PID control scheme that is rooted in the balance robot design. This is replaced with a user defined, current output curve that is based on board pitch. This allows for an infinite number of throttle/braking curves that gives the user the ability to truly tune the board how they want.
 
+This package also includes code from Refloat by Lukas Hrazky.
+
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
 ### Features
@@ -21,6 +23,15 @@ Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and
 Default settings are based on 20s Hypercore (Future Motion motor) board set up. The default settings are what I ride for trails. The exceptions are surge and traction control which are disabled by default. These are more advanced behaviors that should be tuned by the user. For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.3
+ *  Code refactored thanks to contributions from Lukas Hrazky, author of Refloat.
+ *  Fixed a bug that would prevent high current haptic buzz if surge was engaged.
+ *  AppUI now displays the following for state:
+     *  when idle... "READY-" and last stop/fault reason
+     *  when running... "RUNNING-" and tiltback reason
+     *  in traction control/wheelslip... "WHEELSLIP"
+ *  **Parameters are unchanged but you may need to shut down and restart VESC Tool app to load new AppUI.**
+   
 ### 1.2
  * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
  * _Features_
