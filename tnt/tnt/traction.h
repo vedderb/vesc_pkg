@@ -44,7 +44,7 @@ typedef struct {
 } TractionDebug;
 
 typedef struct {
-        bool state;				//Drop is occurring
+        bool active;				//Drop is occurring
         float timeron;				//timer for debug info
         float timeroff;				//timer for debug info
         float count;				//Required code cycles below the limit before drop engages
