@@ -60,7 +60,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	};
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
-	k->kp_rate = d->tnt_conf.kp_rate;
+	k->kp_rate = config->kp_rate;
 	
 	if (mode==2) { //Brake curve
 		float temp_pitch_current[7][2] = {
@@ -79,7 +79,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 		}
 		kp0 = config->brake_kp0;
 		kp_input = config->pitch_kp_input_brake;
-		k->kp_rate = d->tnt_conf.brakekp_rate;
+		k->kp_rate = config->brakekp_rate;
 	}
 
 	//Check for current inputs
