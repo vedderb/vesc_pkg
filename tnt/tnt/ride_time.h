@@ -16,6 +16,7 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <stdbool.h>
 
 typedef struct {
 	float rest_time;
