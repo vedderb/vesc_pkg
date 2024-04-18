@@ -18,9 +18,9 @@
 #pragma once
 
 struct {
-	float rest_time
-	float last_rest_time
-	float ride_time
+	float rest_time;
+	float last_rest_time;
+	float ride_time;
 	float last_ride_time;
 	bool run_flag;
 } RideTimeData;
