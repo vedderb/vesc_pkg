@@ -58,7 +58,7 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 			surge_dbg->debug8 = surge_dbg->debug5/ (rt->current_time - surge->timer) * 100;			//Surge ramp rate
 			if (rt->current_time - surge->timer >= 0.5) {						//End condition
 				surge_dbg->debug6 = 111;
-			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->maxangle){
+			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > config->surge_maxangle){
 				surge_dbg->debug6 = rt->pitch_angle;
 			} else if (state->wheelslip){
 				surge_dbg->debug6 = 222;
@@ -67,7 +67,7 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 	}
 }
 
-void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, tnt_config *config);{
+void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, tnt_config *config) {
 	float scale_start_current = lerp(config->scaleduty/100, .95, config->startcurrent, config->start_hd_current, m->duty_cycle);
 	surge->start_current = min(config->startcurrent, scale_start_current); 
 	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
@@ -90,7 +90,7 @@ void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt
 
 void configure_surge(SurgeData *surge, tnt_config *config){
 	surge->ramp_rate =  config->surge_duty / 100 / config->hertz;
-	surge->tiltback_step_size = config->tiltback_surge_speed / config->tnt_conf.hertz;
+	surge->tiltback_step_size = config->tiltback_surge_speed / config->hertz;
 }
 
 void reset_surge(SurgeData *surge){
