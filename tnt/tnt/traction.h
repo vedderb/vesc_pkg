@@ -41,7 +41,7 @@ typedef struct {
 	float debug7;
 	float debug8;
 	float debug9;
-} TractionDebug
+} TractionDebug;
 
 typedef struct {
         bool state;				//Drop is occurring
