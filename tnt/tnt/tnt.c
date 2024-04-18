@@ -95,9 +95,6 @@ typedef struct {
 	// Feature: True Pitch
 	ATTITUDE_INFO m_att_ref;
 
-	// Brake Amp Rate Limiting:
-	float pid_brake_increment;
-
 	// Runtime values grouped for easy access in ancillary functions
 	RuntimeData rt; 		// pitch_angle proportional pid_value setpoint current_time roll_angle  last_accel_z  accel[3]
 
@@ -277,12 +274,6 @@ static void configure(data *d) {
 	d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
 	// min current is a positive value here!
 	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-
-	// Maximum amps change when braking
-	d->pid_brake_increment = 100;
-	if (d->pid_brake_increment < 0.1) {
-		d->pid_brake_increment = 5;
-	}
 
 	// Speed above which to warn users about an impending full switch fault
 	d->switch_warn_beep_erpm = d->tnt_conf.is_footbeep_enabled ? 2000 : 100000;
@@ -932,7 +923,7 @@ static void tnt_thd(void *arg) {
 				rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
 
 				//Apply Roll Boost
-				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; //always act in the direciton of travel
+				d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; 	//always act in the direciton of travel
 				d->pid_mod += d->roll_pid_mod;
 				d->debug2 = brake_roll ? -rollkp : rollkp;	
 
@@ -960,20 +951,7 @@ static void tnt_thd(void *arg) {
 			}
 				
 			// PID value application
-			// d->rt.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
-			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) { //Reduce acceleration if we are in traction control and enabled
-				d->rt.pid_value = 0;
-			} else if (d->motor.erpm_sign * (d->rt.pid_value - new_pid_value) > d->pid_brake_increment) { // Brake Amp Rate Limiting
-				if (new_pid_value > d->rt.pid_value) {
-					d->rt.pid_value += d->pid_brake_increment;
-				}
-				else {
-					d->rt.pid_value -= d->pid_brake_increment;
-				}
-			}
-			else {
-				d->rt.pid_value = new_pid_value;
-			}
+			d->rt.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
 
 			// Output to motor
 			if (d->start_counter_clicks) {
