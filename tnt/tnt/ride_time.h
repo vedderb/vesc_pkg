@@ -17,7 +17,7 @@
 
 #pragma once
 
-struct {
+typedef struct {
 	float rest_time;
 	float last_rest_time;
 	float ride_time;
