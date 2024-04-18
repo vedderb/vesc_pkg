@@ -78,7 +78,7 @@ void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt
 	     (state->sat != SAT_CENTERING)) { 							//Not during startup
 		// High current, just haptic buzz don't actually limit currents
 		surge->high_current = true;
-		if (rt->current_time - surge->high_current_timer < config->overcurrent_time) {		//Limit haptic buzz duration
+		if (rt->current_time - surge->high_current_timer < config->overcurrent_period) {		//Limit haptic buzz duration
 			surge->high_current_buzz = true;
 		} else {surge->high_current_buzz = false;}
 	} else { 
