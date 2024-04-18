@@ -68,12 +68,12 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 }
 
 void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, tnt_config *config) {
-	float scale_start_current = lerp(surge_scaleduty/100, .95, config->surge_startcurrent, config->surge_start_hd_current, m->duty_cycle);
+	float scale_start_current = lerp(config->surge_scaleduty/100, .95, config->surge_startcurrent, config->surge_start_hd_current, m->duty_cycle);
 	surge->start_current = min(config->surge_startcurrent, scale_start_current); 
 	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
 	     (!state->braking_pos) && 								//Not braking
 	     (!state->wheelslip) &&									//Not during traction control
-	     (m->abs_erpm > surge_minerpm) &&								//Above the min erpm threshold
+	     (m->abs_erpm > config->surge_minerpm) &&								//Above the min erpm threshold
 	     (m->erpm_sign_check) &&									//Prevents surge if direction has changed rapidly, like a situation with hard brake and wheelslip
 	     (state->sat != SAT_CENTERING)) { 							//Not during startup
 		// High current, just haptic buzz don't actually limit currents
