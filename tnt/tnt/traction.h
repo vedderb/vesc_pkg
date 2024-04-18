@@ -52,5 +52,5 @@ typedef struct {
         float limit;				//Required acceleration to engage drop
 } DropData;
 
-void check_traction(MotorData *m, TractionData *traction, StateData *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
+void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
 void check_drop(DropData *drop, RuntimeData *rt);
