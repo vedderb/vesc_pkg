@@ -41,7 +41,7 @@ typedef struct {
 	float debug2;
 	float debug3;
 	float debug4;
-	float debug5
+	float debug5;
 	float debug6;
 	float debug7;
 	float debug8;
