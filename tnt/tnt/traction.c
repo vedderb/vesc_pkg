@@ -19,7 +19,7 @@
 #include <math.h>
 #include "utils_tnt.h"
 
-void check_traction(MotorData *m, TractionData *traction, StateData *state, RuntimeData *rt, tnt_config *config, DropData *drop, TractionDebug *traction_dbg){
+void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, DropData *drop, TractionDebug *traction_dbg){
 	float erpmfactor = config->wheelslip_scaleaccel - min(config->wheelslip_scaleaccel - 1, (config->wheelslip_scaleaccel -1) * ( m->abs_erpm / config->wheelslip_scaleerpm));
 	bool erpm_check;
 	
