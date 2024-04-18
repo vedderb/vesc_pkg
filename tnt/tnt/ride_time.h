@@ -17,6 +17,7 @@
 
 #pragma once
 #include <stdbool.h>
+#include "runtime.h"
 
 typedef struct {
 	float rest_time;
