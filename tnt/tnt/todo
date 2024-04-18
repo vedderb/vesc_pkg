@@ -1,29 +1,7 @@
-Line 23 #include "conf/conf_general.h" instead of _default
 
 
-where does this go
-// First start only, set initial state
-static void app_init(data *d) {
-	if (d->state != DISABLED) {
-		d->state = STARTUP;
-	}
-	d->beeper_enabled = true;
-	
-	// Allow saving of odometer
-	d->odometer_dirty = 0;
-	d->odometer = VESC_IF->mc_get_odometer();
-}
-
-where does this go
-	// Maximum amps change when braking
-	d->pid_brake_increment = 5;
-	if (d->pid_brake_increment < 0.1) {
-		d->pid_brake_increment = 5;
-	}
-	
 
 
-do i need this 	d->current_time = 0;
 
 
 
