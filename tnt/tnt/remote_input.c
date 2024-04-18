@@ -95,7 +95,7 @@ void update_remote(tnt_config *config, RemoteData *r) {
 	// UART/PPM Remote Throttle 
 	bool remote_connected = false;
 	float servo_val = 0;
-	switch (config->tnt_conf.inputtilt_remote_type) {
+	switch (config->inputtilt_remote_type) {
 	case (INPUTTILT_PPM):
 		servo_val = VESC_IF->get_ppm();
 		remote_connected = VESC_IF->get_ppm_age() < 1;
@@ -113,14 +113,14 @@ void update_remote(tnt_config *config, RemoteData *r) {
 		servo_val = 0;
 	} else {
 		// Apply Deadband
-		float deadband = config->tnt_conf.inputtilt_deadband;
+		float deadband = config->inputtilt_deadband;
 		if (fabsf(servo_val) < deadband) {
 			servo_val = 0.0;
 		} else {
 			servo_val = sign(servo_val) * (fabsf(servo_val) - deadband) / (1 - deadband);
 		}
 		// Invert Throttle
-		servo_val *= (config->tnt_conf.inputtilt_invert_throttle ? -1.0 : 1.0);
+		servo_val *= (config->inputtilt_invert_throttle ? -1.0 : 1.0);
 	}
 	r->throttle_val = servo_val;
 }
