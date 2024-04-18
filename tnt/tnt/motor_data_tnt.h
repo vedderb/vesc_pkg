@@ -46,8 +46,8 @@ typedef struct {
     uint8_t last_accel_idx;
 	
     float erpm_history[ERPM_ARRAY_SIZE];
-    uint8_t erpm_idx;
-    uint8_t last_erpm_idx;
+    int erpm_idx;
+    int last_erpm_idx;
 
     float current_avg;
     float current_history[CURRENT_ARRAY_SIZE];
