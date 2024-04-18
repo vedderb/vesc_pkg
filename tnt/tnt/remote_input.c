@@ -60,7 +60,7 @@ void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float
 	s->last_throttle_val = r->throttle_val;
 }
 
-float apply_inputtilt(RemoteData *r, float input_tiltback_target){ 
+void apply_inputtilt(RemoteData *r, float input_tiltback_target){ 
 	float input_tiltback_target_diff = input_tiltback_target - r->inputtilt_interpolated;
 
 	if (r->smoothing_factor > 0) { // Smoothen changes in tilt angle by ramping the step size
@@ -89,7 +89,6 @@ float apply_inputtilt(RemoteData *r, float input_tiltback_target){
 			r->inputtilt_interpolated += r->step_size * sign(input_tiltback_target_diff);
 		}
 	}
-
 }
 
 void update_remote(tnt_config *config, RemoteData *r) {
