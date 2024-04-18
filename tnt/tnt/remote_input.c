@@ -18,7 +18,7 @@
 #include "remote_input.h"
 #include <math.h>
 
-float apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float input_tiltback_target){ 
+void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float *input_tiltback_target){ 
 	// Monitor the throttle to start sticky tilt
 	if ((fabsf(r->throttle_val) - fabsf(s->last_throttle_val) > .001) || // If the throttle is travelling away from center
 	   (fabsf(r->throttle_val) > 0.95)) {					// Or close to max
@@ -47,9 +47,9 @@ float apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, floa
 	
 	if (s->active) { 	//Apply sticky tilt. Check for exit condition
 		//Apply sticky tilt value or throttle values higher than sticky tilt value
-		if ((sign(r->inputtilt_interpolated) == sign(input_tiltback_target)) || (r->throttle_val == 0)) { 	// If the throttle is at zero or pushed to the direction of the sticky tilt value. 
-			if (fabsf(s->value) >= fabsf(input_tiltback_target)) { 						// If sticky tilt value greater than throttle value keep at sticky value
-				input_tiltback_target = s->value; // apply our sticky tilt value
+		if ((sign(r->inputtilt_interpolated) == sign(*input_tiltback_target)) || (r->throttle_val == 0)) { 	// If the throttle is at zero or pushed to the direction of the sticky tilt value. 
+			if (fabsf(s->value) >= fabsf(*input_tiltback_target)) { 						// If sticky tilt value greater than throttle value keep at sticky value
+				*input_tiltback_target = s->value; // apply our sticky tilt value
 			} 
 		} else {  												//else we will apply the normal throttle value calculated at the beginning of apply_inputtilt() in the opposite direction of sticky tilt and exit sticky tilt
 			s->deactivate = true;
@@ -57,7 +57,6 @@ float apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, floa
 		}
 	}
 	s->last_throttle_val = r->throttle_val;
-	return input_tiltback_target;
 }
 
 float apply_inputtilt(RemoteData *r, float input_tiltback_target){ 
