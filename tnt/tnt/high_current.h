@@ -19,7 +19,7 @@
 #include "conf/datatypes.h"
 #include "high_current.h"
 #include "motor_data_tnt.h"
-#include "state.h"
+#include "state_tnt.h"
 #include "runtime.h"
 
 typedef struct {
