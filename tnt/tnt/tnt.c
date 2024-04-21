@@ -751,7 +751,8 @@ static void apply_stability(data *d) {
 	}
 	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > d->tnt_conf.stabl_min_erpm) {		
 		speed_stabl_mod = min(1 ,	// Do not exceed the max value.				
-				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
+				//lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
+				lerp(d->tnt_conf.stabl_min_erpm/10000, d->tnt_conf.stabl_max_erpm/10000, 0, 1, d->motor.duty_cycle)); //testing duty cycle stability
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
 	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size); 
