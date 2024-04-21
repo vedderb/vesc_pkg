@@ -92,7 +92,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	   (!state->wheelslip) &&									// Not in traction control
 	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
 	   (!state->braking_pos) &&									// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
-	   (rt->current_time - traction->timeroff > .2) && 						// Did not recently wheel slip.
+	   (rt->current_time - traction->timeroff > .02) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
 		state->wheelslip = true;
 		traction->accelstartval = m->acceleration;
