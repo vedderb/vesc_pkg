@@ -37,5 +37,6 @@ void state_engage(State *state) {
         state->state = STATE_RUNNING;
         state->sat = SAT_CENTERING;
         state->stop_condition = STOP_NONE;
+        state->wheelslip = false;
     }
 }
