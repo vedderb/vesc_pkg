@@ -35,9 +35,10 @@ void check_drop(DropData *drop, RuntimeData *rt, State *state, DropDebug *drop_d
 		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
 			if (!drop->active) { 						// Set the on timer only once per drop
 				drop->timeron = rt->current_time;
+				drop_dbg->debug5 = rt->pitch_angle;
 			}
 			drop->active = true;
-			drop_dbg->debug4 = min(drop_dgb->debug4, rt->accel[2]); /	/record the lowest accel
+			drop_dbg->debug4 = min(drop_dgb->debug4, rt->accel[2]); 	//record the lowest accel
 		}
 	} else { drop->count = 0; }							// reset
 	
@@ -73,4 +74,5 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg){
 	drop_dbg->debug3 = drop->count;
 	drop->count = 0;
 	drop_dbg->debug2 = drop->timeroff - drop->timeron;
+	drop_dbg->debug6 = rt->pitch_angle;
 }
