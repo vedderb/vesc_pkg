@@ -521,10 +521,12 @@ static void calculate_setpoint_target(data *d) {
 		d->state.sat = SAT_UNDROP;
 		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
 			d->drop.deactivate = false;
+			d->state.drop = false;
 		}
 	} else if (d->drop.active) {
 		d->setpoint_target = d->tnt_conf.is_drop_enabled ? d->rt.pitch_angle : 0; 	//If not enabled don't change the setpoint during drops but still allows debug info
 		d->state.sat = SAT_DROP;
+		d->state.drop = true;
 	} else if (d->state.wheelslip) {
 		d->state.sat = SAT_NONE;
 	} else if (d->surge.deactivate) { 
@@ -1166,7 +1168,11 @@ static void send_realtime_data(data *d){
 	float corr_factor;
 
 	// Board State
-	buffer[ind++] = d->state.wheelslip ? 4 : d->state.state ; // (d->state.state & 0xF) + (d->state.sat << 4);
+	if (d->state.wheelslip) {
+		buffer[ind++] = 4; 
+	} else if (d->state.drop) {
+		buffer[ind++] = 5; 
+	} else { d->state.state; }
 	buffer[ind++] = d->state.sat; 
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
 	buffer[ind++] = d->state.stop_condition;
