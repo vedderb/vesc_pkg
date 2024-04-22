@@ -31,7 +31,9 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
   * when running... "RUNNING-" and tiltback reason
   * in traction control/wheelslip... "WHEELSLIP"
 * Readme format updated for 6.05
-* Changed the minimum delay between traction control activations from 200ms to 
+* Changed the minimum delay between traction control activations from 200ms to 20ms
+* Remove drop condition from traction control deactivation conditions.
+* Drop overhaul
 * **Parameters are unchanged but you may need to shut down and restart VESC Tool app to load new AppUI.**
 
 ### 1.2
