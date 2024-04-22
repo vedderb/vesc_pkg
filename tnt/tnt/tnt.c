@@ -1229,12 +1229,12 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
 	} else if (d->tnt_conf.is_dropdebug_enabled) {
 		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug2, &ind); //drop duration
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //end condition
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug4, &ind); //min accel z
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug3, &ind); //drop count
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug5, &ind); //starting pitch
-		buffer_append_float32_auto(buffer, d->surge_dbg.debug6, &ind); //ending pitch
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug2, &ind); //drop duration
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug1, &ind); //end condition
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //drop count
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //starting pitch
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending pitch
 	} else { 
 		buffer[ind++] = 0; 
 	}
