@@ -138,6 +138,7 @@ typedef struct {
 	
 	// Drop Detection
 	DropData drop;
+	DropDebug drop_dbg;
 	
 	// Low Pass Filter
 	float pitch_smooth; 
@@ -405,7 +406,11 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	case (SAT_UNSURGE):
 		return d->surge.tiltback_step_size;
 	case (SAT_SURGE):
-		return 25;
+		return 25; 				//"as fast as possible", extremely large step size 
+	case (SAT_UNDROP):
+		return d->dop.tiltback_step_size;
+	case (SAT_DROP):
+		return 25; 				//"as fast as possible", extremely large step size 
 	default:
 		return 0;
 	}
@@ -511,7 +516,16 @@ static void calculate_setpoint_target(data *d) {
 		d->tb_highvoltage_timer = d->rt.current_time;
 	}
 
-	if (d->state.wheelslip) {
+	if (d->drop.deactivate) { 
+		d->setpoint_target = 0;
+		d->state.sat = SAT_UNDROP;
+		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
+			d->drop.deactivate = false;
+		}
+	} else if (d->drop.active) {
+		d->setpoint_target = d->tnt_conf.is_drop_enabled ? d->rt.pitch_angle : 0; 	//If not enabled don't change the setpoint during drops but still allows debug info
+		d->state.sat = SAT_DROP;
+	} else if (d->state.wheelslip) {
 		d->state.sat = SAT_NONE;
 	} else if (d->surge.deactivate) { 
 		d->setpoint_target = 0;
@@ -945,10 +959,10 @@ static void tnt_thd(void *arg) {
 			check_current(&d->motor, &d->surge, &d->state, &d->rt,  &d->tnt_conf); // Check for high current conditions
 			
 			// Modifiers to PID control
-			check_drop(&d->drop, &d->rt);
-			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->drop, &d->traction_dbg);
+			check_drop(&d->drop, &d->motor, &d->rt, &d->state, &d->drop_dbg);
+			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->traction_dbg);
 			if (d->tnt_conf.is_surge_enabled){
-				check_surge(&d->motor, &d->surge, &d->state, &d->rt,  &d->tnt_conf, &d->surge_dbg);
+				check_surge(&d->motor, &d->surge, &d->state, &d->rt, &d->tnt_conf, &d->surge_dbg);
 			}
 				
 			// PID value application
@@ -1167,29 +1181,29 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->rt.setpoint, &ind);
 	buffer_append_float32_auto(buffer, d->remote.inputtilt_interpolated, &ind);
 	buffer_append_float32_auto(buffer, d->remote.throttle_val, &ind);
-	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Temporary debug. Time since last wheelslip
-	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Temporary debug. Time since last surge
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
 
 	// Trip
 	if (d->ridetimer.ride_time > 0) {
 		corr_factor =  d->rt.current_time / d->ridetimer.ride_time;
 	} else {corr_factor = 1;}
-	buffer_append_float32_auto(buffer, d->ridetimer.ride_time, &ind); //Temporary debug. Ride Time
-	buffer_append_float32_auto(buffer, d->ridetimer.rest_time, &ind); //Temporary debug. Rest time
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //Temporary debug. speed avg convert m/s to mph
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //Temporary debug. current avg
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //Temporary debug. power avg
-	buffer_append_float32_auto(buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //Temporary debug. efficiency
+	buffer_append_float32_auto(buffer, d->ridetimer.ride_time, &ind); //Ride Time
+	buffer_append_float32_auto(buffer, d->ridetimer.rest_time, &ind); //Rest time
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //speed avg convert m/s to mph
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //current avg
+	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //power avg
+	buffer_append_float32_auto(buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //efficiency
 	
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //Temporary debug. wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //Temporary debug. accel at wheelslip start
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //Temporary debug. erpm before wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //Temporary debug. erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Temporary debug. Debug condition or last accel
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //Temporary debug. accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //accel at wheelslip end
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //surge start proportional
@@ -1207,6 +1221,14 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->stabl, &ind);
 		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
+	} else if (d->tnt_conf.is_dropdebug_enabled) {
+		buffer[ind++] = 4;
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug2, &ind); //drop duration
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //end condition
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug4, &ind); //min accel z
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug3, &ind); //drop count
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug5, &ind); //starting pitch
+		buffer_append_float32_auto(buffer, d->surge_dbg.debug6, &ind); //ending pitch
 	} else { 
 		buffer[ind++] = 0; 
 	}
