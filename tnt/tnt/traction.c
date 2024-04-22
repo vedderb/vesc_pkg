@@ -25,12 +25,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	
 	// Conditons to end traction control
 	if (state->wheelslip) {
-		if (rt->current_time - drop->timeroff < 0.5) {		// Drop has ended recently
-			state->wheelslip = false;
-			traction->timeroff = rt->current_time;
-			traction_dbg->debug4 = 6666;
-			traction_dbg->debug8 = m->acceleration;
-		} else	if (rt->current_time - traction->timeron > .5) {		// Time out at 500ms
+		if (rt->current_time - traction->timeron > .5) {		// Time out at 500ms
 			state->wheelslip = false;
 			traction->timeroff = rt->current_time;
 			traction_dbg->debug4 = 5000;
@@ -78,7 +73,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 			}
 		}
 	}	
-	if (sign(m->erpm) == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
+	
+	if (m->abs_erpm == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
@@ -90,7 +86,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	// Initiate traction control
 	if ((sign(m->current) * m->acceleration > config->wheelslip_accelstart * erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (!state->wheelslip) &&									// Not in traction control
-	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current dirrention and erpm - last erpm
+	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current direction and erpm - last erpm
 	   (!state->braking_pos) &&									// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
 	   (rt->current_time - traction->timeroff > .02) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
@@ -116,23 +112,50 @@ void check_drop(DropData *drop, RuntimeData *rt){
 	} else {
 		drop->applied_accel_z_reduction = drop->applied_accel_z_reduction * .999 + accel_z_reduction * .001;	// Roll or pitch decreasing. Delay to allow accel z to keep pace	
 	}
-	drop->limit = 0.92;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
-	if ((rt->accel[2] < drop->limit * drop->applied_accel_z_reduction) && 		// Compare accel z to drop limit with reduction for pitch and roll.
-	    (rt->last_accel_z >= rt->accel[2]) &&  					// for fastest landing reaction check that we are still dropping
-	    (rt->current_time - drop->timeroff > 0.5)) {				// Don't re-enter drop state for duration 	
+	if ((rt->accel[2] < drop->z_limit * drop->applied_accel_z_reduction) && 		// Compare accel z to drop limit with reduction for pitch and roll.
+	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are still dropping
+	    (state->sat != SAT_CENTERING) && 						//Not during startup
+	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if (drop->count > 5) {							// Counter used to reduce nuisance trips
-			drop->active = true;
-			if (rt->current_time - drop->timeron > 3) { 			// Set the on timer only if it is well past what is normal so it only sets once
+			if (!drop->active) { 			// Set the on timer only if it is well past what is normal so it only sets once
 				drop->timeron = rt->current_time;
 			}
+			drop->active = true;
+			drop_dbg->debug4 = min(drop_dgb->debug4, rt->accel[2]);
 		}
-	} else if (drop->active == true) {		// If any conditions are not met while in drop state, exit drop state
-		drop->active = false;
-		drop->timeroff = rt->current_time;
-		drop->count = 0;			// reset
-	} else {
-		drop->active = false;			// Out of drop state by default
-		drop->count = 0;			// reset
-	}
+	} else { drop->count = 0; }			// reset
+	
+	if (drop->active == true) {		// If any conditions are not met while in drop state, exit drop state
+		if (fabsf(m->acceleration) > drop->motor_limit) { //Fastest reaction is hall sensor
+			drop_deactive(&drop);
+			drop_dbg->debug1 = m->acceleration;
+		} else if (rt->last_accel_z <= rt->accel[2]) {	// for fastest landing reaction check that we are still dropping
+			drop_deactive(&drop);
+			drop_dbg->debug1 = rt->accel[2];
+		}
+		
+	} 
+
+}
+
+void configure_traction(DropData *drop, tnt_config *config){
+	drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
+	drop->z_limit = config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
+	drop->motor_limit = config->drop_motor_accel; //ends drop via motor acceleration
+}
+
+void reset_traction(DropData *drop){
+	drop->active = false;
+	drop->deactivate = false;
+	drop->count = 0;
+}
+
+void drop_deactivate(DropData *drop){
+	drop->active = false;
+	drop->deactivate = true;
+	drop->timeroff = rt->current_time;
+	drop_dbg->debug3 = drop->count;
+	drop->count = 0;
+	drop_dbg->debug2 = drop->timeroff - drop->timeron;
 }
