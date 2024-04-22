@@ -19,7 +19,7 @@
 #include <math.h>
 #include "utils_tnt.h"
 
-void check_drop(DropData *drop, RuntimeData *rt, State *state, DropDebug *drop_dbg){
+void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
 	float accel_z_reduction = cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle));			// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_accel_z_reduction = accel_z_reduction ;							// Roll or pitch are increasing. Do not delay
