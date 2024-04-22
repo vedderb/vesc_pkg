@@ -147,7 +147,14 @@ Item {
 		    var debug4 = dv.getFloat32(ind); ind += 4; //stablkprate
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
-                } else {
+                } else if (debug_state == 4) {
+                    var debug2 = dv.getFloat32(ind); ind += 4; //drop duration 
+                    var debug1 = dv.getFloat32(ind); ind += 4; //end condition
+                    var debug4 = dv.getFloat32(ind); ind += 4; //min accel z 
+                    var debug3 = dv.getFloat32(ind); ind += 4; //drop count  
+                    var debug5 = dv.getFloat32(ind); ind += 4; //starting pitch  
+                    var debug6 = dv.getFloat32(ind); ind += 4; //ending pitch 
+      		else {
 		    //space for temporary debugs
                 }
 		
@@ -250,62 +257,69 @@ Item {
                     tune.text = "-- n/a --"
                     trip.text = "-- n/a --"
                     debug.text = "-- n/a --"
-                }
-                else {
-                rt_state.text =
-                    "State               : " + stateString + "\n" +
-                    "Switch              : " + switchString + "\n" +
-                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
-                    "Last Beep Reason    : " + beepString + "\n" +
-                    "Voltage             : " + voltage.toFixed(1) + "V\n" +
-                    "Current             : " + current.toFixed(0) + " A\n" +
-		    "Pitch               : " + pitch.toFixed(2) + "°\n" +
-   		    "Roll                : " + roll.toFixed(2) + "°\n" 
-                
-                tune.text =
-                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
-                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
-                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
-                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
-                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"       
-                    
-                trip.text =
-                    "Ride Time	        : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
-                    "Rest Time	        : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-                    "Speed Avg	        : " + speed.toFixed(1) + " mph\n" +
-                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
-                    "Power Avg	        : " + power.toFixed(1) + " W\n" +
-		    "Efficiency	        : " + eff.toFixed(1) + " Wh/mi\n" 
-             
-		if (debug_state == 1) {
-                    debug.text =
-                        "Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-                        "Wheelslip Start Acce: " + debug2.toFixed(1) + "\n" +
-                        "Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
-                        "Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
-                        "Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
-                        "Wheelslip End Accel : " + debug6.toFixed(1) + "\n" 
-                } else if (debug_state == 2) {
-                debug.text =
-                    "Surge Start Current : " + debug7.toFixed(0) + " A\n" +
-		    "Surge Start Threshld: " + debug4.toFixed(0) + " A\n" +
-                    "Start Proportional  : " + debug1.toFixed(1) + " °\n" +
-                    "Surge Ramp Rate     : " + debug2.toFixed(0) + " %/s\n" +
-		    "Surge Added Duty    : " + (debug3 * 100).toFixed(1) + " %\n" +
-		    "Surge End Trigger   : " + debug5.toFixed(1) + " °\n" +
-                    "Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
-		} else if (debug_state == 3) {
-                debug.text =
-                    "Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
-                    "Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
-                    "Stability Kp        : " + debug3.toFixed(0) + " \n" + 
-                    "Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
-                    "Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
-		    "Roll Kp             : " + debug6.toFixed(2) + "\n" 
-                } else { 
-		debug.text = 
-  		    "-- n/a --"       
-  		}
+                } else {
+	                rt_state.text =
+	                    "State               : " + stateString + "\n" +
+	                    "Switch              : " + switchString + "\n" +
+	                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
+	                    "Last Beep Reason    : " + beepString + "\n" +
+	                    "Voltage             : " + voltage.toFixed(1) + "V\n" +
+	                    "Current             : " + current.toFixed(0) + " A\n" +
+			    "Pitch               : " + pitch.toFixed(2) + "°\n" +
+	   		    "Roll                : " + roll.toFixed(2) + "°\n" 
+	                
+	                tune.text =
+	                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
+	                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
+	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
+	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
+	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"       
+	                    
+	                trip.text =
+	                    "Ride Time	        : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
+	                    "Rest Time	        : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
+	                    "Speed Avg	        : " + speed.toFixed(1) + " mph\n" +
+	                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
+	                    "Power Avg	        : " + power.toFixed(1) + " W\n" +
+			    "Efficiency	        : " + eff.toFixed(1) + " Wh/mi\n" 
+	             
+			if (debug_state == 1) {
+				debug.text =
+				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
+				"Wheelslip Start Acce: " + debug2.toFixed(1) + "\n" +
+				"Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
+				"Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
+				"Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
+				"Wheelslip End Accel : " + debug6.toFixed(1) + "\n" 
+	                } else if (debug_state == 2) {
+				debug.text =
+				"Surge Start Current : " + debug7.toFixed(0) + " A\n" +
+				"Surge Start Threshld: " + debug4.toFixed(0) + " A\n" +
+				"Start Proportional  : " + debug1.toFixed(1) + " °\n" +
+				"Surge Ramp Rate     : " + debug2.toFixed(0) + " %/s\n" +
+				"Surge Added Duty    : " + (debug3 * 100).toFixed(1) + " %\n" +
+				"Surge End Trigger   : " + debug5.toFixed(1) + " °\n" +
+				"Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
+			} else if (debug_state == 3) {
+				debug.text =
+				"Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
+				"Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
+				"Stability Kp        : " + debug3.toFixed(0) + " \n" + 
+				"Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
+				"Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
+				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
+			} else if (debug_state == 4) {
+				debug.text =
+				"Drop Duration       : " + debug2.toFixed(3) + " s\n" +
+				"Drop End Condition  : " + debug1.toFixed(2) + " \n" +         
+				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
+				"Drop Cycles         : " + debug3.toFixed(0) + " \n" +
+				"Starting Pitch      : " + debug5.toFixed(1) + "°\n" +
+				"Ending Pitch        : " + debug6.toFixed(1) + "°\n" 
+			} else { 
+				debug.text = 
+				"-- n/a --"       
+	  		}
                 }
             }
         }
