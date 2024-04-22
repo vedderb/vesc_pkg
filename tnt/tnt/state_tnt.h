@@ -54,7 +54,9 @@ typedef enum {
     SAT_PB_LOW_VOLTAGE = 11,
     SAT_PB_TEMPERATURE = 12,
     SAT_UNSURGE = 13,
-    SAT_SURGE = 14
+    SAT_SURGE = 14,
+    SAT_UNDROP = 15,
+    SAT_DROP = 16
 } SetpointAdjustmentType;
 
 typedef struct {
@@ -66,6 +68,7 @@ typedef struct {
     bool wheelslip;
     bool darkride;
     bool braking_pos;
+    bool drop;
 } State;
 
 void state_init(State *state, bool disable);
