@@ -47,21 +47,21 @@ typedef struct {
 	float debug4;
 	float debug5;
 	float debug6;
-	float debug7;
-	float debug8;
-	float debug9;
-} TractionDebug;
+} DropDebug;
 
 typedef struct {
         bool active;				//Drop is occurring
+        bool deactivate;			//Return setpoint to normal
         float timeron;				//timer for debug info
         float timeroff;				//timer for debug info
         float count;				//Required code cycles below the limit before drop engages
         float applied_accel_z_reduction;	//Geometry compesation for the angle of the board
-        float limit;				//Required acceleration to engage drop
+        float z_limit;				//Required acceleration to engage drop
+        float count_limit;			//Required code cycles to engage drop
+        float motor_limit;			//Required motor acceleration to end drop
 } DropData;
 
-void check_drop(DropData *drop, RuntimeData *rt, State *state, DropDebug *drop_dbg));
+void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg));
 void drop_deactivate(DropData *drop, DropDebug *drop_dbg);
 void reset_drop(DropData *drop);
 void configure_drop(DropData *drop, tnt_config *config);
