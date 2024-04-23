@@ -38,7 +38,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 				drop_dbg->debug5 = rt->pitch_angle;
 			}
 			drop->active = true;
-			drop_dbg->debug4 = min(drop_dgb->debug4, rt->accel[2]); 	//record the lowest accel
+			drop_dbg->debug4 = min(drop_dbg->debug4, rt->accel[2]); 	//record the lowest accel
 		}
 	} else { drop->count = 0; }							// reset
 	
