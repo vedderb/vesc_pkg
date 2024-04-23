@@ -74,7 +74,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		}
 	}	
 	
-	if (m->abs_erpm == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
+	if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
