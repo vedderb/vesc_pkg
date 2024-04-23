@@ -22,7 +22,8 @@
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
 	float erpmfactor = config->wheelslip_scaleaccel - min(config->wheelslip_scaleaccel - 1, (config->wheelslip_scaleaccel -1) * ( m->abs_erpm / config->wheelslip_scaleerpm));
 	bool erpm_check;
-	
+	bool start_condition;
+
 	// Conditons to end traction control
 	if (state->wheelslip) {
 		if (rt->current_time - traction->timeron > .5) {		// Time out at 500ms
@@ -77,14 +78,15 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
+			start_condition = sign(m->current) * m->acceleration > config->wheelslip_accelstart * erpmfactor;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
-	} else if (sign(m->erpm_sign_soft) != sign(m->acceleration)) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
+	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
+		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor;
 	} else {erpm_check = false;}
-		
-		
+
 	// Initiate traction control
-	if ((sign(m->current) * m->acceleration > config->wheelslip_accelstart * erpmfactor) && 	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+	if ((start_condition) && 									// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (!state->wheelslip) &&									// Not in traction control
 	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current direction and erpm - last erpm
 	   (!state->braking_pos) &&									// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
