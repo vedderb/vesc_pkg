@@ -44,6 +44,6 @@ typedef struct {
 } DropDebug;
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
-void drop_deactivate(DropData *drop, DropDebug *drop_dbg);
+void drop_deactivate(DropData *drop, DropDebug *drop_dbg, Runtime *rt);
 void reset_drop(DropData *drop);
 void configure_drop(DropData *drop, tnt_config *config);
