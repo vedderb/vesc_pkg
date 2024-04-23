@@ -1173,7 +1173,7 @@ static void send_realtime_data(data *d){
 		buffer[ind++] = 4; 
 	} else if (d->state.drop) {
 		buffer[ind++] = 5; 
-	} else { d->state.state; }
+	} else { buffer[ind++] = d->state.state; }
 	buffer[ind++] = d->state.sat; 
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
 	buffer[ind++] = d->state.stop_condition;
