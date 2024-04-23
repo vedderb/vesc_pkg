@@ -409,7 +409,7 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	case (SAT_SURGE):
 		return 25; 				//"as fast as possible", extremely large step size 
 	case (SAT_UNDROP):
-		return d->dop.tiltback_step_size;
+		return d->drop.tiltback_step_size;
 	case (SAT_DROP):
 		return 25; 				//"as fast as possible", extremely large step size 
 	default:
