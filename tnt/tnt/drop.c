@@ -67,7 +67,7 @@ void reset_drop(DropData *drop){
 	drop->count = 0;
 }
 
-void drop_deactivate(DropData *drop, DropDebug *drop_dbg, Runtime *rt){
+void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->active = false;
 	drop->deactivate = true;
 	drop->timeroff = rt->current_time;
