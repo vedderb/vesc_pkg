@@ -31,7 +31,7 @@ typedef struct {
         float z_limit;				//Required acceleration to engage drop
         float count_limit;			//Required code cycles to engage drop
         float motor_limit;			//Required motor acceleration to end drop
-	float tiltback_step_size		//Return speed to original setpoint after drop
+	float tiltback_step_size;		//Return speed to original setpoint after drop
 } DropData;
 
 typedef struct {
@@ -43,7 +43,7 @@ typedef struct {
 	float debug6;
 } DropDebug;
 
-void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg));
+void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
 void drop_deactivate(DropData *drop, DropDebug *drop_dbg);
 void reset_drop(DropData *drop);
 void configure_drop(DropData *drop, tnt_config *config);
