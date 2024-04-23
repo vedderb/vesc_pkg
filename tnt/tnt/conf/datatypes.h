@@ -113,7 +113,7 @@ typedef struct {
 	float drop_z_accel;
 	uint16_t drop_count_limit;
 	float drop_motor_accel;
-	float tiltback_drop_size;
+	float tiltback_drop_speed;
 	bool enable_speed_stability;
 	bool enable_throttle_stability;
 	float stabl_pitch_max_scale;
