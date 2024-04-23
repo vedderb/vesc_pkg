@@ -22,7 +22,7 @@
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
 	float erpmfactor = config->wheelslip_scaleaccel - min(config->wheelslip_scaleaccel - 1, (config->wheelslip_scaleaccel -1) * ( m->abs_erpm / config->wheelslip_scaleerpm));
 	bool erpm_check;
-	bool start_condition;
+	bool start_condition = false;
 
 	// Conditons to end traction control
 	if (state->wheelslip) {
@@ -82,7 +82,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
-		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor;
+		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor; //use a faster reaction if wheel changes direction
 	} else {erpm_check = false;}
 
 	// Initiate traction control
