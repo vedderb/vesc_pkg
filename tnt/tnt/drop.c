@@ -44,11 +44,9 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	
 	if (drop->active == true) {					
 		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
-			drop->timeroff = rt->current_time;
 			drop_deactivate(&drop);
 			drop_dbg->debug1 = m->acceleration;
 		} else if (rt->last_accel_z <= rt->accel[2]) {		// for fastest landing reaction with accelerometer check that we are still dropping
-			drop->timeroff = rt->current_time;
 			drop_deactivate(&drop);
 			drop_dbg->debug1 = rt->accel[2];
 		}
@@ -69,9 +67,10 @@ void reset_drop(DropData *drop){
 	drop->count = 0;
 }
 
-void drop_deactivate(DropData *drop, DropDebug *drop_dbg){
+void drop_deactivate(DropData *drop, DropDebug *drop_dbg, Runtime *rt){
 	drop->active = false;
 	drop->deactivate = true;
+	drop->timeroff = rt->current_time;
 	drop_dbg->debug3 = drop->count;
 	drop->count = 0;
 	drop_dbg->debug2 = drop->timeroff - drop->timeron;
