@@ -311,6 +311,9 @@ static void configure(data *d) {
 	//Surge Configure
 	configure_surge(&d->surge, &d->tnt_conf);
 
+	//Drop Configure
+	configure_drop(&d->drop, &d->tnt_conf);
+
 	if (d->state.state == STATE_DISABLED) {
 	    beep_alert(d, 3, false);
 	} else {
