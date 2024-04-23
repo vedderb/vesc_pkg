@@ -348,6 +348,9 @@ static void reset_vars(data *d) {
 	// Surge
 	reset_surge(&d->surge);
 	
+	// Drop
+	reset_drop(&d->drop);
+	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
 	d->abs_prop_smooth = 0;
