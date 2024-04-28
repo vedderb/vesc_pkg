@@ -20,41 +20,40 @@
 #include "utils_tnt.h"
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
-	float accel_z_reduction = cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle));			// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
-	if (drop->applied_accel_z_reduction > accel_z_reduction) {							// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
-		drop->applied_accel_z_reduction = accel_z_reduction ;							// Roll or pitch are increasing. Do not delay
-	} else {
-		drop->applied_accel_z_reduction = drop->applied_accel_z_reduction * .999 + accel_z_reduction * .001;	// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
+	// Conditions to end drop
+	if (drop->active == true) {					
+		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
+			drop_deactivate(drop, drop_dbg, rt);
+			drop_dbg->debug3 = m->acceleration;
+		} else if (rt->last_accel_z <= rt->accel[2]) {		// for fastest landing reaction with accelerometer check that we are still dropping
+			drop_deactivate(drop, drop_dbg, rt);
+			drop_dbg->debug3 = rt->accel[2];
+		}
 	}
-	
-	if ((rt->accel[2] < drop->z_limit * drop->applied_accel_z_reduction) && 	// Compare accel z to drop limit with reduction for pitch and roll.
+
+	//Conditions to engage drop
+	if ((drop->accel_z < drop->z_limit) && 		// Compare accel z to drop limit with reduction for pitch and roll.
 	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are still dropping
 	    (state->sat != SAT_CENTERING) && 						//Not during startup
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
+		if (drop->count == 1) {
+			drop_dbg->temp_timeron = rt->current_time;
+		}
+		
 		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
 			if (!drop->active) { 						// Set the on timer only once per drop
-				drop->timeron = rt->current_time;
-				drop_dbg->debug5 = rt->pitch_angle;
+				drop->timeron = drop_dbg->temp_timeron;
+				drop_dbg->debug5 = drop->applied_correction;
+				drop_dbg->debug4 = drop->accel_z;
 			}
 			drop->active = true;
-			drop_dbg->debug4 = min(drop_dbg->debug4, rt->accel[2]); 	//record the lowest accel
+			drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
 		}
 	} else { drop->count = 0; }							// reset
-	
-	if (drop->active == true) {					
-		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
-			drop_deactivate(drop, drop_dbg, rt);
-			drop_dbg->debug1 = m->acceleration;
-		} else if (rt->last_accel_z <= rt->accel[2]) {		// for fastest landing reaction with accelerometer check that we are still dropping
-			drop_deactivate(drop, drop_dbg, rt);
-			drop_dbg->debug1 = rt->accel[2];
-		}
-	}
-
 }
 
-void configure_drop(DropData *drop, tnt_config *config){
+void configure_drop(DropData *drop, const tnt_config *config){
 	drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
 	drop->z_limit = config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
 	drop->motor_limit = config->drop_motor_accel; //ends drop via motor acceleration
@@ -71,8 +70,33 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->active = false;
 	drop->deactivate = true;
 	drop->timeroff = rt->current_time;
-	drop_dbg->debug3 = drop->count;
 	drop->count = 0;
-	drop_dbg->debug2 = drop->timeroff - drop->timeron;
-	drop_dbg->debug6 = rt->pitch_angle;
+	drop_dbg->debug7 = drop->timeroff - drop_dbg->temp_timeron;
+	drop_dbg->debug6 = rt->proportional;
+}
+
+void apply_angle_drop(DropData *drop, RuntimeData *rt){
+	float angle_correction = 1 / (cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle)));			// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
+	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
+		drop->applied_correction = angle_correction ;							// Roll or pitch are increasing. Do not delay
+	} else {
+		drop->applied_correction = drop->applied_correction * (1 - .0005) + angle_correction * .0005;		// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
+	}
+	drop->accel_z = rt->accel[2] * drop->applied_correction;
+	/* TODO Another method that incorporates all accelerations but needs work on delay.
+	float rad_pitch = deg2rad(rt->pitch_angle);
+	float rad_roll =deg2rad(rt->roll_angle);
+	float angle_factor = cosf(drop->pitch_delay) * cosf(drop->roll_delay);
+	if (drop->last_angle_factor > angle_factor) {					// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
+		drop->pitch_delay = rad_pitch;						// Roll or pitch are increasing. Do not delay
+		drop->roll_delay = rad_roll;	
+	} else {
+		drop->pitch_delay = drop->pitch_delay* (1 - .001) + rad_pitch * .001;		// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
+		drop->roll_delay = drop->roll_delay* (1 - .001) + rad_roll * .001;	
+	}
+	drop->last_angle_factor = angle_factor;
+
+	drop->accel_z =  rt->accel[2] * angle_factor +  
+		fabsf(rt->accel[1] * sinf(drop->roll_delay)) +  
+		fabsf(rt->accel[0] * sinf(drop->pitch_delay)) ; */
 }
