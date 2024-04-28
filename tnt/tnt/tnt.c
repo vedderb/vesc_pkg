@@ -981,10 +981,10 @@ static void tnt_thd(void *arg) {
 				//Apply ERPM Scale
 				erpmscale = 1;
 				if ((brake_yaw && d->motor.abs_erpm < 750) ||
-					d->motor.abs_erpm < d->tnt_conf.yaw_min_erpm) { 				
+					d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) { 				
 					// Enforce minimum speed and always reduce scaler to 0 when braking below 750 erpm
 					erpmscale = 0;
-				} else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_low_erpm_scale) { 
+				} else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_lowerpm) { 
 					erpmscale = 1 + yaw_erpm_scale(&d->tnt_conf, d->motor.abs_erpm);
 				}
 				d->yaw_dbg.debug5 = erpmscale;
