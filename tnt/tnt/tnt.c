@@ -32,12 +32,13 @@
 #include "ride_time.h"
 #include "remote_input.h"
 #include "drop.h"
+#include "yaw.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
 #include "conf/confxml.h"
 #include "conf/buffer.h"
-#include "conf/conf_default.h"
+#include "conf/conf_general.h"
 
 #include <math.h>
 #include <string.h>
@@ -157,6 +158,8 @@ typedef struct {
 	KpArray brake_kp;
 	KpArray roll_accel_kp;
 	KpArray roll_brake_kp;
+	KpArray yaw_accel_kp;
+	KpArray yaw_brake_kp;
 
 	// Dynamic Stability
 	float stabl;
@@ -171,8 +174,14 @@ typedef struct {
 	//Trip Debug
 	RideTimeData ridetimer;
 
+	//Yaw Boost
+	YawData yaw;
+	YawDebugData yaw_dbg;
+	float yaw_pid_mod;
+	float yaw_angle;
+
 	//Debug
-	float debug1, debug2, debug3;
+	float debug1, debug2, debug3, debug4, debug5, debug6;
 
 } data;
 
@@ -307,6 +316,10 @@ static void configure(data *d) {
 	//Check for roll inputs
 	roll_kp_configure(&d->tnt_conf, &d->roll_accel_kp, 1);
 	roll_kp_configure(&d->tnt_conf, &d->roll_brake_kp, 2);
+
+	//Check for yaw inputs
+	yaw_kp_configure(&d->tnt_conf, &d->yaw_accel_kp, 1);
+	yaw_kp_configure(&d->tnt_conf, &d->yaw_brake_kp, 2);
 		
 	//Surge Configure
 	configure_surge(&d->surge, &d->tnt_conf);
@@ -369,6 +382,10 @@ static void reset_vars(data *d) {
 	d->haptic_timer = d->rt.current_time;
 	d->applied_haptic_current = 0;
 
+	//Yaw Boost
+	yaw_reset(&d->yaw, &d->yaw_dbg);
+	d->yaw_pid_mod = 0;
+	
 	state_engage(&d->state);
 }
 
@@ -774,8 +791,7 @@ static void apply_stability(data *d) {
 	}
 	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > d->tnt_conf.stabl_min_erpm) {		
 		speed_stabl_mod = min(1 ,	// Do not exceed the max value.				
-				//lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
-				lerp(d->tnt_conf.stabl_min_erpm/10000, d->tnt_conf.stabl_max_erpm/10000, 0, 1, d->motor.duty_cycle)); //testing duty cycle stability
+				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
 	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size); 
@@ -808,9 +824,11 @@ static void tnt_thd(void *arg) {
 		d->abs_roll_angle = fabsf(d->rt.roll_angle);
 		d->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&d->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
+		d->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&d->m_att_ref));
 		VESC_IF->imu_get_gyro(d->gyro);
 		d->rt.last_accel_z = d->rt.accel[2];
 		VESC_IF->imu_get_accel(d->rt.accel); //Used for drop detection
+		apply_angle_drop(&d->drop, &d->rt); //corrects accel z with angles
 		
 		//Apply low pass and Kalman filters to pitch
 		if (d->tnt_conf.pitch_filter > 0) {
@@ -951,6 +969,34 @@ static void tnt_thd(void *arg) {
 				d->pid_mod += d->roll_pid_mod;
 				d->debug2 = brake_roll ? -rollkp : rollkp;	
 
+				// Calculate yaw change and yaw agregate
+				calc_yaw_change(&d->yaw, d->yaw_angle, &d->yaw_dbg);
+
+				//Select Yaw Kp and apply scaler
+				float yawkp = 0;
+				bool brake_yaw = d->yaw_brake_kp.count!=0 && d->state.braking_pos;
+				yawkp = angle_kp_select(d->yaw.abs_change, 
+					brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
+				
+				//Apply ERPM Scale
+				erpmscale = 1;
+				if ((brake_yaw && d->motor.abs_erpm < 750) ||
+					d->motor.abs_erpm < d->tnt_conf.yaw_min_erpm) { 				
+					// Enforce minimum speed and always reduce scaler to 0 when braking below 750 erpm
+					erpmscale = 0;
+				} else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_low_erpm_scale) { 
+					erpmscale = 1 + yaw_erpm_scale(&d->tnt_conf, d->motor.abs_erpm);
+				}
+				d->yaw_dbg.debug5 = erpmscale;
+				d->yaw_dbg.debug3 = brake_yaw ? -yawkp : yawkp;
+				yawkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
+				d->yaw_dbg.debug4 = brake_yaw ? -yawkp : yawkp;
+				d->yaw_dbg.debug2 = max(d->yaw_dbg.debug2, yawkp);
+				
+				//Apply Yaw Boost
+				d->yaw_pid_mod = .99 * d->yaw_pid_mod + .01 * yawkp * fabsf(new_pid_value) * d->motor.erpm_sign; 	//always act in the direciton of travel
+				d->pid_mod += d->yaw_pid_mod;
+				
 				//Soft Start
 				if (d->softstart_pid_limit < d->mc_current_max) {
 					d->pid_mod = fminf(fabsf(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
@@ -1167,7 +1213,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 103;
+	static const int bufsize = 107;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -1196,6 +1242,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->remote.throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->drop.timeron , &ind); //Time since last surge
 
 	// Trip
 	if (d->ridetimer.ride_time > 0) {
@@ -1236,12 +1283,21 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
 	} else if (d->tnt_conf.is_dropdebug_enabled) {
 		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug2, &ind); //drop duration
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug1, &ind); //end condition
+		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
+		buffer_append_float32_auto(buffer, d->drop.applied_reduction, &ind); //applied reduction
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //end condition
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //drop count
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //starting pitch
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending pitch
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //starting angle correction
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending prop
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug7, &ind); //duration
+	} else if (d->tnt_conf.is_yawdebug_enabled) {
+		buffer[ind++] = 5;
+		buffer_append_float32_auto(buffer, d->yaw_angle, &ind); //yaw angle
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3, &ind); //yaw kp raw
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug4, &ind); //yaw kp scaled	
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug5, &ind); //erpm scaler
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug2, &ind); //max kp change
 	} else { 
 		buffer[ind++] = 0; 
 	}
