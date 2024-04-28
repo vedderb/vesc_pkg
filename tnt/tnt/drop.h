@@ -22,28 +22,36 @@
 #include "runtime.h"
 
 typedef struct {
-        bool active;				//Drop is occurring
+        float accel_z;
+	bool active;				//Drop is occurring
         bool deactivate;			//Return setpoint to normal
         float timeron;				//timer for debug info
         float timeroff;				//timer for debug info
-        float count;				//Required code cycles below the limit before drop engages
-        float applied_accel_z_reduction;	//Geometry compesation for the angle of the board
+        float applied_correction;		//Geometry compesation for the angle of the board
+	float count;				//Required code cycles below the limit before drop engages
         float z_limit;				//Required acceleration to engage drop
         float count_limit;			//Required code cycles to engage drop
         float motor_limit;			//Required motor acceleration to end drop
 	float tiltback_step_size;		//Return speed to original setpoint after drop
+	float last_angle_factor;		//Stores pitch and roll effect on accel z
+	float roll_delay;
+	float pitch_delay;
 } DropData;
 
 typedef struct {
-	float debug1;
-	float debug2;
-	float debug3;
-	float debug4;
-	float debug5;
-	float debug6;
+	float debug1;		//accel z
+	float debug2;		//applied reduction
+	float debug3;		//end condition
+	float debug4;		//min accel z
+	float debug5;		//start angle correction
+	float debug6;		// end porp
+	float debug7;		// drop duration
+	float temp_pitch;
+	float temp_timeron;
 } DropDebug;
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
 void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt);
 void reset_drop(DropData *drop);
-void configure_drop(DropData *drop, tnt_config *config);
+void configure_drop(DropData *drop, const tnt_config *config);
+void apply_angle_drop(DropData *drop, RuntimeData *rt);
