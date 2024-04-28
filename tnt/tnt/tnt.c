@@ -1284,7 +1284,7 @@ static void send_realtime_data(data *d){
 	} else if (d->tnt_conf.is_dropdebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
-		buffer_append_float32_auto(buffer, d->drop.applied_reduction, &ind); //applied reduction
+		buffer_append_float32_auto(buffer, d->drop.applied_correction, &ind); //applied reduction
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //end condition
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //starting angle correction
