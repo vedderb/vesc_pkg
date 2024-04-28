@@ -117,7 +117,7 @@ void angle_kp_reset(KpArray *k) {
 
 void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	float accel_roll_kp[7][2] = { //Accel curve
-	{0, 0}, //reserved for kp0 assigned at the end
+	{0, 0}, 
 	{config->roll1, config->roll_kp1},
 	{config->roll2, config->roll_kp2},
 	{config->roll3, config->roll_kp3},
@@ -127,7 +127,7 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	};
 	
 	float brake_roll_kp[7][2] = { //Brake Curve
-	{0, 0}, //reserved for kp0 assigned at the end
+	{0, 0}, 
 	{config->brkroll1, config->brkroll_kp1},
 	{config->brkroll2, config->brkroll_kp2},
 	{config->brkroll3, config->brkroll_kp3},
@@ -139,6 +139,42 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	for (int x = 0; x <= 6; x++) {
 		for (int y = 0; y <= 1; y++) {
 			k->angle_kp[x][y] = (mode==2) ? brake_roll_kp[x][y] : accel_roll_kp[x][y];
+		}
+	}
+	
+	if (k->angle_kp[1][1]<k->angle_kp[2][1] && k->angle_kp[1][0]<k->angle_kp[2][0]) {
+		if (k->angle_kp[2][1]<k->angle_kp[3][1] && k->angle_kp[2][0]<k->angle_kp[3][0]) {
+			k->count = 3;
+		} else {k->count = 2;}
+	} else if (k->angle_kp[1][1] >0 && k->angle_kp[1][0]>0) {
+		k->count = 1;
+	} else {k->count = 0;}
+}
+
+void yaw_kp_configure(const tnt_config *config, KpArray *k, int mode){
+	float accel_yaw_kp[7][2] = { //Accel curve
+	{0, 0}, 
+	{config->yaw1 / config->hertz, config->yaw_kp1},
+	{config->yaw2 / config->hertz, config->yaw_kp2},
+	{config->yaw3 / config->hertz, config->yaw_kp3},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	};
+	
+	float brake_yaw_kp[7][2] = { //Brake Curve
+	{0, 0}, 
+	{config->brkyaw1 / config->hertz, config->brkyaw_kp1},
+	{config->brkyaw2 / config->hertz, config->brkyaw_kp2},
+	{config->brkyaw3 / config->hertz, config->brkyaw_kp3},
+	{0, 0},
+	{0, 0},
+	{0, 0},
+	};	
+
+	for (int x = 0; x <= 6; x++) {
+		for (int y = 0; y <= 1; y++) {
+			k->angle_kp[x][y] = (mode==2) ? brake_yaw_kp[x][y] : accel_yaw_kp[x][y];
 		}
 	}
 	
