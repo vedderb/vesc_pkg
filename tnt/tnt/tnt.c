@@ -32,7 +32,7 @@
 #include "ride_time.h"
 #include "remote_input.h"
 #include "drop.h"
-#include "yaw.h"
+#include "yaw_gain.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
