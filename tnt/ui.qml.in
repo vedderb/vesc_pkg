@@ -116,7 +116,8 @@ Item {
                 var throttle_val = dv.getFloat32(ind); ind += 4;
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var surge_lasttime = dv.getFloat32(ind); ind += 4; 
-		
+                var drop_lasttime = dv.getFloat32(ind); ind += 4; 
+	
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
 	        var speed = dv.getFloat32(ind); ind += 4; //speed avg
@@ -148,13 +149,21 @@ Item {
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
                 } else if (debug_state == 4) {
-                    var debug2 = dv.getFloat32(ind); ind += 4; //drop duration 
-                    var debug1 = dv.getFloat32(ind); ind += 4; //end condition
+                    var debug1 = dv.getFloat32(ind); ind += 4; //drop duration 
+                    var debug2 = dv.getFloat32(ind); ind += 4; //applied reduction
+                    var debug3 = dv.getFloat32(ind); ind += 4; //end condition  
                     var debug4 = dv.getFloat32(ind); ind += 4; //min accel z 
-                    var debug3 = dv.getFloat32(ind); ind += 4; //drop count  
                     var debug5 = dv.getFloat32(ind); ind += 4; //starting pitch  
                     var debug6 = dv.getFloat32(ind); ind += 4; //ending pitch 
-      		} else {
+                    var debug7 = dv.getFloat32(ind); ind += 4; //duration
+                } else if (debug_state == 5) {
+                    var debug6 = dv.getFloat32(ind); ind += 4; //yaw angle
+                    var debug1 = dv.getFloat32(ind); ind += 4; //yaw change
+		    var debug2 = dv.getFloat32(ind); ind += 4; //yaw kp raw
+      		    var debug3 = dv.getFloat32(ind); ind += 4; //yaw kp scaled
+                    var debug4 = dv.getFloat32(ind); ind += 4; //erpm scaler 
+                    var debug5 = dv.getFloat32(ind); ind += 4; //max kp
+		} else {
 		    //space for temporary debugs
                 }
 		
@@ -250,7 +259,10 @@ Item {
         	var resttime1 = ("0" + Math.trunc(resttime/3600)).slice(-2);
     		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
     		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
-   
+        	var droptime1 = ("0" + Math.trunc(drop_lasttime/3600)).slice(-2);
+    		var droptime2 = ("0" + Math.trunc(drop_lasttime/60 - droptime1*60)).slice(-2);
+    		var droptime3 = ("0" + Math.trunc(drop_lasttime - droptime1*3600 - droptime2*60)).slice(-2);
+      
                 if(state == 0){
                     stateString = "DISABLED"
                     switchString = "Enable in TNT Cfg: Specs"
@@ -275,15 +287,16 @@ Item {
 	                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
 	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
 	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
-	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"       
-	                    
+	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n" +    
+	                    "Last Drop Time      : " + droptime1 + ":" + droptime2 + ":" + droptime3 + "\n"       
+
 	                trip.text =
-	                    "Ride Time	        : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
-	                    "Rest Time	        : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-	                    "Speed Avg	        : " + speed.toFixed(1) + " mph\n" +
+	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
+	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
+	                    "Speed Avg          : " + speed.toFixed(1) + " mph\n" +
 	                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
-	                    "Power Avg	        : " + power.toFixed(1) + " W\n" +
-			    "Efficiency	        : " + eff.toFixed(1) + " Wh/mi\n" 
+	                    "Power Avg          : " + power.toFixed(1) + " W\n" +
+			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" 
 	             
 			if (debug_state == 1) {
 				debug.text =
@@ -312,13 +325,22 @@ Item {
 				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
 			} else if (debug_state == 4) {
 				debug.text =
-				"Drop Duration       : " + debug2.toFixed(3) + " s\n" +
-				"Drop End Condition  : " + debug1.toFixed(2) + " \n" +         
+				"Accel Z             : " + debug1.toFixed(2) + " g\n" +
+				"Pitch/Roll Factor   : " + debug2.toFixed(2) + " \n" +
+				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
 				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
-				"Drop Cycles         : " + debug3.toFixed(0) + " \n" +
-				"Starting Pitch      : " + debug5.toFixed(1) + "°\n" +
-				"Ending Pitch        : " + debug6.toFixed(1) + "°\n" 
-			} else { 
+				"Starting Angle Facto: " + debug5.toFixed(1) + "°\n" +
+				"Ending Proportional : " + debug6.toFixed(1) + "°\n" +
+    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" 
+			} else if (debug_state == 5) {
+				debug.text =
+				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
+				"Yaw Change          : " + debug1.toFixed(0) + " °/s \n" +         
+				"Yaw Kp (raw)        : " + debug2.toFixed(2) + " \n" +
+    				"Yaw Kp (scaled)     : " + debug3.toFixed(2) + " \n" +
+				"ERPM Scaler         : " + debug4.toFixed(1) + " \n" +
+    				"Max Yaw Kp          : " + debug5.toFixed(2) + " \n" 
+      			} else { 
 				debug.text = 
 				"-- n/a --"       
 	  		}
