@@ -840,7 +840,8 @@ static void tnt_thd(void *arg) {
 
 		motor_data_update(&d->motor);
 		update_remote(&d->tnt_conf, &d->remote);
-		
+		check_drop(&d->drop, &d->motor, &d->rt, &d->state, &d->drop_dbg);
+
 		//Footpad Sensor
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
 	        if (d->footpad_sensor.state == FS_NONE && d->state.state == STATE_RUNNING &&
@@ -1014,7 +1015,6 @@ static void tnt_thd(void *arg) {
 			check_current(&d->motor, &d->surge, &d->state, &d->rt,  &d->tnt_conf); // Check for high current conditions
 			
 			// Modifiers to PID control
-			check_drop(&d->drop, &d->motor, &d->rt, &d->state, &d->drop_dbg);
 			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->traction_dbg);
 			if (d->tnt_conf.is_surge_enabled){
 				check_surge(&d->motor, &d->surge, &d->state, &d->rt, &d->tnt_conf, &d->surge_dbg);
