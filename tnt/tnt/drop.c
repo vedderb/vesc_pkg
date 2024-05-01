@@ -31,10 +31,16 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 		}
 	}
 
+	//Detects high acceleration to prevent drop in pump track situations
+	if ((drop->accel_z > 1.1) {
+		drop->high_accel_timer = rt->current_time;
+	}
+	
 	//Conditions to engage drop
-	if ((drop->accel_z < drop->z_limit) && 		// Compare accel z to drop limit with reduction for pitch and roll.
+	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are still dropping
-	    (state->sat != SAT_CENTERING) && 						//Not during startup
+	    (state->sat != SAT_CENTERING) && 						// Not during startup
+	    (rt->current_time - drop->high_accel_timer > 0.5) &&			// Have not experienced high accel recently
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if (drop->count == 1) {
@@ -80,7 +86,7 @@ void apply_angle_drop(DropData *drop, RuntimeData *rt){
 	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_correction = angle_correction ;							// Roll or pitch are increasing. Do not delay
 	} else {
-		drop->applied_correction = drop->applied_correction * (1 - .0005) + angle_correction * .0005;		// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
+		drop->applied_correction = drop->applied_correction * (1 - .001) + angle_correction * .001;		// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
 	}
 	drop->accel_z = rt->accel[2] * drop->applied_correction;
 	/* TODO Another method that incorporates all accelerations but needs work on delay.
