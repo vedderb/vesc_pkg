@@ -17,7 +17,7 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#include "yaw_gain.h"
+#include "yaw.h"
 #include "utils_tnt.h"
 #include <math.h>
 
