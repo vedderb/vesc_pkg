@@ -39,7 +39,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 			if (rt->current_time - drop->high_accel_timer > 0.5) {			// Have not experienced high accel recently
 				if (!drop->active) { 						// Set the on timer only once per drop
 					drop->timeron = drop_dbg->temp_timeron;
-					drop_dbg->debug5 = drop->applied_correction;
+					//drop_dbg->debug5 = drop->applied_correction;
 					drop_dbg->debug4 = drop->accel_z;
 				}
 				drop->active = true;
