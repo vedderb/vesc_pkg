@@ -40,11 +40,11 @@ typedef struct {
 } DropData;
 
 typedef struct {
-	float debug1;		//accel z
-	float debug2;		//applied reduction
+	float debug1;		//last high accel prevention time
+	float debug2;		//
 	float debug3;		//end condition
 	float debug4;		//min accel z
-	float debug5;		//start angle correction
+	float debug5;		//
 	float debug6;		// end porp
 	float debug7;		// drop duration
 	float temp_pitch;
