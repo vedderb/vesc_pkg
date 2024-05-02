@@ -20,6 +20,34 @@
 #include "utils_tnt.h"
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
+	//Detects high acceleration to prevent drop in pump track situations
+	if ((drop->accel_z > 1.1) {
+		drop->high_accel_timer = rt->current_time;
+	}
+	
+	//Conditions to engage drop
+	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
+	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are constantly dropping
+	    (state->sat != SAT_CENTERING) && 						// Not during startup
+	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
+		drop->count += 1;
+		if (drop->count == 1) {
+			drop_dbg->temp_timeron = rt->current_time;
+		}
+		
+		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
+			if (rt->current_time - drop->high_accel_timer > 0.5) {			// Have not experienced high accel recently
+				if (!drop->active) { 						// Set the on timer only once per drop
+					drop->timeron = drop_dbg->temp_timeron;
+					drop_dbg->debug5 = drop->applied_correction;
+					drop_dbg->debug4 = drop->accel_z;
+				}
+				drop->active = true;
+				drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
+			} else { drop_dbg->debug1 = rt->current_time; }				//Update to indicate recent drop prevention
+		}
+	} else { drop->count = 0; }							// reset
+	
 	// Conditions to end drop
 	if (drop->active == true) {					
 		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
@@ -30,33 +58,6 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 			drop_dbg->debug3 = rt->accel[2];
 		}
 	}
-
-	//Detects high acceleration to prevent drop in pump track situations
-	if ((drop->accel_z > 1.1) {
-		drop->high_accel_timer = rt->current_time;
-	}
-	
-	//Conditions to engage drop
-	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
-	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are still dropping
-	    (state->sat != SAT_CENTERING) && 						// Not during startup
-	    (rt->current_time - drop->high_accel_timer > 0.5) &&			// Have not experienced high accel recently
-	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
-		drop->count += 1;
-		if (drop->count == 1) {
-			drop_dbg->temp_timeron = rt->current_time;
-		}
-		
-		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
-			if (!drop->active) { 						// Set the on timer only once per drop
-				drop->timeron = drop_dbg->temp_timeron;
-				drop_dbg->debug5 = drop->applied_correction;
-				drop_dbg->debug4 = drop->accel_z;
-			}
-			drop->active = true;
-			drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
-		}
-	} else { drop->count = 0; }							// reset
 }
 
 void configure_drop(DropData *drop, const tnt_config *config){
