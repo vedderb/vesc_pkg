@@ -1289,7 +1289,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending prop
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug7, &ind); //duration
-		buffer_append_float32_auto(buffer, d->current_time - d->drop_dbg.debug1, &ind); //last high accel prevention
+		buffer_append_float32_auto(buffer, d->rt.current_time - d->drop_dbg.debug1, &ind); //last high accel prevention
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 5;
 		buffer_append_float32_auto(buffer, d->yaw_angle, &ind); //yaw angle
