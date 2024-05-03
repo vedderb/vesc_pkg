@@ -21,7 +21,7 @@
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
 	//Detects high acceleration to prevent drop in pump track situations
-	if ((drop->accel_z > drop->z_highlimit) {
+	if (drop->accel_z > drop->z_highlimit) {
 		drop->highcount += 1;
 		if (drop->highcount > drop->count_limit) {
 			drop->high_accel_timer = rt->current_time;
