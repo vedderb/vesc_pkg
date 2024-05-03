@@ -21,8 +21,11 @@
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
 	//Detects high acceleration to prevent drop in pump track situations
-	if ((drop->accel_z > 1.1) {
-		drop->high_accel_timer = rt->current_time;
+	if ((drop->accel_z > drop->z_highlimit) {
+		drop->highcount += 1;
+		if (drop->highcount > drop->count_limit) {
+			drop->high_accel_timer = rt->current_time;
+		}	
 	}
 	
 	//Conditions to engage drop
@@ -68,6 +71,7 @@ void configure_drop(DropData *drop, const tnt_config *config){
 	drop->z_limit = config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
 	drop->motor_limit = config->drop_motor_accel; //ends drop via motor acceleration
 	drop->count_limit = config->drop_count_limit;
+	drop->z_highlimit = config->drop_z_highaccel;
 }
 
 void reset_drop(DropData *drop){
