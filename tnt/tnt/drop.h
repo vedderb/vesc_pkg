@@ -34,7 +34,7 @@ typedef struct {
         float motor_limit;			//Required motor acceleration to end drop
 	float tiltback_step_size;		//Return speed to original setpoint after drop
 	float high_accel_timer;			//Stores the last high accel time to prevent drop in pump track situations
-	float z_highcount;
+	float highcount;
 	float z_highlimit;
 	//float last_angle_factor;		//Stores pitch and roll effect on accel z
 	//float roll_delay;
