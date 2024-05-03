@@ -330,8 +330,8 @@ Item {
 				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
 				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
 				"Ending Proportional : " + debug6.toFixed(1) + "°\n" +
-    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" 
-				"Last High Accel     : " + debug5.toFixed(0) + " s\n" +
+    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" +
+				"Last High Accel     : " + debug5.toFixed(0) + " s\n" 
 			} else if (debug_state == 5) {
 				debug.text =
 				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
