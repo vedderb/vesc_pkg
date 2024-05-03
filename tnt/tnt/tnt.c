@@ -308,10 +308,10 @@ static void configure(data *d) {
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
 	
 	//initialize current and pitch arrays for braking
-	if (d->tnt_conf.brake_curve) {
-		angle_kp_reset(&d->brake_kp);
-		pitch_kp_configure(&d->tnt_conf, &d->brake_kp, 2);
-	}
+	//if (d->tnt_conf.brake_curve) {
+	//	angle_kp_reset(&d->brake_kp);
+	//	pitch_kp_configure(&d->tnt_conf, &d->brake_kp, 2);
+	//}
 	
 	//Check for roll inputs
 	roll_kp_configure(&d->tnt_conf, &d->roll_accel_kp, 1);
@@ -510,7 +510,7 @@ static bool check_faults(data *d) {
         // Check roll angle
         if (fabsf(d->rt.roll_angle) > d->tnt_conf.fault_roll) {
             if ((1000.0 * (d->rt.current_time - d->fault_angle_roll_timer)) >
-                d->tnt_conf.fault_delay_roll) {
+                d->tnt_conf.fault_delay_pitch) {
                 state_stop(&d->state, STOP_ROLL);
                 return true;
             }
@@ -682,7 +682,7 @@ static void apply_noseangling(data *d){
 }
 
 static float haptic_buzz(data *d, float note_period) {
-	if (d->state.sat == SAT_PB_DUTY) {
+	/*if (d->state.sat == SAT_PB_DUTY) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_duty;
 	} else if (d->state.sat == SAT_PB_HIGH_VOLTAGE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_hv;
@@ -690,7 +690,7 @@ static float haptic_buzz(data *d, float note_period) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_lv;
 	} else if (d->state.sat == SAT_PB_TEMPERATURE) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_temp;
-	} else if (d->surge.high_current_buzz) {
+	} else */ if (d->surge.high_current_buzz) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_current;
 	} else { d->haptic_type = HAPTIC_BUZZ_NONE;}
 
@@ -929,7 +929,7 @@ static void tnt_thd(void *arg) {
 			
 			//Select and Apply Kp
 			d->state.braking_pos = sign(d->rt.proportional) != d->motor.erpm_sign;
-			bool brake_curve = d->tnt_conf.brake_curve && d->state.braking_pos;
+			bool brake_curve = false; //d->tnt_conf.brake_curve && d->state.braking_pos;
 			float kp_mod;
 			kp_mod = angle_kp_select(d->abs_prop_smooth, 
 				brake_curve ? &d->brake_kp : &d->accel_kp);
@@ -943,7 +943,7 @@ static void tnt_thd(void *arg) {
 				
                 		// Select and Apply Rate P
 				float rate_prop = -d->gyro[1];
-				float kp_rate = brake_curve ? d->brake_kp.kp_rate : d->accel_kp.kp_rate;		
+				float kp_rate = d->accel_kp.kp_rate;	//brake_curve ? d->brake_kp.kp_rate : d->accel_kp.kp_rate;		
 				float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			
 				d->pid_mod = kp_rate * rate_prop * rate_stabl;
 				d->debug3 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
@@ -1027,11 +1027,11 @@ static void tnt_thd(void *arg) {
 			if (d->start_counter_clicks) {
 				// Generate alternate pulses to produce distinct "click"
 				d->start_counter_clicks--;
-				if ((d->start_counter_clicks & 0x1) == 0)
+				/* if ((d->start_counter_clicks & 0x1) == 0)
 					set_current(d, d->rt.pid_value - d->tnt_conf.startup_click_current);
 				else
-					set_current(d, d->rt.pid_value + d->tnt_conf.startup_click_current);
-			} else if (d->surge.active) { 	
+					set_current(d, d->rt.pid_value + d->tnt_conf.startup_click_current);	*/
+ 			} else if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
 				// modulate haptic buzz onto pid_value unconditionally to allow
@@ -1074,7 +1074,7 @@ static void tnt_thd(void *arg) {
 			
 			// Check for valid startup position and switch state
 			if (fabsf(d->rt.pitch_angle) < d->startup_pitch_tolerance &&
-				fabsf(d->rt.roll_angle) < d->tnt_conf.startup_roll_tolerance && 
+				fabsf(d->rt.roll_angle) < 45 && 	//d->tnt_conf.startup_roll_tolerance && 
 				is_engaged(d)) {
 				reset_vars(d);
 				break;
