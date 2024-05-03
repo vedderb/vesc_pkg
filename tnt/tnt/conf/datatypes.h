@@ -63,7 +63,7 @@ typedef struct {
 	float kalman_factor1;
 	float kalman_factor2;
 	float kalman_factor3;
-	bool brake_curve;
+	/*bool brake_curve;
 	float brake_kp0;
 	float brakekp_rate;
 	float brakecurrent1;
@@ -78,7 +78,7 @@ typedef struct {
 	float brakepitch4;
 	float brakepitch5;
 	float brakepitch6;
-	bool pitch_kp_input_brake;
+	bool pitch_kp_input_brake;*/
 	float roll_kp1;
 	float roll_kp2;
 	float roll_kp3;
@@ -127,6 +127,7 @@ typedef struct {
 	float wheelslip_scaleerpm;
 	bool is_drop_enabled;
 	float drop_z_accel;
+	float drop_z_highaccel;
 	uint16_t drop_count_limit;
 	float drop_motor_accel;
 	float tiltback_drop_speed;
