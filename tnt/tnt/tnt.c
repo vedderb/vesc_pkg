@@ -1223,7 +1223,7 @@ static void send_realtime_data(data *d){
 	// Board State
 	if (d->state.wheelslip) {
 		buffer[ind++] = 4; 
-	} else if (d->state.drop) {
+	} else if (d->drop.active) {
 		buffer[ind++] = 5; 
 	} else { buffer[ind++] = d->state.state; }
 	buffer[ind++] = d->state.sat; 
