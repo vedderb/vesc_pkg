@@ -49,7 +49,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 				drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
 			} else { 
 				drop_dbg->debug1 = rt->current_time; 				//Update to indicate recent drop prevention
-				drop->count = 0
+				drop->count = 0;
 			}				
 		}
 	} else { drop->count = 0; }							// reset
