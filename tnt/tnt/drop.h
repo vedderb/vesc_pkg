@@ -49,8 +49,7 @@ typedef struct {
 	float debug5;		//
 	float debug6;		// end porp
 	float debug7;		// drop duration
-	float temp_pitch;
-	float temp_timeron;
+	float setpoint;		// record setpoint to produce prop debug
 } DropDebug;
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
