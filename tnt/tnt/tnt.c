@@ -344,11 +344,7 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
-	
-	//Input tilt/ Sticky tilt
-	if (d->remote.inputtilt_interpolated != d->st_tilt.value || VESC_IF->get_ppm_age() > 1) { 	// Persistent sticky tilt value if we are at value with remote connected
-		d->remote.inputtilt_interpolated = 0;			// Reset values not at sticky tilt or if remote is off
-	}
+	d->remote.inputtilt_interpolated = 0;
 	
 	//Control variables
 	d->rt.pid_value = 0;
@@ -1088,6 +1084,10 @@ static void tnt_thd(void *arg) {
 					reset_vars(d);
 					break;
 				}
+			}
+			if (d->tnt_conf.is_handbrake_enabled && VESC_IF->mc_temp_fet_filtered() < d->mc_max_temp_fet) {
+				VESC_IF->mc_set_handbrake(d->tnt_conf.brake_current);
+				break;
 			}
 			brake(d);
 			break;
