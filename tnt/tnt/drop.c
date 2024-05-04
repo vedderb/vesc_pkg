@@ -30,7 +30,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
-	    (rt->last_accel_z >= rt->accel[2]) &&  					// check that we are constantly dropping
+	    (rt->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping
 	    (state->sat != SAT_CENTERING) && 						// Not during startup
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
@@ -59,7 +59,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = m->acceleration;
-		} else if (rt->last_accel_z <= rt->accel[2]) {		// for fastest landing reaction with accelerometer check that we are still dropping
+		} else if (rt->last_accel_z <= drop->accel_z) {		// for fastest landing reaction with accelerometer check that we are still dropping
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = rt->accel[2];
 		}
@@ -90,6 +90,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 }
 
 void apply_angle_drop(DropData *drop, RuntimeData *rt){
+	d->rt.last_accel_z = drop->accel_z;
 	float angle_correction = 1 / (cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle)));			// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_correction = angle_correction ;							// Roll or pitch are increasing. Do not delay
