@@ -822,7 +822,6 @@ static void tnt_thd(void *arg) {
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		d->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&d->m_att_ref));
 		VESC_IF->imu_get_gyro(d->gyro);
-		d->rt.last_accel_z = d->rt.accel[2];
 		VESC_IF->imu_get_accel(d->rt.accel); //Used for drop detection
 		apply_angle_drop(&d->drop, &d->rt); //corrects accel z with angles
 		
