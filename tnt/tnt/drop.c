@@ -34,16 +34,12 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	    (state->sat != SAT_CENTERING) && 						// Not during startup
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
-		if (drop->count == 1) {
-			drop_dbg->temp_timeron = rt->current_time;
-		}
-		
 		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
 			if (rt->current_time - drop->high_accel_timer > 0.5) {			// Have not experienced high accel recently
 				if (!drop->active) { 						// Set the on timer only once per drop
-					drop->timeron = rt->current_time; 	//drop_dbg->temp_timeron;
-					//drop_dbg->debug5 = drop->applied_correction;
+					drop->timeron = rt->current_time; 	
 					drop_dbg->debug4 = drop->accel_z;
+					drop_dbg->setpoint = rt->setpoint;
 				}
 				drop->active = true;
 				drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
@@ -86,7 +82,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->timeroff = rt->current_time;
 	drop->count = 0;
 	drop_dbg->debug7 = drop->timeroff - drop->timeron;
-	drop_dbg->debug6 = rt->proportional;
+	drop_dbg->debug6 = drop_dbg->setpoint - rt->pitch_angle;
 }
 
 void apply_angle_drop(DropData *drop, RuntimeData *rt){
