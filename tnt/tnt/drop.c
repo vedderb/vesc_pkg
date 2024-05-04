@@ -85,7 +85,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->deactivate = true;
 	drop->timeroff = rt->current_time;
 	drop->count = 0;
-	drop_dbg->debug7 = drop->timeroff - drop_dbg->timeron;
+	drop_dbg->debug7 = drop->timeroff - drop->timeron;
 	drop_dbg->debug6 = rt->proportional;
 }
 
