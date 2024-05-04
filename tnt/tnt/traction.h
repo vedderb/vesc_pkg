@@ -29,6 +29,7 @@ typedef struct {
 	bool highaccelon2;		//Flag that indicates acceleration direction has changed
 	float lasterpm;			//ERPM before wheelslip
 	float erpm;			//ERPM once wheelslip engaged
+	bool reverse_wheelslip; 	//Wheelslip in the braking position
 } TractionData;
 
 typedef struct {
@@ -44,6 +45,7 @@ typedef struct {
 } TractionDebug;
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
+void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg);
 
 
 
