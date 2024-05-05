@@ -30,13 +30,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 			traction_dbg->debug4 = 3000;
 			deactivate_traction(m, traction, state, rt, traction_dbg);
 		} else {
-			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
-			if (traction->reverse_wheelslip && m->erpm_sign == m->erpm_sign_soft) {
-				traction_dbg->debug4 = 4000;
-				deactivate_traction(m, traction, state, rt, traction_dbg);
-
-			}
-			
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration direction change
 			if (traction->highaccelon2) { 
 				if (sign(traction->accelstartval) != sign(m->accel_history[m->accel_idx])) { 
@@ -67,6 +60,13 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
 				traction_dbg->debug4 = 2222;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
+			}
+
+			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
+			if (traction->reverse_wheelslip && m->erpm_sign == m->erpm_sign_soft) {
+				traction_dbg->debug4 = 4000;
+				deactivate_traction(m, traction, state, rt, traction_dbg);
+
 			}
 		}
 	}	
