@@ -20,14 +20,6 @@
 #include "utils_tnt.h"
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
-	//Detects high acceleration to prevent drop in pump track situations
-	if (drop->accel_z > drop->z_highlimit) {
-		drop->highcount += 1;
-		if (drop->highcount > drop->count_limit) {
-			drop->high_accel_timer = rt->current_time;
-		}	
-	}
-	
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    (rt->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping
@@ -35,29 +27,24 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if (drop->count > drop->count_limit) {					// Counter used to reduce nuisance trips
-			if (rt->current_time - drop->high_accel_timer > 0.5) {			// Have not experienced high accel recently
-				if (!drop->active) { 						// Set the on timer only once per drop
-					drop->timeron = rt->current_time; 	
-					drop_dbg->debug4 = drop->accel_z;
-					drop_dbg->setpoint = rt->setpoint;
-				}
-				drop->active = true;
-				drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
-			} else { 
-				drop_dbg->debug1 = rt->current_time; 				//Update to indicate recent drop prevention
-				drop->count = 0;
-			}				
+			if (!drop->active) { 						// Set the on timer only once per drop
+				drop->timeron = rt->current_time; 	
+				drop_dbg->debug4 = drop->accel_z;
+				drop_dbg->setpoint = rt->setpoint;
+			}
+			drop->active = true;
 		}
 	} else { drop->count = 0; }							// reset
 	
 	// Conditions to end drop
-	if (drop->active == true) {					
+	if (drop->active == true) {				
+		drop_dbg->debug4 = min(drop_dbg->debug4, drop->accel_z); 	//record the lowest accel
 		if (fabsf(m->acceleration) > drop->motor_limit) { 	//Fastest reaction is hall sensor
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = m->acceleration;
 		} else if (rt->last_accel_z <= drop->accel_z) {		// for fastest landing reaction with accelerometer check that we are still dropping
 			drop_deactivate(drop, drop_dbg, rt);
-			drop_dbg->debug3 = rt->accel[2];
+			drop_dbg->debug3 = drop->accel_z;
 		}
 	}
 }
