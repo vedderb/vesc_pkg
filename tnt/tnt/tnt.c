@@ -168,7 +168,6 @@ typedef struct {
 	//Haptic Buzz
 	float applied_haptic_current, haptic_timer;
 	int haptic_counter, haptic_mode;
-	HAPTIC_BUZZ_TYPE haptic_type;
 	bool haptic_tone_in_progress;
 
 	//Trip Debug
@@ -678,20 +677,14 @@ static void apply_noseangling(data *d){
 }
 
 static float haptic_buzz(data *d, float note_period) {
-	/*if (d->state.sat == SAT_PB_DUTY) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_duty;
-	} else if (d->state.sat == SAT_PB_HIGH_VOLTAGE) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_hv;
-	} else if (d->state.sat == SAT_PB_LOW_VOLTAGE) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_lv;
-	} else if (d->state.sat == SAT_PB_TEMPERATURE) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_temp;
-	} else */ if (d->surge.high_current_buzz) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_current;
-	} else { d->haptic_type = HAPTIC_BUZZ_NONE;}
+	if (d->surge.high_current_buzz) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 4 : 0;
+	} else if (d->state.sat == SAT_PB_DUTY) {
+		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 4 : 0;
+	} else { d->haptic_type = 0;}
 
 	// This kicks it off till at least one ~300ms tone is completed
-	if (d->haptic_type != HAPTIC_BUZZ_NONE) {
+	if (d->haptic_type != 0) {
 		d->haptic_tone_in_progress = true;
 	}
 
@@ -701,9 +694,6 @@ static float haptic_buzz(data *d, float note_period) {
 		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
 		// small periods (1,2) produce audible tone, higher periods produce vibration
 		int buzz_period = d->haptic_type;
-		if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
-			buzz_period = 1;
-		}
 
 		// alternate frequencies, depending on "mode"
 		buzz_period += d->haptic_mode;
@@ -724,9 +714,7 @@ static float haptic_buzz(data *d, float note_period) {
 
 			if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
 				d->haptic_tone_in_progress = false;
-				if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING) {
-					d->haptic_mode = 5 - d->haptic_mode;
-				} else { d->haptic_mode = 1 - d->haptic_mode; }
+				d->haptic_mode = 1 - d->haptic_mode; 
 				d->haptic_timer = d->rt.current_time;
 			}
 		}
