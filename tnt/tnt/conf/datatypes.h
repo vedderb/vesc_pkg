@@ -29,17 +29,6 @@ typedef enum {
 	INPUTTILT_PPM
 } INPUTTILT_REMOTE_TYPE;
 
-typedef enum {
-	HAPTIC_BUZZ_NONE = 0,
-	HAPTIC_BUZZ_AUDIBLE1,
-	HAPTIC_BUZZ_AUDIBLE2,
-	HAPTIC_BUZZ_AUDIBLE3,
-	HAPTIC_BUZZ_VIBRATING1,
-	HAPTIC_BUZZ_VIBRATING2,
-	HAPTIC_BUZZ_VIBRATING3,
-	HAPTIC_BUZZ_ALTERNATING
-} HAPTIC_BUZZ_TYPE;
-
 typedef struct {
 	float version;
 	float disable_pkg;
@@ -149,7 +138,8 @@ typedef struct {
 	uint16_t tiltback_constant_erpm;
 	int haptic_buzz_intensity;
 	int haptic_buzz_min;
-	HAPTIC_BUZZ_TYPE haptic_buzz_current;
+	bool haptic_buzz_current;
+	bool haptic_buzz_duty;
 	INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
 	float inputtilt_speed;
 	float inputtilt_angle_limit;
