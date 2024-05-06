@@ -350,8 +350,9 @@ static void reset_vars(data *d) {
 	
 	// Feature: click on start
 	d->start_counter_clicks = d->start_counter_clicks_max;
-	
-	reset_remote(&remote, &st_tilt);
+
+	//Remote
+	reset_remote(&d->remote, &d->st_tilt);
 
 	// Surge
 	reset_surge(&d->surge);
