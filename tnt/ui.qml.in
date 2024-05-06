@@ -155,7 +155,6 @@ Item {
                     var debug4 = dv.getFloat32(ind); ind += 4; //min accel z 
                     var debug6 = dv.getFloat32(ind); ind += 4; //ending pitch 
                     var debug7 = dv.getFloat32(ind); ind += 4; //duration
-                    var debug5 = dv.getFloat32(ind); ind += 4; //last high accel prevention
                 } else if (debug_state == 5) {
                     var debug6 = dv.getFloat32(ind); ind += 4; //yaw angle
                     var debug1 = dv.getFloat32(ind); ind += 4; //yaw change
@@ -330,8 +329,7 @@ Item {
 				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
 				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
 				"Ending Proportional : " + debug6.toFixed(1) + "°\n" +
-    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" +
-				"Last High Accel     : " + debug5.toFixed(0) + " s\n" 
+    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" 
 			} else if (debug_state == 5) {
 				debug.text =
 				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
