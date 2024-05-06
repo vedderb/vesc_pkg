@@ -167,7 +167,7 @@ typedef struct {
 
 	//Haptic Buzz
 	float applied_haptic_current, haptic_timer;
-	int haptic_counter, haptic_mode;
+	int haptic_counter, haptic_mode, haptic_type;
 	bool haptic_tone_in_progress;
 
 	//Trip Debug
