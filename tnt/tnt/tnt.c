@@ -342,7 +342,6 @@ static void reset_vars(data *d) {
 	d->brake_timeout = 0;
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
-	d->remote.inputtilt_interpolated = 0;
 	
 	//Control variables
 	d->rt.pid_value = 0;
@@ -352,6 +351,8 @@ static void reset_vars(data *d) {
 	// Feature: click on start
 	d->start_counter_clicks = d->start_counter_clicks_max;
 	
+	reset_remote(&remote, &st_tilt);
+
 	// Surge
 	reset_surge(&d->surge);
 	
