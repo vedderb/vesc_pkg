@@ -166,9 +166,8 @@ typedef struct {
 	float stabl_step_size;
 
 	//Haptic Buzz
-	float applied_haptic_current, haptic_timer;
-	int haptic_counter, haptic_mode, haptic_type;
-	bool haptic_tone_in_progress;
+	float applied_haptic_current;
+	int haptic_counter, haptic_direction, haptic_type;
 
 	//Trip Debug
 	RideTimeData ridetimer;
@@ -373,8 +372,6 @@ static void reset_vars(data *d) {
 	d->stabl = 0;
 
 	// Haptic Buzz:
-	d->haptic_tone_in_progress = false;
-	d->haptic_timer = d->rt.current_time;
 	d->applied_haptic_current = 0;
 
 	//Yaw Boost
@@ -676,53 +673,32 @@ static void apply_noseangling(data *d){
 	d->rt.setpoint += d->noseangling_interpolated;
 }
 
-static float haptic_buzz(data *d, float note_period) {
+static float haptic_buzz(data *d) {
 	if (d->surge.high_current_buzz) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 4 : 0;
 	} else if (d->state.sat == SAT_PB_DUTY) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 4 : 0;
 	} else { d->haptic_type = 0;}
 
-	// This kicks it off till at least one ~300ms tone is completed
 	if (d->haptic_type != 0) {
-		d->haptic_tone_in_progress = true;
-	}
-
-	if (d->haptic_tone_in_progress) {
-		d->haptic_counter += 1;
-
-		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
-		// small periods (1,2) produce audible tone, higher periods produce vibration
-		int buzz_period = d->haptic_type;
-
-		// alternate frequencies, depending on "mode"
-		buzz_period += d->haptic_mode;
-		
+		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);		
 		if ((d->motor.abs_erpm < 10000) && (buzz_current > 5)) {
-			// scale high currents down to as low as 5A for lower erpms
-			buzz_current = max(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
+			buzz_current = max(d->tnt_conf.haptic_buzz_min,  d->motor.abs_erpm / 10000 * buzz_current);
 		}
 
-		if (d->haptic_counter > buzz_period) {
+		if (d->haptic_counter ==  d->haptic_type) {
 			d->haptic_counter = 0;
 		}
 
 		if (d->haptic_counter == 0) {
-			if (d->applied_haptic_current > 0) {
-				d->applied_haptic_current = -buzz_current;
-			} else { d->applied_haptic_current = buzz_current; }
-
-			if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
-				d->haptic_tone_in_progress = false;
-				d->haptic_mode = 1 - d->haptic_mode; 
-				d->haptic_timer = d->rt.current_time;
-			}
+			if (d->haptic_direction > 0) {
+				d->haptic_direction = -1;
+			} else { d->haptic_direction = 1; }
 		}
-	}
-	else {
-		d->haptic_mode = 0;
+		d->applied_haptic_current = buzz_current * d->haptic_direction;
+		d->haptic_counter++;
+	} else {
 		d->haptic_counter = 0;
-		d->haptic_timer = d->rt.current_time;
 		d->applied_haptic_current = 0;
 	}
 	return d->applied_haptic_current;
@@ -1020,7 +996,7 @@ static void tnt_thd(void *arg) {
 				// modulate haptic buzz onto pid_value unconditionally to allow
 				// checking for haptic conditions, and to finish minimum duration haptic effect
 				// even after short pulses of hitting the condition(s)
-				d->rt.pid_value += haptic_buzz(d, 0.3);
+				d->rt.pid_value += haptic_buzz(d);
 				set_current(d, d->rt.pid_value); 	// Set current as normal.
 			}
 
