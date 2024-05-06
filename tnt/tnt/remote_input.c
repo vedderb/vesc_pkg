@@ -138,6 +138,6 @@ void reset_remote(RemoteData *r, StickyTiltData *s){
 	if (s->active && (VESC_IF->get_ppm_age() > 1)) { 	// If sticky tilt active and remote inactive
 		s->deactivate = true;
 		s->active = false;
-		r->inputtilt_interpolated = 0;
 	}
+	r->inputtilt_interpolated = 0;
 }
