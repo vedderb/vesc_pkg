@@ -27,7 +27,7 @@
 #include "proportional_gain.h"
 #include "kalman.h"
 #include "traction.h"
-#include "high_current.h"
+#include "surge.h"
 #include "runtime.h"
 #include "ride_time.h"
 #include "remote_input.h"
