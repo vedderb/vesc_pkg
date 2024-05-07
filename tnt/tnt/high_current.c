@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#include "high_current.h"
+#include "surge.h"
 #include "vesc_c_if.h"
 #include "utils_tnt.h"
 
