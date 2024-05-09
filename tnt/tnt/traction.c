@@ -79,7 +79,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 		traction->reverse_wheelslip = true;
-		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor; //use a faster reaction if wheel changes direction
+		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
 	} else {erpm_check = false;}
 
 	// Initiate traction control
@@ -94,7 +94,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		traction->highaccelon1 = true; 	
 		traction->highaccelon2 = true; 	
 		traction->timeron = rt->current_time;
-		traction_dbg->debug6 = m->acceleration;
+		traction_dbg->debug6 = traction->reverse_wheelslip ? m->accel_history[m->accel_idx] : m->acceleration;
 		traction_dbg->debug3 = m->erpm_history[m->last_erpm_idx];
 		traction_dbg->debug1 = 0;
 		traction_dbg->debug2 = erpmfactor;
