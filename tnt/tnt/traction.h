@@ -42,6 +42,7 @@ typedef struct {
 	float debug7;
 	float debug8;
 	float debug9;
+	float aggregate_timer;
 } TractionDebug;
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
