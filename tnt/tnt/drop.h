@@ -46,10 +46,11 @@ typedef struct {
 	float debug2;		//
 	float debug3;		//end condition
 	float debug4;		//min accel z
-	float debug5;		//
+	float debug5;		// number of drops in 5 seconds
 	float debug6;		// end porp
 	float debug7;		// drop duration
 	float setpoint;		// record setpoint to produce prop debug
+	float aggregate_timer;  // time 5 seconds to record number of drops
 } DropDebug;
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
