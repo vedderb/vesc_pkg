@@ -133,6 +133,7 @@ Item {
                     var debug4 = dv.getFloat32(ind); ind += 4; // wheelsliperpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debugwheelslip 
                     var debug6 = dv.getFloat32(ind); ind += 4; // wheelslipend 
+                    var debug7 = dv.getFloat32(ind); ind += 4; // count 
                 } else if (debug_state == 2) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //surge_startprop 
                     var debug3 = dv.getFloat32(ind); ind += 4; //surge_added duty
@@ -305,7 +306,8 @@ Item {
 				"Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
 				"Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
 				"Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
-				"Wheelslip End Accel : " + debug6.toFixed(1) + "\n" 
+				"Wheelslip End Accel : " + debug6.toFixed(1) + "\n" +
+				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
 				debug.text =
 				"Surge Start Current : " + debug7.toFixed(0) + " A\n" +
