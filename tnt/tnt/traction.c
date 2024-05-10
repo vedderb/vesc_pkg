@@ -101,6 +101,11 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		traction_dbg->debug4 = 0;
 		traction_dbg->debug8 = 0;
 		traction_dbg->debug9 = m->erpm;
+		if (rt->current_time - traction_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
+			traction_dbg->aggregate_timer = rt->current_time;
+			traction_dbg->debug5 = 0;
+		}
+		traction_dbg->debug5 += 1;
 	}
 }
 
