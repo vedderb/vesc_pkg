@@ -31,6 +31,11 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 				drop->timeron = rt->current_time; 	
 				drop_dbg->debug4 = drop->accel_z;
 				drop_dbg->setpoint = rt->setpoint;
+				if (rt->current_time - drop_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
+					drop_dbg->aggregate_timer = rt->current_time;
+					drop_dbg->debug5 = 0;
+				}
+				drop_dbg->debug5 += 1;
 			}
 			drop->active = true;
 		}
@@ -46,7 +51,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = drop->accel_z;
 		}
-	}
+	}		
 }
 
 void configure_drop(DropData *drop, const tnt_config *config){
