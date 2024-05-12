@@ -48,7 +48,6 @@ float angle_kp_select(float angle, const KpArray *k) {
 }
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
-	
 	float pitch_current[7][2] = { //Accel curve
 	{0, 0}, //reserved for kp0 assigned at the end
 	{config->pitch1, config->current1},
@@ -56,21 +55,21 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	{config->pitch3, config->current3},
 	{config->pitch4, config->current4},
 	{config->pitch5, config->current5},
-	{config->pitch6, config->current6},
+	{0, 0}, //{config->pitch6, config->current6},
 	};
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
 	k->kp_rate = config->kp_rate;
-	/*
+
 	if (mode==2) { //Brake curve
 		float temp_pitch_current[7][2] = {
 		{0, 0}, //reserved for kp0 assigned at the end
 		{config->brakepitch1, config->brakecurrent1},
 		{config->brakepitch2, config->brakecurrent2},
 		{config->brakepitch3, config->brakecurrent3},
-		{config->brakepitch4, config->brakecurrent4},
-		{config->brakepitch5, config->brakecurrent5},
-		{config->brakepitch6, config->brakecurrent6},
+		{0, 0}, //{config->brakepitch4, config->brakecurrent4},
+		{0, 0}, //{config->brakepitch5, config->brakecurrent5},
+		{0, 0}, //{config->brakepitch6, config->brakecurrent6},
 		};
 		for (int x = 0; x <= 6; x++) {
 			for (int y = 0; y <= 1; y++) {
@@ -78,10 +77,9 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 			}
 		}
 		kp0 = config->brake_kp0;
-		kp_input = config->pitch_kp_input_brake;
 		k->kp_rate = config->brakekp_rate;
 	}
-	*/
+
 	//Check for current inputs
 	int i = 1;
 	while (i <= 6){
