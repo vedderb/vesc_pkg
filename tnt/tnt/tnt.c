@@ -757,7 +757,7 @@ static void apply_stability(data *d) {
 				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
-	float step_size = stabl_mod > d->last_stabl_mod ? d->stabl_step_size_up : d->stabl_step_size_down
+	float step_size = stabl_mod > d->last_stabl_mod ? d->stabl_step_size_up : d->stabl_step_size_down;
 	rate_limitf(&d->stabl, stabl_mod, step_size); 
 	d->last_stabl_mod = stabl_mod;
 }
@@ -937,7 +937,7 @@ static void tnt_thd(void *arg) {
 				brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
 			
 			//Apply ERPM Scale
-			erpmscale = (brake_yaw && d->motor.abs_erpm < 750 || 
+			erpmscale = ((brake_yaw && d->motor.abs_erpm < 750) || 
 				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) ? 0 : 1;
 			/*erpmscale = 1;
 			if ((brake_yaw && d->motor.abs_erpm < 750) ||
