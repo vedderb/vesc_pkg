@@ -30,6 +30,9 @@ typedef struct {
 	float lasterpm;			//ERPM before wheelslip
 	float erpm;			//ERPM once wheelslip engaged
 	bool reverse_wheelslip; 	//Wheelslip in the braking position
+	float start_accel;		//acceleration that triggers wheelslip
+	float slowed_accel;		//Trigger that shows traction control is working
+	float end_accel;		//acceleration that indications traciton is regained
 } TractionData;
 
 typedef struct {
@@ -47,6 +50,4 @@ typedef struct {
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
 void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg);
-
-
-
+void configuire_traction(TractionData *traction, tnt_config *config);
