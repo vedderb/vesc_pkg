@@ -150,14 +150,6 @@ Item {
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
                 } else if (debug_state == 4) {
-                    var debug1 = dv.getFloat32(ind); ind += 4; //drop duration 
-                    var debug2 = dv.getFloat32(ind); ind += 4; //applied reduction
-	            var debug5 = dv.getFloat32(ind); ind += 4; //drop count	    
-                    var debug3 = dv.getFloat32(ind); ind += 4; //end condition  
-                    var debug4 = dv.getFloat32(ind); ind += 4; //min accel z 
-                    var debug6 = dv.getFloat32(ind); ind += 4; //ending pitch 
-                    var debug7 = dv.getFloat32(ind); ind += 4; //duration
-                } else if (debug_state == 5) {
                     var debug6 = dv.getFloat32(ind); ind += 4; //yaw angle
                     var debug1 = dv.getFloat32(ind); ind += 4; //yaw change
 		    var debug2 = dv.getFloat32(ind); ind += 4; //yaw kp raw
@@ -260,9 +252,6 @@ Item {
         	var resttime1 = ("0" + Math.trunc(resttime/3600)).slice(-2);
     		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
     		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
-        	var droptime1 = ("0" + Math.trunc(drop_lasttime/3600)).slice(-2);
-    		var droptime2 = ("0" + Math.trunc(drop_lasttime/60 - droptime1*60)).slice(-2);
-    		var droptime3 = ("0" + Math.trunc(drop_lasttime - droptime1*3600 - droptime2*60)).slice(-2);
       
                 if(state == 0){
                     stateString = "DISABLED"
@@ -288,9 +277,8 @@ Item {
 	                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
 	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
 	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
-	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n" +    
-	                    "Last Drop Time      : " + droptime1 + ":" + droptime2 + ":" + droptime3 + "\n"       
-
+	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"  
+		     
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
 	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
@@ -326,15 +314,6 @@ Item {
 				"Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
 				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
 			} else if (debug_state == 4) {
-				debug.text =
-				"Accel Z             : " + debug1.toFixed(2) + " g\n" +
-				"Pitch/Roll Factor   : " + debug2.toFixed(2) + " \n" +
-				"Drop Count          : " + debug5.toFixed(0) + " \n" +         
-				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
-				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
-				"Ending Proportional : " + debug6.toFixed(1) + "°\n" +
-    				"Drop Duration       : " + debug7.toFixed(3) + " s\n" 
-			} else if (debug_state == 5) {
 				debug.text =
 				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
 				"Yaw Change          : " + debug1.toFixed(0) + " °/s \n" +         
