@@ -157,7 +157,7 @@ typedef struct {
 
 	// Dynamic Stability
 	float stabl;
-	float stabl_step_size;
+	float stabl_step_size_up, stabl_step_size_down;
 
 	//Haptic Buzz
 	float applied_haptic_current, haptic_timer;
@@ -258,7 +258,8 @@ static void configure(data *d) {
 	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
 
 	//Dynamic Stability
-	d->stabl_step_size = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
+	d->stabl_step_size_up = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
+	d->stabl_step_size_down = d->tnt_conf.stabl_ramp_down/100 / d->tnt_conf.hertz;
 	
 	// Feature: Soft Start
 	d->softstart_ramp_step_size = (float)100 / d->tnt_conf.hertz;
@@ -749,14 +750,16 @@ static void apply_stability(data *d) {
 	float throttle_stabl_mod = 0;	
 	float stabl_mod = 0;
 	if (d->tnt_conf.enable_throttle_stability) {
-		throttle_stabl_mod = fabsf(d->remote.inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; //using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
+		throttle_stabl_mod = fabsf(d->remote.inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; 	//using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
 	}
 	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > d->tnt_conf.stabl_min_erpm) {		
-		speed_stabl_mod = min(1 ,	// Do not exceed the max value.				
+		speed_stabl_mod = min(1 ,										// Do not exceed the max value.				
 				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
-	rate_limitf(&d->stabl, stabl_mod, d->stabl_step_size); 
+	float step_size = stabl_mod > d->last_stabl_mod ? d->stabl_step_size_up : d->stabl_step_size_down
+	rate_limitf(&d->stabl, stabl_mod, step_size); 
+	d->last_stabl_mod = stabl_mod;
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
@@ -934,14 +937,16 @@ static void tnt_thd(void *arg) {
 				brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
 			
 			//Apply ERPM Scale
-			erpmscale = 1;
+			erpmscale = brake_yaw && d->motor.abs_erpm < 750) ||
+				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm ? 0 : 1;
+			/*erpmscale = 1;
 			if ((brake_yaw && d->motor.abs_erpm < 750) ||
 				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) { 				
 				// Enforce minimum speed and always reduce scaler to 0 when braking below 750 erpm
 				erpmscale = 0;
-			}		// else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_lowerpm) { 
-					//	erpmscale = 1 + yaw_erpm_scale(&d->tnt_conf, d->motor.abs_erpm);
-					//}
+			} else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_lowerpm) { 
+				erpmscale = 1 + yaw_erpm_scale(&d->tnt_conf, d->motor.abs_erpm);
+				} */
 			d->yaw_dbg.debug5 = erpmscale;
 			d->yaw_dbg.debug3 = brake_yaw ? -yawkp : yawkp;
 			yawkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
