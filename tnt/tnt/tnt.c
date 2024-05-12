@@ -31,7 +31,6 @@
 #include "runtime.h"
 #include "ride_time.h"
 #include "remote_input.h"
-#include "drop.h"
 #include "yaw.h"
 
 #include "conf/datatypes.h"
@@ -137,10 +136,6 @@ typedef struct {
 	//Traction Control
 	TractionData traction;
 	TractionDebug traction_dbg;
-	
-	// Drop Detection
-	DropData drop;
-	DropDebug drop_dbg;
 	
 	// Low Pass Filter
 	float pitch_smooth; 
@@ -323,8 +318,8 @@ static void configure(data *d) {
 	//Surge Configure
 	configure_surge(&d->surge, &d->tnt_conf);
 
-	//Drop Configure
-	configure_drop(&d->drop, &d->tnt_conf);
+	//Traction Configure
+	configure_traction(&d->traction, &d->tnt_conf);
 
 	if (d->state.state == STATE_DISABLED) {
 	    beep_alert(d, 3, false);
@@ -357,9 +352,6 @@ static void reset_vars(data *d) {
 
 	// Surge
 	reset_surge(&d->surge);
-	
-	// Drop
-	reset_drop(&d->drop);
 	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
@@ -427,10 +419,6 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	case (SAT_UNSURGE):
 		return d->surge.tiltback_step_size;
 	case (SAT_SURGE):
-		return 25; 				//"as fast as possible", extremely large step size 
-	case (SAT_UNDROP):
-		return d->drop.tiltback_step_size;
-	case (SAT_DROP):
 		return 25; 				//"as fast as possible", extremely large step size 
 	default:
 		return 0;
@@ -537,18 +525,7 @@ static void calculate_setpoint_target(data *d) {
 		d->tb_highvoltage_timer = d->rt.current_time;
 	}
 
-	if (d->drop.deactivate) { 
-		d->setpoint_target = 0;
-		d->state.sat = SAT_UNDROP;
-		if (d->setpoint_target_interpolated < 0.1 && d->setpoint_target_interpolated > -0.1) { // End surge_off once we are back at 0 
-			d->drop.deactivate = false;
-			d->state.drop = false;
-		}
-	} else if (d->drop.active) {
-		d->setpoint_target = d->tnt_conf.is_drop_enabled ? d->rt.pitch_angle : 0; 	//If not enabled don't change the setpoint during drops but still allows debug info
-		d->state.sat = SAT_DROP;
-		d->state.drop = true;
-	} else if (d->state.wheelslip) {
+	if (d->state.wheelslip) {
 		d->state.sat = SAT_NONE;
 	} else if (d->surge.deactivate) { 
 		d->setpoint_target = 0;
@@ -817,8 +794,6 @@ static void tnt_thd(void *arg) {
 		d->rt.pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 		d->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&d->m_att_ref));
 		VESC_IF->imu_get_gyro(d->gyro);
-		VESC_IF->imu_get_accel(d->rt.accel); //Used for drop detection
-		apply_angle_drop(&d->drop, &d->rt); //corrects accel z with angles
 		
 		//Apply low pass and Kalman filters to pitch
 		if (d->tnt_conf.pitch_filter > 0) {
@@ -830,7 +805,6 @@ static void tnt_thd(void *arg) {
 
 		motor_data_update(&d->motor);
 		update_remote(&d->tnt_conf, &d->remote);
-		check_drop(&d->drop, &d->motor, &d->rt, &d->state, &d->drop_dbg);
 
 		//Footpad Sensor
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
@@ -1207,7 +1181,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 107;
+	static const int bufsize = 103;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -1215,11 +1189,7 @@ static void send_realtime_data(data *d){
 	float corr_factor;
 
 	// Board State
-	if (d->state.wheelslip) {
-		buffer[ind++] = 4; 
-	} else if (d->drop.active) {
-		buffer[ind++] = 5; 
-	} else { buffer[ind++] = d->state.state; }
+	buffer[ind++] = d->state.wheelslip ? 4 : d->state.state; 
 	buffer[ind++] = d->state.sat; 
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
 	buffer[ind++] = d->state.stop_condition;
@@ -1236,7 +1206,6 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->remote.throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
-	buffer_append_float32_auto(buffer, d->rt.current_time - d->drop.timeron , &ind); //Time since last surge
 
 	// Trip
 	if (d->ridetimer.ride_time > 0) {
@@ -1276,17 +1245,8 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->stabl, &ind);
 		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
-	} else if (d->tnt_conf.is_dropdebug_enabled) {
-		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
-		buffer_append_float32_auto(buffer, d->drop.applied_correction, &ind); //applied correction
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //number of drops
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //end condition
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending prop
-		buffer_append_float32_auto(buffer, d->drop_dbg.debug7, &ind); //duration
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
-		buffer[ind++] = 5;
+		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->yaw_angle, &ind); //yaw angle
 		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
 		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3, &ind); //yaw kp raw
