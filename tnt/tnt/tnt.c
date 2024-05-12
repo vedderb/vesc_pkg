@@ -156,7 +156,7 @@ typedef struct {
 	KpArray yaw_brake_kp;
 
 	// Dynamic Stability
-	float stabl;
+	float stabl, last_stabl_mod;
 	float stabl_step_size_up, stabl_step_size_down;
 
 	//Haptic Buzz
