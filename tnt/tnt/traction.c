@@ -117,7 +117,7 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 	traction_dbg->debug8 = m->acceleration;
 }
 
-void configuire_traction(TractionData *traction, tnt_config *config){
+void configure_traction(TractionData *traction, tnt_config *config){
 	traction->start_accel = config->wheelslip_accelstart / config->hertz * 60;
 	traction->slowed_accel = config->wheelslip_accelend / config->hertz * 60;
 	traction->end_accel = config->wheelslip_margin / config->hertz * 60;
