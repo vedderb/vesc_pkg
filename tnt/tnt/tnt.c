@@ -937,8 +937,8 @@ static void tnt_thd(void *arg) {
 				brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
 			
 			//Apply ERPM Scale
-			erpmscale = brake_yaw && d->motor.abs_erpm < 750) ||
-				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm ? 0 : 1;
+			erpmscale = (brake_yaw && d->motor.abs_erpm < 750 || 
+				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) ? 0 : 1;
 			/*erpmscale = 1;
 			if ((brake_yaw && d->motor.abs_erpm < 750) ||
 				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) { 				
