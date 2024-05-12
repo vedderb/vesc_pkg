@@ -1032,10 +1032,7 @@ static void tnt_thd(void *arg) {
 					break;
 				}
 			}
-			if (d->tnt_conf.is_handbrake_enabled && VESC_IF->mc_temp_fet_filtered() < d->mc_max_temp_fet) {
-				VESC_IF->mc_set_handbrake(d->tnt_conf.brake_current);
-				break;
-			}
+
 			brake(d);
 			break;
 		case (STATE_DISABLED):;
