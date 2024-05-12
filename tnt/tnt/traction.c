@@ -48,7 +48,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 			
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
 			if (traction->highaccelon1) {		
-				if (sign(traction->accelstartval) * m->acceleration < config->wheelslip_accelend) {	
+				if (sign(traction->accelstartval) * m->acceleration < traction->slowed_accel) {	
 				// First we identify that the wheel has deccelerated due to traciton control
 					traction->highaccelon1 = false;
 					traction_dbg->debug7 = rt->current_time - traction->timeron;
@@ -56,7 +56,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 					traction_dbg->debug4 = 2000;
 					deactivate_traction(m, traction, state, rt, traction_dbg);
 				}
-			} else if (fabsf(m->acceleration) > config->wheelslip_margin) { 
+			} else if (fabsf(m->acceleration) > traction->end_accel) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
 				traction_dbg->debug4 = 2222;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
@@ -74,12 +74,12 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
-			start_condition = sign(m->current) * m->acceleration > config->wheelslip_accelstart * erpmfactor;
+			start_condition = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 		traction->reverse_wheelslip = true;
-		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > config->wheelslip_accelstart * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
+		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > traction->start_accel * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
 	} else {erpm_check = false;}
 
 	// Initiate traction control
@@ -114,4 +114,10 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 	state->wheelslip = false;
 	traction->timeroff = rt->current_time;
 	traction_dbg->debug8 = m->acceleration;
+}
+
+void configuire_traction(TractionData *traction, tnt_config *config){
+	traction->start_accel = config->wheelslip_accelstart / config->hertz * 60;
+	traction->slowed_accel = config->wheelslip_accelend / config->hertz * 60;
+	traction->end_accel = config->wheelslip_margin / config->hertz * 60;
 }
