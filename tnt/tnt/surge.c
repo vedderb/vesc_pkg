@@ -68,7 +68,7 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 }
 
 void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, tnt_config *config) {
-	float scale_start_current = lerp(config->surge_scaleduty/100, .95, config->surge_startcurrent, config->surge_start_hd_current, m->duty_cycle);
+	float scale_start_current = lerp(1.0 * config->surge_scaleduty / 100, .95, config->surge_startcurrent, config->surge_start_hd_current, m->duty_cycle);
 	surge->start_current = min(config->surge_startcurrent, scale_start_current); 
 	if ((m->current_avg * m->erpm_sign > surge->start_current - config->overcurrent_margin) && 	//High current condition 
 	     (!state->braking_pos) && 								//Not braking
@@ -89,8 +89,8 @@ void check_current(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt
 }
 
 void configure_surge(SurgeData *surge, tnt_config *config){
-	surge->ramp_rate =  config->surge_duty / 100 / config->hertz;
-	surge->tiltback_step_size = config->tiltback_surge_speed / config->hertz;
+	surge->ramp_rate = 1.0 * config->surge_duty / 100 / config->hertz;
+	surge->tiltback_step_size = 1.0 * config->tiltback_surge_speed / config->hertz;
 }
 
 void reset_surge(SurgeData *surge){
