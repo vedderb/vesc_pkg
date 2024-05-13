@@ -127,7 +127,7 @@ void update_remote(tnt_config *config, RemoteData *r) {
 
 void configure_remote_features(tnt_config *config, RemoteData *r, StickyTiltData *s) {
 	r->smoothing_factor = config->inputtilt_smoothing_factor;
-	r->step_size = config->inputtilt_speed / config->hertz;
+	r->step_size = 1.0 * config->inputtilt_speed / config->hertz;
 	r->ramped_step_size = 0;
 	s->low_value = config->stickytiltval1; // Value that defines where tilt will stick for both nose up and down. Can be made UI input later.
 	s->high_value = config->stickytiltval2; // Value of 0 or above max disables. Max value <=  r->angle_limit. 
