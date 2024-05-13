@@ -917,8 +917,7 @@ static void tnt_thd(void *arg) {
 				// If we want to actually stop at low speed reduce kp to 0
 				erpmscale = 0;
 			} else if (d->roll_accel_kp.count!=0 && d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
-				erpmscale = 1 + min(1,max(0,1-(d->motor.abs_erpm-d->tnt_conf.rollkp_lowerpm)/
-					(d->tnt_conf.rollkp_higherpm-d->tnt_conf.rollkp_lowerpm)))*(d->tnt_conf.rollkp_maxscale/100);
+				erpmscale = 1 + lerp(d->tnt_conf.rollkp_lowerpm, d->tnt_conf.rollkp_higherpm, 1.0 * d->tnt_conf.rollkp_maxscale / 100, 0);
 			}
 			rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
 
