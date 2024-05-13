@@ -3,7 +3,7 @@ by Mike Silberstein (send questions, comments, requests to izzyvesc@gmail.com)
 
 Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and Niko for self-balanced boards. It departs from the traditional PID control scheme that is rooted in the balance robot design. This is replaced with a user defined, current output curve that is based on board pitch. This allows for an infinite number of throttle/braking curves that gives the user the ability to truly tune the board how they want.
 
-This package also includes code from Refloat by Lukas Hrazky.
+This package has been improved thanks to the contributions of Lukas Hrazky with Refloat.
 
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
