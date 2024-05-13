@@ -8,20 +8,17 @@ This package also includes code from Refloat by Lukas Hrazky.
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
 ### Features
-* Current output defined by a series of points, input by the user
-* Alternative proportional gain user inputs
-* Optional independent brake curve
-* Roll gain curves for acceleration and braking
-* Roll gain modification for low speeds
-* Yaw gain curves for acceleration and braking
-* Yaw gain modification for high and low speeds
-* Surge
-* Traction control
-* Sticky tilt
-* Dynamic Stability
-* High Duty Haptic Buzz
-* High CUrrent Haptic Buzz 
-* Drop Detection
+* Current output defined by a series of points, input by the user.
+* Roll Curves - for acceleration and braking, to improve board response.
+* Yaw Curves - for acceleration and braking, to improve board response.
+* Surge - high current response, to help prevent nosedives.
+* Traction Control - reduce free spin in the air. 
+* Sticky Tilt - accurate, manual board level control with a remote.
+* Dynamic Stability - faster board response at higher speeds or with a remote.
+* Alternative proportional gain user inputs for pitch.
+* Optional independent brake curve for pitch.
+* High Duty Haptic Buzz - high speed warning.
+* High Current Haptic Buzz - instant, high torque warning.
 
 ### Default Settings
 Default settings are based on 20s Hypercore (Future Motion motor) board set up. The default settings are what I ride for trails. The exceptions are surge and traction control which are disabled by default. These are more advanced behaviors that should be tuned by the user. For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
@@ -35,21 +32,12 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
     * Yaw kp curves, similar to the roll kp curves, modify the current ouput based on yaw input.
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
     * Minimum erpm limits yaw response at low speeds.
-    * High erpm scalers allow for the increase or decrease of yaw response at high speeds.
     * New debug section in Specs tab allows for accurate yaw tuning.
-  * Drop Detection
-    * Using the accelerometer the board can detect when the board is in free fall.
-    * When drop is active, the setpoint of the board is set to the current pitch angle. This effectively prevents free spin of the motor.
-    * As the board lands, the landing is detected via adjustable motor acceleration and accelerometer parameters.
-    * The board returns to the original setpoint at the defined return speed.
-    * Various parameters allow the user to effect how easily drop is triggered.
-    * New debug section in Specs tab allows for users to view the g-force on the board and understand how well they maintain board level during a drop.
-  * Some features and parameters had to be removed in order to make room for new features. Hopefully this will only be temporary. Removed items included:
-    * Separate braking curve
+  * Some features and parameters had to be removed in order to make room for new features.
     * Haptic buzz for temperature and voltage
     * Haptic buzz for duty and current is now on/off. Vibrating1 is the haptic type.
     * Startup roll angle hard coded to 45 degrees.
-    * Fault delay roll is now the same as fault delay pitch.
+    * Fault delay roll is now the same as fault delay pitch, called fault delay angle.
     * Feature start up clicks is no longer available.
 * _Fixes/Improvements_
   * Fixed a bug that would prevent high current haptic buzz if surge was engaged.
@@ -58,10 +46,11 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
     * when running... "RUNNING-" and tiltback reason
     * in traction control/wheelslip... "WHEELSLIP"
   * Readme format updated for 6.05
+  * Sticky tilt no longer "remembers" tilt angle after dismount. Resets setpoint to zero every time.
   * Traction control
     * Changed the minimum delay between traction control activations from 200ms to 20ms
     * Added new start condition that allows for a faster start to traction control if the wheel slips in reverse.
-    * Added a new end condition to handle an edge case that wou not exit traction control correctly.
+    * Added a new end condition to handle an edge case that would not exit traction control correctly.
     * Remove drop condition from traction control deactivation conditions.
  
 ### 1.2
