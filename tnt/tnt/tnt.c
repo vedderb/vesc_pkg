@@ -250,19 +250,19 @@ static void configure(data *d) {
 	d->motor_timeout_s = 20.0f / d->tnt_conf.hertz;
 
 	//Setpoint Adjustment
-	d->startup_step_size = d->tnt_conf.startup_speed / d->tnt_conf.hertz;
-	d->tiltback_duty_step_size = d->tnt_conf.tiltback_duty_speed / d->tnt_conf.hertz;
-	d->tiltback_hv_step_size = d->tnt_conf.tiltback_hv_speed / d->tnt_conf.hertz;
-	d->tiltback_lv_step_size = d->tnt_conf.tiltback_lv_speed / d->tnt_conf.hertz;
-	d->tiltback_return_step_size = d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
-	d->tiltback_ht_step_size = d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
+	d->startup_step_size = 1.0 * d->tnt_conf.startup_speed / d->tnt_conf.hertz;
+	d->tiltback_duty_step_size = 1.0 * d->tnt_conf.tiltback_duty_speed / d->tnt_conf.hertz;
+	d->tiltback_hv_step_size = 1.0 * d->tnt_conf.tiltback_hv_speed / d->tnt_conf.hertz;
+	d->tiltback_lv_step_size = 1.0 * d->tnt_conf.tiltback_lv_speed / d->tnt_conf.hertz;
+	d->tiltback_return_step_size = 1.0 * d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
+	d->tiltback_ht_step_size = 1.0 * d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
 
 	//Dynamic Stability
-	d->stabl_step_size_up = d->tnt_conf.stabl_ramp/100 / d->tnt_conf.hertz;
-	d->stabl_step_size_down = d->tnt_conf.stabl_ramp_down/100 / d->tnt_conf.hertz;
+	d->stabl_step_size_up = 1.0 * d->tnt_conf.stabl_ramp / 100 / d->tnt_conf.hertz;
+	d->stabl_step_size_down = 1.0 * d->tnt_conf.stabl_ramp_down / 100 / d->tnt_conf.hertz;
 	
 	// Feature: Soft Start
-	d->softstart_ramp_step_size = (float)100 / d->tnt_conf.hertz;
+	d->softstart_ramp_step_size = 100.0 / d->tnt_conf.hertz;
 	// Feature: Dirty Landings
 	d->startup_pitch_trickmargin = d->tnt_conf.startup_dirtylandings_enabled ? 10 : 0;
 
@@ -591,7 +591,7 @@ static void calculate_setpoint_target(data *d) {
 		beep_alert(d, 3, false);
 		d->beep_reason = BEEP_LV;
 		float abs_motor_current = fabsf(d->motor.current);
-		float vdelta = d->tnt_conf.tiltback_lv - input_voltage;
+		float vdelta = 1.0 * d->tnt_conf.tiltback_lv - input_voltage;
 		float ratio = vdelta * 20 / abs_motor_current;
 		// When to do LV tiltback:
 		// a) we're 2V below lv threshold
@@ -665,7 +665,7 @@ static float haptic_buzz(data *d, float note_period) {
 	if (d->haptic_tone_in_progress) {
 		d->haptic_counter += 1;
 
-		float buzz_current = fminf(20, d->tnt_conf.haptic_buzz_intensity);
+		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
 		// small periods (1,2) produce audible tone, higher periods produce vibration
 		int buzz_period = d->haptic_type;
 		if (d->haptic_type == 7) {
@@ -677,7 +677,7 @@ static float haptic_buzz(data *d, float note_period) {
 		
 		if ((d->motor.abs_erpm < 10000) && (buzz_current > 5)) {
 			// scale high currents down to as low as 5A for lower erpms
-			buzz_current = fmaxf(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
+			buzz_current = max(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
 		}
 
 		if (d->haptic_counter > buzz_period) {
