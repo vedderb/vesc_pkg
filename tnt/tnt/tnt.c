@@ -901,7 +901,7 @@ static void tnt_thd(void *arg) {
 			// Select and Apply Rate P
 			float rate_prop = -d->gyro[1];
 			float kp_rate = brake_curve ? d->brake_kp.kp_rate : d->accel_kp.kp_rate;		
-			float rate_stabl = 1+d->stabl*d->tnt_conf.stabl_rate_max_scale/100; 			
+			float rate_stabl = 1 + d->stabl * d->tnt_conf.stabl_rate_max_scale / 100; 			
 			d->pid_mod = kp_rate * rate_prop * rate_stabl;
 			d->debug3 = kp_rate * (rate_stabl - 1);				// Calc the contribution of stability to kp_rate
 		
