@@ -88,6 +88,7 @@ typedef struct {
 	float mc_max_temp_fet, mc_max_temp_mot;
 	float mc_current_max, mc_current_min;
 	bool duty_beeping;
+	float tiltback_duty;
 
 	// Feature: Soft Start
 	float softstart_pid_limit, softstart_ramp_step_size;
@@ -256,10 +257,12 @@ static void configure(data *d) {
 	d->tiltback_lv_step_size = 1.0 * d->tnt_conf.tiltback_lv_speed / d->tnt_conf.hertz;
 	d->tiltback_return_step_size = 1.0 * d->tnt_conf.tiltback_return_speed / d->tnt_conf.hertz;
 	d->tiltback_ht_step_size = 1.0 * d->tnt_conf.tiltback_ht_speed / d->tnt_conf.hertz;
+	d->noseangling_step_size = 1.0 * d->tnt_conf.noseangling_speed / d->tnt_conf.hertz;
+	d->tiltback_duty = 1.0 * d->tnt_conf.tiltback_duty / 100.0;
 
 	//Dynamic Stability
-	d->stabl_step_size_up = 1.0 * d->tnt_conf.stabl_ramp / 100 / d->tnt_conf.hertz;
-	d->stabl_step_size_down = 1.0 * d->tnt_conf.stabl_ramp_down / 100 / d->tnt_conf.hertz;
+	d->stabl_step_size_up = 1.0 * d->tnt_conf.stabl_ramp / 100.0 / d->tnt_conf.hertz;
+	d->stabl_step_size_down = 1.0 * d->tnt_conf.stabl_ramp_down / 100.0 / d->tnt_conf.hertz;
 	
 	// Feature: Soft Start
 	d->softstart_ramp_step_size = 100.0 / d->tnt_conf.hertz;
@@ -347,6 +350,9 @@ static void reset_vars(data *d) {
 
 	// Surge
 	reset_surge(&d->surge);
+
+	// Traction Control
+	reset_surge(&d->traction, &d->state);
 	
 	//Low pass pitch filter
 	d->prop_smooth = 0;
@@ -533,7 +539,7 @@ static void calculate_setpoint_target(data *d) {
 			d->setpoint_target = d->rt.pitch_angle + d->tnt_conf.surge_pitchmargin * d->motor.erpm_sign;
 			d->state.sat = SAT_SURGE;
 		}
-	 } else if (d->motor.duty_cycle > d->tnt_conf.tiltback_duty) {
+	 } else if (d->motor.duty_cycle > d->tiltback_duty) {
 		if (d->motor.erpm > 0) {
 			d->setpoint_target = d->tnt_conf.tiltback_duty_angle;
 		} else {
@@ -1221,10 +1227,10 @@ static void send_realtime_data(data *d){
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->pitch_smooth_kalman, &ind); //smooth pitch	
 		buffer_append_float32_auto(buffer, d->debug1, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, d->debug1*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100, &ind); // added stiffnes pitch kp
+		buffer_append_float32_auto(buffer, d->debug1*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp
 		buffer_append_float32_auto(buffer, d->debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->stabl, &ind);
-		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp
+		buffer_append_float32_auto(buffer, d->stabl_step_size_up * 832, &ind); //rollkp d->debug2
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->yaw_angle, &ind); //yaw angle
