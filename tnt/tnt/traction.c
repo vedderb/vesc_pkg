@@ -20,7 +20,7 @@
 #include "utils_tnt.h"
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
-	float erpmfactor = lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm);
+	float erpmfactor = min(1, lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm));
 	bool erpm_check;
 	bool start_condition = false;
 
@@ -110,6 +110,11 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	}
 }
 
+void reset_traction(TractionData *traction, State *state) {
+	traction->reverse_wheelslip = false;
+	state->wheelslip = false;
+}
+
 void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg) {
 	traction->reverse_wheelslip = false;
 	state->wheelslip = false;
@@ -118,7 +123,7 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 }
 
 void configure_traction(TractionData *traction, tnt_config *config){
-	traction->start_accel = 1.0 * config->wheelslip_accelstart / config->hertz * 60;
-	traction->slowed_accel = 1.0 * config->wheelslip_accelend / config->hertz * 60;
-	traction->end_accel = 1.0 * config->wheelslip_margin / config->hertz * 60;
+	traction->start_accel = 1.0 * config->wheelslip_accelstart / config->hertz * 60.0;
+	traction->slowed_accel = 1.0 * config->wheelslip_accelend / config->hertz * 60.0;
+	traction->end_accel = 1.0 * config->wheelslip_margin / config->hertz * 60.0;
 }
