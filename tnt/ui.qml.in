@@ -116,7 +116,6 @@ Item {
                 var throttle_val = dv.getFloat32(ind); ind += 4;
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var surge_lasttime = dv.getFloat32(ind); ind += 4; 
-                var drop_lasttime = dv.getFloat32(ind); ind += 4; 
 	
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
