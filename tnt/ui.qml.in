@@ -289,20 +289,20 @@ Item {
 			if (debug_state == 1) {
 				debug.text =
 				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-				"Wheelslip Start Acce: " + debug2.toFixed(1) + "\n" +
-				"Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
-				"Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
-				"Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
-				"Wheelslip End Accel : " + debug6.toFixed(1) + "\n" +
+				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/min\n" +
+				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
+				"ERPM Before Wheelsli: " + debug3.toFixed(0) + " ERPM\n" +
+				"Debug/Last Accel    : " + debug5.toFixed(1) + " ERPM/min\n" +
+				"End Acceleration    : " + debug6.toFixed(1) + " ERPM/min\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
 				debug.text =
-				"Surge Start Current : " + debug7.toFixed(0) + " A\n" +
-				"Surge Start Threshld: " + debug4.toFixed(0) + " A\n" +
+				"Start Current       : " + debug7.toFixed(0) + " A\n" +
+				"Start Threshold     : " + debug4.toFixed(0) + " A\n" +
 				"Start Proportional  : " + debug1.toFixed(1) + " °\n" +
-				"Surge Ramp Rate     : " + debug2.toFixed(0) + " %/s\n" +
-				"Surge Added Duty    : " + (debug3 * 100).toFixed(1) + " %\n" +
-				"Surge End Trigger   : " + debug5.toFixed(1) + " °\n" +
+				"Duty Ramp Rate      : " + debug2.toFixed(0) + " %/s\n" +
+				"Added Duty          : " + (debug3 * 100).toFixed(1) + " %\n" +
+				"End Proportional    : " + debug5.toFixed(1) + " °\n" +
 				"Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
 			} else if (debug_state == 3) {
 				debug.text =
