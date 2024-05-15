@@ -922,7 +922,7 @@ static void tnt_thd(void *arg) {
 				// If we want to actually stop at low speed reduce kp to 0
 				erpmscale = 0;
 			} else if (d->roll_accel_kp.count!=0 && d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
-				erpmscale = 1 + lerp(d->tnt_conf.rollkp_lowerpm, d->tnt_conf.rollkp_higherpm, 1.0 * d->tnt_conf.rollkp_maxscale / 100, 0, d->motor.abs_erpm);
+				erpmscale = 1 + lerp(d->tnt_conf.rollkp_lowerpm, d->tnt_conf.rollkp_higherpm, 1.0 * d->tnt_conf.rollkp_maxscale / 100.0, 0, d->motor.abs_erpm);
 			}
 			rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
 
@@ -1207,11 +1207,11 @@ static void send_realtime_data(data *d){
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6 * d->tnt_conf.hertz, &ind); //accel at wheelslip start
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4 * d->tnt_conf.hertz, &ind); //Debug condition or last accel
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz, &ind); //accel at wheelslip end
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
