@@ -1230,7 +1230,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->debug1*d->stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp
 		buffer_append_float32_auto(buffer, d->debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->stabl, &ind);
-		buffer_append_float32_auto(buffer, d->stabl_step_size_up * 832, &ind); //rollkp d->debug2
+		buffer_append_float32_auto(buffer, d->debug2, &ind); //rollkp d->debug2
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->yaw_angle, &ind); //yaw angle
