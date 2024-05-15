@@ -157,7 +157,7 @@ typedef struct {
 	KpArray yaw_brake_kp;
 
 	// Dynamic Stability
-	float stabl, last_stabl_mod;
+	float stabl;
 	float stabl_step_size_up, stabl_step_size_down;
 
 	//Haptic Buzz
@@ -763,9 +763,8 @@ static void apply_stability(data *d) {
 				lerp(1.0 * d->tnt_conf.stabl_min_erpm, 1.0 * d->tnt_conf.stabl_max_erpm, 0.0, 1.0, d->motor.abs_erpm));
 	}
 	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
-	float step_size = stabl_mod > d->last_stabl_mod ? d->stabl_step_size_up : d->stabl_step_size_down;
+	float step_size = stabl_mod > d->stabl ? d->stabl_step_size_up : d->stabl_step_size_down;
 	rate_limitf(&d->stabl, stabl_mod, step_size); 
-	d->last_stabl_mod = stabl_mod;
 }
 
 static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
