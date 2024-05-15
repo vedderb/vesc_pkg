@@ -75,7 +75,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
 			start_condition = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
-			traction->reverse_wheelslip = false;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
@@ -92,7 +91,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	   (rt->current_time - traction->timeroff > .02) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
 		state->wheelslip = true;
-		traction->accelstartval = traction->start_accel;//m->acceleration;
+		traction->accelstartval = m->acceleration;
 		traction->highaccelon1 = true; 	
 		traction->highaccelon2 = true; 	
 		traction->timeron = rt->current_time;
@@ -113,12 +112,14 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 
 void reset_traction(TractionData *traction, State *state) {
 	state->wheelslip = false;
+	traction->reverse_wheelslip = false;
 }
 
 void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg) {
 	state->wheelslip = false;
 	traction->timeroff = rt->current_time;
 	traction_dbg->debug8 = m->acceleration;
+	traction->reverse_wheelslip = false;
 }
 
 void configure_traction(TractionData *traction, tnt_config *config){
