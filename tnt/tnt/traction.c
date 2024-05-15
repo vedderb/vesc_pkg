@@ -20,7 +20,7 @@
 #include "utils_tnt.h"
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
-	float erpmfactor = max(1, lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm));
+	float erpmfactor = max(1, lerp(0, 1.0 * config->wheelslip_scaleerpm, 1.0 * config->wheelslip_scaleaccel, 1.0, m->abs_erpm));
 	bool erpm_check;
 	bool start_condition = false;
 
@@ -92,7 +92,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	   (rt->current_time - traction->timeroff > .02) && 						// Did not recently wheel slip.
 	   (erpm_check)) {
 		state->wheelslip = true;
-		traction->accelstartval = m->acceleration;
+		traction->accelstartval = traction->start_accel;//m->acceleration;
 		traction->highaccelon1 = true; 	
 		traction->highaccelon2 = true; 	
 		traction->timeron = rt->current_time;
