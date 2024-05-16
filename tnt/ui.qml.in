@@ -289,11 +289,11 @@ Item {
 			if (debug_state == 1) {
 				debug.text =
 				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/min\n" +
+				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/ms\n" +
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"ERPM Before Wheelsli: " + debug3.toFixed(0) + " ERPM\n" +
-				"Debug/Last Accel    : " + debug5.toFixed(1) + " ERPM/min\n" +
-				"End Acceleration    : " + debug6.toFixed(1) + " ERPM/min\n" +
+				"Debug/Last Accel    : " + debug5.toFixed(1) + " ERPM/ms\n" +
+				"End Acceleration    : " + debug6.toFixed(1) + " ERPM/ms\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
 				debug.text =
