@@ -292,7 +292,7 @@ Item {
 				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/ms\n" +
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"ERPM Before Wheelsli: " + debug3.toFixed(0) + " ERPM\n" +
-				"Debug/Last Accel    : " + debug5.toFixed(1) + " ERPM/ms\n" +
+				"Debug/Last Accel    : " + debug5.toFixed(1) + "\n" +
 				"End Acceleration    : " + debug6.toFixed(1) + " ERPM/ms\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
