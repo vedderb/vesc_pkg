@@ -1207,11 +1207,11 @@ static void send_realtime_data(data *d){
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6 * d->tnt_conf.hertz, &ind); //accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip start
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4 * d->tnt_conf.hertz, &ind); //Debug condition or last accel
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz, &ind); //accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4 * d->tnt_conf.hertz / 1000.0, &ind); //Debug condition or last accel
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip end
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
