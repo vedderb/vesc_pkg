@@ -33,13 +33,20 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
     * Minimum erpm limits yaw response at low speeds.
     * New debug section in AppUI is toggled in Specs tab allows for accurate yaw tuning.
-  * Some features and parameters had to be removed in order to make room for new features.
+  * Some features and parameters were removed to make room for new features.
     * Haptic buzz for temperature and voltage
     * Haptic buzz for duty and current is now on/off. Vibrating1 is the haptic type.
     * Startup roll angle hard coded to 45 degrees.
     * Fault delay roll is now the same as fault delay pitch, called fault delay angle.
     * Feature start up clicks is no longer available.
 * _Fixes/Improvements_
+  * Traction control
+    * Changed traction control inputs/outputs for motor acceleration to ERPM/ms from ERPM/code cycle.
+    * Changed the minimum delay between traction control activations from 200ms to 20ms
+    * Added new start condition that allows for a faster start to traction control if the wheel slips in reverse.
+    * Added a new end condition to handle an edge case that would not exit traction control correctly.
+    * Remove drop condition from traction control deactivation conditions.
+    * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
   * Fixed a bug that would prevent high current haptic buzz if surge was engaged.
   * AppUI now displays the following for state:
     * when idle... "READY-" and last stop/fault reason
@@ -48,12 +55,6 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
   * Readme format updated for 6.05
   * Sticky tilt no longer "remembers" tilt angle after dismount. Resets setpoint to zero every time.
   * Certain parameters changed to integers to allow for more parameters. 
-  * Traction control
-    * Changed the minimum delay between traction control activations from 200ms to 20ms
-    * Added new start condition that allows for a faster start to traction control if the wheel slips in reverse.
-    * Added a new end condition to handle an edge case that would not exit traction control correctly.
-    * Remove drop condition from traction control deactivation conditions.
-    * New debug ouput counts how many traction control activations in the last 5 seconds.
  
 ### 1.2
 * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
