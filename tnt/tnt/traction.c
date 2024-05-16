@@ -58,13 +58,13 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				}
 			} else if (fabsf(m->acceleration) > traction->end_accel) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-				traction_dbg->debug4 = 2222;
+				traction_dbg->debug4 = 1111;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 
 			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
 			if (traction->reverse_wheelslip && m->erpm_sign == m->erpm_sign_soft) {
-				traction_dbg->debug4 = 4000;
+				traction_dbg->debug4 = 2222;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 
 			}
