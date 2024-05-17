@@ -669,25 +669,21 @@ static float haptic_buzz(data *d, float note_period) {
 	}
 
 	if (d->haptic_tone_in_progress) {
-		d->haptic_counter += 1;
-
 		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
-		// small periods (1,2) produce audible tone, higher periods produce vibration
-		int buzz_period = d->haptic_type;
-
-		// alternate frequencies, depending on "mode"
-		buzz_period += d->haptic_mode;
-		
 		if ((d->motor.abs_erpm < 10000) && (buzz_current > 5)) {
 			// scale high currents down to as low as 5A for lower erpms
 			buzz_current = max(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
 		}
-
+		
+		// small periods (1,2) produce audible tone, higher periods produce vibration
+		int buzz_period = d->haptic_type;
+		// alternate frequencies, depending on "mode"
+		buzz_period += d->haptic_mode;
 		if (d->haptic_counter > buzz_period) {
-			d->haptic_counter = 0;
+			d->haptic_counter = 0; //reset counter after every period
 		}
 
-		if (d->haptic_counter == 0) {
+		if (d->haptic_counter == 0) { //alternate current affter period
 			if (d->applied_haptic_current > 0) {
 				d->applied_haptic_current = -buzz_current;
 			} else { d->applied_haptic_current = buzz_current; }
@@ -698,6 +694,7 @@ static float haptic_buzz(data *d, float note_period) {
 			d->haptic_mode = 1 - d->haptic_mode; 
 			d->haptic_timer = d->rt.current_time;
 		}
+		d->haptic_counter += 1;
 	}
 	else {
 		d->haptic_mode = 0;
@@ -733,8 +730,8 @@ static void set_dutycycle(data *d, float dutycycle){
 	// Limit duty output to configured max output
 	if (dutycycle >  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
 		dutycycle = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
-	} else if(dutycycle < 0 && dutycycle < (-1) * VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
-		dutycycle = (-1) *  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
+	} else if(dutycycle < 0 && dutycycle < -VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
+		dutycycle = -VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
 	}
 	
 	// Reset the timeout
@@ -742,8 +739,7 @@ static void set_dutycycle(data *d, float dutycycle){
 	// Set the current delay
 	VESC_IF->mc_set_current_off_delay(d->motor_timeout_s);
 	// Set Duty
-	//VESC_IF->mc_set_duty(dutycycle); 
-	VESC_IF->mc_set_duty_noramp(dutycycle);
+	VESC_IF->mc_set_duty(dutycycle); 
 }
 
 static void apply_stability(data *d) {
