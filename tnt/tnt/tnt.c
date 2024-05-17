@@ -658,7 +658,7 @@ static void apply_noseangling(data *d){
 
 static float haptic_buzz(data *d, float note_period) {
 	if (d->surge.high_current_buzz) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 8 : 0;
+		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 50 : 0;
 	} else if (d->state.sat == SAT_PB_DUTY) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 8 : 0;
 	} else { d->haptic_type = 0;}
@@ -678,22 +678,20 @@ static float haptic_buzz(data *d, float note_period) {
 		// small periods (1,2) produce audible tone, higher periods produce vibration
 		int buzz_period = d->haptic_type;
 		// alternate frequencies, depending on "mode"
-		buzz_period += d->haptic_mode;
+		//buzz_period += d->haptic_mode;
 		if (d->haptic_counter > buzz_period) {
 			d->haptic_counter = 0; //reset counter after every period
 		}
 
 		if (d->haptic_counter == 0) { //alternate current affter period
-			if (d->applied_haptic_current > 0) {
-				d->applied_haptic_current = -buzz_current;
-			} else { d->applied_haptic_current = buzz_current; }
+			d->applied_haptic_current = d->applied_haptic_current > 0 ? -buzz_current : buzz_current;
+			if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
+				d->haptic_tone_in_progress = false;
+				//d->haptic_mode = 1 - d->haptic_mode; 
+				d->haptic_timer = d->rt.current_time;
+			}
 		}
 		
-		if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
-			d->haptic_tone_in_progress = false;
-			d->haptic_mode = 1 - d->haptic_mode; 
-			d->haptic_timer = d->rt.current_time;
-		}
 		d->haptic_counter += 1;
 	}
 	else {
