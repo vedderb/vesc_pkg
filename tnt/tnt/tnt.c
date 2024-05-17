@@ -660,40 +660,29 @@ static float haptic_buzz(data *d, float note_period) {
 	if (d->surge.high_current_buzz) {
 		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 4 : 0;
 	} else if (d->state.sat == SAT_PB_DUTY) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 8 : 0;
+		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 4 : 0;
 	} else { d->haptic_type = 0;}
 
-	// This kicks it off till at least one ~300ms tone is completed
-	if (d->haptic_type != 0) {
-		d->haptic_tone_in_progress = true;
+	if (d->haptic_type != 0 && !d->haptic_tone_in_progress) {
+		d->haptic_tone_in_progress = true;	// This kicks it off till at least one ~300ms tone is completed
+		d->haptic_mode = d->haptic_type; 	// lock in haptic type for note period
 	}
 
 	if (d->haptic_tone_in_progress) {
-		float buzz_current = min(20, d->tnt_conf.haptic_buzz_intensity);
-		//if ((d->motor.abs_erpm < 10000) && (buzz_current > 5)) {
-		//	// scale high currents down to as low as 5A for lower erpms
-		//	buzz_current = max(d->tnt_conf.haptic_buzz_min, d->motor.abs_erpm / 10000 * buzz_current);
-		//}
+		float buzz_current = min(1.0 * d->tnt_conf.haptic_buzz_intensity, 
+			lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
 		
-		// small periods (1,2) produce audible tone, higher periods produce vibration
-		int buzz_period = d->haptic_type;
-		// alternate frequencies, depending on "mode"
-		buzz_period += d->haptic_mode;
-		if (d->haptic_counter > buzz_period) {
+		if (d->haptic_counter > d->haptic_mode)  //use mode here so it still works after type turns to 0 during note period
 			d->haptic_counter = 0; //reset counter after every period
-		}
-
+		
 		if (d->haptic_counter == 0) { //alternate current affter period
 			d->applied_haptic_current = d->applied_haptic_current > 0 ? -buzz_current : buzz_current;
-			//d->haptic_mode += 1;
 			if (fabsf(d->haptic_timer - d->rt.current_time) > note_period) {
 				d->haptic_tone_in_progress = false;
-				d->haptic_mode = 1 - d->haptic_mode; 
 				d->haptic_timer = d->rt.current_time;
 			}
 		}
-		
-		d->haptic_counter += 1;
+		d->haptic_counter += 1; //counter at end so buzz_current is applied first loop through
 	}
 	else {
 		d->haptic_mode = 0;
