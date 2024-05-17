@@ -68,7 +68,6 @@ typedef struct {
     bool wheelslip;
     bool darkride;
     bool braking_pos;
-    bool drop;
 } State;
 
 void state_init(State *state, bool disable);
