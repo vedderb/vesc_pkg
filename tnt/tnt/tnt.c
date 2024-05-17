@@ -913,7 +913,7 @@ static void tnt_thd(void *arg) {
 			// Calculate yaw change
 			calc_yaw_change(&d->yaw, d->yaw_angle, &d->yaw_dbg);
 
-			//Select Yaw Kp and apply scaler
+			//Select Yaw Kp
 			float yawkp = 0;
 			bool brake_yaw = d->yaw_brake_kp.count!=0 && d->state.braking_pos;
 			yawkp = angle_kp_select(d->yaw.abs_change, 
@@ -968,7 +968,7 @@ static void tnt_thd(void *arg) {
 			if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
-				d->rt.pid_value += haptic_buzz(d, 0.3);
+				d->rt.pid_value += haptic_buzz(d, 0.1);
 				set_current(d, d->rt.pid_value); 			// Set current as normal.
 			}
 
