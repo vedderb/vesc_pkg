@@ -55,7 +55,7 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	{config->pitch3, config->current3},
 	{config->pitch4, config->current4},
 	{config->pitch5, config->current5},
-	{0, 0}, //{config->pitch6, config->current6},
+	{config->pitch6, config->current6},
 	};
 	float kp0 = config->kp0;
 	bool kp_input = config->pitch_kp_input;
@@ -67,9 +67,9 @@ void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode){
 		{config->brakepitch1, config->brakecurrent1},
 		{config->brakepitch2, config->brakecurrent2},
 		{config->brakepitch3, config->brakecurrent3},
-		{0, 0}, //{config->brakepitch4, config->brakecurrent4},
-		{0, 0}, //{config->brakepitch5, config->brakecurrent5},
-		{0, 0}, //{config->brakepitch6, config->brakecurrent6},
+		{config->brakepitch4, config->brakecurrent4},
+		{config->brakepitch5, config->brakecurrent5},
+		{config->brakepitch6, config->brakecurrent6},
 		};
 		for (int x = 0; x <= 6; x++) {
 			for (int y = 0; y <= 1; y++) {
