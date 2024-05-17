@@ -72,7 +72,7 @@ void apply_inputtilt(RemoteData *r, float input_tiltback_target){
 		float smooth_center_window = 1.5 + (0.5 * r->smoothing_factor); // Sets the angle away from Target that step size begins ramping down
 		if (fabsf(input_tiltback_target_diff) < smooth_center_window) { // Within X degrees of Target Angle, start ramping down step size
 			r->ramped_step_size = (smoothing_factor * r->step_size * (input_tiltback_target_diff / 2)) + ((1 - smoothing_factor) * r->ramped_step_size); // Target step size is reduced the closer to center you are (needed for smoothly transitioning away from center)
-			float centering_step_size = min(fabsf(r->ramped_step_size), fabsf(input_tiltback_target_diff / 2) * r->step_size) * sign(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
+			float centering_step_size = fminf(fabsf(r->ramped_step_size), fabsf(input_tiltback_target_diff / 2) * r->step_size) * sign(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
 			if (fabsf(input_tiltback_target_diff) < fabsf(centering_step_size)) {
 				r->inputtilt_interpolated = input_tiltback_target;
 			} else {
