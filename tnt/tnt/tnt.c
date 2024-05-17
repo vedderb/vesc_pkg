@@ -669,7 +669,7 @@ static float haptic_buzz(data *d, float note_period) {
 	}
 
 	if (d->haptic_tone_in_progress) {
-		float buzz_current = min(1.0 * d->tnt_conf.haptic_buzz_intensity, 
+		float buzz_current = fminf(1.0 * d->tnt_conf.haptic_buzz_intensity, 
 			lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
 		
 		if (d->haptic_counter > d->haptic_mode)  //use mode here so it still works after type turns to 0 during note period
@@ -738,10 +738,10 @@ static void apply_stability(data *d) {
 		throttle_stabl_mod = fabsf(d->remote.inputtilt_interpolated) / d->tnt_conf.inputtilt_angle_limit; 	//using inputtilt_interpolated allows the use of sticky tilt and inputtilt smoothing
 	}
 	if (d->tnt_conf.enable_speed_stability && d->motor.abs_erpm > 1.0 * d->tnt_conf.stabl_min_erpm) {		
-		speed_stabl_mod = min(1 ,										// Do not exceed the max value.				
+		speed_stabl_mod = fminf(1 ,										// Do not exceed the max value.				
 				lerp(d->tnt_conf.stabl_min_erpm, d->tnt_conf.stabl_max_erpm, 0, 1, d->motor.abs_erpm));
 	}
-	stabl_mod = max(speed_stabl_mod,throttle_stabl_mod);
+	stabl_mod = fmaxf(speed_stabl_mod,throttle_stabl_mod);
 	float step_size = stabl_mod > d->stabl ? d->stabl_step_size_up : d->stabl_step_size_down;
 	rate_limitf(&d->stabl, stabl_mod, step_size); 
 }
@@ -934,7 +934,7 @@ static void tnt_thd(void *arg) {
 			d->yaw_dbg.debug3 = brake_yaw ? -yawkp : yawkp;
 			yawkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
 			d->yaw_dbg.debug4 = brake_yaw ? -yawkp : yawkp;
-			d->yaw_dbg.debug2 = max(d->yaw_dbg.debug2, yawkp);
+			d->yaw_dbg.debug2 = fmaxf(d->yaw_dbg.debug2, yawkp);
 			
 			//Apply Yaw Boost
 			d->yaw_pid_mod = .99 * d->yaw_pid_mod + .01 * yawkp * fabsf(new_pid_value) * d->motor.erpm_sign; 	//always act in the direciton of travel
