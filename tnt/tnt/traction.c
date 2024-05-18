@@ -22,8 +22,9 @@
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
 	float erpmfactor = fmaxf(1, lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm));
 	bool erpm_check;
-	bool start_condition = false;
-
+	bool start_condition1 = false;
+	bool start_condition2 = false;
+	
 	// Conditons to end traction control
 	if (state->wheelslip) {
 		if (rt->current_time - traction->timeron > .3) {		// Time out at 300ms
@@ -66,7 +67,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 			if (traction->reverse_wheelslip && m->erpm_sign == m->erpm_sign_soft) {
 				traction_dbg->debug4 = 2222;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
-
 			}
 		}
 	}	
@@ -74,17 +74,17 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 	// We check sign to make sure erpm is increasing or has changed direction. 
 		if (m->abs_erpm > fabsf(m->erpm_history[m->last_erpm_idx])) {
 			erpm_check = true;
-			start_condition = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
+			start_condition1 = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
 		} else {erpm_check = false;} 					//If the erpm suddenly decreased without changing sign that is a false positive. Do not enter traction control.
 	} else if (sign(m->erpm_sign_soft) != sign(m->accel_history[m->accel_idx])) {		// The wheel has changed direction and if these are the same sign we do not want traciton conrol because we likely just landed with high wheel spin
 		erpm_check = true;
 		traction->reverse_wheelslip = true;
-		erpmfactor *= 1.5;
-		start_condition = sign(m->current) * m->accel_history[m->accel_idx] > traction->start_accel * erpmfactor; //use a faster reaction if wheel changes direction
+		start_condition1 = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
+		start_condition2 = sign(m->current) * m->accel_history[m->accel_idx] > traction->start_accel * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
 	} else {erpm_check = false;}
 
 	// Initiate traction control
-	if ((start_condition) && 									// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+	if ((start_condition1 || start_condition2) && 									// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 	   (!state->wheelslip) &&									// Not in traction control
 	   (sign(m->current) == sign(m->accel_history[m->accel_idx])) &&				// a more precise condition than the first for current direction and erpm - last erpm
 	   (!state->braking_pos) &&									// Do not apply for braking because once we lose traction braking the erpm will change direction and the board will consider it acceleration anyway
@@ -95,13 +95,15 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		traction->highaccelon1 = true; 	
 		traction->highaccelon2 = true; 	
 		traction->timeron = rt->current_time;
-		traction_dbg->debug6 = traction->reverse_wheelslip ? m->accel_history[m->accel_idx] : m->acceleration;
+		
+		//Debug Section
+		traction_dbg->debug2 = start_condition2 ? erpmfactor * 1.5 : erpmfactor;
+		traction_dbg->debug6 = start_condition2 ? m->accel_history[m->accel_idx] : m->acceleration;
+		traction_dbg->debug9 = m->erpm;
 		traction_dbg->debug3 = m->erpm_history[m->last_erpm_idx];
 		traction_dbg->debug1 = 0;
-		traction_dbg->debug2 = erpmfactor;
 		traction_dbg->debug4 = 0;
 		traction_dbg->debug8 = 0;
-		traction_dbg->debug9 = m->erpm;
 		if (rt->current_time - traction_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
 			traction_dbg->aggregate_timer = rt->current_time;
 			traction_dbg->debug5 = 0;
@@ -118,8 +120,8 @@ void reset_traction(TractionData *traction, State *state) {
 void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg) {
 	state->wheelslip = false;
 	traction->timeroff = rt->current_time;
-	traction_dbg->debug8 = m->acceleration;
 	traction->reverse_wheelslip = false;
+	traction_dbg->debug8 = m->acceleration;
 }
 
 void configure_traction(TractionData *traction, tnt_config *config){
