@@ -162,7 +162,7 @@ typedef struct {
 
 	//Haptic Buzz
 	float applied_haptic_current, haptic_timer;
-	int haptic_counter, haptic_mode, haptic_type;
+	int haptic_counter, haptic_mode, haptic_type, haptic_freq;
 	bool haptic_tone_in_progress;
 
 	//Trip Debug
@@ -286,6 +286,9 @@ static void configure(data *d) {
 
 	d->beeper_enabled = d->tnt_conf.is_beeper_enabled;
 
+	//Haptic Buzz
+	d->haptic_freq = max(1,d->tnt_conf.hertz / 832) * 4; //Vibrate1 from float pkg
+	
 	//Remote
 	configure_remote_features(&d->tnt_conf, &d->remote, &d->st_tilt);
 	
@@ -658,9 +661,9 @@ static void apply_noseangling(data *d){
 
 static float haptic_buzz(data *d, float note_period) {
 	if (d->surge.high_current_buzz) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_current ? 4 : 0;
+		d->haptic_type = d->tnt_conf.haptic_buzz_current ? d->haptic_freq : 0;
 	} else if (d->state.sat == SAT_PB_DUTY) {
-		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? 4 : 0;
+		d->haptic_type = d->tnt_conf.haptic_buzz_duty ? d->haptic_freq : 0;
 	} else { d->haptic_type = 0;}
 
 	if (d->haptic_type != 0 && !d->haptic_tone_in_progress) {
@@ -669,7 +672,7 @@ static float haptic_buzz(data *d, float note_period) {
 	}
 
 	if (d->haptic_tone_in_progress) {
-		float buzz_current = fminf(1.0 * d->tnt_conf.haptic_buzz_intensity, 
+		float buzz_current = fminf(d->tnt_conf.haptic_buzz_intensity, 
 			lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
 		
 		if (d->haptic_counter > d->haptic_mode)  //use mode here so it still works after type turns to 0 during note period
@@ -682,7 +685,7 @@ static float haptic_buzz(data *d, float note_period) {
 				d->haptic_timer = d->rt.current_time;
 			}
 		}
-		d->haptic_counter += 1; //counter at end so buzz_current is applied first loop through
+		d->haptic_counter += 1; 
 	}
 	else {
 		d->haptic_mode = 0;
@@ -820,7 +823,7 @@ static void tnt_thd(void *arg) {
 				float bat_volts = VESC_IF->mc_get_input_voltage_filtered();
 				float threshold = d->tnt_conf.tiltback_lv + 5;
 				if (bat_volts < threshold) {
-					int beeps = (int) min(6, threshold - bat_volts);
+					int beeps = (int)fminf(6, threshold - bat_volts);
 					beep_alert(d, beeps + 1, true);
 					d->beep_reason = BEEP_LOWBATT;
 				} else {
