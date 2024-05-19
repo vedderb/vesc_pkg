@@ -24,6 +24,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 	bool erpm_check;
 	bool start_condition1 = false;
 	bool start_condition2 = false;
+	traction->last_accel_rate = traction->accel_rate;
+	traction->accel_rate = m->accel_history[m->accel_idx] - m->accel_history[m->last_accel_idx];
 	
 	// Conditons to end traction control
 	if (state->wheelslip) {
@@ -43,7 +45,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				}
 			} else if (sign(m->accel_history[m->accel_idx])!= sign(m->accel_history[m->last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				traction_dbg->debug4 = m->accel_history[m->last_accel_idx];
+				traction_dbg->debug4 = 3333; //m->accel_history[m->last_accel_idx];
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 			
@@ -57,9 +59,9 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 					traction_dbg->debug4 = 2000;
 					deactivate_traction(m, traction, state, rt, traction_dbg);
 				}
-			} else if (fabsf(m->acceleration) > traction->end_accel) { 
+			} else if (fabsf(traction->accel_rate - traction->last_accel_rate) > traction->end_accel) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-				traction_dbg->debug4 = 1111;
+				traction_dbg->debug4 = traction->accel_rate - traction->last_accel_rate;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 
@@ -127,5 +129,5 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 void configure_traction(TractionData *traction, tnt_config *config){
 	traction->start_accel = 1.0 * config->wheelslip_accelstart / config->hertz * 1000.0;
 	traction->slowed_accel = 1.0 * config->wheelslip_accelend / config->hertz * 1000.0;
-	traction->end_accel = 1.0 * config->wheelslip_margin / config->hertz * 1000.0;
+	traction->end_accel_rate = 1.0 * config->wheelslip_margin / config->hertz * 1000000.0 / config->hertz;
 }
