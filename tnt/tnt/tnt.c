@@ -672,9 +672,9 @@ static float haptic_buzz(data *d, float note_period) {
 	}
 
 	if (d->haptic_tone_in_progress) {
-		float buzz_current = fminf(1.0 * d->tnt_conf.haptic_buzz_intensity, 
+		float buzz_current = min(d->tnt_conf.haptic_buzz_intensity, 
 			lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
-		
+		d->debug6 = buzz_current;
 		if (d->haptic_counter > d->haptic_mode)  //use mode here so it still works after type turns to 0 during note period
 			d->haptic_counter = 0; //reset counter after every period
 		
@@ -1192,9 +1192,9 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug6 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip start
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel
+		buffer_append_float32_auto(buffer, traction->end_accel_rate, &ind); //Debug condition or last accel d->traction_dbg.debug4
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip end
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count
+		buffer_append_float32_auto(buffer, d->debug6, &ind); //count d->traction_dbg.debug5
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //surge start proportional
