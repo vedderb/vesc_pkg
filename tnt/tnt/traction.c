@@ -45,7 +45,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				}
 			} else if (sign(m->accel_history[m->accel_idx])!= sign(m->accel_history[m->last_accel_idx])) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				traction_dbg->debug4 = 3333; //m->accel_history[m->last_accel_idx];
+				traction_dbg->debug4 = 1111; //m->accel_history[m->last_accel_idx];
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 			
@@ -82,7 +82,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		erpm_check = true;
 		traction->reverse_wheelslip = true;
 		start_condition1 = sign(m->current) * m->acceleration > traction->start_accel * erpmfactor;
-		start_condition2 = sign(m->current) * m->accel_history[m->accel_idx] > traction->start_accel * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
+		//start_condition2 = sign(m->current) * m->accel_history[m->accel_idx] > traction->start_accel * erpmfactor * 1.5; //use a faster reaction if wheel changes direction
 	} else {erpm_check = false;}
 
 	// Initiate traction control
@@ -123,12 +123,12 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 	state->wheelslip = false;
 	traction->timeroff = rt->current_time;
 	traction->reverse_wheelslip = false;
-	traction_dbg->debug8 = m->acceleration / traction_dbg->freq_factor1;
+	traction_dbg->debug8 = traction->timeroff - traction->timeron;
 }
 
 void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg){
 	traction->start_accel = 1000.0 * config->wheelslip_accelstart / config->hertz; //convert from erpm/ms to erpm/cycle
-	traction->slowed_accel = 1000.0 * config->wheelslip_accelend / config->hertz;
+	traction->slowed_accel = 1000.0 * 5.0 / config->hertz;
 	traction->end_accel_rate = 1000000.0 * config->wheelslip_margin / (config->hertz * config->hertz);
 	traction_dbg->freq_factor1 = 1000.0 / config->hertz;
 	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
