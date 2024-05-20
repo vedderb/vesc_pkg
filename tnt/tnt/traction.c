@@ -127,7 +127,8 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 }
 
 void configure_traction(TractionData *traction, tnt_config *config){
-	traction->start_accel = 1.0 * config->wheelslip_accelstart / config->hertz * 1000.0;
-	traction->slowed_accel = 1.0 * config->wheelslip_accelend / config->hertz * 1000.0;
-	traction->end_accel_rate = 1.0 * config->wheelslip_margin / (config->hertz * config->hertz) * 1000000.0;
+	float hertz = config->hertz;
+	traction->start_accel = 1.0 * config->wheelslip_accelstart / hertz * 1000.0;
+	traction->slowed_accel = 1.0 * config->wheelslip_accelend / hertz * 1000.0;
+	traction->end_accel_rate = 1.0 * config->wheelslip_margin / (hertz * hertz) * 1000000.0;
 }
