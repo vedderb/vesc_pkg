@@ -971,7 +971,7 @@ static void tnt_thd(void *arg) {
 			if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
 			} else {
-				d->rt.pid_value += haptic_buzz(d, 0.1);
+				d->rt.pid_value += haptic_buzz(d, 0.3);
 				set_current(d, d->rt.pid_value); 			// Set current as normal.
 			}
 
@@ -1189,11 +1189,11 @@ static void send_realtime_data(data *d){
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel d->traction_dbg.debug4
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //accel at wheelslip end
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count 
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
