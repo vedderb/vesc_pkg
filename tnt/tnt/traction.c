@@ -131,5 +131,5 @@ void configure_traction(TractionData *traction, tnt_config *config){
 	float wheelslip_margin = (float)config->wheelslip_margin;
 	traction->start_accel = 1.0 * config->wheelslip_accelstart / hertz * 1000.0;
 	traction->slowed_accel = 1.0 * config->wheelslip_accelend / hertz * 1000.0;
-	traction->end_accel_rate = wheelslip_margin;
+	traction->end_accel_rate = wheelslip_margin / hertz * 1000.0;
 }
