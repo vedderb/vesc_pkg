@@ -61,7 +61,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				}
 			} else if (fabsf(traction->accel_rate - traction->last_accel_rate) > traction->end_accel_rate) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-				traction_dbg->debug4 = (traction->accel_rate - traction->last_accel_rate) / traction->freq_factor;
+				traction_dbg->debug4 = (traction->accel_rate - traction->last_accel_rate) / traction_dbg->freq_factor2;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 
@@ -126,9 +126,10 @@ void deactivate_traction(MotorData *m, TractionData *traction, State *state, Run
 	traction_dbg->debug8 = m->acceleration;
 }
 
-void configure_traction(TractionData *traction, tnt_config *config){
-	traction->start_accel = 1.0 * config->wheelslip_accelstart / config->hertz * 1000.0;
-	traction->slowed_accel = 1.0 * config->wheelslip_accelend / config->hertz * 1000.0;
+void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg){
+	traction->start_accel = 1000.0 * config->wheelslip_accelstart / config->hertz; //convert from erpm/ms to erpm/cycle
+	traction->slowed_accel = 1000.0 * config->wheelslip_accelend / config->hertz;
 	traction->end_accel_rate = 1000000.0 * config->wheelslip_margin / (config->hertz * config->hertz);
-	traction->freq_factor = 1000000.0 / (config->hertz * config->hertz);
+	traction_dbg->freq_factor1 = 1000.0 / config->hertz;
+	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
 }
