@@ -35,6 +35,7 @@ typedef struct {
 	float end_accel_rate;		//acceleration rate that indications traciton is regained
 	float accel_rate;
 	float last_accel_rate;	
+	float freq_factor;
 } TractionData;
 
 typedef struct {
