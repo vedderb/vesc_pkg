@@ -1193,7 +1193,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel d->traction_dbg.debug4
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //accel at wheelslip end
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count 
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
