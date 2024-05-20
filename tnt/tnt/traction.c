@@ -61,7 +61,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				}
 			} else if (fabsf(traction->accel_rate - traction->last_accel_rate) > traction->end_accel_rate) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
-				traction_dbg->debug4 = traction->accel_rate - traction->last_accel_rate;
+				traction_dbg->debug4 = (traction->accel_rate - traction->last_accel_rate) * traction->freq_factor;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
 			}
 
@@ -130,4 +130,5 @@ void configure_traction(TractionData *traction, tnt_config *config){
 	traction->start_accel = 1.0 * config->wheelslip_accelstart / hertz * 1000.0;
 	traction->slowed_accel = 1.0 * config->wheelslip_accelend / hertz * 1000.0;
 	traction->end_accel_rate = 1.0 * config->wheelslip_margin / (config-hertz * config-hertz) * 1000000.0;
+	traction->freq_factor = 1.0 / (config-hertz * config-hertz) * 1000000.0;
 }
