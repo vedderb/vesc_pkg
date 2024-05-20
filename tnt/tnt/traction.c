@@ -59,7 +59,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 					traction_dbg->debug4 = 2000;
 					deactivate_traction(m, traction, state, rt, traction_dbg);
 				}
-			} else if (fabsf(traction->accel_rate - traction->last_accel_rate) > traction->end_accel) { 
+			} else if (fabsf(traction->accel_rate - traction->last_accel_rate) > traction->end_accel_rate) { 
 			// If accel increases by a value higher than margin, the wheel is acted on by outside forces so we presumably have traction again
 				traction_dbg->debug4 = traction->accel_rate - traction->last_accel_rate;
 				deactivate_traction(m, traction, state, rt, traction_dbg);
