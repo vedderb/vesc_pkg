@@ -672,8 +672,8 @@ static float haptic_buzz(data *d, float note_period) {
 	}
 
 	if (d->haptic_tone_in_progress) {
-		float buzz_current = 10;//min(d->tnt_conf.haptic_buzz_intensity, 
-			//lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
+		float buzz_current = min(d->tnt_conf.haptic_buzz_intensity, 
+			lerp(0, 10000, d->tnt_conf.haptic_buzz_min, d->tnt_conf.haptic_buzz_intensity, d->motor.abs_erpm));
 		d->debug6 = buzz_current;
 		if (d->haptic_counter > d->haptic_mode)  //use mode here so it still works after type turns to 0 during note period
 			d->haptic_counter = 0; //reset counter after every period
