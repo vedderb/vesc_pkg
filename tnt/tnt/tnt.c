@@ -1194,7 +1194,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
 		buffer_append_float32_auto(buffer, d->traction.end_accel_rate, &ind); //Debug condition or last accel d->traction_dbg.debug4
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug8 * d->tnt_conf.hertz / 1000.0, &ind); //accel at wheelslip end
-		buffer_append_float32_auto(buffer, d->debug6, &ind); //count d->traction_dbg.debug5
+		buffer_append_float32_auto(buffer, d->haptic_freq, &ind); //count d->traction_dbg.debug5
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
 		buffer[ind++] = 2;
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug1, &ind); //surge start proportional
