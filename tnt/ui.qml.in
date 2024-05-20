@@ -131,7 +131,7 @@ Item {
                     var debug3 = dv.getFloat32(ind); ind += 4; // wheelsliplasterpm 
                     var debug4 = dv.getFloat32(ind); ind += 4; // wheelsliperpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debugwheelslip 
-                    var debug6 = dv.getFloat32(ind); ind += 4; // wheelslipend 
+                    var debug6 = dv.getFloat32(ind); ind += 4; // duration 
                     var debug7 = dv.getFloat32(ind); ind += 4; // count 
                 } else if (debug_state == 2) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //surge_startprop 
@@ -293,7 +293,7 @@ Item {
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"ERPM Before Wheelsli: " + debug3.toFixed(0) + " ERPM\n" +
 				"Debug/Last Accel    : " + debug5.toFixed(1) + "\n" +
-				"End Acceleration    : " + debug6.toFixed(1) + " ERPM/ms\n" +
+				"Last Duration       : " + debug6.toFixed(3) + " s" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
 				debug.text =
