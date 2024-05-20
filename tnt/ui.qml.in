@@ -293,7 +293,7 @@ Item {
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"ERPM Before Wheelsli: " + debug3.toFixed(0) + " ERPM\n" +
 				"Debug/Last Accel    : " + debug5.toFixed(1) + "\n" +
-				"Last Duration       : " + debug6.toFixed(3) + " s" +
+				"Last Duration       : " + debug6.toFixed(3) + " s\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
 	                } else if (debug_state == 2) {
 				debug.text =
