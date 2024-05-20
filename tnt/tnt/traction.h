@@ -35,7 +35,6 @@ typedef struct {
 	float end_accel_rate;		//acceleration rate that indications traciton is regained
 	float accel_rate;
 	float last_accel_rate;	
-	float freq_factor;
 } TractionData;
 
 typedef struct {
@@ -49,9 +48,11 @@ typedef struct {
 	float debug8;
 	float debug9;
 	float aggregate_timer;
+	float freq_factor1;
+	float freq_factor2;
 } TractionDebug;
 
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
 void reset_traction(TractionData *traction, State *state);
 void deactivate_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg);
-void configure_traction(TractionData *traction, tnt_config *config);
+void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg);
