@@ -63,6 +63,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Transition condition can now be negative.
     * End condition is now based on acceleration rate in ERPM/ms^2 for improved performance.
     * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
+  * Dynamic Stability
+    * Added new parameter Ramp Rate Down. Default 5.0 %/s
 * _Fixes/Improvements_
   * Some parameters changed to integers to reduce packet size.
   * Some features and parameters were removed to make room for new features.
