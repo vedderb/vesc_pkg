@@ -8,10 +8,10 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
 ### Features
-* Current output defined by a series of points, input by the user.
-* Roll Curves - for acceleration and braking, to improve board response.
-* Yaw Curves - for acceleration and braking, to improve board response.
-* Surge - high current response, to help prevent nosedives.
+* Pitch Tune - Current output defined by a series of points, input by the user.
+* Roll Tune - for acceleration and braking, to improve board response.
+* Yaw Tune - for acceleration and braking, to improve board response.
+* Surge - high current response to help prevent nosedives.
 * Traction Control - reduce free spin in the air. 
 * Sticky Tilt - accurate, manual board level control with a remote.
 * Dynamic Stability - faster board response at higher speeds or with a remote.
@@ -21,7 +21,28 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 * High Current Haptic Buzz - instant, high torque warning.
 
 ### Default Settings
-Default settings are based on 20s Hypercore (Future Motion motor) board set up. The default settings are what I ride for trails. The exceptions are surge and traction control which are disabled by default. These are more advanced behaviors that should be tuned by the user. For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
+Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are the setting I ride for trails. The one exception is surge which is disabled. Here are more details on the default settings:
+* Pitch Tune - Loose close to the setpoint but tightens quickly at high pitch angles.
+  * For a street tune you will want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 kp, and Pitch 2 kp. You could also decrease Pitch 1 and Pitch 2 angles.
+  * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Kp.
+* Roll Tune - The current roll tune is loose and moderately aggressive
+  * To make the roll tighter and more race-like, decrease Level 1 and Level 2 Roll Angles.
+  * To make the tune less agressive decrease Roll Kp.
+* Yaw Tune - The current yaw tune is loose and moderately aggresive
+  * To make the yaw tighter and more race-like, decrease Level 1 and Level 2 Yaw Angles.
+  * To make the tune less agressive decrease Yaw Kp.
+* High Current
+  * High current conditions based on 150 peak amps, 30 battery amps, and hypercore motor.
+  * Changes must be made for higher current motors like the cannoncore and superflux.
+* Surge 
+  * Disabled by default for safety.
+* Traction Control
+  * Should work well for most boards. Light riders on powerful boards may need to increase Start Condition to prevent nuisance trips.
+* Haptic Buzz
+  * Activated for high duty and high current
+  * Riders with cannoncore or superflux motors may opt to disable high current haptic buzz until you correct the high current conditions.
+
+For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
 ### 1.3
@@ -33,20 +54,23 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
     * Minimum erpm limits yaw response at low speeds.
     * New debug section in AppUI is toggled in Specs tab allows for accurate yaw tuning.
+  * Traction control overhaul
+    * Changed traction control inputs/outputs for motor acceleration to ERPM/ms from ERPM/cycle.
+    * Changed the minimum delay between traction control activations from 200ms to 20ms
+    * Added a new end condition to handle an edge case that would not exit traction control correctly.
+    * Remove drop condition from traction control deactivation conditions.
+    * Changed the names of the parameters to Start Condition, End Condition, and Transtion Condition.
+    * Transition condition can now be negative.
+    * End condition is now based on acceleration rate in ERPM/ms^2 for improved performance.
+    * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
+* _Fixes/Improvements_
+  * Some parameters changed to integers to reduce packet size.
   * Some features and parameters were removed to make room for new features.
     * Haptic buzz for temperature and voltage
     * Haptic buzz for duty and current is now on/off. Vibrating1 is the haptic type.
     * Startup roll angle hard coded to 45 degrees.
     * Fault delay roll is now the same as fault delay pitch, called fault delay angle.
     * Feature start up clicks is no longer available.
-* _Fixes/Improvements_
-  * Traction control
-    * Changed traction control inputs/outputs for motor acceleration to ERPM/ms from ERPM/code cycle.
-    * Changed the minimum delay between traction control activations from 200ms to 20ms
-    * Added new start condition that allows for a faster start to traction control if the wheel slips in reverse.
-    * Added a new end condition to handle an edge case that would not exit traction control correctly.
-    * Remove drop condition from traction control deactivation conditions.
-    * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
   * Fixed a bug that would prevent high current haptic buzz if surge was engaged.
   * AppUI now displays the following for state:
     * when idle... "READY-" and last stop/fault reason
@@ -54,7 +78,7 @@ Default settings are based on 20s Hypercore (Future Motion motor) board set up. 
     * in traction control/wheelslip... "WHEELSLIP"
   * Readme format updated for 6.05
   * Sticky tilt no longer "remembers" tilt angle after dismount. Resets setpoint to zero every time.
-  * Certain parameters changed to integers to allow for more parameters. 
+
  
 ### 1.2
 * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
