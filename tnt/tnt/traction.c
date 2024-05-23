@@ -128,7 +128,7 @@ void deactivate_traction(TractionData *traction, State *state, RuntimeData *rt, 
 
 void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg){
 	traction->start_accel = 1000.0 * config->wheelslip_accelstart / config->hertz; //convert from erpm/ms to erpm/cycle
-	traction->slowed_accel = 1000.0 * 5.0 / config->hertz;
+	traction->slowed_accel = 1000.0 * config->wheelslip_accelend / config->hertz;
 	traction->end_accel_rate = 1000000.0 * config->wheelslip_margin / (config->hertz * config->hertz);
 	traction_dbg->freq_factor1 = 1000.0 / config->hertz;
 	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
