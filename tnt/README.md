@@ -23,8 +23,8 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are the setting I ride for trails. The one exception is surge which is disabled. Here are more details on the default settings:
 * Pitch Tune - Loose close to the setpoint but tightens quickly at high pitch angles.
-  * For a street tune you will want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 kp, and Pitch 2 kp. You could also decrease Pitch 1 and Pitch 2 angles.
-  * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Kp.
+  * For a street tune you will want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
+  * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
 * Roll Tune - The current roll tune is loose and moderately aggressive
   * To make the roll tighter and more race-like, decrease Level 1 and Level 2 Roll Angles.
   * To make the tune less agressive decrease Roll Kp.
