@@ -53,6 +53,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Yaw kp curves, similar to the roll kp curves, modify the current ouput based on yaw input.
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
     * Minimum erpm limits yaw response at low speeds.
+    * New Yaw menu next to Roll
     * New debug section in AppUI is toggled in Specs tab allows for accurate yaw tuning.
   * Traction control overhaul
     * Changed traction control inputs/outputs for motor acceleration to ERPM/ms from ERPM/cycle.
