@@ -108,7 +108,7 @@ typedef struct {
 	bool is_traction_enabled;
 	uint16_t wheelslip_margin;
 	uint16_t wheelslip_accelstart;
-	uint16_t wheelslip_accelend;
+	int16_t wheelslip_accelend;
 	uint16_t wheelslip_scaleaccel;
 	uint16_t wheelslip_scaleerpm;
 	bool enable_speed_stability;
