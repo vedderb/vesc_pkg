@@ -37,7 +37,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				// First we identify that the wheel has deccelerated due to traciton control, switching the sign
 					traction->highaccelon2 = false;				
 					traction_dbg->debug1 = rt->current_time - traction->timeron;
-				} else if (rt->current_time - traction->timeron > .21) {	// Time out at 150ms if wheel does not deccelerate
+				} else if ((rt->current_time - traction->timeron > .21) &&
+					traction->highaccelon1) {	// Time out at 210ms if wheel does not deccelerate
 					traction_dbg->debug4 = 2100;
 					deactivate_traction(traction, state, rt, traction_dbg);
 				}
@@ -53,7 +54,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 				// First we identify that the wheel has deccelerated due to traciton control
 					traction->highaccelon1 = false;
 					traction_dbg->debug7 = rt->current_time - traction->timeron;
-				} else if (rt->current_time - traction->timeron > .22) {	// Time out at 200ms if wheel does not deccelerate
+				} else if ((rt->current_time - traction->timeron > .22) && 
+				   traction->highaccelon2) {					// Time out at 220ms if wheel does not deccelerate
 					traction_dbg->debug4 = 2200;
 					deactivate_traction(traction, state, rt, traction_dbg);
 				}
