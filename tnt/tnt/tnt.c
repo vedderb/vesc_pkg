@@ -287,7 +287,7 @@ static void configure(data *d) {
 	d->beeper_enabled = d->tnt_conf.is_beeper_enabled;
 
 	//Haptic Buzz
-	d->haptic_freq = max(1,d->tnt_conf.hertz / 832) * 4; //Vibrate1 from float pkg
+	d->haptic_freq = max(1,d->tnt_conf.hertz / 832) * 2; //audible2 from float pkg
 	
 	//Remote
 	configure_remote_features(&d->tnt_conf, &d->remote, &d->st_tilt);
