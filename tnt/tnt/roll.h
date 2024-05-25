@@ -17,24 +17,4 @@
 
 #pragma once
 #include "conf/datatypes.h"
-
-typedef struct {
-	float last_angle;
-	float last_change;
-	float change;
-	float abs_change;
-	float aggregate;
-} YawData;
-
-
-typedef struct {
-	float debug1; //change
-	float debug2; //max kp
-	float debug3; //kp unscaled
-	float debug4; //kp scaled
-	float debug5; //erpm scaler
-} YawDebugData;
-
-void yaw_reset(YawData *yaw, YawDebugData *yaw_dbg);
-void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg);
-float yaw_erpm_scale(const tnt_config *config, float abs_erpm);
+float roll_erpm_scale(const tnt_config *config, float abs_erpm);
