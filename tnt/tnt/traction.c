@@ -131,3 +131,9 @@ void configure_traction(TractionData *traction, tnt_config *config, TractionDebu
 	traction_dbg->freq_factor1 = 1000.0 / config->hertz;
 	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
 }
+
+void check_traction_braking(MotorData *m, TractionData *traction, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
+	if (-inputtilt_interpolated * m->erpm_sign > config->traction_braking_angle) {
+		traction->traction_braking = true;
+	} else { traction->traction_braking = false; }
+}
