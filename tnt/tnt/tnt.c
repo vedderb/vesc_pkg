@@ -717,6 +717,12 @@ static void set_current(data *d, float current) {
     VESC_IF->mc_set_current(current);
 }
 
+static void set_brake(data *d, float current) {
+    VESC_IF->timeout_reset();
+    VESC_IF->mc_set_current_off_delay(d->motor_timeout_s);
+    VESC_IF->mc_set_brake_current(current);
+}
+
 static void set_dutycycle(data *d, float dutycycle){
 	// Limit duty output to configured max output
 	if (dutycycle >  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
@@ -725,11 +731,8 @@ static void set_dutycycle(data *d, float dutycycle){
 		dutycycle = -VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty);
 	}
 	
-	// Reset the timeout
 	VESC_IF->timeout_reset();
-	// Set the current delay
 	VESC_IF->mc_set_current_off_delay(d->motor_timeout_s);
-	// Set Duty
 	VESC_IF->mc_set_duty(dutycycle); 
 }
 
@@ -960,18 +963,21 @@ static void tnt_thd(void *arg) {
 			
 			// Modifiers to PID control
 			check_traction(&d->motor, &d->traction, &d->state, &d->rt, &d->tnt_conf, &d->traction_dbg);
-			if (d->tnt_conf.is_surge_enabled){
+			if (d->tnt_conf.is_surge_enabled)
 				check_surge(&d->motor, &d->surge, &d->state, &d->rt, &d->tnt_conf, &d->surge_dbg);
-			}
-				
+			if (d->tnt_conf.is_traction_braking_enabled)
+				check_traction_braking(d->motor.erpm_sign, &d->traction, &d->tnt_conf, d->remote.inputtilt_interpolated, &d->traction_dbg);
+
 			// PID value application
 			d->rt.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
+			d->rt.pid_value += haptic_buzz(d, 0.3); //Apply haptic buzz
 
 			// Output to motor
 			if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
+			} else if (d->traction.traction_braking){
+				set_brake(d, d->rt.pid_value);				// Use braking function for traction control
 			} else {
-				d->rt.pid_value += haptic_buzz(d, 0.3);
 				set_current(d, d->rt.pid_value); 			// Set current as normal.
 			}
 
