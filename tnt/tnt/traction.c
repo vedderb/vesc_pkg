@@ -148,7 +148,7 @@ void check_traction_braking(MotorData *m, TractionData *traction, State *state, 
 			traction->timeron = rt->current_time;
 			traction_dbg->debug5 = 0;
 		}
-		if (m->abs_erpm < 250 && fabsf(m->last_erpm) > 250)	If erpm reduces to zero we have lost traction
+		if (m->abs_erpm < 250 && fabsf(m->last_erpm) > 250)	//If erpm reduces to zero we have lost traction
 			traction_dbg->debug5 += 1;
 		traction_dbg->debug8 = rt->current_time - traction->timeron;
 	} else { 
