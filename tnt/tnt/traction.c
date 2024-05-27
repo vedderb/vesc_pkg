@@ -133,7 +133,7 @@ void configure_traction(TractionData *traction, tnt_config *config, TractionDebu
 }
 
 void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
-	if (-inputtilt_interpolated * m->erpm_sign > config->traction_braking_angle &&
+	if (-inputtilt_interpolated * m->erpm_sign >= config->traction_braking_angle &&
 	    state->braking_pos) {
 		traction->traction_braking = true;
 		
