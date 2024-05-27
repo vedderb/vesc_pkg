@@ -954,7 +954,7 @@ static void tnt_thd(void *arg) {
 			
 			new_pid_value += d->pid_mod; // Apply PID modifiers
 			
-			// Current Limiting!
+			// Current Limiting
 			float current_limit = d->motor.braking ? d->mc_current_min : d->mc_current_max;
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = sign(new_pid_value) * current_limit;
@@ -966,7 +966,7 @@ static void tnt_thd(void *arg) {
 			if (d->tnt_conf.is_surge_enabled)
 				check_surge(&d->motor, &d->surge, &d->state, &d->rt, &d->tnt_conf, &d->surge_dbg);
 			if (d->tnt_conf.is_traction_braking_enabled)
-				check_traction_braking(d->motor.erpm_sign, &d->traction, &d->tnt_conf, d->remote.inputtilt_interpolated, &d->traction_dbg);
+				check_traction_braking(&d->motor, &d->traction, &d->state, &d->tnt_conf, d->remote.inputtilt_interpolated, &d->traction_dbg);
 
 			// PID value application
 			d->rt.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : new_pid_value;
