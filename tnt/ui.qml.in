@@ -198,7 +198,7 @@ Item {
 		}else if(state == 4){		
                     stateString = "WHEELSLIP";
 		}else if(state == 5){		
-                    stateString = "DROP";
+                    stateString = "TRACTION BRAKING";
   		}
 
                 var beepString
