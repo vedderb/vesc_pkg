@@ -1162,7 +1162,12 @@ static void send_realtime_data(data *d){
 	float corr_factor;
 
 	// Board State
-	buffer[ind++] = d->state.wheelslip ? 4 : d->state.state; 
+	if (d->traction.traction_braking) {
+		buffer[ind++] = 5;
+	} else if (d->state.wheelslip){
+		buffer[ind++] = 4;
+	} else { buffer[ind++] = d->state.state; }
+	//buffer[ind++] = d->state.wheelslip ? 4 : d->state.state; 
 	buffer[ind++] = d->state.sat; 
 	buffer[ind++] = (d->footpad_sensor.state & 0xF) + (d->beep_reason << 4);
 	buffer[ind++] = d->state.stop_condition;
