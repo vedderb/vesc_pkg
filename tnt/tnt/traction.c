@@ -132,8 +132,33 @@ void configure_traction(TractionData *traction, tnt_config *config, TractionDebu
 	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
 }
 
-void check_traction_braking(MotorData *m, TractionData *traction, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
-	if (-inputtilt_interpolated * m->erpm_sign > config->traction_braking_angle) {
+void check_traction_braking(MotorData *m, TractionData *traction, State *state, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
+	if (-inputtilt_interpolated * m->erpm_sign > config->traction_braking_angle &&
+	    state->braking_pos) {
 		traction->traction_braking = true;
-	} else { traction->traction_braking = false; }
+		
+		//Debug Section
+		traction_dbg->debug2 = 0;
+		traction_dbg->debug6 = 666;
+		traction_dbg->debug9 = 0
+		traction_dbg->debug3 = 0
+		traction_dbg->debug1 = 0;
+		traction_dbg->debug4 = 0;
+		if (!traction->traction_braking_last) { // Just entered traction braking, reset
+			traction->timeron = rt->current_time;
+			traction_dbg->debug5 = 0;
+		}
+		if (m->abs_erpm < 250 && fabsf(m->last_erpm) > 250)	If erpm reduces to zero we have lost traction
+			traction_dbg->debug5 += 1;
+		traction_dbg->debug8 = rt->current_time - traction->timeron;
+	} else { 
+		traction->traction_braking = false; 
+
+		//Debug Section
+		if (traction->traction_braking_last) {
+			traction->timeroff = rt->current_time;
+			traction_dbg->debug8 = traction->timeroff - traction->timeron;
+		}
+	}
+	traction->traction_braking_last = traction->traction_braking;
 }
