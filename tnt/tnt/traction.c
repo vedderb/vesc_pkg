@@ -140,8 +140,8 @@ void check_traction_braking(MotorData *m, TractionData *traction, State *state, 
 		//Debug Section
 		traction_dbg->debug2 = 0;
 		traction_dbg->debug6 = 666;
-		traction_dbg->debug9 = 0
-		traction_dbg->debug3 = 0
+		traction_dbg->debug9 = 0;
+		traction_dbg->debug3 = 0;
 		traction_dbg->debug1 = 0;
 		traction_dbg->debug4 = 0;
 		if (!traction->traction_braking_last) { // Just entered traction braking, reset
