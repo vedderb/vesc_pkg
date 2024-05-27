@@ -58,4 +58,4 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 void reset_traction(TractionData *traction, State *state);
 void deactivate_traction(TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg);
 void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg);
-void check_traction_braking(MotorData *m, TractionData *traction, State *state, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg);
+void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg);
