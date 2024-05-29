@@ -45,7 +45,7 @@ float erpm_scale(float lowvalue, float highvalue, float lowscale, float highscal
 	float scaler = lerp(lowvalue, highvalue, lowscale, highscale, abs_erpm);
 	if (lowscale < highscale) {
 		scaler = min(max(scaler, lowscale), highscale);
-	else { scaler = max(min(scaler, lowscale), highscale); }
+	} else { scaler = max(min(scaler, lowscale), highscale); }
 	return scaler;
 }
 
