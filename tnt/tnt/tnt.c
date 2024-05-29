@@ -1201,7 +1201,7 @@ static void send_realtime_data(data *d){
 		buffer[ind++] = 1;
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug7, &ind); //time to reduce accel //erpm before wheel slip debug3
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel d->traction_dbg.debug4
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //duration
