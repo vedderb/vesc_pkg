@@ -40,11 +40,12 @@ void yaw_reset(YawData *yaw, YawDebugData *yaw_dbg){
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
 }
-/*
-float yaw_erpm_scale(const tnt_config *config, float abs_erpm){ 
-	float erpmscale = lerp(config->yaw_lowerpm, config->yaw_higherpm, 0, config->yaw_maxscale/100, abs_erpm);
-	float sign_erpmscale = sign(erpmscale);
-	erpmscale = min(max(fabsf(erpmscale), 0), config->yaw_maxscale/100) * sign_erpmscale;
-	return erpmscale;
+
+float erpm_scale(float lowvalue, float highvalue, float lowscale, float highscale, float abs_erpm){ 
+	float scaler = lerp(lowvalue, highvalue, lowscale, highscale, abs_erpm);
+	if (lowscale < highscale) {
+		scaler = min(max(scaler, lowscale), highscale);
+	else { scaler = max(min(scaler, lowscale), highscale); }
+	return scaler;
 }
-*/
+
