@@ -37,4 +37,4 @@ typedef struct {
 
 void yaw_reset(YawData *yaw, YawDebugData *yaw_dbg);
 void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg);
-float yaw_erpm_scale(const tnt_config *config, float abs_erpm);
+float erpm_scale(float lowvalue, float highvalue, float lowscale, float highscale, float abs_erpm); 
