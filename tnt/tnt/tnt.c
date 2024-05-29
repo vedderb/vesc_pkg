@@ -903,14 +903,17 @@ static void tnt_thd(void *arg) {
 				brake_roll ? &d->roll_brake_kp : &d->roll_accel_kp);
 
 			//Apply ERPM Scale
-			if (brake_roll && d->motor.abs_erpm < 750) { 				
+			if ((brake_roll && d->motor.abs_erpm < 750) ||
+				d->state.sat == SAT_CENTERING) { 				
 				// If we want to actually stop at low speed reduce kp to 0
 				erpmscale = 0;
 			} else if (d->roll_accel_kp.count!=0 && d->motor.abs_erpm < d->tnt_conf.rollkp_higherpm) { 
-				erpmscale = 1 + lerp(d->tnt_conf.rollkp_lowerpm, d->tnt_conf.rollkp_higherpm, 1.0 * d->tnt_conf.rollkp_maxscale / 100.0, 0, d->motor.abs_erpm);
+				erpmscale = 1 + erpm_scale(d->tnt_conf.rollkp_lowerpm, d->tnt_conf.rollkp_higherpm, d->tnt_conf.rollkp_maxscale / 100.0, 0, d->motor.abs_erpm);
+			} else if (d->roll_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.roll_hs_lowerpm) { 
+				erpmscale = 1 + erpm_scale(d->tnt_conf.roll_hs_lowerpm, d->tnt_conf.roll_hs_higherpm, 0, d->tnt_conf.roll_hs_maxscale / 100.0, d->motor.abs_erpm);
 			}
-			rollkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
-
+			rollkp *= erpmscale;
+			
 			//Apply Roll Boost
 			d->roll_pid_mod = .99 * d->roll_pid_mod + .01 * rollkp * fabsf(new_pid_value) * d->motor.erpm_sign; 	//always act in the direciton of travel
 			d->pid_mod += d->roll_pid_mod;
@@ -926,19 +929,20 @@ static void tnt_thd(void *arg) {
 				brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
 			
 			//Apply ERPM Scale
-			erpmscale = ((brake_yaw && d->motor.abs_erpm < 750) || 
-				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) ? 0 : 1;
-			/*erpmscale = 1;
+			//erpmscale = ((brake_yaw && d->motor.abs_erpm < 750) || 
+			//	d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) ? 0 : 1;
+			erpmscale = 1;
 			if ((brake_yaw && d->motor.abs_erpm < 750) ||
-				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm) { 				
+				d->motor.abs_erpm < d->tnt_conf.yaw_minerpm ||
+				d->state.sat == SAT_CENTERING) { 				
 				// Enforce minimum speed and always reduce scaler to 0 when braking below 750 erpm
 				erpmscale = 0;
 			} else if (d->yaw_accel_kp.count!=0 && d->motor.abs_erpm > d->tnt_conf.yaw_lowerpm) { 
-				erpmscale = 1 + yaw_erpm_scale(&d->tnt_conf, d->motor.abs_erpm);
-				} */
+				erpmscale = 1 + erpm_scale(config->yaw_lowerpm, config->yaw_higherpm, 0, config->yaw_maxscale / 100.0, d->motor.abs_erpm);
+			} 
 			d->yaw_dbg.debug5 = erpmscale;
 			d->yaw_dbg.debug3 = brake_yaw ? -yawkp : yawkp;
-			yawkp *= (d->state.sat == SAT_CENTERING) ? 0 : erpmscale;
+			yawkp *= erpmscale;
 			d->yaw_dbg.debug4 = brake_yaw ? -yawkp : yawkp;
 			d->yaw_dbg.debug2 = fmaxf(d->yaw_dbg.debug2, yawkp);
 			
@@ -951,8 +955,9 @@ static void tnt_thd(void *arg) {
 				d->pid_mod = fminf(fabsf(d->pid_mod), d->softstart_pid_limit) * sign(d->pid_mod);
 				d->softstart_pid_limit += d->softstart_ramp_step_size;
 			}
-			
-			new_pid_value += d->pid_mod; // Apply PID modifiers
+
+			// Apply PID modifiers
+			new_pid_value += d->pid_mod; 
 			
 			// Current Limiting
 			float current_limit = d->motor.braking ? d->mc_current_min : d->mc_current_max;
@@ -975,7 +980,7 @@ static void tnt_thd(void *arg) {
 			// Output to motor
 			if (d->surge.active) { 	
 				set_dutycycle(d, d->surge.new_duty_cycle); 		// Set the duty to surge
-			} else if (d->traction.traction_braking){
+			} else if (d->traction.traction_braking) {
 				set_brake(d, d->rt.pid_value);				// Use braking function for traction control
 			} else {
 				set_current(d, d->rt.pid_value); 			// Set current as normal.
