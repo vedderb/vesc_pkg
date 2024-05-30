@@ -128,7 +128,7 @@ Item {
                 if (debug_state == 1) { 
                     var debug1 = dv.getFloat32(ind); ind += 4; // erpmfactor
                     var debug2 = dv.getFloat32(ind); ind += 4; // wheelslipstart
-                    var debug3 = dv.getFloat32(ind); ind += 4; // time to reduce accel  //wheelsliplasterpm 
+                    var debug3 = dv.getFloat32(ind); ind += 4; //wheelsliplasterpm 
                     var debug4 = dv.getFloat32(ind); ind += 4; // wheelsliperpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debugwheelslip 
                     var debug6 = dv.getFloat32(ind); ind += 4; // duration 
@@ -291,7 +291,7 @@ Item {
 				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
 				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/ms\n" +
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
-				"Time to Reduce Accel: " + debug3.toFixed(3) + " s\n" + //+ debug3.toFixed(0) + " ERPM\n" +
+				"Last ERPM           : " + debug3.toFixed(0) + " ERPM\n" +
 				"Debug/Last Accel    : " + debug5.toFixed(1) + "\n" +
 				"Last Duration       : " + debug6.toFixed(3) + " s\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
