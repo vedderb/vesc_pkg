@@ -25,16 +25,12 @@ typedef struct {
 	float timeron;       	 	//Timer from the start of wheelslip
 	float timeroff;      		//Timer from the end of high motor acceleration
 	float accelstartval;		//Starting value to engage wheelslip
-	bool highaccelon1;		//Flag that indicates acceleration magnitude has reduced
-	bool highaccelon2;		//Flag that indicates acceleration direction has changed
+	bool highaccelon;		//Flag that indicates acceleration direction has changed
 	float lasterpm;			//ERPM before wheelslip
 	float erpm;			//ERPM once wheelslip engaged
 	bool reverse_wheelslip; 	//Wheelslip in the braking position
 	float start_accel;		//acceleration that triggers wheelslip
 	float slowed_accel;		//Trigger that shows traction control is working
-	float end_accel_rate;		//acceleration rate that indications traciton is regained
-	float accel_rate;
-	float last_accel_rate;
 	bool traction_braking;
 	bool traction_braking_last;
 } TractionData;
