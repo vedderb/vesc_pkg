@@ -23,11 +23,13 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are the setting I ride for trails. The one exception is surge which is disabled. Here are more details on the default settings:
 * Pitch Tune - Loose close to the setpoint but tightens quickly at high pitch angles.
-  * For a street tune you will want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
+  * For a street tune you may want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
   * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
-* Roll Tune - The current roll tune is loose and moderately aggressive
-  * To make the roll tighter and more race-like, decrease Level 1 and Level 2 Roll Angles.
+* Roll Tune - The current roll tune is loose and moderate for deep carving.
+  * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
   * To make the tune less agressive decrease Roll Kp.
+  * To make the tune less agile at low speed reduce the low speed maximum scaler.
+  * To adjust the agility at high speed change the high speed maximum scaler.
 * Yaw Tune - The current yaw tune is loose and moderately aggresive
   * To make the yaw tighter and more race-like, decrease Level 1 and Level 2 Yaw Angles.
   * To make the tune less agressive decrease Yaw Kp.
@@ -36,6 +38,7 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Changes must be made for higher current motors like the cannoncore and superflux.
 * Surge 
   * Disabled by default for safety.
+  * Set your high current section first.
 * Traction Control
   * Should work well for most boards. Light riders on powerful boards may need to increase Start Condition to prevent nuisance trips.
 * Haptic Buzz
@@ -54,18 +57,22 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
     * Minimum erpm limits yaw response at low speeds.
     * New Yaw menu next to Roll
-    * New debug section in AppUI is toggled in Specs tab allows for accurate yaw tuning.
+    * New debug section in AppUI is toggled in Specs tab, allows for accurate yaw tuning.
   * Traction control overhaul
     * Changed traction control inputs/outputs for motor acceleration to ERPM/ms from ERPM/cycle.
     * Changed the minimum delay between traction control activations from 200ms to 20ms
     * Added a new end condition to handle an edge case that would not exit traction control correctly.
     * Remove drop condition from traction control deactivation conditions.
-    * Changed the names of the parameters to Start Condition, End Condition, and Transtion Condition.
-    * Transition condition can now be negative.
-    * End condition is now based on acceleration rate in ERPM/ms^2 for improved performance.
+    * Changed the names of parameters to Start Condition and End Condition.
+    * End condition can now be negative.
+    * Removed parameter acceleration end.
     * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
+  * New Feature "Traction Braking"
+    * Uses different function mc_set_brake()
+    * Prevents backward wheel spin when traction is lost in steep downhill braking situations
+    * Activated via remote input, nose down angle (adjustable).
   * Dynamic Stability
-    * Added new parameter Ramp Rate Down. Default 5.0 %/s
+    * Added new parameter Ramp Rate Down. Default 5.0 %/s. Prevents nose dip feeling when reducing speed.
 * _Fixes/Improvements_
   * Some parameters changed to integers to reduce packet size.
   * Some features and parameters were removed to make room for new features.
@@ -82,7 +89,6 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * Readme format updated for 6.05
   * Sticky tilt no longer "remembers" tilt angle after dismount. Resets setpoint to zero every time.
 
- 
 ### 1.2
 * **Version 1.2 parameters are not compatible with v1.1 and will be set to default. Screenshot your tunes to save.**
 * _Features_
