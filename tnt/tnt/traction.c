@@ -95,7 +95,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 		
 		//Debug Section
 		traction_dbg->debug2 = erpmfactor;
-		traction_dbg->debug6 = m->acceleration / traction_dbg->freq_factor1;
+		traction_dbg->debug6 = m->acceleration / traction_dbg->freq_factor;
 		traction_dbg->debug9 = m->erpm;
 		traction_dbg->debug3 = m->erpm_history[m->last_erpm_idx];
 		traction_dbg->debug1 = 0;
@@ -125,9 +125,7 @@ void deactivate_traction(TractionData *traction, State *state, RuntimeData *rt, 
 void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg){
 	traction->start_accel = 1000.0 * config->wheelslip_accelstart / config->hertz; //convert from erpm/ms to erpm/cycle
 	traction->slowed_accel = 1000.0 * config->wheelslip_accelend / config->hertz;
-	traction->end_accel_rate = 1000000.0 * config->wheelslip_margin / (config->hertz * config->hertz);
-	traction_dbg->freq_factor1 = 1000.0 / config->hertz;
-	traction_dbg->freq_factor2 = 1000000.0 / (config->hertz * config->hertz);
+	traction_dbg->freq_factor = 1000.0 / config->hertz;
 }
 
 void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
