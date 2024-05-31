@@ -22,8 +22,6 @@
 void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg){
 	float erpmfactor = fmaxf(1, lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm));
 	bool start_condition1 = false;
-	traction->last_accel_rate = traction->accel_rate;
-	traction->accel_rate = m->accel_history[m->accel_idx] - m->accel_history[m->last_accel_idx];
 	
 	// Conditons to end traction control
 	if (state->wheelslip) {
