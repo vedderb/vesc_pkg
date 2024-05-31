@@ -3,6 +3,7 @@
    <qresource prefix="/vesc_packages">
         <file>balance/balance.vescpkg</file>
         <file>float/float.vescpkg</file>
+        <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
