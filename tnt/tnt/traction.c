@@ -127,7 +127,8 @@ void configure_traction(TractionData *traction, tnt_config *config, TractionDebu
 
 void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
 	if (-inputtilt_interpolated * m->erpm_sign >= config->traction_braking_angle - .1 &&
-	    state->braking_pos) {
+	    state->braking_pos &&
+	    m->abs_erpm > 250) {
 		traction->traction_braking = true;
 		
 		//Debug Section
@@ -137,12 +138,9 @@ void check_traction_braking(MotorData *m, TractionData *traction, State *state, 
 		traction_dbg->debug3 = 0;
 		traction_dbg->debug1 = 0;
 		traction_dbg->debug4 = 0;
-		if (!traction->traction_braking_last) { // Just entered traction braking, reset
+		if (!traction->traction_braking_last)  // Just entered traction braking, reset
 			traction->timeron = rt->current_time;
-			traction_dbg->debug5 = 0;
-		}
-		if (m->abs_erpm < 250 && fabsf(m->last_erpm) > 250)	//If erpm reduces to zero we have lost traction
-			traction_dbg->debug5 += 1;
+
 		traction_dbg->debug8 = rt->current_time - traction->timeron;
 	} else { 
 		traction->traction_braking = false; 
@@ -151,6 +149,13 @@ void check_traction_braking(MotorData *m, TractionData *traction, State *state, 
 		if (traction->traction_braking_last) {
 			traction->timeroff = rt->current_time;
 			traction_dbg->debug8 = traction->timeroff - traction->timeron;
+
+			if (rt->current_time - traction_dbg->aggregate_timer > 10) { // Aggregate the number of drop activations in 10 seconds
+				traction_dbg->aggregate_timer = rt->current_time;
+				traction_dbg->debug5 = 0;
+			}
+			if (m->abs_erpm < 250)	//If erpm reduces to zero we have lost traction
+				traction_dbg->debug5 += 1;
 		}
 	}
 	traction->traction_braking_last = traction->traction_braking;
