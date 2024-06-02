@@ -113,7 +113,7 @@ void update_remote(tnt_config *config, RemoteData *r) {
 		servo_val = 0;
 	} else {
 		// Apply Deadband
-		float deadband = config->inputtilt_deadband;
+		float deadband = config->inputtilt_deadband / 100.0;
 		if (fabsf(servo_val) < deadband) {
 			servo_val = 0.0;
 		} else {
