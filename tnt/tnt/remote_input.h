@@ -33,7 +33,7 @@ typedef struct {
 	float max_value; 
 	float last_throttle_val;
 	bool deactivate; 
-	float hold_current;
+	uint16_t hold_current;
 	float low_value;
 	float high_value;
 } StickyTiltData;
