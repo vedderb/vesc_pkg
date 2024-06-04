@@ -109,7 +109,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeD
 void reset_traction(TractionData *traction, State *state) {
 	state->wheelslip = false;
 	traction->reverse_wheelslip = false;
-	traction->traction_braking = false;
 }
 
 void deactivate_traction(TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg) {
@@ -123,40 +122,4 @@ void configure_traction(TractionData *traction, tnt_config *config, TractionDebu
 	traction->start_accel = 1000.0 * config->wheelslip_accelstart / config->hertz; //convert from erpm/ms to erpm/cycle
 	traction->slowed_accel = 1000.0 * config->wheelslip_accelend / config->hertz;
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
-}
-
-void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg){
-	if (-inputtilt_interpolated * m->erpm_sign >= config->traction_braking_angle - .1 &&
-	    state->braking_pos &&
-	    m->abs_erpm > 250) {
-		traction->traction_braking = true;
-		
-		//Debug Section
-		traction_dbg->debug2 = 0;
-		traction_dbg->debug6 = 666;
-		traction_dbg->debug9 = 0;
-		traction_dbg->debug3 = 0;
-		traction_dbg->debug1 = 0;
-		traction_dbg->debug4 = 0;
-		if (!traction->traction_braking_last)  // Just entered traction braking, reset
-			traction->timeron = rt->current_time;
-
-		traction_dbg->debug8 = rt->current_time - traction->timeron;
-	} else { 
-		traction->traction_braking = false; 
-
-		//Debug Section
-		if (traction->traction_braking_last) {
-			traction->timeroff = rt->current_time;
-			traction_dbg->debug8 = traction->timeroff - traction->timeron;
-
-			if (rt->current_time - traction_dbg->aggregate_timer > 10) { // Aggregate the number of drop activations in 10 seconds
-				traction_dbg->aggregate_timer = rt->current_time;
-				traction_dbg->debug5 = 0;
-			}
-			if (m->abs_erpm < 250)	//If erpm reduces to zero we have lost traction
-				traction_dbg->debug5 += 1;
-		}
-	}
-	traction->traction_braking_last = traction->traction_braking;
 }
