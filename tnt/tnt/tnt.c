@@ -717,12 +717,6 @@ static void set_current(data *d, float current) {
     VESC_IF->mc_set_current(current);
 }
 
-static void set_brake(data *d, float current) {
-    VESC_IF->timeout_reset();
-    VESC_IF->mc_set_current_off_delay(d->motor_timeout_s);
-    VESC_IF->mc_set_brake_current(current);
-}
-
 static void set_dutycycle(data *d, float dutycycle){
 	// Limit duty output to configured max output
 	if (dutycycle >  VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty)) {
