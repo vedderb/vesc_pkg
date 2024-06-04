@@ -22,28 +22,29 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are the setting I ride for trails. The one exception is surge which is disabled. Here are more details on the default settings:
-* Pitch Tune - Loose close to the setpoint but tightens quickly at high pitch angles.
+* Pitch Tune - Loose close to the setpoint but tightens quickly at higher pitch angles.
   * For a street tune you may want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
   * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
-* Roll Tune - The current roll tune is loose and moderate for deep carving.
+* Roll Tune - The current roll tune is loose and moderate for easy, deep carving.
   * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
   * To make the tune less agressive decrease Roll Kp.
   * To make the tune less agile at low speed reduce the low speed maximum scaler.
   * To adjust the agility at high speed change the high speed maximum scaler.
-* Yaw Tune - The current yaw tune is loose and moderately aggresive
+* Yaw Tune - The current yaw tune is loose and moderately aggressive
   * To make the yaw tighter and more race-like, decrease Level 1 and Level 2 Yaw Angles.
   * To make the tune less agressive decrease Yaw Kp.
 * High Current
-  * High current conditions based on 150 peak amps, 30 battery amps, and hypercore motor.
+  * High current conditions are based on 150 peak amps, 30 battery amps, and hypercore motor.
   * Changes must be made for higher current motors like the cannoncore and superflux.
 * Surge 
   * Disabled by default for safety.
   * Set your high current section first.
 * Traction Control
   * Should work well for most boards. Light riders on powerful boards may need to increase Start Condition to prevent nuisance trips.
+  * Decrease End Condition for smoother landings but beware going too low.
 * Haptic Buzz
   * Activated for high duty and high current
-  * Riders with cannoncore or superflux motors may opt to disable high current haptic buzz until you correct the high current conditions.
+  * Riders with cannoncore or superflux motors should disable high current haptic buzz until you correct the high current conditions.
 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
@@ -63,21 +64,18 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Changed the minimum delay between traction control activations from 200ms to 20ms
     * Added a new end condition to handle an edge case that would not exit traction control correctly.
     * Remove drop condition from traction control deactivation conditions.
-    * Changed the names of parameters to Start Condition and End Condition.
+    * Changed the names of parameters to Start Condition and End Condition. Previously, Wheelslip Acceleration Trigger and Wheelslip Margin.
     * End condition can now be negative.
-    * Removed parameter acceleration end.
+    * Removed parameter Wheelslip Acceleration End.
     * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
-  * New Feature "Traction Braking"
-    * Uses different function mc_set_brake()
-    * Prevents backward wheel spin when traction is lost in steep downhill braking situations
-    * Activated via remote input, nose down angle (adjustable).
+    * Changed timeouts from 500ms for traction control, 180ms for transition condition 1, and 200ms for transition condition 2 to 300ms, 210ms, and 220ms respectively.
   * Dynamic Stability
     * Added new parameter Ramp Rate Down. Default 5.0 %/s. Prevents nose dip feeling when reducing speed.
 * _Fixes/Improvements_
   * Some parameters changed to integers to reduce packet size.
   * Some features and parameters were removed to make room for new features.
     * Haptic buzz for temperature and voltage
-    * Haptic buzz for duty and current is now on/off. Vibrating1 is the haptic type.
+    * Haptic buzz for duty and current is now on/off. Audible2 is the haptic type.
     * Startup roll angle hard coded to 45 degrees.
     * Fault delay roll is now the same as fault delay pitch, called fault delay angle.
     * Feature start up clicks is no longer available.
