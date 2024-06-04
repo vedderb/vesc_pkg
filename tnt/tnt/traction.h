@@ -31,8 +31,6 @@ typedef struct {
 	bool reverse_wheelslip; 	//Wheelslip in the braking position
 	float start_accel;		//acceleration that triggers wheelslip
 	float slowed_accel;		//Trigger that shows traction control is working
-	bool traction_braking;
-	bool traction_braking_last;
 } TractionData;
 
 typedef struct {
