@@ -27,12 +27,12 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
 * Roll Tune - The current roll tune is loose and moderate for easy, deep carving.
   * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
-  * To make the tune less agressive decrease Roll Kp.
+  * To make the tune less aggressive decrease Roll Kp.
   * To make the tune less agile at low speed reduce the low speed maximum scaler.
   * To adjust the agility at high speed change the high speed maximum scaler.
 * Yaw Tune - The current yaw tune is loose and moderately aggressive
   * To make the yaw tighter and more race-like, decrease Level 1 and Level 2 Yaw Angles.
-  * To make the tune less agressive decrease Yaw Kp.
+  * To make the tune less aggressive decrease Yaw Kp.
 * High Current
   * High current conditions are based on 150 peak amps, 30 battery amps, and hypercore motor.
   * Changes must be made for higher current motors like the cannoncore and superflux.
@@ -54,9 +54,9 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * Code refactored thanks to contributions from Lukas Hrazky, author of Refloat.
 * _Features_
   * Yaw
-    * Yaw kp curves, similar to the roll kp curves, modify the current ouput based on yaw input.
+    * Yaw kp curves, similar to the roll kp curves, modify the current output based on yaw input.
     * Instead of using angle, like pitch and roll, yaw is measured in angle change per second (how quickly you rotate the board).
-    * Minimum erpm limits yaw response at low speeds.
+    * Minimum ERPM limits yaw response at low speeds.
     * New Yaw menu next to Roll
     * New debug section in AppUI is toggled in Specs tab, allows for accurate yaw tuning.
   * Traction control overhaul
@@ -67,7 +67,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Changed the names of parameters to Start Condition and End Condition. Previously, Wheelslip Acceleration Trigger and Wheelslip Margin.
     * End condition can now be negative.
     * Removed parameter Wheelslip Acceleration End.
-    * New debug ouput in AppUI counts how many traction control activations in the last 5 seconds.
+    * New debug output in AppUI counts how many traction control activations in the last 5 seconds.
     * Changed timeouts from 500ms for traction control, 180ms for transition condition 1, and 200ms for transition condition 2 to 300ms, 210ms, and 220ms respectively.
   * Dynamic Stability
     * Added new parameter Ramp Rate Down. Default 5.0 %/s. Prevents nose dip feeling when reducing speed.
@@ -92,7 +92,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * _Features_
   * Haptic Buzz
     * Adopted haptic buzz implementation from Float Package 2.0
-    * Overcurrent haptic buzz modifed to be instantaneous instead of continuous. Now called High Current.
+    * Overcurrent haptic buzz modified to be instantaneous instead of continuous. Now called High Current.
     * High Current haptic buzz now has a user input duration to limit continuous buzz in high current situations.
     * BMS haptic buzz not implemented yet.
   * New Section "High Current" in Tune Modifiers
