@@ -21,11 +21,11 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 * High Current Haptic Buzz - instant, high torque warning.
 
 ### Default Settings
-Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are the setting I ride for trails. The one exception is surge which is disabled. Here are more details on the default settings:
-* Pitch Tune - Loose close to the setpoint but tightens quickly at higher pitch angles.
+Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are similar to the settings I ride for trails. One exception is surge which is disabled. Here are more details on the default settings:
+* Pitch Tune - The current pitch tune is loose close to the setpoint but tightens quickly at higher pitch angles.
   * For a street tune you may want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
   * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
-* Roll Tune - The current roll tune is loose and moderate for easy, deep carving.
+* Roll Tune - The current roll tune is very loose and moderate for easy, deep carving.
   * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
   * To make the tune less aggressive decrease Roll Kp.
   * To make the tune less agile at low speed reduce the low speed maximum scaler.
@@ -71,6 +71,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Changed timeouts from 500ms for traction control, 180ms for transition condition 1, and 200ms for transition condition 2 to 300ms, 210ms, and 220ms respectively.
   * Dynamic Stability
     * Added new parameter Ramp Rate Down. Default 5.0 %/s. Prevents nose dip feeling when reducing speed.
+  * Roll
+    * Added high speed scaling section to increase or decrease roll kp at higher speeds.
 * _Fixes/Improvements_
   * Some parameters changed to integers to reduce packet size.
   * Some features and parameters were removed to make room for new features.
