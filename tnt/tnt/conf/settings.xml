@@ -185,7 +185,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
+            <stepDouble>10</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
@@ -318,7 +318,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
+            <valDouble>6</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -403,7 +403,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>25</valDouble>
+            <valDouble>20</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> Hz</suffix>
             <vTx>7</vTx>
@@ -482,12 +482,12 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;When enabled a separate braking curve is used, defined below. When disabled the inputs from Acceleration define the braking curve. The filter factors from Acceleration are also used for braking&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;When enabled a separate braking curve is used, defined below. When disabled the inputs from Acceleration define the braking curve. The filter factors from Acceleration are also used for braking.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKE_CURVE</cDefine>
             <valInt>0</valInt>
         </brake_curve>
         <brake_kp0>
-            <longName>Pitch Kp0</longName>
+            <longName>Brake Kp0</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -495,7 +495,7 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Pitch kp0 is multiplied by board pitch (in degrees) to determine current demand. If there are no currents defined the board will only use kp0, or else it will scale between kp0 and current1. If kp0 is too high for current 1, the kp resulting from current1/pitch1 will be prioritized.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEKP0</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_KP0</cDefine>
             <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -509,14 +509,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brake_kp0>
         <brakekp_rate>
-            <longName>Pitch Rate Kp</longName>
+            <longName>Brake Kp Rate</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The proportional gain multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The rate applied to the pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEKP_RATE</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -524,14 +524,14 @@ p, li { white-space: pre-wrap; }
             <maxDouble>1</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.01</stepDouble>
-            <valDouble>0.45</valDouble>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.4</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
         </brakekp_rate>
         <brakecurrent1>
-            <longName>Pitch 1 Current</longName>
+            <longName>Brake Pitch 1 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -541,7 +541,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 1.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT1</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT1</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -555,7 +555,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent1>
         <brakecurrent2>
-            <longName>Pitch 2 Current</longName>
+            <longName>Brake Pitch 2 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -565,7 +565,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 2.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT2</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT2</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -579,7 +579,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent2>
         <brakecurrent3>
-            <longName>Pitch 3 Current</longName>
+            <longName>Brake Pitch 3 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -589,7 +589,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 3.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT3</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -603,15 +603,17 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent3>
         <brakecurrent4>
-            <longName>Pitch 4 Current</longName>
+            <longName>Brake Pitch 4 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 4&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT4</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 4.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT4</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -625,15 +627,17 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent4>
         <brakecurrent5>
-            <longName>Pitch 5 Current</longName>
+            <longName>Brake Pitch 5 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 5&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT5</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 5.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT5</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -647,7 +651,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent5>
         <brakecurrent6>
-            <longName>Pitch 6 Current</longName>
+            <longName>Brake Pitch 6 Current</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -657,21 +661,21 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The unmodified current output at pitch 6.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKECURRENT6</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_CURRENT6</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
+            <stepDouble>10</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
         </brakecurrent6>
         <brakepitch1>
-            <longName>Pitch 1</longName>
+            <longName>Brake Pitch 1</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -679,7 +683,7 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current1 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH1</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH1</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -687,13 +691,13 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.3</valDouble>
+            <valDouble>0.2</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </brakepitch1>
         <brakepitch2>
-            <longName>Pitch 2</longName>
+            <longName>Brake Pitch 2</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -701,7 +705,7 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH2</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -709,13 +713,13 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.7</valDouble>
+            <valDouble>0.5</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </brakepitch2>
         <brakepitch3>
-            <longName>Pitch 3</longName>
+            <longName>Brake Pitch 3</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -723,7 +727,7 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH3</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -737,7 +741,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch3>
         <brakepitch4>
-            <longName>Pitch 4</longName>
+            <longName>Brake Pitch 4</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -745,21 +749,21 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH4</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH4</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.5</stepDouble>
             <valDouble>4</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </brakepitch4>
         <brakepitch5>
-            <longName>Pitch 5</longName>
+            <longName>Brake Pitch 5</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -767,21 +771,21 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH5</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH5</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.5</stepDouble>
             <valDouble>5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </brakepitch5>
         <brakepitch6>
-            <longName>Pitch 6</longName>
+            <longName>Brake Pitch 6</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -789,21 +793,21 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRAKEPITCH6</cDefine>
+            <cDefine>APPCONF_TNT_BRAKE_PITCH6</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.5</stepDouble>
             <valDouble>6</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </brakepitch6>
         <pitch_kp_input_brake>
-            <longName>Enable Pitch Kp Input Braking</longName>
+            <longName>Enable Pitch Kp Input for Braking</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -822,7 +826,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL_KP1</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -844,7 +848,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL_KP2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -852,7 +856,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
+            <stepDouble>0.1</stepDouble>
             <valDouble>0.3</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
@@ -866,7 +870,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL_KP3</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -888,7 +892,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL1</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -910,7 +914,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL2</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -919,7 +923,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>35</valDouble>
+            <valDouble>25</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -932,7 +936,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp modifies the current demand on to increase output when the board is turning. When the board rolls, roll kp starts acting at level 1. As roll increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The roll kp increases the modifies the current demand on a percentage basis to increase output when the board is turning. When the board rolls, roll kp starts acting at (roll angle 1, roll kp 1). As roll increases it will linearly scale to (roll angle 2, roll kp 2) and (roll angle 3, roll kp 3).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLL3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -954,7 +958,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL_KP1</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -976,7 +980,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL_KP2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -984,8 +988,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
-            <valDouble>0.2</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>0.3</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -998,7 +1002,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL_KP3</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -1020,7 +1024,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL1</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -1042,7 +1046,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL2</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -1051,7 +1055,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>35</valDouble>
+            <valDouble>25</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1064,7 +1068,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while acceleration roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake roll kp acts similar to roll kp. The difference is that brake roll acts to reduce current output while roll kp increases it. For this reason high values of brake roll kp should be used with caution. 1.0 brake roll kp will reduce current output to zero at the brake roll angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRKROLL3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -1080,7 +1084,7 @@ p, li { white-space: pre-wrap; }
         </brkroll3>
         <rollkp_higherpm>
             <longName>Roll High ERPM Scale</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1088,39 +1092,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the upper ERPM limit that will be scaled by the max scale value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLLKP_HIGHERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>2500</valInt>
+            <stepDouble>500</stepDouble>
+            <valDouble>3000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </rollkp_higherpm>
-        <roll_hs_higherpm>
-            <longName>Roll High ERPM Scale</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the upper ERPM limit that will be scaled by the max scale value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_ROLL_HS_HIGHERPM</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>10000</valInt>
-            <suffix> ERPM</suffix>
-            <vTx>3</vTx>
-        </roll_hs_higherpm>
         <rollkp_lowerpm>
             <longName>Roll Low ERPM Scale</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1128,39 +1114,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;From zero ERPM to this ERPM value, the roll kp will be multiplied by the maximum scaler. From roll kp low ERPM to roll kp high ERPM the maximum scaler will reduce from its maximum value to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLLKP_LOWERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>250</stepInt>
-            <valInt>750</valInt>
+            <stepDouble>250</stepDouble>
+            <valDouble>750</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </rollkp_lowerpm>
-        <roll_hs_lowerpm>
-            <longName>Roll Low ERPM Scale</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;From zero ERPM to this ERPM value, the roll kp will be multiplied by the maximum scaler. From roll kp low ERPM to roll kp high ERPM the maximum scaler will reduce from its maximum value to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_ROLL_HS_LOWERPM</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>250</stepInt>
-            <valInt>6000</valInt>
-            <suffix> ERPM</suffix>
-            <vTx>3</vTx>
-        </roll_hs_lowerpm>
         <rollkp_maxscale>
             <longName>Roll Maximum Scaler</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1170,322 +1138,18 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;e.g. A scaler value of zero will have no effect. A scaler value of 300% increases roll kp x4 such that if roll kp = 0.5 it will be 2.0 when scaled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_ROLLKP_MAXSCALE</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>5000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>5000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>50</stepInt>
-            <valInt>500</valInt>
+            <stepDouble>50</stepDouble>
+            <valDouble>300</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </rollkp_maxscale>
-        <roll_hs_maxscale>
-            <longName>Roll Maximum Scaler</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The maximum scaler is used to increase the roll kp response at high speeds. From the low ERPM to the high ERPM scale the scaler will be increased from 0 to the max scale value.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;e.g. A scaler value of zero will have no effect. A scaler value of 300% increases roll kp x4 such that if roll kp = 0.5 it will be 2.0 when scaled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_ROLL_HS_MAXSCALE</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>-100</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>10</stepInt>
-            <valInt>-30</valInt>
-            <suffix> %</suffix>
-            <vTx>2</vTx>
-        </roll_hs_maxscale>
-        <yaw_kp1>
-            <longName>Level 1 Yaw Kp</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW_KP1</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.01</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </yaw_kp1>
-        <yaw_kp2>
-            <longName>Level 2 Yaw Kp</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW_KP2</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.01</stepDouble>
-            <valDouble>0.1</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </yaw_kp2>
-        <yaw_kp3>
-            <longName>Level 3 Yaw Kp</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW_KP3</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </yaw_kp3>
-        <yaw1>
-            <longName>Level 1 Yaw Angle Change</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW1</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>10</stepDouble>
-            <valDouble>120</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </yaw1>
-        <yaw2>
-            <longName>Level 2 Yaw Angle Change</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW2</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>500</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </yaw2>
-        <yaw3>
-            <longName>Level 3 Yaw Angle Change</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The yaw kp modifies the current demand on to increase output when the board is turning. When the board detects yaw change, yaw kp starts acting at level 1. As yaw increases it will linearly scale to level 2 and level 3 kp's.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW3</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>750</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </yaw3>
-        <brkyaw_kp1>
-            <longName>Level 1 Yaw Kp Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle change.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW_KP1</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.01</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </brkyaw_kp1>
-        <brkyaw_kp2>
-            <longName>Level 2 Yaw Kp Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle change.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW_KP2</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.01</stepDouble>
-            <valDouble>0.07</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </brkyaw_kp2>
-        <brkyaw_kp3>
-            <longName>Level 3 Yaw Kp Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle change.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW_KP3</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </brkyaw_kp3>
-        <brkyaw1>
-            <longName>Level 1 Yaw Angle Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW1</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>10</stepDouble>
-            <valDouble>120</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </brkyaw1>
-        <brkyaw2>
-            <longName>Level 2 Yaw Angle Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW2</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>500</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </brkyaw2>
-        <brkyaw3>
-            <longName>Level 3 Yaw Angle Braking</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake yaw kp acts similar to yaw kp. The difference is that brake yaw acts to reduce current output while acceleration yaw kp increases it. For this reason high values of brake yaw kp should be used with caution. 1.0 brake yaw kp will reduce current output to zero at the brake yaw angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_BRKYAW3</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>5000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>750</valDouble>
-            <vTxDoubleScale>1</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </brkyaw3>
-        <yaw_minerpm>
-            <longName>Yaw Minimum ERPM</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Below this speed yaw change will not effect the tune.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_YAW_MINERPM</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>1500</valInt>
-            <suffix> ERPM</suffix>
-            <vTx>3</vTx>
-        </yaw_minerpm>
         <is_surge_enabled>
             <longName>Enable Surge</longName>
             <type>5</type>
@@ -1500,7 +1164,7 @@ p, li { white-space: pre-wrap; }
         </is_surge_enabled>
         <surge_startcurrent>
             <longName>High Current Threshold, Low Duty</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1508,19 +1172,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the current that can initiate surge or haptic buzz. This should be close to the maximum current of the motor so that surge does not lift the nose too hard and fast. This value is strongly influenced by max motor current in the motor configuration.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_SURGE_STARTCURRENT</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>500</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>500</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>85</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>85</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </surge_startcurrent>
         <surge_start_hd_current>
             <longName>High Current Threshold, Max Duty</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1528,19 +1194,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At higher duty, it can be advantageous to allow the board to surge more easily. This value defines the current threshold at maximum duty. This value is strongly influenced by the max battery current in the motor configuration.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_SURGE_START_HD_CURRENT</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>500</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>500</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>30</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>30</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </surge_start_hd_current>
         <surge_scaleduty>
             <longName>Duty to Start Current Scaling</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1548,15 +1216,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Above this duty cycle, the high current threshold will reduce to allow surge more easily at high duty cycles. The current threshold will scale linearly from the low duty current threshold to the high duty current threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_SURGE_SCALEDUTY</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>35</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>35</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </surge_scaleduty>
         <surge_pitchmargin>
             <longName>Surge Setpoint Margin</longName>
@@ -1604,7 +1274,7 @@ p, li { white-space: pre-wrap; }
         </surge_maxangle>
         <surge_minerpm>
             <longName>High Current Minimum ERPM</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1612,19 +1282,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The high current threshold will not activate surge or haptic buzz below this minimum ERPM value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_SURGE_MINERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>1500</valInt>
+            <stepDouble>500</stepDouble>
+            <valDouble>1500</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </surge_minerpm>
         <surge_duty>
             <longName>Surge Max Ramp Rate</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1632,19 +1304,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This value limits how strongly surge acts. High values will have no effect past at a certain point since the controller will be acting as fast as it can. Very low values will feel similar to normal board reaction without surge. Actual ramp rate is dependent on duty and load.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_SURGE_DUTY</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>250</maxInt>
-            <minInt>1</minInt>
+            <maxDouble>1000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>10</stepInt>
-            <valInt>150</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>150</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </surge_duty>
         <tiltback_surge_speed>
             <longName>Surge Return Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1652,15 +1326,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If surge lifts the nose into a braking position, we do not want to brake at the end of surge. To prevent this, surge changes the setpoint at its end so that the board continues to accelerate forward. Surge return speed determines how quickly the setpoint returns to zero.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_SURGE_SPEED</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>200</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>200</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>20</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>20</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_surge_speed>
         <is_traction_enabled>
             <longName>Enable Traction Control</longName>
@@ -1672,51 +1348,77 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;When a high motor acceleration is detected, traction control engages to reduce current output until traction is regained. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_TRACTION_ENABLED</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
         </is_traction_enabled>
-        <wheelslip_accelstart>
-            <longName>Start Condition</longName>
-            <type>2</type>
+        <wheelslip_margin>
+            <longName>Wheelslip Margin</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the value that defines when the motor no longer has traction and should enter traction control. More powerful motors and batteries will likely require higher values to prevent nuisance trips when rapidly accelerating or surging. For 15S and 20S hypercore setups 29 works well.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_WHEELSLIP_ACCELSTART</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the amount of acceleration the motor has to experience before exiting traction control. Values too high will leave traction control too late and values too low will leave traction control too soon.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_MARGIN</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>5000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>29</valInt>
-            <suffix> ERPM/ms</suffix>
-            <vTx>3</vTx>
+            <stepDouble>1</stepDouble>
+            <valDouble>6</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </wheelslip_margin>
+        <wheelslip_accelstart>
+            <longName>Wheelslip Acceleration Trigger</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the value that defines when the motor no longer has traction and should enter traction control. More powerful motors and batteries will likely require higher values to prevent nuisance trips when rapidly accelerating or surging. For 15S and 20S hypercore setups 35 works well.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ACCELSTART</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>500</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>5</stepDouble>
+            <valDouble>35</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
         </wheelslip_accelstart>
         <wheelslip_accelend>
-            <longName>End Condition</longName>
-            <type>2</type>
+            <longName>Wheelslip Acceleration End</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If the motor acceleration reduces significantly, the wheel has traction again. Higher values will end traction control sooner. Lower values, including negative values, will exit later. This can be felt by doing bonks and drops. Lower values will feel smoother when landing. If the value is too low you will feel the nose dip where traciton control ends too late.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After the board enters traction control the current output goes to zero. This causes a rapid deceleration of the motor. This wheelslip acceleration end defines when the initial wheelslip that started traction control has ended. Now we can wait for the motor to receive acceleration from outside forces to indicate that traction has been regained.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_WHEELSLIP_ACCELEND</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>-100</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>2</valInt>
-            <suffix> ERPM/ms</suffix>
-            <vTx>4</vTx>
+            <stepDouble>1</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
         </wheelslip_accelend>
         <wheelslip_scaleaccel>
-            <longName>Low ERPM Scaler</longName>
-            <type>2</type>
+            <longName>Wheelslip Low ERPM Scaler</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1724,19 +1426,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower ERPM the motor is capable of high accelerations. For this reason we apply a scaler to the wheelslip start acceleration value. This value applies linearly, 100% at 0 ERPM to 0% at wheelslip scale ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_WHEELSLIP_SCALEACCEL</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>5</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix></suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </wheelslip_scaleaccel>
         <wheelslip_scaleerpm>
-            <longName>Scale ERPM</longName>
-            <type>2</type>
+            <longName>Wheelslip Scale ERPM</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1744,15 +1448,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower ERPM the motor is capable of high accelerations. For this reason we apply a scaler to the wheelslip start acceleration value. This value applies linearly, 100% at 0 ERPM to 0% at wheelslip scale ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_WHEELSLIP_SCALEERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>3000</valInt>
+            <stepDouble>500</stepDouble>
+            <valDouble>3000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </wheelslip_scaleerpm>
         <enable_speed_stability>
             <longName>Enable Speed Stability</longName>
@@ -1780,7 +1486,7 @@ p, li { white-space: pre-wrap; }
         </enable_throttle_stability>
         <stabl_pitch_max_scale>
             <longName>Pitch Current Max Stability</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1788,19 +1494,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the maximum scale that the acceleration and brake curves will be increased at max ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STABL_PITCH_MAXSCALE</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>5000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>5000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>10</stepInt>
-            <valInt>50</valInt>
+            <stepDouble>10</stepDouble>
+            <valDouble>50</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </stabl_pitch_max_scale>
         <stabl_rate_max_scale>
             <longName>Pitch Rate Max Stability</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1808,19 +1516,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the maximum scale that the proportional gain applied to the gyro (pitch rate kp) will be increased to at max ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STABL_RATE_MAXSCALE</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>5000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>5000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>10</stepInt>
-            <valInt>100</valInt>
+            <stepDouble>10</stepDouble>
+            <valDouble>100</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </stabl_rate_max_scale>
         <stabl_min_erpm>
-            <longName>Minimum Scale ERPM</longName>
-            <type>2</type>
+            <longName>Stability Minimum ERPM</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1828,19 +1538,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stability will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STABL_MIN_ERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>3000</valInt>
+            <stepDouble>500</stepDouble>
+            <valDouble>3000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </stabl_min_erpm>
         <stabl_max_erpm>
-            <longName>Maximum Scale ERPM</longName>
-            <type>2</type>
+            <longName>Stability Maximum ERPM</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1848,56 +1560,40 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Stability will start at zero at Minimum ERPM and scale linearly with ERPM until Maximum Stability Scale at Maximum ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STABL_MAX_ERPM</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>50000</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>8000</valInt>
+            <stepDouble>500</stepDouble>
+            <valDouble>8000</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> ERPM</suffix>
-            <vTx>3</vTx>
+            <vTx>7</vTx>
         </stabl_max_erpm>
         <stabl_ramp>
-            <longName>Ramp Rate Up</longName>
-            <type>2</type>
+            <longName>Stability Ramp Rate</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Restricts the rate that the stability can change in percent of Stability Maximum Scale per second. Reduce the ramp up rate to prevent the feeling of the nose lifting when accelerating.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Restricts the rate that the stability can change in percent of Stability Maximum Scale per second. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STABL_RAMP</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>250</maxInt>
-            <minInt>1</minInt>
+            <maxDouble>5000</maxDouble>
+            <minDouble>1</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>25</valInt>
+            <stepDouble>10</stepDouble>
+            <valDouble>50</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> %/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </stabl_ramp>
-        <stabl_ramp_down>
-            <longName>Ramp Rate Down</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Restricts the rate that the stability can change in percent of Stability Maximum Scale per second. Reduce the ramp down rate to prevent the feeling of nose dipping when reducing speed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_STABL_RAMP_DOWN</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>250</maxInt>
-            <minInt>1</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>5</valInt>
-            <suffix> %/s</suffix>
-            <vTx>1</vTx>
-        </stabl_ramp_down>
         <hertz>
             <longName>Loop Hertz</longName>
             <type>2</type>
@@ -1914,17 +1610,17 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_HERTZ</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50000</maxInt>
+            <maxInt>4000</maxInt>
             <minInt>50</minInt>
             <showDisplay>0</showDisplay>
-            <stepInt>832</stepInt>
+            <stepInt>16</stepInt>
             <valInt>832</valInt>
             <suffix> Hz</suffix>
             <vTx>3</vTx>
         </hertz>
         <fault_pitch>
             <longName>Pitch Axis Fault Cutoff</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1932,19 +1628,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Pitch Angle at which a fault is triggered and the board is disengaged. Can help potentially cut-off a runaway board with a stuck sensor (a.k.a &amp;quot;Ghosting&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_FAULT_PITCH</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>180</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>180</maxDouble>
+            <minDouble>-180</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>80</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>80</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </fault_pitch>
         <fault_roll>
             <longName>Roll Axis Fault Cutoff</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -1952,15 +1650,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Roll Angle at which a fault is triggered and the board is disengaged. Can help potentially cut-off a runaway board with a stuck sensor (a.k.a &amp;quot;Ghosting&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_FAULT_ROLL</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>180</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>180</maxDouble>
+            <minDouble>-180</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>80</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>80</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </fault_roll>
         <fault_adc1>
             <longName>ADC1 Switch Voltage</longName>
@@ -1981,7 +1681,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>1</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>2.5</valDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
             <vTx>7</vTx>
@@ -1997,7 +1697,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Voltage below this value will trigger a fault for the corresponding sensor zone. To disable this switch, set this value to 0.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic; text-decoration: underline;&quot;&gt;Hint:&lt;/span&gt;&lt;span style=&quot; font-style:italic;&quot;&gt; If voltage with no input does not settle near 0, consider a pulldown resisitor!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_FAULT_ADC1</cDefine>
+            <cDefine>APPCONF_TNT_FAULT_ADC2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -2005,7 +1705,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>1</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>2.5</valDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> V</suffix>
             <vTx>7</vTx>
@@ -2020,10 +1720,10 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep when both sensors turn off above 2000erpm (beeps for as long as the sensor remains off)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_FOOTBEEP_ENABLED</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
         </is_footbeep_enabled>
         <fault_delay_pitch>
-            <longName>Angle Fault Delay</longName>
+            <longName>Pitch Fault Delay</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -2042,6 +1742,26 @@ p, li { white-space: pre-wrap; }
             <suffix> ms</suffix>
             <vTx>3</vTx>
         </fault_delay_pitch>
+        <fault_delay_roll>
+            <longName>Roll Fault Delay</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Delay before cutoff, in milliseconds, once a Roll Axis Fault is detected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_FAULT_DELAY_ROLL</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>50</stepInt>
+            <valInt>250</valInt>
+            <suffix> ms</suffix>
+            <vTx>3</vTx>
+        </fault_delay_roll>
         <fault_delay_switch_half>
             <longName>Half Switch Fault Delay</longName>
             <type>2</type>
@@ -2134,7 +1854,7 @@ p, li { white-space: pre-wrap; }
         </fault_moving_fault_disabled>
         <tiltback_duty_angle>
             <longName>Angle</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2142,19 +1862,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Desired setpoint angle for Duty Cycle Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_DUTY_ANGLE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>5</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_duty_angle>
         <tiltback_duty_speed>
             <longName>Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2162,19 +1884,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which nose is tilted back when exceeding Duty Cycle limit (fast tiltback can be dangerous!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_DUTY_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>3</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>3</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_duty_speed>
         <tiltback_duty>
             <longName>Duty Cycle</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2186,15 +1910,17 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*&lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;DISCLAIMER&lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;: Max Duty Cycle on a VESC is &lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;95%&lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;, &lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;NOT 100%! &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;Reaching 95% Duty Cycle and pushing beyond &lt;/span&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;WILL &lt;/span&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;result in a nosedive. Use this knowledge to leave yourself the headroom you desire.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_DUTY</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <editAsPercentage>1</editAsPercentage>
+            <maxDouble>1</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>80</valInt>
-            <suffix> %</suffix>
-            <vTx>1</vTx>
+            <stepDouble>0.01</stepDouble>
+            <valDouble>0.8</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
         </tiltback_duty>
         <is_dutybeep_enabled>
             <longName>Beep on Duty Tiltback</longName>
@@ -2212,7 +1938,7 @@ p, li { white-space: pre-wrap; }
         </is_dutybeep_enabled>
         <tiltback_hv_angle>
             <longName>Angle</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2220,19 +1946,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Desired setpoint angle for High Voltage Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_HV_ANGLE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>8</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>8</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_hv_angle>
         <tiltback_hv_speed>
             <longName>Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2240,15 +1968,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which nose is tilted back when exceeding High Voltage limit (fast tiltback can be dangerous!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_HV_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>1</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>1</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_hv_speed>
         <tiltback_hv>
             <longName>High Voltage Threshold</longName>
@@ -2276,7 +2006,7 @@ p, li { white-space: pre-wrap; }
         </tiltback_hv>
         <tiltback_lv_angle>
             <longName>Angle</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2284,19 +2014,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Desired setpoint angle for Low Voltage Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_LV_ANGLE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>8</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>8</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_lv_angle>
         <tiltback_lv_speed>
             <longName>Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2304,15 +2036,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which nose is tilted back when exceeding Low Voltage threshold (fast tiltback can be dangerous!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_LV_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>1</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>1</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_lv_speed>
         <tiltback_lv>
             <longName>Low Voltage Threshold</longName>
@@ -2344,7 +2078,7 @@ p, li { white-space: pre-wrap; }
         </tiltback_lv>
         <tiltback_ht_angle>
             <longName>Angle</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2352,19 +2086,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Desired setpoint angle for High Temperature Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_HT_ANGLE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>8</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>10</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_ht_angle>
         <tiltback_ht_speed>
             <longName>Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2372,19 +2108,21 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which nose is tilted back when exceeding High Temperature limit (fast tiltback can be dangerous!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_HT_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>1</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>1</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_ht_speed>
         <tiltback_return_speed>
             <longName>Return To Level Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2392,15 +2130,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Speed at which nose is returned back to normal after a tiltback condition has been cleared.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_TILTBACK_RETURN_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>5</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </tiltback_return_speed>
         <tiltback_constant>
             <longName>Constant Tiltback</longName>
@@ -2418,11 +2158,11 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>30</maxDouble>
-            <minDouble>-30</minDouble>
+            <minDouble>-80</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
             <valDouble>0</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </tiltback_constant>
@@ -2447,7 +2187,7 @@ p, li { white-space: pre-wrap; }
             <vTx>3</vTx>
         </tiltback_constant_erpm>
         <haptic_buzz_intensity>
-            <longName>Haptic Buzz Maximum Intensity</longName>
+            <longName>Haptic Buzz Intensity</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -2462,7 +2202,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>16</valInt>
+            <valInt>0</valInt>
             <suffix> A</suffix>
             <vTx>1</vTx>
         </haptic_buzz_intensity>
@@ -2480,17 +2220,97 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_HAPTIC_BUZZ_MIN</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
+            <maxInt>6</maxInt>
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>12</valInt>
+            <valInt>0</valInt>
             <suffix> A</suffix>
             <vTx>1</vTx>
         </haptic_buzz_min>
+        <haptic_buzz_duty>
+            <longName>Haptic Buzz Duty</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when duty cycle exceeds the threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_DUTY</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_duty>
+        <haptic_buzz_hv>
+            <longName>Haptic Buzz High Voltage</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when voltage exceeds the upper threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_HV</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_hv>
+        <haptic_buzz_lv>
+            <longName>Haptic Buzz Low Voltage</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when voltage exceeds the lower threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_LV</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_lv>
+        <haptic_buzz_temp>
+            <longName>Haptic Buzz Temperature</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when either controller or motor temperature gets within 3 degrees of the throttle start threshold (in Motor Config - General)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_TEMP</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
+        </haptic_buzz_temp>
         <haptic_buzz_current>
-            <longName>Enable High Current Haptic Buzz</longName>
-            <type>5</type>
+            <longName>Haptic Buzz High Current</longName>
+            <type>4</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2498,23 +2318,19 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when exceeding the maximum current threshold configured in Tune Modifiers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HAPTIC_BUZZ_CURRENT</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>Audible1</enumNames>
+            <enumNames>Audible2</enumNames>
+            <enumNames>Audible3</enumNames>
+            <enumNames>Vibrating1</enumNames>
+            <enumNames>Vibrating2</enumNames>
+            <enumNames>Vibrating3</enumNames>
+            <enumNames>Alternating</enumNames>
         </haptic_buzz_current>
-        <haptic_buzz_duty>
-            <longName>Enable High Duty Haptic Buzz</longName>
-            <type>5</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when exceeding the maximum current threshold configured in Tune Modifiers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_DUTY</cDefine>
-            <valInt>1</valInt>
-        </haptic_buzz_duty>
         <noseangling_speed>
             <longName>Nose Angling Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2522,15 +2338,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum Rate at which nose will tilt to the desired angle during Constant and/or Variable Tiltback.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_NOSEANGLING_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>50</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>5</valInt>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </noseangling_speed>
         <inputtilt_remote_type>
             <longName>Remote Type</longName>
@@ -2573,13 +2391,13 @@ p, li { white-space: pre-wrap; }
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
             <valDouble>12</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </inputtilt_angle_limit>
         <inputtilt_speed>
             <longName>Tiltback Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2587,15 +2405,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which Remote Tiltback will tilt to the desired angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_INPUTTILT_SPEED</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>150</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>150</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>40</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>40</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </inputtilt_speed>
         <inputtilt_smoothing_factor>
             <longName>Tiltback Smoothing Factor</longName>
@@ -2642,7 +2462,7 @@ p, li { white-space: pre-wrap; }
         </inputtilt_invert_throttle>
         <inputtilt_deadband>
             <longName>Input Deadband</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2652,15 +2472,17 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;For example, a Deadband of 10% will only begin adjusting setpoint once the throttle reaches a value of +/- 10%. From there, it will scale as if 10% throttle was the center point (0%).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_INPUTTILT_DEADBAND</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>99</maxInt>
-            <minInt>0</minInt>
+            <editAsPercentage>1</editAsPercentage>
+            <maxDouble>1</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>5</valInt>
+            <stepDouble>1</stepDouble>
+            <valDouble>0.05</valDouble>
+            <vTxDoubleScale>10000</vTxDoubleScale>
             <suffix> %</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </inputtilt_deadband>
         <stickytiltval1>
             <longName>Sticky Tilt Angle 1</longName>
@@ -2718,13 +2540,13 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_STICKYTILT_HOLDCURRENT</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>250</maxInt>
+            <maxInt>500</maxInt>
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>5</stepInt>
             <valInt>20</valInt>
             <suffix>A</suffix>
-            <vTx>1</vTx>
+            <vTx>3</vTx>
         </stickytilt_holdcurrent>
         <is_stickytilt_enabled>
             <longName>Enable Stickytilt</longName>
@@ -2760,9 +2582,31 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>7</vTx>
         </startup_pitch_tolerance>
+        <startup_roll_tolerance>
+            <longName>Startup Roll Axis Angle Tolerance</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Roll Angle (Heel-to-Toe) range from &amp;quot;Flat&amp;quot; at which the board is allowed to engage. Measured in degrees from Flat (0° Roll).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STARTUP_ROLL_TOLERANCE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>80</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>45</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> °</suffix>
+            <vTx>7</vTx>
+        </startup_roll_tolerance>
         <startup_speed>
             <longName>Startup Centering Speed</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2770,16 +2614,40 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which the board will level itself on startup.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_STARTUP_SPEED</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>5</stepInt>
-            <valInt>60</valInt>
+            <stepDouble>5</stepDouble>
+            <valDouble>60</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °/s</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </startup_speed>
+        <startup_click_current>
+            <longName>Startup Click Current</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Strength of the noticeable &amp;quot;click&amp;quot; when engaging.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0A = Stealthy start&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;20A = Very noticeable click&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_STARTUP_CLICK_CURRENT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>20</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>1</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>0</valInt>
+            <suffix> A</suffix>
+            <vTx>1</vTx>
+        </startup_click_current>
         <startup_simplestart_enabled>
             <longName>Enable Simple Start</longName>
             <type>5</type>
@@ -2818,7 +2686,7 @@ p, li { white-space: pre-wrap; }
         </startup_dirtylandings_enabled>
         <brake_current>
             <longName>Brake Current</longName>
-            <type>2</type>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -2826,15 +2694,17 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Brake current to be applied when board is not actively engaged (only applied when an outside force causes motor to move).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKE_CURRENT</cDefine>
+            <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
-            <minInt>0</minInt>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>6</valInt>
+            <stepDouble>2</stepDouble>
+            <valDouble>6</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> A</suffix>
-            <vTx>1</vTx>
+            <vTx>7</vTx>
         </brake_current>
         <overcurrent_margin>
             <longName>Haptic Buzz Current Margin</longName>
@@ -2848,13 +2718,13 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_OVERCURRENT_MARGIN</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>100</maxInt>
+            <maxInt>1000</maxInt>
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
             <valInt>10</valInt>
             <suffix> A</suffix>
-            <vTx>1</vTx>
+            <vTx>4</vTx>
         </overcurrent_margin>
         <overcurrent_period>
             <longName>High Current Haptic Buzz Time</longName>
@@ -2870,7 +2740,7 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>100</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>0.3</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
             <valDouble>0.3</valDouble>
@@ -2924,20 +2794,8 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable tune debug information on the AppUI screen for more metrics on your pitch tune, roll tune, and stability modifiers. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_TRIPDEBUG_ENABLED</cDefine>
-            <valInt>1</valInt>
-        </is_tunedebug_enabled>
-        <is_yawdebug_enabled>
-            <longName>Enable Yaw Debug Info</longName>
-            <type>5</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable yaw debug information on the AppUI screen for more metrics on your yaw tune. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_IS_YAWDEBUG_ENABLED</cDefine>
             <valInt>0</valInt>
-        </is_yawdebug_enabled>
+        </is_tunedebug_enabled>
         <disable_pkg>
             <longName>Disable Package</longName>
             <type>5</type>
@@ -2968,7 +2826,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.3</valDouble>
+            <valDouble>1.2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -3024,24 +2882,8 @@ p, li { white-space: pre-wrap; }
         <ser>brkroll2</ser>
         <ser>brkroll3</ser>
         <ser>rollkp_higherpm</ser>
-        <ser>roll_hs_higherpm</ser>
         <ser>rollkp_lowerpm</ser>
-        <ser>roll_hs_lowerpm</ser>
         <ser>rollkp_maxscale</ser>
-        <ser>roll_hs_maxscale</ser>
-        <ser>yaw_kp1</ser>
-        <ser>yaw_kp2</ser>
-        <ser>yaw_kp3</ser>
-        <ser>yaw1</ser>
-        <ser>yaw2</ser>
-        <ser>yaw3</ser>
-        <ser>brkyaw_kp1</ser>
-        <ser>brkyaw_kp2</ser>
-        <ser>brkyaw_kp3</ser>
-        <ser>brkyaw1</ser>
-        <ser>brkyaw2</ser>
-        <ser>brkyaw3</ser>
-        <ser>yaw_minerpm</ser>
         <ser>is_surge_enabled</ser>
         <ser>surge_startcurrent</ser>
         <ser>surge_start_hd_current</ser>
@@ -3052,6 +2894,7 @@ p, li { white-space: pre-wrap; }
         <ser>surge_duty</ser>
         <ser>tiltback_surge_speed</ser>
         <ser>is_traction_enabled</ser>
+        <ser>wheelslip_margin</ser>
         <ser>wheelslip_accelstart</ser>
         <ser>wheelslip_accelend</ser>
         <ser>wheelslip_scaleaccel</ser>
@@ -3063,7 +2906,6 @@ p, li { white-space: pre-wrap; }
         <ser>stabl_min_erpm</ser>
         <ser>stabl_max_erpm</ser>
         <ser>stabl_ramp</ser>
-        <ser>stabl_ramp_down</ser>
         <ser>hertz</ser>
         <ser>fault_pitch</ser>
         <ser>fault_roll</ser>
@@ -3071,6 +2913,7 @@ p, li { white-space: pre-wrap; }
         <ser>fault_adc2</ser>
         <ser>is_footbeep_enabled</ser>
         <ser>fault_delay_pitch</ser>
+        <ser>fault_delay_roll</ser>
         <ser>fault_delay_switch_half</ser>
         <ser>fault_delay_switch_full</ser>
         <ser>fault_adc_half_erpm</ser>
@@ -3093,8 +2936,11 @@ p, li { white-space: pre-wrap; }
         <ser>tiltback_constant_erpm</ser>
         <ser>haptic_buzz_intensity</ser>
         <ser>haptic_buzz_min</ser>
-        <ser>haptic_buzz_current</ser>
         <ser>haptic_buzz_duty</ser>
+        <ser>haptic_buzz_hv</ser>
+        <ser>haptic_buzz_lv</ser>
+        <ser>haptic_buzz_temp</ser>
+        <ser>haptic_buzz_current</ser>
         <ser>noseangling_speed</ser>
         <ser>inputtilt_remote_type</ser>
         <ser>inputtilt_angle_limit</ser>
@@ -3107,7 +2953,9 @@ p, li { white-space: pre-wrap; }
         <ser>stickytilt_holdcurrent</ser>
         <ser>is_stickytilt_enabled</ser>
         <ser>startup_pitch_tolerance</ser>
+        <ser>startup_roll_tolerance</ser>
         <ser>startup_speed</ser>
+        <ser>startup_click_current</ser>
         <ser>startup_simplestart_enabled</ser>
         <ser>startup_pushstart_enabled</ser>
         <ser>startup_dirtylandings_enabled</ser>
@@ -3118,7 +2966,6 @@ p, li { white-space: pre-wrap; }
         <ser>is_surgedebug_enabled</ser>
         <ser>is_tcdebug_enabled</ser>
         <ser>is_tunedebug_enabled</ser>
-        <ser>is_yawdebug_enabled</ser>
         <ser>disable_pkg</ser>
         <ser>version</ser>
     </SerOrder>
@@ -3153,12 +3000,11 @@ p, li { white-space: pre-wrap; }
                 </subgroupParams>
             </subgroup>
             <subgroup>
-                <subgroupName>Braking</subgroupName>
+                <subgroupName>Brake</subgroupName>
                 <subgroupParams>
-                    <param>::sep:: Pitch Braking Curve</param>
+                    <param>::sep::Pitch Brake Curve</param>
                     <param>brake_curve</param>
                     <param>brake_kp0</param>
-                    <param>brakekp_rate</param>
                     <param>brakecurrent1</param>
                     <param>brakepitch1</param>
                     <param>brakecurrent2</param>
@@ -3192,34 +3038,9 @@ p, li { white-space: pre-wrap; }
                     <param>brkroll_kp3</param>
                     <param>brkroll3</param>
                     <param>::sep:: Low ERPM Scaling</param>
-                    <param>rollkp_lowerpm</param>
                     <param>rollkp_higherpm</param>
+                    <param>rollkp_lowerpm</param>
                     <param>rollkp_maxscale</param>
-                    <param>::sep:: High ERPM Scaling</param>
-                    <param>roll_hs_lowerpm</param>
-                    <param>roll_hs_higherpm</param>
-                    <param>roll_hs_maxscale</param>
-                </subgroupParams>
-            </subgroup>
-            <subgroup>
-                <subgroupName>Yaw</subgroupName>
-                <subgroupParams>
-                    <param>::sep:: Acceleration</param>
-                    <param>yaw_kp1</param>
-                    <param>yaw1</param>
-                    <param>yaw_kp2</param>
-                    <param>yaw2</param>
-                    <param>yaw_kp3</param>
-                    <param>yaw3</param>
-                    <param>::sep:: Braking</param>
-                    <param>brkyaw_kp1</param>
-                    <param>brkyaw1</param>
-                    <param>brkyaw_kp2</param>
-                    <param>brkyaw2</param>
-                    <param>brkyaw_kp3</param>
-                    <param>brkyaw3</param>
-                    <param>::sep:: Low ERPM Scaling</param>
-                    <param>yaw_minerpm</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3233,7 +3054,6 @@ p, li { white-space: pre-wrap; }
                     <param>stabl_min_erpm</param>
                     <param>stabl_max_erpm</param>
                     <param>stabl_ramp</param>
-                    <param>stabl_ramp_down</param>
                     <param>::sep::High Current Condtions</param>
                     <param>surge_startcurrent</param>
                     <param>surge_start_hd_current</param>
@@ -3250,6 +3070,7 @@ p, li { white-space: pre-wrap; }
                     <param>is_traction_enabled</param>
                     <param>wheelslip_accelstart</param>
                     <param>wheelslip_accelend</param>
+                    <param>wheelslip_margin</param>
                     <param>wheelslip_scaleaccel</param>
                     <param>wheelslip_scaleerpm</param>
                 </subgroupParams>
@@ -3282,24 +3103,27 @@ p, li { white-space: pre-wrap; }
                     <param>tiltback_return_speed</param>
                     <param>haptic_buzz_intensity</param>
                     <param>haptic_buzz_min</param>
-                    <param>::sep::Current</param>
-                    <param>haptic_buzz_current</param>
-                    <param>overcurrent_period</param>
-                    <param>::sep::Duty Cycle Alerts</param>
-                    <param>haptic_buzz_duty</param>
+                    <param>::sep::Duty Cycle Tiltback</param>
                     <param>tiltback_duty</param>
                     <param>tiltback_duty_angle</param>
                     <param>tiltback_duty_speed</param>
+                    <param>haptic_buzz_duty</param>
                     <param>is_dutybeep_enabled</param>
                     <param>::sep::High Voltage Tiltback</param>
                     <param>tiltback_hv_angle</param>
                     <param>tiltback_hv_speed</param>
+                    <param>haptic_buzz_hv</param>
                     <param>::sep::Low Voltage Tiltback</param>
                     <param>tiltback_lv_angle</param>
                     <param>tiltback_lv_speed</param>
+                    <param>haptic_buzz_lv</param>
                     <param>::sep::High Temperature Tiltback</param>
                     <param>tiltback_ht_angle</param>
                     <param>tiltback_ht_speed</param>
+                    <param>haptic_buzz_temp</param>
+                    <param>::sep::Current</param>
+                    <param>haptic_buzz_current</param>
+                    <param>overcurrent_period</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3307,9 +3131,11 @@ p, li { white-space: pre-wrap; }
                 <subgroupParams>
                     <param>::sep::Tolerances</param>
                     <param>startup_pitch_tolerance</param>
+                    <param>startup_roll_tolerance</param>
                     <param>::sep::Centering</param>
                     <param>startup_speed</param>
                     <param>::sep::Start Options</param>
+                    <param>startup_click_current</param>
                     <param>startup_simplestart_enabled</param>
                     <param>startup_pushstart_enabled</param>
                     <param>startup_dirtylandings_enabled</param>
@@ -3322,8 +3148,9 @@ p, li { white-space: pre-wrap; }
                 <subgroupParams>
                     <param>::sep::Angle Faults</param>
                     <param>fault_pitch</param>
-                    <param>fault_roll</param>
                     <param>fault_delay_pitch</param>
+                    <param>fault_roll</param>
+                    <param>fault_delay_roll</param>
                     <param>::sep::Switches</param>
                     <param>fault_delay_switch_half</param>
                     <param>fault_delay_switch_full</param>
@@ -3349,10 +3176,9 @@ p, li { white-space: pre-wrap; }
                     <param>is_footbeep_enabled</param>
                     <param>::sep::Miscellaneous</param>
                     <param>is_beeper_enabled</param>
-                    <param>is_tunedebug_enabled</param>
                     <param>is_surgedebug_enabled</param>
                     <param>is_tcdebug_enabled</param>
-                    <param>is_yawdebug_enabled</param>
+                    <param>is_tunedebug_enabled</param>
                 </subgroupParams>
             </subgroup>
         </group>

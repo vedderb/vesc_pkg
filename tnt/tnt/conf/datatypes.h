@@ -29,6 +29,17 @@ typedef enum {
 	INPUTTILT_PPM
 } INPUTTILT_REMOTE_TYPE;
 
+typedef enum {
+	HAPTIC_BUZZ_NONE = 0,
+	HAPTIC_BUZZ_AUDIBLE1,
+	HAPTIC_BUZZ_AUDIBLE2,
+	HAPTIC_BUZZ_AUDIBLE3,
+	HAPTIC_BUZZ_VIBRATING1,
+	HAPTIC_BUZZ_VIBRATING2,
+	HAPTIC_BUZZ_VIBRATING3,
+	HAPTIC_BUZZ_ALTERNATING
+} HAPTIC_BUZZ_TYPE;
+
 typedef struct {
 	float version;
 	float disable_pkg;
@@ -80,102 +91,91 @@ typedef struct {
 	float brkroll1;
 	float brkroll2;
 	float brkroll3;
-	uint16_t rollkp_higherpm;
-	uint16_t roll_hs_higherpm;
-	uint16_t rollkp_lowerpm;
-	uint16_t roll_hs_lowerpm;
-	uint16_t rollkp_maxscale;
-	int8_t roll_hs_maxscale;
-	float yaw_kp1;
-	float yaw_kp2;
-	float yaw_kp3;
-	float yaw1;
-	float yaw2;
-	float yaw3;
-	float brkyaw_kp1;
-	float brkyaw_kp2;
-	float brkyaw_kp3;
-	float brkyaw1;
-	float brkyaw2;
-	float brkyaw3;
-	uint16_t yaw_minerpm;
+	float rollkp_higherpm;
+	float rollkp_lowerpm;
+	float rollkp_maxscale;
 	bool is_surge_enabled;
-	uint16_t surge_startcurrent;
-	uint16_t surge_start_hd_current;
-	uint16_t surge_scaleduty;
+	float surge_startcurrent;
+	float surge_start_hd_current;
+	float surge_scaleduty;
 	float surge_pitchmargin;
 	float surge_maxangle;
-	uint16_t surge_minerpm;
-	uint16_t surge_duty;
-	uint16_t tiltback_surge_speed;
+	float surge_minerpm;
+	float surge_duty;
+	float tiltback_surge_speed;
 	bool is_traction_enabled;
-	uint16_t wheelslip_accelstart;
-	int16_t wheelslip_accelend;
-	uint16_t wheelslip_scaleaccel;
-	uint16_t wheelslip_scaleerpm;
+	float wheelslip_margin;
+	float wheelslip_accelstart;
+	float wheelslip_accelend;
+	float wheelslip_scaleaccel;
+	float wheelslip_scaleerpm;
 	bool enable_speed_stability;
 	bool enable_throttle_stability;
-	uint16_t stabl_pitch_max_scale;
-	uint16_t stabl_rate_max_scale;
-	uint16_t stabl_min_erpm;
-	uint16_t stabl_max_erpm;
-	uint16_t stabl_ramp;
-	uint16_t stabl_ramp_down;
+	float stabl_pitch_max_scale;
+	float stabl_rate_max_scale;
+	float stabl_min_erpm;
+	float stabl_max_erpm;
+	float stabl_ramp;
 	uint16_t hertz;
-	uint16_t fault_pitch;
-	uint16_t fault_roll;
+	float fault_pitch;
+	float fault_roll;
 	float fault_adc1;
 	float fault_adc2;
 	uint16_t fault_delay_pitch;
+	uint16_t fault_delay_roll;
 	uint16_t fault_delay_switch_half;
 	uint16_t fault_delay_switch_full;
 	uint16_t fault_adc_half_erpm;
 	bool fault_is_dual_switch;
 	bool fault_moving_fault_disabled;
-	uint16_t tiltback_duty_angle;
-	uint16_t tiltback_duty_speed;
-	uint16_t tiltback_duty;
-	uint16_t tiltback_hv_angle;
-	uint16_t tiltback_hv_speed;
+	float tiltback_duty_angle;
+	float tiltback_duty_speed;
+	float tiltback_duty;
+	float tiltback_hv_angle;
+	float tiltback_hv_speed;
 	float tiltback_hv;
-	uint16_t tiltback_lv_angle;
-	uint16_t tiltback_lv_speed;
+	float tiltback_lv_angle;
+	float tiltback_lv_speed;
 	float tiltback_lv;
-	uint16_t tiltback_ht_angle;
-	uint16_t tiltback_ht_speed;
-	uint16_t tiltback_return_speed;
+	float tiltback_ht_angle;
+	float tiltback_ht_speed;
+	float tiltback_return_speed;
 	float tiltback_constant;
 	uint16_t tiltback_constant_erpm;
-	uint16_t haptic_buzz_intensity;
-	uint16_t haptic_buzz_min;
-	bool haptic_buzz_current;
-	bool haptic_buzz_duty;
+	int haptic_buzz_intensity;
+	int haptic_buzz_min;
+	HAPTIC_BUZZ_TYPE haptic_buzz_duty;
+	HAPTIC_BUZZ_TYPE haptic_buzz_hv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_lv;
+	HAPTIC_BUZZ_TYPE haptic_buzz_temp;
+	HAPTIC_BUZZ_TYPE haptic_buzz_current;
 	INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
-	uint16_t inputtilt_speed;
+	float inputtilt_speed;
 	float inputtilt_angle_limit;
 	uint16_t inputtilt_smoothing_factor;
 	bool inputtilt_invert_throttle;
-	uint8_t inputtilt_deadband;
+	float inputtilt_deadband;
 	float stickytiltval1;
 	float stickytiltval2;
 	bool is_stickytilt_enabled;
 	uint16_t stickytilt_holdcurrent;
-	uint8_t noseangling_speed;
+	float noseangling_speed;
 	float startup_pitch_tolerance;
-	uint16_t startup_speed;
+	float startup_roll_tolerance;
+	float startup_speed;
+	float startup_click_current;
 	bool startup_simplestart_enabled;
 	bool startup_pushstart_enabled;
 	bool startup_dirtylandings_enabled;
-	uint16_t brake_current;
-	uint16_t overcurrent_margin;
+	float brake_current;
+	int overcurrent_margin;
 	float overcurrent_period;
 	bool is_beeper_enabled;
 	bool is_dutybeep_enabled;
 	bool is_footbeep_enabled;
-	bool is_tunedebug_enabled;
 	bool is_surgedebug_enabled;
 	bool is_tcdebug_enabled;
-	bool is_yawdebug_enabled;
+	bool is_tunedebug_enabled;
 } tnt_config;
 
 // DATATYPES_H_

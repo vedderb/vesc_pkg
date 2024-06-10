@@ -98,12 +98,11 @@ Item {
             }
             if (msgtype == 1) {
 		var state = dv.getInt8(ind); ind += 1;
-                var state_sat = dv.getInt8(ind); ind += 1; // state >> 4;
-                //state = state &0xF;
+                var setpointAdjustmentType = state >> 4;
+                state = state &0xF;
                 var switch_state = dv.getInt8(ind); ind += 1;
               	var new_beep_reason = switch_state >> 4;
 		switch_state = switch_state & 0x3;
-  		var state_stop = dv.getInt8(ind); ind += 1;
                 var adc1 = dv.getFloat32(ind); ind += 4;
                 var adc2 = dv.getFloat32(ind); ind += 4;
                 var voltage = dv.getFloat32(ind); ind += 4;
@@ -116,7 +115,7 @@ Item {
                 var throttle_val = dv.getFloat32(ind); ind += 4;
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var surge_lasttime = dv.getFloat32(ind); ind += 4; 
-	
+		
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
 	        var speed = dv.getFloat32(ind); ind += 4; //speed avg
@@ -128,11 +127,10 @@ Item {
                 if (debug_state == 1) { 
                     var debug1 = dv.getFloat32(ind); ind += 4; // erpmfactor
                     var debug2 = dv.getFloat32(ind); ind += 4; // wheelslipstart
-                    var debug3 = dv.getFloat32(ind); ind += 4; //wheelsliplasterpm 
+                    var debug3 = dv.getFloat32(ind); ind += 4; // wheelsliplasterpm 
                     var debug4 = dv.getFloat32(ind); ind += 4; // wheelsliperpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debugwheelslip 
-                    var debug6 = dv.getFloat32(ind); ind += 4; // duration 
-                    var debug7 = dv.getFloat32(ind); ind += 4; // count 
+                    var debug6 = dv.getFloat32(ind); ind += 4; // wheelslipend 
                 } else if (debug_state == 2) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //surge_startprop 
                     var debug3 = dv.getFloat32(ind); ind += 4; //surge_added duty
@@ -148,57 +146,44 @@ Item {
 		    var debug4 = dv.getFloat32(ind); ind += 4; //stablkprate
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
-                } else if (debug_state == 4) {
-                    var debug6 = dv.getFloat32(ind); ind += 4; //yaw angle
-                    var debug1 = dv.getFloat32(ind); ind += 4; //yaw change
-		    var debug2 = dv.getFloat32(ind); ind += 4; //yaw kp raw
-      		    var debug3 = dv.getFloat32(ind); ind += 4; //yaw kp scaled
-                    var debug4 = dv.getFloat32(ind); ind += 4; //erpm scaler 
-                    var debug5 = dv.getFloat32(ind); ind += 4; //max kp
-		} else {
+                } else {
 		    //space for temporary debugs
                 }
 		
                 var stateString
                 if(state == 0){
-                    stateString = "DISABLED"	
+                    stateString = "BOOT"	// we're in this state only for the first second or so then never again
                 }else if(state == 1){
-                    stateString = "STARTUP"
-                }else if(state == 2){		//If we are in ready state the board has stopped recently, add the stop reason.
-                    stateString = "READY";
-
-      		    if(state_stop == 0){
-			stateString += "-STARTUP"	
-		    }else if(state_stop == 1){
-			stateString += "-PITCH"
-		    }else if(state_stop == 2){ 
-   			stateString += "-ROLL"
-		    }else if(state_stop == 3){ 
-		        stateString += "-HALF SWITCH"
-		    }else if(state_stop == 4){ 
-		        stateString += "-FULL SWITCH"
-		    }else if(state_stop == 6){ 
-		        stateString += "-QUICKSTOP"
-            	    }
-		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
-                    stateString = "RUNNING";
-
-		    if(state_sat == 1){
-			stateString += "-CENTERING"
-		    }else if(state_sat == 6){ 
-   			stateString += "-HIGH DUTY"
-		    }else if(state_sat == 10){ 
-		        stateString += "-HIGH VOLTAGE"
-		    }else if(state_sat == 11){ 
-		        stateString += "-LOW VOLTAGE"
-		    }else if(state_sat == 12){ 
-		        stateString += "-HIGH TEMP"		    	
-	  	    }
- 
-		}else if(state == 4){		
-                    stateString = "WHEELSLIP";
-		}
-
+                    stateString = "RUNNING"
+                }else if(state == 2){
+                    stateString = "RUNNING_TILTBACK"
+                }else if(state == 3){
+                    stateString = "RUNNING_WHEELSLIP"
+                }else if(state == 4){
+                    stateString = "RUNNING_UPSIDEDOWN"
+                }else if(state == 6){
+                    stateString = "STOP_ANGLE_PITCH"
+                }else if(state == 7){
+                    stateString = "STOP_ANGLE_ROLL"
+                }else if(state == 8){
+                    stateString = "STOP_SWITCH_HALF"
+                }else if(state == 9){
+                    stateString = "STOP_SWITCH_FULL"
+                }else if(state == 11){
+                    if ((roll > 120) || (roll < -120)) {
+                        stateString = "STARTUP UPSIDEDOWN"
+                    }
+                    else {
+                        stateString = "STARTUP"
+                    }
+                }else if(state == 12){
+                    stateString = "STOP_REVERSE"
+                }else if(state == 13){
+                    stateString = "STOP_QUICKSTOP"
+                }else{
+                    stateString = "UNKNOWN"
+                }
+           
                 var beepString
                 if(beep_reason == 1){
                     beepString = "Low Voltage"
@@ -221,15 +206,40 @@ Item {
                 }else if(beep_reason == 10){
                     beepString = "Other"
                 }
-        
+                
+                var suffix = ""
+                if (setpointAdjustmentType == 0) {
+                    suffix = "[CENTERING]";
+                } else if (setpointAdjustmentType == 1) {
+                    suffix = "[REVERSESTOP]";
+                } else if (setpointAdjustmentType == 3) {
+                    suffix = "[DUTY]";
+                } else if (setpointAdjustmentType == 4) {
+                    suffix = "[HV]";
+                } else if (setpointAdjustmentType == 5) {
+                    suffix = "[LV]";
+                } else if (setpointAdjustmentType == 6) {
+                    suffix = "[TEMP]";
+                }
+                if ((state > 0) && (state < 6)) {
+                    stateString += suffix;
+                }
+
                 var switchString
                 if(switch_state == 0){
                     switchString = "Off"
                 }else if(switch_state == 1){
                     switchString = "Half"
-                }else if(switch_state == 2){
-                    switchString = "Half"
-		}else{
+                    /*HOW TO ACCESS CONFIG FROM QML???
+                    if (adc1 >= VescIf.mcConfig().fault_adc1)
+                        switchString += " [On|"
+                    else
+                        switchString += " [Off|"
+                    if (adc2 >= VescIf.mcConfig().fault_adc2)
+                        switchString += "On]"
+                    else
+                        switchString += "Off]"*/
+                }else{
                     switchString = "On"
                 }
 
@@ -249,8 +259,8 @@ Item {
         	var resttime1 = ("0" + Math.trunc(resttime/3600)).slice(-2);
     		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
     		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
-      
-                if(state == 0){
+   
+                if(state == 15){
                     stateString = "DISABLED"
                     switchString = "Enable in TNT Cfg: Specs"
                     rt_state.text = "TNT Package is Disabled\n\n" +
@@ -258,70 +268,62 @@ Item {
                     tune.text = "-- n/a --"
                     trip.text = "-- n/a --"
                     debug.text = "-- n/a --"
-                } else {
-	                rt_state.text =
-	                    "State               : " + stateString + "\n" +
-	                    "Switch              : " + switchString + "\n" +
-	                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
-	                    "Last Beep Reason    : " + beepString + "\n" +
-	                    "Voltage             : " + voltage.toFixed(1) + "V\n" +
-	                    "Current             : " + current.toFixed(0) + " A\n" +
-			    "Pitch               : " + pitch.toFixed(2) + "°\n" +
-	   		    "Roll                : " + roll.toFixed(2) + "°\n" 
-	                
-	                tune.text =
-	                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
-	                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
-	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
-	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
-	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"  
-		     
-	                trip.text =
-	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
-	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-	                    "Speed Avg          : " + speed.toFixed(1) + " mph\n" +
-	                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
-	                    "Power Avg          : " + power.toFixed(1) + " W\n" +
-			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" 
-	             
-			if (debug_state == 1) {
-				debug.text =
-				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/ms\n" +
-				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
-				"Last ERPM           : " + debug3.toFixed(0) + " ERPM\n" +
-				"End Condition       : " + debug5.toFixed(0) + "\n" +
-				"Last Duration       : " + debug6.toFixed(3) + " s\n" +
-				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
-	                } else if (debug_state == 2) {
-				debug.text =
-				"Start Current       : " + debug7.toFixed(0) + " A\n" +
-				"Start Threshold     : " + debug4.toFixed(0) + " A\n" +
-				"Start Proportional  : " + debug1.toFixed(1) + " °\n" +
-				"Duty Ramp Rate      : " + debug2.toFixed(0) + " %/s\n" +
-				"Added Duty          : " + (debug3 * 100).toFixed(1) + " %\n" +
-				"End Proportional    : " + debug5.toFixed(1) + " °\n" +
-				"Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
-			} else if (debug_state == 3) {
-				debug.text =
-				"Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
-				"Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
-				"Stability Kp        : " + debug3.toFixed(0) + " \n" + 
-				"Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
-				"Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
-				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
-			} else if (debug_state == 4) {
-				debug.text =
-				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
-				"Yaw Change          : " + debug1.toFixed(0) + " °/s \n" +         
-				"Yaw Kp (raw)        : " + debug2.toFixed(2) + " \n" +
-    				"Yaw Kp (scaled)     : " + debug3.toFixed(2) + " \n" +
-				"ERPM Scaler         : " + debug4.toFixed(1) + " \n" +
-    				"Max Yaw Kp          : " + debug5.toFixed(2) + " \n" 
-      			} else { 
-				debug.text = 
-				"-- n/a --"       
-	  		}
+                }
+                else {
+                rt_state.text =
+                    "State               : " + stateString + "\n" +
+                    "Switch              : " + switchString + "\n" +
+                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
+                    "Last Beep Reason    : " + beepString + "\n" +
+                    "Voltage             : " + voltage.toFixed(1) + "V\n" +
+                    "Current             : " + current.toFixed(0) + " A\n" +
+		    "Pitch               : " + pitch.toFixed(2) + "°\n" +
+   		    "Roll                : " + roll.toFixed(2) + "°\n" 
+                
+                tune.text =
+                    "Remote Input        : " + (throttle_val * 100).toFixed(0) + "%\n" +
+                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
+                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
+                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
+                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"       
+                    
+                trip.text =
+                    "Ride Time	        : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
+                    "Rest Time	        : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
+                    "Speed Avg	        : " + speed.toFixed(1) + " mph\n" +
+                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
+                    "Power Avg	        : " + power.toFixed(1) + " W\n" +
+		    "Efficiency	        : " + eff.toFixed(1) + " Wh/mi\n" 
+             
+		if (debug_state == 1) {
+                    debug.text =
+                        "Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
+                        "Wheelslip Start Acce: " + debug2.toFixed(1) + "\n" +
+                        "Wheelslip ERPM      : " + debug4.toFixed(0) + "\n" +
+                        "Wheelslip Last ERPM : " + debug3.toFixed(0) + "\n" +
+                        "Wheelslip Debug/Last: " + debug5.toFixed(1) + "\n" +
+                        "Wheelslip End Accel : " + debug6.toFixed(1) + "\n" 
+                } else if (debug_state == 2) {
+                debug.text =
+                    "Surge Start Current : " + debug7.toFixed(0) + " A\n" +
+		    "Surge Start Threshld: " + debug4.toFixed(0) + " A\n" +
+                    "Start Proportional  : " + debug1.toFixed(1) + " °\n" +
+                    "Surge Ramp Rate     : " + debug2.toFixed(0) + " %/s\n" +
+		    "Surge Added Duty    : " + (debug3 * 100).toFixed(1) + " %\n" +
+		    "Surge End Trigger   : " + debug5.toFixed(1) + " °\n" +
+                    "Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
+		} else if (debug_state == 3) {
+                debug.text =
+                    "Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
+                    "Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
+                    "Stability Kp        : " + debug3.toFixed(0) + " \n" + 
+                    "Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
+                    "Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
+		    "Roll Kp             : " + debug6.toFixed(2) + "\n" 
+                } else { 
+		debug.text = 
+  		    "-- n/a --"       
+  		}
                 }
             }
         }
