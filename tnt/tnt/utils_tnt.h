@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+/*
 #define log_msg(fmt, ...)                                                                          \
     do {                                                                                           \
         if (!VESC_IF->app_is_output_disabled()) {                                                  \
@@ -33,6 +34,10 @@
     } while (0)
 
 #define log_error(fmt, ...) log_msg("Error: " fmt __VA_OPT__(, ) __VA_ARGS__)
+*/
+
+#define log_msg(fmt, ...)
+#define log_error(fmt, ...)
 
 // Declaration for the SEMD_APP_DATA macro, definition needs to be in main.c.
 void send_app_data_overflow_terminate();
