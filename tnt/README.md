@@ -22,6 +22,7 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are similar to the settings I ride for trails. One exception is surge which is disabled. Here are more details on the default settings:
+
 * Pitch Tune - The current pitch tune is loose close to the setpoint but tightens quickly at higher pitch angles.
   * For a street tune you may want the tune to be tighter close to the setpoint. Increase Kp0, Pitch 1 Current, and Pitch 2 Current. You could also decrease Pitch 1 and Pitch 2 angles.
   * For a trick tune you may want it to be looser at higher pitch angles. Increase Pitch 3 angle or decrease Pitch 3 Current.
