@@ -21,7 +21,21 @@
 
 #include <stdint.h>
 
-/*
+#if defined(__GNUC__) && __GNUC__ < 9
+
+#define log_msg(fmt, ...)                                                                          \
+    do {                                                                                           \
+        if (!VESC_IF->app_is_output_disabled()) {                                                  \
+            float t = VESC_IF->system_time();                                                      \
+            uint32_t decimals = (uint32_t) ((t - (uint32_t) t) * 1000000);                         \
+            VESC_IF->printf("%d.%.6d [refloat] " fmt, (uint32_t) t, decimals, ##__VA_ARGS__);      \
+        }                                                                                          \
+    } while (0)
+
+#define log_error(fmt, ...) log_msg("Error: " fmt, ##__VA_ARGS__)
+
+#else
+
 #define log_msg(fmt, ...)                                                                          \
     do {                                                                                           \
         if (!VESC_IF->app_is_output_disabled()) {                                                  \
@@ -34,10 +48,8 @@
     } while (0)
 
 #define log_error(fmt, ...) log_msg("Error: " fmt __VA_OPT__(, ) __VA_ARGS__)
-*/
 
-#define log_msg(fmt, ...)
-#define log_error(fmt, ...)
+#endif
 
 // Declaration for the SEMD_APP_DATA macro, definition needs to be in main.c.
 void send_app_data_overflow_terminate();
