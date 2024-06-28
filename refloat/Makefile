@@ -21,7 +21,9 @@ endif
 
 package_README-gen.md: package_README.md version
 	cp $< $@
+	echo "  " >> $@
 	echo "### Build Info" >> $@
+	echo "" >> $@
 	echo "- Version: ${VERSION}" >> $@
 	echo "- Build Date: `date --rfc-3339=seconds`" >> $@
 	echo "- Git Commit: #`git rev-parse --short HEAD`" >> $@

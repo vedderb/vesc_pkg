@@ -2,10 +2,12 @@
 Self-balancing skateboard package based on the Float package by Mitch Lustig, Dado Mista and Nico Aleman: Float, Refactored.
 
 The feature set of Refloat is the same as that of Float version 1.3, with the following features ported from Float 2.0:
+
 - Floatwheel LCM support
 - Negative ATR speed boost
 
 Refloat 1.0 adds the following main features:
+
 - **Separate Axis KP**
 - **Brand new full-featured GUI in VESC Tool**
 - **Advanced LED lighting control for LEDs connected directly to VESC**
@@ -52,4 +54,4 @@ Author: Lukáš Hrázký
 Original Float package authors: Mitch Lustig, Dado Mista, Nico Aleman
 
 ### Download and Changelog
-https://github.com/lukash/refloat/releases
+[https://github.com/lukash/refloat/releases](https://github.com/lukash/refloat/releases)
