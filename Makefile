@@ -1,5 +1,5 @@
 PKGS = balance float refloat tnt lib_files lib_interpolation lib_nau7802 lib_pn532
-PKGS += lib_ws2812 logui lib_code_server lib_midi lib_disp_ui
+PKGS += lib_ws2812 logui lib_code_server lib_midi lib_disp_ui vdisp
 
 all: vesc_pkg_all.rcc
 

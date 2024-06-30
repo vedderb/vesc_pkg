@@ -14,6 +14,8 @@
         <file>lib_code_server/code_server.vescpkg</file>
         <file>lib_midi/midi.vescpkg</file>
         <file>lib_disp_ui/disp_ui.vescpkg</file>
+        <file>vdisp/vdisp.vescpkg</file>
+        <file>vdisp/vdisp_esc.vescpkg</file>
    </qresource>
 </RCC>
 
