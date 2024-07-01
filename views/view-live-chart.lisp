@@ -47,7 +47,7 @@
         (disp-render buf-chart-title 40 4 '(0x000000 0x4f514f 0x929491 0xfbfcfc))
     }))
     (defun on-btn-3-pressed () (def state-view-next (next-view)))
-    (view-draw-menu 'arrow-left 'arrow-down 'arrow-up nil)
+    (view-draw-menu 'arrow-left 'arrow-down 'arrow-up 'arrow-right)
     (view-render-menu)
 })
 
