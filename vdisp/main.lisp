@@ -36,6 +36,9 @@
 (import "lib/user-settings.lisp" 'code-user-settings)
 (read-eval-program code-user-settings)
 
+(import "lib/persistent-settings.lisp" 'code-persistent-settings)
+(read-eval-program code-persistent-settings)
+
 (import "lib/statistics.lisp" 'code-statistics)
 (read-eval-program code-statistics)
 
@@ -57,8 +60,11 @@
 (import "views/view-live-chart.lisp" 'code-view-live-chart)
 (read-eval-program code-view-live-chart)
 
-(import "views/view-settings.lisp" 'code-view-settings)
-(read-eval-program code-view-settings)
+(import "views/view-profile-select.lisp" 'code-view-profile-select)
+(read-eval-program code-view-profile-select)
+
+(import "views/view-profile-edit.lisp" 'code-view-profile-edit)
+(read-eval-program code-view-profile-edit)
 
 (import "views/view-minigame.lisp" 'code-view-minigame)
 (read-eval-program code-view-minigame)

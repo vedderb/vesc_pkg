@@ -131,6 +131,19 @@
     (img-rectangle img 7 (+ (+ bat-top 5 2) (- h fill-h bat-top 16)) (- w 8 5) fill-h 2 '(filled))
 })
 
+(defun draw-vertical-bar (img x y w h colors pct) {
+    (if (< pct 0.0) (setq pct 0.0))
+    (if (> pct 1.0) (setq pct 1.0))
+
+    ; Outline
+    (img-rectangle img x y w h (first colors) '(thickness 3)) ; TODO: thickness 2 is coming out 1 with rounded
+
+    ; Fill
+    (def fill-h (* (- h 2) pct))
+    (if (< fill-h 1) (setq fill-h 1))
+    (img-rectangle img (+ x 3) (+ y (- h fill-h)) (- w 5) fill-h (second colors) '(filled))
+})
+
 (defun draw-units (img x y color font) {
     (txt-block-l img color x y font (to-str (cdr settings-units-speeds)))
 })
@@ -380,4 +393,17 @@
         (setq i (+ i 1))
     })
     (list val-min val-max)
+})
+
+; Rotates a point around the origin in the clockwise direction. (note that the
+; coordinate system is upside down). The returned position is a list containing
+; the x and y coordinates. Angle is in degrees.
+(defun rot-point-origin (x y angle) {
+    (var s (sin (deg2rad angle)))
+    (var c (cos (deg2rad angle)))
+
+    (list
+        (- (* x c) (* y s))
+        (+ (* x s) (* y c))
+    )
 })

@@ -5,6 +5,7 @@
 
 (def user-settings-version 42)
 
+(def ms-to-kph 3.6)
 (def km-to-mi 0.621371)
 (defun c-to-f (c)
   (+ (* c 1.8) 32))
