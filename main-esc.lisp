@@ -26,7 +26,7 @@
                 )
                 (bufset-i16 buf-canid21 2 (* (get-temp-fet) 10))
                 (bufset-i16 buf-canid21 4 (* (get-temp-mot) 10))
-                (bufset-i16 buf-canid21 6 (* (ix (get-imu-rpy) 1) 10))
+                (bufset-i16 buf-canid21 6 (* (ix (get-imu-rpy) 1) 100))
 
                 (bufset-u16 buf-canid22 0 (* (get-wh) 10.0))
                 (bufset-u16 buf-canid22 2 (* (get-wh-chg) 10.0))

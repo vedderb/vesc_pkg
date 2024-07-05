@@ -39,7 +39,7 @@
         (def stats-temp-battery (/ (bufget-i16 data 0) 10.0))
         (def stats-temp-esc (/ (bufget-i16 data 2) 10.0))
         (def stats-temp-motor (/ (bufget-i16 data 4) 10.0))
-        (def stats-angle-pitch (/ (bufget-i16 data 6) 10.0))
+        (def stats-angle-pitch (/ (bufget-i16 data 6) 100.0))
         (setq rx-cnt-can (+ rx-cnt-can 1))
     })
     (if (= id 22) {
