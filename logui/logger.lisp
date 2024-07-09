@@ -32,6 +32,8 @@
         ("cnt_wh" "Wh" "Watt Hours"     (get-wh))
         ("cnt_ah_chg" "Ah" "Ah Chg"     (get-ah-chg))
         ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
+        ("ADC1" "V"                     (get-adc 0))
+        ("ADC2" "V"                     (get-adc 1))
 ))
 
 ; CAN-data template. Same format as above, but all %d in strings will
@@ -44,6 +46,8 @@
         ("V%d RPM"                      (canget-rpm id))
         ("V%d Temp Fet" "degC" 1        (canget-temp-fet id))
         ("V%d Temp Motor" "degC" 1      (canget-temp-motor id))
+        ("V%d ADC1" "V"                 (canget-adc id 0))
+        ("V%d ADC2" "V"                 (canget-adc id 1))
 ))
 
 (defun merge-lists (list-with-lists) (foldl append () list-with-lists))
@@ -101,7 +105,7 @@
                 res
             )
             res
-            
+
 )))
 
 (defun loglist-parse (id lst res-fun)
@@ -162,20 +166,20 @@
     (progn
         (def last-can-id id)
         (stop-log id)
-        
-        (def loglist (merge-lists 
+
+        (def loglist (merge-lists
                 (list
                     (if (and is-esc log-local) loglist-local ())
                     (if log-can (canlist-create) ())
                     (if log-bms (bmslist-create) ())
         )))
-        
+
         (if (eq loglist nil)
             (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
-            
+
             (progn
                 (log-configure id loglist)
-                
+
                 (log-start
                     id ; CAN id
                     (length loglist) ; Field num
@@ -183,7 +187,7 @@
                     true ; Append time
                     append-gnss ; Append gnss
                 )
-                
+
                 (def log-running true)
                 (def log-thd-id (spawn log-thd id rate loglist))
                 (send-data "Log Started")
@@ -328,7 +332,7 @@
         (progn
             ; Wait for things to start up
             (sleep 10)
-            
+
             ; Start logging at boot if configured
             (if (read-setting 'log-at-boot)
                 (start-log
