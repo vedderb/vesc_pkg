@@ -37,7 +37,12 @@ CFLAGS += -I$(STLIB_PATH)/CMSIS/include -I$(STLIB_PATH)/CMSIS/ST -I$(UTILS_PATH)
 CFLAGS += -fomit-frame-pointer -falign-functions=16 -mthumb
 CFLAGS += -fsingle-precision-constant -Wdouble-promotion
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16 -mcpu=cortex-m4
-CFLAGS += -fdata-sections -ffunction-sections
+# Individual data and function sections don't work with "-g" option
+ifndef DEBUG_BUILD
+	CFLAGS += -fdata-sections -ffunction-sections
+else
+	CFLAGS += -g
+endif
 CFLAGS += -DIS_VESC_LIB
 CFLAGS += $(USE_OPT)
 

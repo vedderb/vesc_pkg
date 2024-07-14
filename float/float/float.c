@@ -125,6 +125,10 @@ typedef struct {
 // main firmware and managed from there). This is probably the main limitation of
 // loading applications in runtime, but it is not too bad to work around.
 typedef struct {
+	lib_semaphore imu_semaphore;
+	volatile bool should_terminate;
+	uint16_t imu_update_freq_hz;
+	uint16_t imu_updates_missed;
 	lib_thread thread; // Balance Thread
 
 	float_config float_conf;
@@ -216,10 +220,9 @@ typedef struct {
 	float braketilt_factor, braketilt_target, braketilt_interpolated;
 	float turntilt_target, turntilt_interpolated;
 	SetpointAdjustmentType setpointAdjustmentType;
-	float current_time, last_time, diff_time, loop_overshoot; // Seconds
+	float current_time; // Seconds
 	float disengage_timer, nag_timer; // Seconds
 	float idle_voltage;
-	float filtered_loop_overshoot, loop_overshoot_alpha, filtered_diff_time;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
 	float motor_timeout_seconds;
 	float brake_timeout; // Seconds
@@ -396,28 +399,29 @@ static void app_init(data *d) {
 static void configure(data *d) {
 	d->debug_render_1 = 2;
 	d->debug_render_2 = 4;
+	d->imu_update_freq_hz = VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 
 	// This timer is used to determine how long the board has been disengaged / idle
 	// subtract 1 second to prevent the haptic buzz disengage click on "write config"
 	d->disengage_timer = d->current_time - 1;
 
 	// Set calculated values from config
-	d->loop_time_seconds = 1.0 / d->float_conf.hertz;
+	d->loop_time_seconds = 1.0 / d->imu_update_freq_hz;
 
 	d->motor_timeout_seconds = d->loop_time_seconds * 20; // Times 20 for a nice long grace period
 
-	d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
-	d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
-	d->tiltback_hv_step_size = d->float_conf.tiltback_hv_speed / d->float_conf.hertz;
-	d->tiltback_lv_step_size = d->float_conf.tiltback_lv_speed / d->float_conf.hertz;
-	d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
-	d->torquetilt_on_step_size = d->float_conf.torquetilt_on_speed / d->float_conf.hertz;
-	d->torquetilt_off_step_size = d->float_conf.torquetilt_off_speed / d->float_conf.hertz;
-	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
-	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
-	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
-	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
-	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
+	d->startup_step_size = d->float_conf.startup_speed / d->imu_update_freq_hz;
+	d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->imu_update_freq_hz;
+	d->tiltback_hv_step_size = d->float_conf.tiltback_hv_speed / d->imu_update_freq_hz;
+	d->tiltback_lv_step_size = d->float_conf.tiltback_lv_speed / d->imu_update_freq_hz;
+	d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->imu_update_freq_hz;
+	d->torquetilt_on_step_size = d->float_conf.torquetilt_on_speed / d->imu_update_freq_hz;
+	d->torquetilt_off_step_size = d->float_conf.torquetilt_off_speed / d->imu_update_freq_hz;
+	d->atr_on_step_size = d->float_conf.atr_on_speed / d->imu_update_freq_hz;
+	d->atr_off_step_size = d->float_conf.atr_off_speed / d->imu_update_freq_hz;
+	d->turntilt_step_size = d->float_conf.turntilt_speed / d->imu_update_freq_hz;
+	d->noseangling_step_size = d->float_conf.noseangling_speed / d->imu_update_freq_hz;
+	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->imu_update_freq_hz;
 
 	d->surge_angle = d->float_conf.surge_angle;
 	d->surge_angle2 = d->float_conf.surge_angle * 2;
@@ -427,7 +431,7 @@ static void configure(data *d) {
 	// Feature: Stealthy start vs normal start (noticeable click when engaging) - 0-20A
 	d->start_counter_clicks_max = 3;
 	// Feature: Soft Start
-	d->softstart_ramp_step_size = (float)100 / d->float_conf.hertz;
+	d->softstart_ramp_step_size = (float)100 / d->imu_update_freq_hz;
 	// Feature: Dirty Landings
 	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
 
@@ -462,16 +466,11 @@ static void configure(data *d) {
 	
 	// Feature: Reverse Stop
 	d->reverse_tolerance = 50000;
-	d->reverse_stop_step_size = 100.0 / d->float_conf.hertz;
+	d->reverse_stop_step_size = 100.0 / d->imu_update_freq_hz;
 
 	// Init Filters
-	float loop_time_filter = 3.0; // Originally Parameter, now hard-coded to 3Hz
-	d->loop_overshoot_alpha = 2.0 * M_PI * ((float)1.0 / (float)d->float_conf.hertz) *
-				loop_time_filter / (2.0 * M_PI * (1.0 / (float)d->float_conf.hertz) *
-						loop_time_filter + 1.0);
-
 	if (d->float_conf.atr_filter > 0) { // ATR Current Biquad
-		float Fc = d->float_conf.atr_filter / d->float_conf.hertz;
+		float Fc = d->float_conf.atr_filter / d->imu_update_freq_hz;
 		biquad_config(&d->atr_current_biquad, BQ_LOWPASS, Fc);
 	}
 
@@ -533,10 +532,6 @@ static void configure(data *d) {
 		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
 	}
 
-	// Reset loop time variables
-	d->last_time = 0.0;
-	d->filtered_loop_overshoot = 0.0;
-
 	d->beeper_enabled = d->float_conf.is_beeper_enabled;
 	if (d->float_conf.float_disable) {
 		d->state = DISABLED;
@@ -581,8 +576,6 @@ static void reset_vars(data *d) {
 	d->setpointAdjustmentType = CENTERING;
 	d->state = RUNNING;
 	d->current_time = 0;
-	d->last_time = 0;
-	d->diff_time = 0;
 	d->brake_timeout = 0;
 	d->traction_control = false;
 	d->pid_value = 0;
@@ -1745,6 +1738,7 @@ static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
 	UNUSED(mag);
 	data *d = (data*)ARG;
 	VESC_IF->ahrs_update_mahony_imu(gyro, acc, dt, &d->m_att_ref);
+	VESC_IF->sem_signal(d->imu_semaphore);
 }
 
 static void float_thd(void *arg) {
@@ -1753,22 +1747,20 @@ static void float_thd(void *arg) {
 	app_init(d);
 	led_init(&d->led_data, &d->float_conf);
 
-	while (!VESC_IF->should_terminate()) {
+	const systime_t sem_timeout_ticks = VESC_IF->time_to_ticks(0, 200, 0); // 200ms
+
+	while (!d->should_terminate) {
+		int wait_result = VESC_IF->sem_drain_and_wait_timeout(d->imu_semaphore, sem_timeout_ticks);
+		if (wait_result < 0) {
+			continue;
+		}
+		if (wait_result > 0) {
+			d->imu_updates_missed += wait_result;
+		}
 		beeper_update(d);
 
-		// Update times
+		// Update time
 		d->current_time = VESC_IF->system_time();
-		if (d->last_time == 0) {
-			d->last_time = d->current_time;
-		}
-
-		d->diff_time = d->current_time - d->last_time;
-		d->filtered_diff_time = 0.03 * d->diff_time + 0.97 * d->filtered_diff_time; // Purely a metric
-		d->last_time = d->current_time;
-
-		// Loop Time Filter (Hard Coded to 3Hz)
-		d->loop_overshoot = d->diff_time - (d->loop_time_seconds - roundf(d->filtered_loop_overshoot));
-		d->filtered_loop_overshoot = d->loop_overshoot_alpha * d->loop_overshoot + (1.0 - d->loop_overshoot_alpha) * d->filtered_loop_overshoot;
 
 		// Read values for GUI
 		d->motor_current = VESC_IF->mc_get_tot_current_directional_filtered();
@@ -2304,13 +2296,6 @@ static void float_thd(void *arg) {
 			// no set_current, no brake_current
 		default:;
 		}
-
-		// Debug outputs
-//		app_balance_sample_debug();
-//		app_balance_experiment();
-
-		// Delay between loops
-		VESC_IF->sleep_us((uint32_t)((d->loop_time_seconds - roundf(d->filtered_loop_overshoot)) * 1000000.0));
 	}
 }
 
@@ -2401,20 +2386,12 @@ static float app_float_get_debug(int index) {
 			return d->abs_erpm;
 		case(9):
 			return d->loop_time_seconds;
-		case(10):
-			return d->diff_time;
-		case(11):
-			return d->loop_overshoot;
-		case(12):
-			return d->filtered_loop_overshoot;
-		case(13):
-			return d->filtered_diff_time;
 		case(14):
 			return d->pid_integral / d->float_conf.ki;
 		case(15):
 			return d->pid_integral;
 		case(16):
-			return 0;
+			return d->imu_updates_missed;
 		case(17):
 			return 0;
 		default:
@@ -2617,6 +2594,7 @@ static void split(unsigned char byte, int* h1, int* h2)
 
 static void cmd_print_info(data *d)
 {
+	UNUSED(d);
 	//VESC_IF->printf("A:%.1f, D:%.2f\n", d->surge_angle, d->float_conf.surge_duty_start);
 }
 
@@ -2791,9 +2769,9 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 		if (h2 == 0) d->current_min = fminf(d->mc_current_min, fabsf(d->float_conf.limit_current_brake));
 
 		// Update values normally done in configure()
-		d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
-		d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
-		d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
+		d->atr_on_step_size = d->float_conf.atr_on_speed / d->imu_update_freq_hz;
+		d->atr_off_step_size = d->float_conf.atr_off_speed / d->imu_update_freq_hz;
+		d->turntilt_step_size = d->float_conf.turntilt_speed / d->imu_update_freq_hz;
 
 		// Feature: Braketilt
 		d->braketilt_factor = d->float_conf.braketilt_strength;
@@ -2824,8 +2802,8 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 		float offspd = h2;
 		d->float_conf.torquetilt_on_speed = onspd / 2;
 		d->float_conf.torquetilt_off_speed = offspd + 3;
-		d->torquetilt_on_step_size = d->float_conf.torquetilt_on_speed / d->float_conf.hertz;
-		d->torquetilt_off_step_size = d->float_conf.torquetilt_off_speed / d->float_conf.hertz;
+		d->torquetilt_on_step_size = d->float_conf.torquetilt_on_speed / d->imu_update_freq_hz;
+		d->torquetilt_off_step_size = d->float_conf.torquetilt_off_speed / d->imu_update_freq_hz;
 	}
 	if (len >= 17) {
 		split(cfg[16], &h1, &h2);
@@ -2889,12 +2867,12 @@ static void cmd_tune_defaults(data *d){
 	d->float_conf.startup_dirtylandings_enabled = APPCONF_DIRTYLANDINGS_ENABLED;
 
 	// Update values normally done in configure()
-	d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
-	d->atr_off_step_size = d->float_conf.atr_off_speed / d->float_conf.hertz;
-	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
+	d->atr_on_step_size = d->float_conf.atr_on_speed / d->imu_update_freq_hz;
+	d->atr_off_step_size = d->float_conf.atr_off_speed / d->imu_update_freq_hz;
+	d->turntilt_step_size = d->float_conf.turntilt_speed / d->imu_update_freq_hz;
 
-	d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
-	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
+	d->startup_step_size = d->float_conf.startup_speed / d->imu_update_freq_hz;
+	d->noseangling_step_size = d->float_conf.noseangling_speed / d->imu_update_freq_hz;
 	d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
 	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
 	if (d->tiltback_variable > 0) {
@@ -2915,7 +2893,7 @@ static void cmd_runtime_tune_tilt(data *d, unsigned char *cfg, int len)
 	float retspeed = cfg[1];
 	if (retspeed > 0) {
 		d->float_conf.tiltback_return_speed = retspeed / 10;
-		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
+		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->imu_update_freq_hz;
 	}
 	d->float_conf.tiltback_duty = (float)cfg[2] / 100.0;
 	d->float_conf.tiltback_duty_angle = (float)cfg[3] / 10.0;
@@ -2963,7 +2941,7 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg, int len)
 	float brakecurrent = cfg[4];
 	float clickcurrent = cfg[5];
 
-	d->startup_step_size = ctrspeed / d->float_conf.hertz;
+	d->startup_step_size = ctrspeed / d->imu_update_freq_hz;
 	d->float_conf.startup_speed = ctrspeed;
 	d->float_conf.startup_pitch_tolerance = pitchtolerance / 10;
 	d->float_conf.startup_roll_tolerance = rolltolerance;
@@ -2981,14 +2959,14 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg, int len)
 		d->float_conf.tiltback_constant = tiltconst / 2;
 		d->float_conf.tiltback_constant_erpm = tilterpm;
 		if (tiltspeed > 0) {
-			d->noseangling_step_size = tiltspeed / 10 / d->float_conf.hertz;
+			d->noseangling_step_size = tiltspeed / 10 / d->imu_update_freq_hz;
 			d->float_conf.noseangling_speed = tiltspeed / 10;
 		}
 		d->float_conf.tiltback_variable = tiltvarrate / 100;
 		d->float_conf.tiltback_variable_max = tiltvarmax / 10;
 
-		d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
-		d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
+		d->startup_step_size = d->float_conf.startup_speed / d->imu_update_freq_hz;
+		d->noseangling_step_size = d->float_conf.noseangling_speed / d->imu_update_freq_hz;
 		d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
 		if (d->tiltback_variable > 0) {
 			d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
@@ -3005,7 +2983,7 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg, int len)
 			if (inputtilt > 0) {
 				d->float_conf.inputtilt_angle_limit = cfg[12] >> 2;
 				d->float_conf.inputtilt_speed = cfg[13];
-				d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
+				d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->imu_update_freq_hz;
 			}
 		}
 	}
@@ -3324,8 +3302,8 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 			d->float_conf.tiltback_duty_speed = cfg[6] / 2;
 			d->float_conf.tiltback_return_speed = cfg[6] / 2;
 		}
-		d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
-		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
+		d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->imu_update_freq_hz;
+		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->imu_update_freq_hz;
 
 		// Limit speed of wheel and limit amps
 		//backup_erpm = mc_interface_get_configuration()->l_max_erpm;
@@ -3548,7 +3526,7 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 	}
 }
 
-// Register get_debug as a lisp extension
+// ext-float-dbg lisp extension implementation
 static lbm_value ext_bal_dbg(lbm_value *args, lbm_uint argn) {
 	if (argn != 1 || !VESC_IF->lbm_is_number(args[0])) {
 		return VESC_IF->lbm_enc_sym_eerror;
@@ -3630,6 +3608,10 @@ static void stop(void *arg) {
 	VESC_IF->imu_set_read_callback(NULL);
 	VESC_IF->set_app_data_handler(NULL);
 	VESC_IF->conf_custom_clear_configs();
+	d->should_terminate = true;
+	// Most of the time this reset will happen while the thread is waiting on semaphore
+	// but there is a small race happening which is taken care of by the semaphore timeout.
+	VESC_IF->sem_reset(d->imu_semaphore);
 	VESC_IF->request_terminate(d->thread);
 	if (!VESC_IF->app_is_output_disabled()) {
 		VESC_IF->printf("Float App Terminated");
@@ -3637,6 +3619,7 @@ static void stop(void *arg) {
 	
 	led_stop(&d->led_data);
 
+	VESC_IF->free(d->imu_semaphore);
 	VESC_IF->free(d);
 }
 
@@ -3647,7 +3630,6 @@ INIT_FUN(lib_info *info) {
 	}
 
 	data *d = VESC_IF->malloc(sizeof(data));
-	memset(d, 0, sizeof(data));
 	if (!d) {
 		if (!VESC_IF->app_is_output_disabled()) {
 			VESC_IF->printf("Float App: Out of memory, startup failed!");
@@ -3655,6 +3637,8 @@ INIT_FUN(lib_info *info) {
 		return false;
 	}
 
+	memset(d, 0, sizeof(data));
+	d->imu_semaphore = VESC_IF->sem_create();
 	read_cfg_from_eeprom(d);
 
 	info->stop_fun = stop;	

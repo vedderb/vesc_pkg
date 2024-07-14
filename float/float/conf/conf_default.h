@@ -33,11 +33,6 @@
 #define APPCONF_FLOAT_KP2_BRAKE 1
 #endif
 
-// Loop Hertz
-#ifndef APPCONF_FLOAT_HERTZ
-#define APPCONF_FLOAT_HERTZ 832
-#endif
-
 // Pitch Axis Fault Cutoff
 #ifndef APPCONF_FLOAT_FAULT_PITCH
 #define APPCONF_FLOAT_FAULT_PITCH 60

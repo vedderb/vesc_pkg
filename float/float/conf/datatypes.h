@@ -50,7 +50,6 @@ typedef struct {
 	float kp_brake;
 	float kp2_brake;
 	uint16_t kp_brake_erpm;
-	uint16_t hertz;
 	float fault_pitch;
 	float fault_roll;
 	float fault_adc1;
