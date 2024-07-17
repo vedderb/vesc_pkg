@@ -8,7 +8,7 @@
     (var val-accel (read-setting (str2sym (str-from-n profile-number "pf%d-accel"))))
 
     ; Send values to ESC
-    (if (not (esc-request `(conf-set 'max-speed ,val-speed))) (setq apply-success nil))
+    (if (not (esc-request `(conf-set 'max-speed ,(/ val-speed ms-to-kph)))) (setq apply-success nil))
     (if (not (esc-request `(conf-set 'l-current-min-scale ,val-break))) (setq apply-success nil))
     (if (not (esc-request `(conf-set 'l-current-max-scale ,val-accel))) (setq apply-success nil))
 
