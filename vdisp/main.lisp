@@ -33,6 +33,9 @@
 (import "assets/warning-4c.bin" 'icon-warning)
 (import "assets/bike-6c.bin" 'icon-bike)
 
+(import "lib/colors.lisp" 'code-colors)
+(read-eval-program code-colors)
+
 (import "lib/user-settings.lisp" 'code-user-settings)
 (read-eval-program code-user-settings)
 

@@ -27,7 +27,7 @@
 
         (def profile-edit-value (match profile-edit-item
             (0 (read-setting (str2sym (str-from-n profile-active "pf%d-speed"))))
-            (1 (read-setting (str2sym (str-from-n profile-active "pf%d-break"))))
+            (1 (read-setting (str2sym (str-from-n profile-active "pf%d-brake"))))
             (2 (read-setting (str2sym (str-from-n profile-active "pf%d-accel"))))
         ))
         (def profile-edit-value-previous nil)
@@ -73,7 +73,7 @@
         ; Save user changes
         (match profile-edit-item
             (0 (write-setting (str2sym (str-from-n profile-active "pf%d-speed")) profile-edit-value))
-            (1 (write-setting (str2sym (str-from-n profile-active "pf%d-break")) profile-edit-value))
+            (1 (write-setting (str2sym (str-from-n profile-active "pf%d-brake")) profile-edit-value))
             (2 (write-setting (str2sym (str-from-n profile-active "pf%d-accel")) profile-edit-value))
         )
 
@@ -125,7 +125,7 @@
                 )
 
                 (txt-block-l buf-profile-opt1 (list 0 1 2 3) 0 0 font24
-                    (str-merge (str-from-n (to-i (* (read-setting (str2sym (str-from-n profile-active "pf%d-break"))) 100)) "Break %d") "%")
+                    (str-merge (str-from-n (to-i (* (read-setting (str2sym (str-from-n profile-active "pf%d-brake"))) 100)) "Brake %d") "%")
                 )
 
                 (txt-block-l buf-profile-opt2 (list 0 1 2 3) 0 0 font24
@@ -150,7 +150,7 @@
                     (1 {
                         (img-clear buf-profile-opt1)
                         (txt-block-l buf-profile-opt1 (list 0 1 2 3) 0 0 font24
-                            (str-merge (str-from-n (to-i (* profile-edit-value 100)) "Break %d") "%")
+                            (str-merge (str-from-n (to-i (* profile-edit-value 100)) "Brake %d") "%")
                         )
                     })
                     (2 {
