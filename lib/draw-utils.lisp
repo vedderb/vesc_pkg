@@ -135,13 +135,13 @@
     (if (< pct 0.0) (setq pct 0.0))
     (if (> pct 1.0) (setq pct 1.0))
 
-    ; Outline
-    (img-rectangle img x y w h (first colors) '(thickness 3)) ; TODO: thickness 2 is coming out 1 with rounded
-
     ; Fill
-    (def fill-h (* (- h 2) pct))
-    (if (< fill-h 1) (setq fill-h 1))
-    (img-rectangle img (+ x 3) (+ y (- h fill-h)) (- w 5) fill-h (second colors) '(filled))
+    (def fill-h (floor (* (- h 2) pct)))
+    (if (< fill-h 25) (setq fill-h 25))
+    (img-rectangle img (+ x 1) (+ y (- h fill-h) -1) (- w 2) fill-h (second colors) '(filled) '(rounded 10))
+
+    ; Outline
+    (img-rectangle img x y w h (first colors) '(thickness 4) '(rounded 10))
 })
 
 (defun draw-units (img x y color font) {
