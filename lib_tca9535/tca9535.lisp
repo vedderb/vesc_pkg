@@ -76,7 +76,7 @@
 
 (defun tca9535-read-pins () {
         (var regs (bufcreate 2))
-        (i2c-tx-rx (assoc tca9535-regs 'addr) '(2) regs)
+        (i2c-tx-rx (assoc tca9535-regs 'addr) '(0) regs)
         (var res (map (fn (x) nil) (rest-args)))
 
         (looprange i 0 (length (rest-args)) {
