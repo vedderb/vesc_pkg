@@ -109,7 +109,7 @@
                 ; Save settings on ESC
                 (print (esc-request '(conf-store)))
                 ; Return to initial view
-                (def state-view-next 'view-dash-primary)
+                (def state-view-next 'view-main)
             })
         )
     })

@@ -114,7 +114,7 @@
         (select-option {
             (if (not-eq profile-edit-item profile-edit-item-next) {
                 ; Draw saved values
-                (var max-speed-kph (/ (read-setting (str2sym (str-from-n profile-active "pf%d-speed")) ms-to-kph)))
+                (var max-speed-kph (read-setting (str2sym (str-from-n profile-active "pf%d-speed"))))
                 (match (car settings-units-speeds)
                     (kmh (txt-block-l buf-profile-opt0 (list 0 1 2 3) 0 0 font24
                         (str-merge (str-from-n max-speed-kph "Speed %0.1f") "kph")

@@ -36,7 +36,7 @@
     (def on-btn-3-repeat-press nil)
 })
 
-(defun thread-input () {
+(defun input-thread () {
     (input-cleanup-on-pressed)
     (var input-debounce-count 3)
     (var btn-0 0)
@@ -121,7 +121,7 @@
             (maybe-call (on-btn-3-long-pressed))
         })
 
-        (if (and (>= (secs-since btn-1-start) 6.13) btn-1-long-fired (eq state-view 'view-dash-primary)) (def state-view-next 'view-minigame))
+        (if (and (>= (secs-since btn-1-start) 6.13) btn-1-long-fired (eq state-view 'view-main)) (def state-view-next 'view-minigame))
 
         (if (= btn-0 0) (setq btn-0-long-fired false))
         (if (= btn-1 0) (setq btn-1-long-fired false))
@@ -130,4 +130,11 @@
     })
 })
 
-(spawn thread-input)
+(spawn (fn () (loopwhile t {
+    (spawn-trap input-thread)
+    (recv   ((exit-error (? tid) (? e))
+                (print (str-merge "input-thread error: " (to-str e)))
+            )
+            ((exit-ok (? tid) (? v)) 'ok))
+    (sleep 1.0)
+})))

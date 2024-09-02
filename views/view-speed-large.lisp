@@ -62,7 +62,6 @@
     (if view-changed {
         (def view-changed false)
         (var colors-smalltext-aa '(0x000000 0x4f514f 0x929491 0xf4f7f9))
-        (var colors-text-aa '(0x000000 0x4f514f 0x929491 0xfbfcfc))
 
         (disp-render buf-units 0 5 colors-smalltext-aa)
         (disp-render buf-top-speed (- 320 50) 3 colors-smalltext-aa)

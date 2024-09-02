@@ -52,7 +52,7 @@
     (return nil)
 })
 
-(defun thread-stats () {
+(defun stats-thread () {
     (loopwhile t {
         (sleep 0.05)
         (if stats-reset-now {
@@ -103,4 +103,11 @@
     })
 })
 
-(spawn thread-stats)
+(spawn (fn () (loopwhile t {
+    (spawn-trap stats-thread)
+    (recv   ((exit-error (? tid) (? e))
+                (print (str-merge "stats-thread error: " (to-str e)))
+            )
+            ((exit-ok (? tid) (? v)) 'ok))
+    (sleep 1.0)
+})))
