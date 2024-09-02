@@ -36,12 +36,12 @@
     (loopwhile (< (secs-since start-time) fade-time) {
         (def pct (/ (secs-since start-time) fade-time))
 
-        (var logo-color-a (lerp-color 0x000000 0xd9dee1 pct))
-        (var logo-color-b (lerp-color 0x000000 0xc5c9cc pct))
-        (var logo-color-c (lerp-color 0x000000 0xa6aaab pct))
-        (var logo-color-d (lerp-color 0x000000 0x7e8283 pct))
-        (var logo-color-e (lerp-color 0x000000 0x575a59 pct))
-        (var logo-color-f (lerp-color 0x000000 0x272928 pct))
+        (var logo-color-a (color-mix 0x000000 0xd9dee1 pct))
+        (var logo-color-b (color-mix 0x000000 0xc5c9cc pct))
+        (var logo-color-c (color-mix 0x000000 0xa6aaab pct))
+        (var logo-color-d (color-mix 0x000000 0x7e8283 pct))
+        (var logo-color-e (color-mix 0x000000 0x575a59 pct))
+        (var logo-color-f (color-mix 0x000000 0x272928 pct))
 
         (disp-render logo (- 160 (/ (first (img-dims logo)) 2)) (- 120 (/ (second (img-dims logo)) 2))
             `(  0x000000

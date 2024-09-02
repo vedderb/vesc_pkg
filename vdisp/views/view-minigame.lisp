@@ -49,7 +49,7 @@
         (def game-start-time (systime))
     })
     (defun on-btn-2-pressed () {
-        (def state-view-next 'view-dash-primary)
+        (def state-view-next 'view-main)
     })
     (defun on-btn-3-pressed () {
         (if (< (+ paddle-x paddle-width 3) 320) (setq paddle-x (+ paddle-x 3)))

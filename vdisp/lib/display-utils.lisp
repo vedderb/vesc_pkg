@@ -1,5 +1,5 @@
-(def state-view 'view-dash-primary)
-(def state-view-next 'view-dash-primary)
+(def state-view 'view-main)
+(def state-view-next 'view-main)
 (def state-view-previous state-view)
 
 (def fps 0.0)
@@ -15,10 +15,10 @@
     (set-io 3 1) ; enable display backlight
 })
 
-(def views (list 'view-dash-primary 'view-speed-large 'view-statistics 'view-live-chart 'view-profile-select 'view-profile-edit 'view-minigame))
+(def views (list 'view-main 'view-speed-large 'view-statistics 'view-live-chart 'view-profile-select 'view-profile-edit 'view-minigame))
 
 (defun next-view () (match state-view
-    (view-dash-primary 'view-speed-large)
+    (view-main 'view-speed-large)
     (view-speed-large 'view-statistics)
     (view-statistics 'view-live-chart)
     (view-live-chart 'view-profile-select)
@@ -27,8 +27,8 @@
 ))
 
 (defun previous-view () (match state-view
-    (view-dash-primary nil)
-    (view-speed-large 'view-dash-primary)
+    (view-main nil)
+    (view-speed-large 'view-main)
     (view-statistics 'view-speed-large)
     (view-live-chart 'view-statistics)
     (view-profile-select 'view-live-chart)
@@ -37,7 +37,7 @@
 
 (defun init-current-view () {
     (match state-view
-        (view-dash-primary (view-init-dash-primary))
+        (view-main (view-init-main))
         (view-speed-large (view-init-speed-large))
         (view-statistics (view-init-statistics))
         (view-live-chart (view-init-chart))
@@ -66,7 +66,7 @@
 
 (defun draw-current-view () {
     (match state-view
-        (view-dash-primary (view-draw-dash-primary))
+        (view-main (view-draw-main))
         (view-speed-large (view-draw-speed-large))
         (view-statistics (view-draw-statistics))
         (view-live-chart (view-draw-chart))
@@ -78,7 +78,7 @@
 })
 (defun render-current-view () {
     (match state-view
-        (view-dash-primary (view-render-dash-primary))
+        (view-main (view-render-main))
         (view-speed-large (view-render-speed-large))
         (view-statistics (view-render-statistics))
         (view-live-chart (view-render-chart))
@@ -91,7 +91,7 @@
 
 (defun cleanup-current-view () {
     (match state-view
-        (view-dash-primary (view-cleanup-dash-primary))
+        (view-main (view-cleanup-main))
         (view-speed-large (view-cleanup-speed-large))
         (view-statistics (view-cleanup-statistics))
         (view-live-chart (view-cleanup-chart))
@@ -133,4 +133,11 @@
     })
 })
 
-(spawn display-thread)
+(spawn (fn () (loopwhile t {
+    (spawn-trap display-thread)
+    (recv   ((exit-error (? tid) (? e))
+                (print (str-merge "display-thread error: " (to-str e)))
+            )
+            ((exit-ok (? tid) (? v)) 'ok))
+    (sleep 1.0)
+})))

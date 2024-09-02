@@ -51,8 +51,8 @@
 (import "views/components/view-menu.lisp" 'code-view-menu)
 (read-eval-program code-view-menu)
 
-(import "views/view-dash-primary.lisp" 'code-view-dash-primary)
-(read-eval-program code-view-dash-primary)
+(import "views/view-main.lisp" 'code-view-main)
+(read-eval-program code-view-main)
 
 (import "views/view-speed-large.lisp" 'code-view-speed-large)
 (read-eval-program code-view-speed-large)

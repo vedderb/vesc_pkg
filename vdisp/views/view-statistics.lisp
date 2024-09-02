@@ -109,7 +109,6 @@
     (var padding 8)
     (var x-offs 0)
     (var y-offs 0)
-    (var colors-text-aa (list 0x000000 0x4f514f 0x929491 0xfbfcfc))
 
     (if (not-eq stats-amps-now (first view-previous-stats)) {
         ; Max Amps Regen
@@ -153,7 +152,6 @@
 
 
     (if (not-eq stats-km (ix view-previous-stats 3)) {
-        (var colors-text-aa '(0x000000 0x4f514f 0x929491 0xfbfcfc))
         (disp-render buf-efficiency 215 12 colors-text-aa)
 
         (disp-render buf-trip 215 84 colors-text-aa)
