@@ -552,10 +552,9 @@ static bool check_faults(data *d) {
                     return true;
                 }
                 // low speed (below 6 x half-fault threshold speed):
-                else if (
-                    (d->motor.abs_erpm < d->float_conf.fault_adc_half_erpm * 6) &&
-                    (1000.0 * (d->current_time - d->fault_switch_timer) >
-                     d->float_conf.fault_delay_switch_half)) {
+                else if ((d->motor.abs_erpm < d->float_conf.fault_adc_half_erpm * 6) &&
+                         (1000.0 * (d->current_time - d->fault_switch_timer) >
+                          d->float_conf.fault_delay_switch_half)) {
                     state_stop(&d->state, STOP_SWITCH_FULL);
                     return true;
                 }
@@ -679,12 +678,12 @@ static void calculate_setpoint_target(data *d) {
                 }
             }
         }
-    } else if (
-        d->state.mode != MODE_FLYWHEEL &&
-        fabsf(d->motor.acceleration) > 15 &&  // not normal, either wheelslip or wheel getting stuck
-        sign(d->motor.acceleration) == d->motor.erpm_sign && d->motor.duty_cycle > 0.3 &&
-        d->motor.abs_erpm > 2000)  // acceleration can jump a lot at very low speeds
-    {
+    } else if (d->state.mode != MODE_FLYWHEEL &&
+               // not normal, either wheelslip or wheel getting stuck
+               fabsf(d->motor.acceleration) > 15 &&
+               sign(d->motor.acceleration) == d->motor.erpm_sign && d->motor.duty_cycle > 0.3 &&
+               // acceleration can jump a lot at very low speeds
+               d->motor.abs_erpm > 2000) {
         d->state.wheelslip = true;
         d->state.sat = SAT_NONE;
         d->wheelslip_timer = d->current_time;
@@ -1043,7 +1042,7 @@ static void apply_turntilt(data *d) {
 static void brake(data *d) {
     // Brake timeout logic
     float brake_timeout_length = 1;  // Brake Timeout hard-coded to 1s
-    if (d->motor.abs_erpm > 1 || d->brake_timeout == 0) {
+    if (d->motor.abs_erpm > ERPM_MOVING_THRESHOLD || d->brake_timeout == 0) {
         d->brake_timeout = d->current_time + brake_timeout_length;
     }
 
@@ -1801,6 +1800,8 @@ static void cmd_print_info(data *d) {
 
 static void cmd_lock(data *d, unsigned char *cfg) {
     if (d->state.state < STATE_RUNNING) {
+        // restore config before locking to avoid accidentally writing temporary changes
+        read_cfg_from_eeprom(&d->float_conf);
         d->float_conf.disabled = cfg[0] ? true : false;
         d->state.state = cfg[0] ? STATE_DISABLED : STATE_STARTUP;
         write_cfg_to_eeprom(d);

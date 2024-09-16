@@ -21,6 +21,8 @@
 
 #include <stdint.h>
 
+#define ERPM_MOVING_THRESHOLD 10.0f
+
 #define unused(x) (void) (x)
 
 #if defined(__GNUC__) && __GNUC__ < 9
@@ -107,7 +109,7 @@ float clampf(float value, float min, float max);
 /**
  * Rate-limits @p value towards @p target by an amount of maximum value of @p step.
  *
- * If the difference between @p value and @p target is greated than step, @p
+ * If the difference between @p value and @p target is greater than step, @p
  * value is increased or decreased (if @p target is greater or less than @p
  * value respectively) by @p step. Otherwise, @p value is set to @p target.
  *

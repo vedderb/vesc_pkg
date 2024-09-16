@@ -21,7 +21,7 @@ endif
 
 package_README-gen.md: package_README.md version
 	cp $< $@
-	echo "  " >> $@
+	echo "" >> $@
 	echo "### Build Info" >> $@
 	echo "" >> $@
 	echo "- Version: ${VERSION}" >> $@
