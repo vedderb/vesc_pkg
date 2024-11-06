@@ -66,4 +66,5 @@ $(TARGET): $(OBJECTS)
 	$(PYTHON) $(VESC_C_LIB_PATH)/conv.py -f $@.bin -n $@ > $@.lisp
 
 clean:
-	rm -f $(OBJECTS) $(TARGET).elf $(TARGET).list $(TARGET).lisp $(TARGET).bin $(ADD_TO_CLEAN)
+	rm -f $(OBJECTS) $(TARGET).elf $(TARGET).list $(TARGET).lisp $(TARGET).bin
+
