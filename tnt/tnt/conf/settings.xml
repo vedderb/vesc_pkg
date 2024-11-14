@@ -42,7 +42,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <valDouble>20</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -66,7 +66,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>1</valDouble>
+            <valDouble>100</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -192,7 +192,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </current6>
         <pitch1>
-            <longName>Pitch 1</longName>
+            <longName>Pitch Angle 1</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -208,20 +208,20 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.3</valDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
         </pitch1>
         <pitch2>
-            <longName>Pitch 2</longName>
+            <longName>Pitch Angle 2</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied. Pitch angle 2 must be greater than pitch angle 1 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -236,14 +236,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </pitch2>
         <pitch3>
-            <longName>Pitch 3</longName>
+            <longName>Pitch Angle 3</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied. Pitch angle 3 must be greater than pitch angle 2 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -258,14 +258,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </pitch3>
         <pitch4>
-            <longName>Pitch 4</longName>
+            <longName>Pitch Angle 4</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied. Pitch angle 4 must be greater than pitch angle 3 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH4</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -280,14 +280,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </pitch4>
         <pitch5>
-            <longName>Pitch 5</longName>
+            <longName>Pitch Angle 5</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied. Pitch angle 5 must be greater than pitch angle 4 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH5</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -302,14 +302,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </pitch5>
         <pitch6>
-            <longName>Pitch 6</longName>
+            <longName>Pitch Angle 6</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied. Pitch angle 6 must be greater than pitch angle 5 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH6</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -381,7 +381,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.45</valDouble>
+            <valDouble>0.6</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -671,7 +671,7 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakecurrent6>
         <brakepitch1>
-            <longName>Pitch 1</longName>
+            <longName>Pitch Angle 1</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -693,14 +693,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch1>
         <brakepitch2>
-            <longName>Pitch 2</longName>
+            <longName>Pitch Angle 2</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current2 will be applied. Pitch angle 2 must be greater than pitch angle 1 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEPITCH2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -715,14 +715,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch2>
         <brakepitch3>
-            <longName>Pitch 3</longName>
+            <longName>Pitch Angle 3</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current3 will be applied. Pitch angle 3 must be greater than pitch angle 2 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEPITCH3</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -737,14 +737,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch3>
         <brakepitch4>
-            <longName>Pitch 4</longName>
+            <longName>Pitch Angle 4</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current4 will be applied. Pitch angle 4 must be greater than pitch angle 3 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEPITCH4</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -759,14 +759,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch4>
         <brakepitch5>
-            <longName>Pitch 5</longName>
+            <longName>Pitch Angle 5</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current5 will be applied. Pitch angle 5 must be greater than pitch angle 4 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEPITCH5</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -781,14 +781,14 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </brakepitch5>
         <brakepitch6>
-            <longName>Pitch 6</longName>
+            <longName>Pitch Angle 6</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Defines the pitch where current6 will be applied. Pitch angle 6 must be greater than pitch angle 5 to be registered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEPITCH6</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -830,7 +830,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.05</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
@@ -874,7 +874,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.05</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
@@ -962,7 +962,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.05</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
@@ -1006,7 +1006,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
+            <stepDouble>0.05</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
@@ -1198,7 +1198,7 @@ p, li { white-space: pre-wrap; }
             <minInt>-100</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>10</stepInt>
-            <valInt>-30</valInt>
+            <valInt>0</valInt>
             <suffix> %</suffix>
             <vTx>2</vTx>
         </roll_hs_maxscale>
@@ -1373,7 +1373,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.07</valDouble>
+            <valDouble>0.08</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1675,7 +1675,7 @@ p, li { white-space: pre-wrap; }
             <valInt>1</valInt>
         </is_traction_enabled>
         <wheelslip_accelstart>
-            <longName>Start Condition</longName>
+            <longName>Start Acceleration</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -1694,8 +1694,28 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM/ms</suffix>
             <vTx>3</vTx>
         </wheelslip_accelstart>
+        <wheelslip_accelslowed>
+            <longName>Transition Condition</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If the motor acceleration reduces significantly, the wheel has traction again. Higher values will end traction control sooner. Lower values, including negative values, will exit later. This can be felt by doing bonks and drops. Lower values will feel smoother when landing. If the value is too low you will feel the nose dip where traciton control ends too late.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ACCELSLOWED</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>10</valInt>
+            <suffix> ERPM/ms</suffix>
+            <vTx>3</vTx>
+        </wheelslip_accelslowed>
         <wheelslip_accelend>
-            <longName>End Condition</longName>
+            <longName>End Acceleration</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -1707,12 +1727,12 @@ p, li { white-space: pre-wrap; }
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxInt>100</maxInt>
-            <minInt>-100</minInt>
+            <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
             <valInt>2</valInt>
             <suffix> ERPM/ms</suffix>
-            <vTx>4</vTx>
+            <vTx>1</vTx>
         </wheelslip_accelend>
         <wheelslip_scaleaccel>
             <longName>Low ERPM Scaler</longName>
@@ -1730,7 +1750,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>5</valInt>
+            <valInt>4</valInt>
             <suffix></suffix>
             <vTx>1</vTx>
         </wheelslip_scaleaccel>
@@ -1750,10 +1770,162 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>500</stepInt>
-            <valInt>3000</valInt>
+            <valInt>6000</valInt>
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </wheelslip_scaleerpm>
+        <wheelslip_filter_freq>
+            <longName>ERPM Filter Freq</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A low pass filter is applied to the ERPM to remove noise which allows for more stable signal to use for traction control. Lower filter frequencies like 25Hz are necessary for longer air time, 300+ ms. Higher filter frequencies are better for higher speed riding where multiple traction engagements per minute are required.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_FILTER_FREQ_FAST</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>200</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>50</valInt>
+            <suffix> Hz</suffix>
+            <vTx>1</vTx>
+        </wheelslip_filter_freq>
+        <wheelslip_max_angle>
+            <longName>Angle Limit</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;An extra safety that will end traction control if the difference between the pitch angle and setpoint exceeds this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_MAX_ANGLE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>90</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>10</valInt>
+            <suffix> °</suffix>
+            <vTx>1</vTx>
+        </wheelslip_max_angle>
+        <wheelslip_accelhold>
+            <longName>Hold Acceleration</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After the end of traction control, if the motor acceleration remains above this value it will not re-enter traction control.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ACCELHOLD</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>2</valInt>
+            <suffix> ERPM/ms</suffix>
+            <vTx>1</vTx>
+        </wheelslip_accelhold>
+        <is_tc_braking_enabled>
+            <longName>Enable Traction Control Braking</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allows the board to use the set brake function which prevents reverse wheel spin while braking.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_TC_BRAKING_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_tc_braking_enabled>
+        <tc_braking_angle>
+            <longName>Minimum Remote Angle</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The nose down angle, applied via remote, required to allow traction control braking.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TC_BRAKING_ANGLE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>90</maxInt>
+            <minInt>-90</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix> °</suffix>
+            <vTx>2</vTx>
+        </tc_braking_angle>
+        <tc_braking_start_delay>
+            <longName>Start Delay</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Traction braking conditions must be met for this amount of time before traction braking will engage. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TC_BRAKING_START_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>50</stepInt>
+            <valInt>50</valInt>
+            <suffix> ms</suffix>
+            <vTx>3</vTx>
+        </tc_braking_start_delay>
+        <tc_braking_end_delay>
+            <longName>End Delay</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This adds a delay after traction braking ends before it can re-engage to prevent rapid switching on and off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TC_BRAKING_END_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>50</stepInt>
+            <valInt>50</valInt>
+            <suffix> ms</suffix>
+            <vTx>3</vTx>
+        </tc_braking_end_delay>
+        <tc_braking_min_erpm>
+            <longName>Minimum ERPM</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The minimum ERPM required to engage traction braking. Prevents rapid switching when at a standstill.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TC_BRAKING_MIN_ERPM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>50</stepInt>
+            <valInt>1500</valInt>
+            <suffix>  ERPM</suffix>
+            <vTx>3</vTx>
+        </tc_braking_min_erpm>
         <enable_speed_stability>
             <longName>Enable Speed Stability</longName>
             <type>5</type>
@@ -2011,16 +2183,18 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </fault_adc2>
         <is_footbeep_enabled>
-            <longName>Beep on Sensor Fault</longName>
+            <longName>Enable FOC Beep on Sensor Fault</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep when both sensors turn off above 2000erpm (beeps for as long as the sensor remains off)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;FOC beep when both sensors turn off above 2000erpm (beeps for as long as the sensor remains off)&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*Warning: FOC tones are applied outside the VESC package. As such, the tones can cause the current demand to exceed the configured maximum motor currents. To be safe increase the Absolute Maximum Motor Current to a value that will not be triggered while riding. If an absolute motor current fault is triggered immediate loss of stability will occur.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_FOOTBEEP_ENABLED</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
         </is_footbeep_enabled>
         <fault_delay_pitch>
             <longName>Angle Fault Delay</longName>
@@ -2078,7 +2252,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>250</valInt>
+            <valInt>500</valInt>
             <suffix> ms</suffix>
             <vTx>3</vTx>
         </fault_delay_switch_full>
@@ -2132,6 +2306,58 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_FAULT_MOVING_FAULT_DISABLED</cDefine>
             <valInt>0</valInt>
         </fault_moving_fault_disabled>
+        <is_quickstop_enabled>
+            <longName>Enable Quick Stop</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This allows the board to come to a moving stop if the foot switches are not activated, the pitch is higher than the quick stop angle, the speed is less than the quick stop ERPM, and the wheel is not spinning backwards. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_FAULT_IS_QUICKSTOP_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_quickstop_enabled>
+        <quickstop_angle>
+            <longName>Quick Stop Angle</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The pitch angle required to engage quick stop.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_QUICKSTOP_ANGLE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>90</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>14</valInt>
+            <suffix> °</suffix>
+            <vTx>1</vTx>
+        </quickstop_angle>
+        <quickstop_erpm>
+            <longName>Quick Stop ERPM</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The motor needs to be below this speed to engage quick stop, without spinning backwards.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_QUICKSTOP_ERPM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>50000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>500</stepInt>
+            <valInt>2000</valInt>
+            <suffix> ERPM</suffix>
+            <vTx>3</vTx>
+        </quickstop_erpm>
         <tiltback_duty_angle>
             <longName>Angle</longName>
             <type>2</type>
@@ -2173,7 +2399,7 @@ p, li { white-space: pre-wrap; }
             <vTx>1</vTx>
         </tiltback_duty_speed>
         <tiltback_duty>
-            <longName>Duty Cycle</longName>
+            <longName>Alert Duty Cycle</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -2197,16 +2423,16 @@ p, li { white-space: pre-wrap; }
             <vTx>1</vTx>
         </tiltback_duty>
         <is_dutybeep_enabled>
-            <longName>Beep on Duty Tiltback</longName>
+            <longName>Enable High Duty FOC Beep</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Beep during duty cycle tiltback. It is recommended to disable this beep when enabling the surge beep or else it will be impossible to recognize the surge beep.&lt;/p&gt;
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable FOC beep to play when within 10% of our tiltback duty cycle. 10 second delay between beeps. This delay is also reset by the high duty tone to prevent beeps when crossing back and forth across the threshold of the two.&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Warning: buzzer may not be easily audible at high speeds!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*Warning: FOC tones are applied outside the VESC package. As such, the tones can cause the current demand to exceed the configured maximum motor currents. To be safe increase the Absolute Maximum Motor Current to a value that will not be triggered while riding. If an absolute motor current fault is triggered immediate loss of stability will occur.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_DUTYBEEP_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_dutybeep_enabled>
@@ -2342,6 +2568,50 @@ p, li { white-space: pre-wrap; }
             <suffix> V</suffix>
             <vTx>7</vTx>
         </tiltback_lv>
+        <midvolt_warning>
+            <longName>Reduced Range Threshold</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The reduced range warning allows the user to set a voltage in between the high and low alerts. This beep will engage once and only re-engage if the board is restarted or written. There is no tiltback associated with this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_MIDVOLT_WARNING</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>150</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>74</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>7</vTx>
+        </midvolt_warning>
+        <lowvolt_warning>
+            <longName>Low Range Threshold</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The low range warning allows the user to set a voltage in between the high and low alerts. This beep will engage once and only re-engage if the board is restarted or written. There is no tiltback associated with this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_LOWVOLT_WARNING</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>150</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>66</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>7</vTx>
+        </lowvolt_warning>
         <tiltback_ht_angle>
             <longName>Angle</longName>
             <type>2</type>
@@ -2446,72 +2716,145 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </tiltback_constant_erpm>
-        <haptic_buzz_intensity>
-            <longName>Haptic Buzz Maximum Intensity</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Haptic buzz uses motor current oscillations to produce an audible or vibrating buzz. The intensity controls how much current to use for this effect.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_INTENSITY</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>16</valInt>
-            <suffix> A</suffix>
-            <vTx>1</vTx>
-        </haptic_buzz_intensity>
-        <haptic_buzz_min>
-            <longName>Haptic Buzz Minimum Intensity</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Haptic buzz uses motor current oscillations to produce an audible or vibrating buzz. The intensity controls how much current to use for this effect.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower speeds the full intensity will be perceived as too harsh, so it needs to be scaled down. Recommended value for Hypercore is 3A, for SuperFlux/CannonCore is 5A&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_HAPTIC_BUZZ_MIN</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>30</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>1</stepInt>
-            <valInt>12</valInt>
-            <suffix> A</suffix>
-            <vTx>1</vTx>
-        </haptic_buzz_min>
         <haptic_buzz_current>
-            <longName>Enable High Current Haptic Buzz</longName>
+            <longName>Enable High Current FOC Tones</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when exceeding the maximum current threshold configured in Tune Modifiers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Play FOC tone when exceeding the maximum current threshold configured in Tune Modifiers.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*Warning: FOC tones are applied outside the VESC package. As such, the tones can cause the current demand to exceed the configured maximum motor currents. To be safe increase the Absolute Maximum Motor Current to a value that will not be triggered while riding. If an absolute motor current fault is triggered immediate loss of stability will occur.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HAPTIC_BUZZ_CURRENT</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
         </haptic_buzz_current>
+        <tone_freq_high_current>
+            <longName>Tone Frequency</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The frequency of the alert tone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TONE_FREQ_HIGH_CURRENT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>180</valInt>
+            <suffix> Hz</suffix>
+            <vTx>3</vTx>
+        </tone_freq_high_current>
+        <tone_volt_high_current>
+            <longName>Tone Volume</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The voltage applied to the alert tone which can increase or decrease the volume&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TONE_VOLT_HIGH_CURRENT</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>10</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>7</vTx>
+        </tone_volt_high_current>
         <haptic_buzz_duty>
-            <longName>Enable High Duty Haptic Buzz</longName>
+            <longName>Enable High Duty FOC Tones</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The type of haptic buzz to use when exceeding the maximum current threshold configured in Tune Modifiers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Play FOC tone when exceeding the maximum duty threshold.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Be careful with the selection of frequency and voltage as some frequencies can feel less stable. Check selected frequency on each board configuration at increasing duty cycles for safety.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*Warning: FOC tones are applied outside the VESC package. As such, the tones can cause the current demand to exceed the configured maximum motor currents. To be safe increase the Absolute Maximum Motor Current to a value that will not be triggered while riding. If an absolute motor current fault is triggered immediate loss of stability will occur.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HAPTIC_BUZZ_DUTY</cDefine>
-            <valInt>1</valInt>
+            <valInt>0</valInt>
         </haptic_buzz_duty>
+        <tone_freq_high_duty>
+            <longName>Tone Frequency</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The frequency of the alert tone.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Be careful with the selection of frequency and voltage as some frequencies can destabilize the board. Check selected frequency on each board configuration at increasing duty cycles for safety.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TONE_FREQ_HIGH_DUTY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>350</valInt>
+            <suffix> Hz</suffix>
+            <vTx>3</vTx>
+        </tone_freq_high_duty>
+        <tone_volt_high_duty>
+            <longName>Tone Volume</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The voltage applied to the alert tone which can increase or decrease the volume&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Be careful with the selection of frequency and voltage as some frequencies can destabilize the board. Check selected frequency on each board configuration at increasing duty cycles for safety.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TONE_VOLT_HIGH_DUTY</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>10</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>2</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>7</vTx>
+        </tone_volt_high_duty>
+        <beep_voltage>
+            <longName>Beep Volume</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The voltage applied to the beep tones which can increase or decrease the volume&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_BEEP_VOLTAGE</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>7</vTx>
+        </beep_voltage>
         <noseangling_speed>
             <longName>Nose Angling Speed</longName>
             <type>2</type>
@@ -2816,6 +3159,28 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_DIRTYLANDINGS_ENABLED</cDefine>
             <valInt>0</valInt>
         </startup_dirtylandings_enabled>
+        <simple_start_delay>
+            <longName>Simple Start Delay</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After the board is disengaged, this delay with prevent simple start from re-engaging.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_SIMPLE_START_DELAY</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>30</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>3</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </simple_start_delay>
         <brake_current>
             <longName>Brake Current</longName>
             <type>2</type>
@@ -2837,14 +3202,14 @@ p, li { white-space: pre-wrap; }
             <vTx>1</vTx>
         </brake_current>
         <overcurrent_margin>
-            <longName>Haptic Buzz Current Margin</longName>
+            <longName>High Current Margin</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Haptic buzz will engage at the high current threshold minus haptic buzz current margin.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;FOC tone will engage at the high current threshold minus the High Current Margin. The high current threshold is set in Tune Modifiers. A higher current margin will engage the FOC tone more easily. A margin of zero will engage the tone at the high current threshold.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_OVERCURRENT_MARGIN</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -2857,14 +3222,14 @@ p, li { white-space: pre-wrap; }
             <vTx>1</vTx>
         </overcurrent_margin>
         <overcurrent_period>
-            <longName>High Current Haptic Buzz Time</longName>
+            <longName>Tone Duration</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The haptic buzz from high current can limited in duration by this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The FOC tone from high current can limited in duration by this value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_OVERCURRENT_PERIOD</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -2879,14 +3244,16 @@ p, li { white-space: pre-wrap; }
             <vTx>7</vTx>
         </overcurrent_period>
         <is_beeper_enabled>
-            <longName>Enable Beeper on Servo/PPM</longName>
+            <longName>Enable FOC Beeps</longName>
             <type>5</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable beeper. Beeper is controlled by Servo/PPM. Active beeper required, 3pin version recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This will enable FOC beeps to play during certain situations such as, low/high voltage, high fet/motor temperature, high duty, temperature recovery, long idle, reduced/low range, etc.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*Warning: FOC tones are applied outside the VESC package. As such, the tones can cause the current demand to exceed the configured maximum motor currents. To be safe increase the Absolute Maximum Motor Current to a value that will not be triggered while riding. If an absolute motor current fault is triggered immediate loss of stability will occur.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_BEEPER_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_beeper_enabled>
@@ -2938,6 +3305,18 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_IS_YAWDEBUG_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_yawdebug_enabled>
+        <is_brakingdebug_enabled>
+            <longName>Enable Traction Braking Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable traction braking debug information on the AppUI screen for more metrics on your traction braking. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_BRAKINGDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_brakingdebug_enabled>
         <disable_pkg>
             <longName>Disable Package</longName>
             <type>5</type>
@@ -2968,7 +3347,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.3</valDouble>
+            <valDouble>1.4</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -3053,9 +3432,21 @@ p, li { white-space: pre-wrap; }
         <ser>tiltback_surge_speed</ser>
         <ser>is_traction_enabled</ser>
         <ser>wheelslip_accelstart</ser>
+        <ser>wheelslip_accelslowed</ser>
         <ser>wheelslip_accelend</ser>
         <ser>wheelslip_scaleaccel</ser>
         <ser>wheelslip_scaleerpm</ser>
+        <ser>wheelslip_filter_freq</ser>
+        <ser>wheelslip_max_angle</ser>
+        <ser>wheelslip_accelhold</ser>
+        <ser>is_tc_braking_enabled</ser>
+        <ser>tc_braking_angle</ser>
+        <ser>tc_braking_start_delay</ser>
+        <ser>tc_braking_end_delay</ser>
+        <ser>tc_braking_feature_delay1</ser>
+        <ser>tc_braking_feature_delay2</ser>
+        <ser>tc_braking_feature_delay3</ser>
+        <ser>tc_braking_min_erpm</ser>
         <ser>enable_speed_stability</ser>
         <ser>enable_throttle_stability</ser>
         <ser>stabl_pitch_max_scale</ser>
@@ -3076,6 +3467,9 @@ p, li { white-space: pre-wrap; }
         <ser>fault_adc_half_erpm</ser>
         <ser>fault_is_dual_switch</ser>
         <ser>fault_moving_fault_disabled</ser>
+        <ser>is_quickstop_enabled</ser>
+        <ser>quickstop_angle</ser>
+        <ser>quickstop_erpm</ser>
         <ser>tiltback_duty_angle</ser>
         <ser>tiltback_duty_speed</ser>
         <ser>tiltback_duty</ser>
@@ -3086,15 +3480,20 @@ p, li { white-space: pre-wrap; }
         <ser>tiltback_lv_angle</ser>
         <ser>tiltback_lv_speed</ser>
         <ser>tiltback_lv</ser>
+        <ser>midvolt_warning</ser>
+        <ser>lowvolt_warning</ser>
         <ser>tiltback_ht_angle</ser>
         <ser>tiltback_ht_speed</ser>
         <ser>tiltback_return_speed</ser>
         <ser>tiltback_constant</ser>
         <ser>tiltback_constant_erpm</ser>
-        <ser>haptic_buzz_intensity</ser>
-        <ser>haptic_buzz_min</ser>
         <ser>haptic_buzz_current</ser>
+        <ser>tone_freq_high_current</ser>
+        <ser>tone_volt_high_current</ser>
         <ser>haptic_buzz_duty</ser>
+        <ser>tone_freq_high_duty</ser>
+        <ser>tone_volt_high_duty</ser>
+        <ser>beep_voltage</ser>
         <ser>noseangling_speed</ser>
         <ser>inputtilt_remote_type</ser>
         <ser>inputtilt_angle_limit</ser>
@@ -3111,6 +3510,7 @@ p, li { white-space: pre-wrap; }
         <ser>startup_simplestart_enabled</ser>
         <ser>startup_pushstart_enabled</ser>
         <ser>startup_dirtylandings_enabled</ser>
+        <ser>simple_start_delay</ser>
         <ser>brake_current</ser>
         <ser>overcurrent_margin</ser>
         <ser>overcurrent_period</ser>
@@ -3119,6 +3519,7 @@ p, li { white-space: pre-wrap; }
         <ser>is_tcdebug_enabled</ser>
         <ser>is_tunedebug_enabled</ser>
         <ser>is_yawdebug_enabled</ser>
+        <ser>is_brakingdebug_enabled</ser>
         <ser>disable_pkg</ser>
         <ser>version</ser>
     </SerOrder>
@@ -3239,19 +3640,34 @@ p, li { white-space: pre-wrap; }
                     <param>surge_start_hd_current</param>
                     <param>surge_scaleduty</param>
                     <param>surge_minerpm</param>
-                    <param>overcurrent_margin</param>
                     <param>::sep::Surge</param>
                     <param>is_surge_enabled</param>
                     <param>surge_duty</param>
                     <param>surge_maxangle</param>
                     <param>tiltback_surge_speed</param>
                     <param>surge_pitchmargin</param>
-                    <param>::sep::Traction Control</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Traction Control</subgroupName>
+                <subgroupParams>
+                    <param>::sep:: Start Condtions</param>
                     <param>is_traction_enabled</param>
                     <param>wheelslip_accelstart</param>
-                    <param>wheelslip_accelend</param>
+                    <param>wheelslip_filter_freq</param>
                     <param>wheelslip_scaleaccel</param>
                     <param>wheelslip_scaleerpm</param>
+                    <param>::sep:: End Conditions</param>
+                    <param>wheelslip_accelslowed</param>
+                    <param>wheelslip_accelend</param>
+                    <param>wheelslip_accelhold</param>
+                    <param>wheelslip_max_angle</param>
+                    <param>::sep:: Traction Braking (beta)</param>
+                    <param>is_tc_braking_enabled</param>
+                    <param>tc_braking_angle</param>
+                    <param>tc_braking_start_delay</param>
+                    <param>tc_braking_end_delay</param>
+                    <param>tc_braking_min_erpm</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3276,30 +3692,42 @@ p, li { white-space: pre-wrap; }
                 </subgroupParams>
             </subgroup>
             <subgroup>
-                <subgroupName>Safety Tiltback/Alerts</subgroupName>
+                <subgroupName>Safety Alerts</subgroupName>
                 <subgroupParams>
-                    <param>::sep::General Config</param>
-                    <param>tiltback_return_speed</param>
-                    <param>haptic_buzz_intensity</param>
-                    <param>haptic_buzz_min</param>
-                    <param>::sep::Current</param>
+                    <param>::sep:: Beeper Warnings</param>
+                    <param>is_beeper_enabled</param>
+                    <param>beep_voltage</param>
+                    <param>is_dutybeep_enabled</param>
+                    <param>is_footbeep_enabled</param>
+                    <param>::sep::Current Alerts</param>
+                    <param>overcurrent_margin</param>
                     <param>haptic_buzz_current</param>
+                    <param>tone_freq_high_current</param>
+                    <param>tone_volt_high_current</param>
                     <param>overcurrent_period</param>
                     <param>::sep::Duty Cycle Alerts</param>
-                    <param>haptic_buzz_duty</param>
                     <param>tiltback_duty</param>
+                    <param>haptic_buzz_duty</param>
+                    <param>tone_freq_high_duty</param>
+                    <param>tone_volt_high_duty</param>
                     <param>tiltback_duty_angle</param>
                     <param>tiltback_duty_speed</param>
-                    <param>is_dutybeep_enabled</param>
-                    <param>::sep::High Voltage Tiltback</param>
+                    <param>::sep::High Voltage Alerts</param>
+                    <param>tiltback_hv</param>
                     <param>tiltback_hv_angle</param>
                     <param>tiltback_hv_speed</param>
-                    <param>::sep::Low Voltage Tiltback</param>
+                    <param>::sep::Low Voltage Alerts</param>
+                    <param>tiltback_lv</param>
                     <param>tiltback_lv_angle</param>
                     <param>tiltback_lv_speed</param>
-                    <param>::sep::High Temperature Tiltback</param>
+                    <param>::sep::High Temperature Alerts</param>
                     <param>tiltback_ht_angle</param>
                     <param>tiltback_ht_speed</param>
+                    <param>::sep:: Ancillary Voltage Warnings</param>
+                    <param>midvolt_warning</param>
+                    <param>lowvolt_warning</param>
+                    <param>::sep::General Config</param>
+                    <param>tiltback_return_speed</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3309,8 +3737,12 @@ p, li { white-space: pre-wrap; }
                     <param>startup_pitch_tolerance</param>
                     <param>::sep::Centering</param>
                     <param>startup_speed</param>
+                    <param>::sep::Foot Sensors</param>
+                    <param>fault_adc1</param>
+                    <param>fault_adc2</param>
                     <param>::sep::Start Options</param>
                     <param>startup_simplestart_enabled</param>
+                    <param>simple_start_delay</param>
                     <param>startup_pushstart_enabled</param>
                     <param>startup_dirtylandings_enabled</param>
                     <param>::sep::Holding</param>
@@ -3330,6 +3762,10 @@ p, li { white-space: pre-wrap; }
                     <param>fault_adc_half_erpm</param>
                     <param>fault_is_dual_switch</param>
                     <param>fault_moving_fault_disabled</param>
+                    <param>::sep::Quick Stop</param>
+                    <param>is_quickstop_enabled</param>
+                    <param>quickstop_angle</param>
+                    <param>quickstop_erpm</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3340,19 +3776,12 @@ p, li { white-space: pre-wrap; }
                     <param>disable_pkg</param>
                     <param>::sep::Balance Loop</param>
                     <param>hertz</param>
-                    <param>::sep::Voltage</param>
-                    <param>tiltback_hv</param>
-                    <param>tiltback_lv</param>
-                    <param>::sep::Foot Sensors</param>
-                    <param>fault_adc1</param>
-                    <param>fault_adc2</param>
-                    <param>is_footbeep_enabled</param>
-                    <param>::sep::Miscellaneous</param>
-                    <param>is_beeper_enabled</param>
+                    <param>::sep::AppUI Debug Information</param>
                     <param>is_tunedebug_enabled</param>
                     <param>is_surgedebug_enabled</param>
                     <param>is_tcdebug_enabled</param>
                     <param>is_yawdebug_enabled</param>
+                    <param>is_brakingdebug_enabled</param>
                 </subgroupParams>
             </subgroup>
         </group>

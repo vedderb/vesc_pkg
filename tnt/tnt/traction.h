@@ -19,25 +19,27 @@
 #include "conf/datatypes.h"
 #include "motor_data_tnt.h"
 #include "state_tnt.h"
-#include "runtime.h"
+#include "pid.h"
 
 typedef struct {
 	float timeron;       	 	//Timer from the start of wheelslip
 	float timeroff;      		//Timer from the end of high motor acceleration
 	float accelstartval;		//Starting value to engage wheelslip
-	bool highaccelon;		//Flag that indicates acceleration direction has changed
-	float lasterpm;			//ERPM before wheelslip
-	float erpm;			//ERPM once wheelslip engaged
+	bool highaccelon1;		//Flag that indicates acceleration direction has changed
+	bool highaccelon2;		//Flag that indicates acceleration direction has changed
 	bool reverse_wheelslip; 	//Wheelslip in the braking position
 	float start_accel;		//acceleration that triggers wheelslip
 	float slowed_accel;		//Trigger that shows traction control is working
+	float end_accel;
+	float hold_accel;
+	bool end_accel_hold;
 } TractionData;
 
 typedef struct {
 	float debug1;
 	float debug2;
 	float debug3;
-	float debug4;
+	int debug4;
 	float debug5;
 	float debug6;
 	float debug7;
@@ -47,8 +49,32 @@ typedef struct {
 	float freq_factor;
 } TractionDebug;
 
-void check_traction(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, TractionDebug *traction_dbg);
-void reset_traction(TractionData *traction, State *state);
-void deactivate_traction(TractionData *traction, State *state, RuntimeData *rt, TractionDebug *traction_dbg);
-void configure_traction(TractionData *traction, tnt_config *config, TractionDebug *traction_dbg);
-void check_traction_braking(MotorData *m, TractionData *traction, State *state, RuntimeData *rt, tnt_config *config, float inputtilt_interpolated, TractionDebug *traction_dbg);
+typedef struct {
+	float timeron;       	 	
+	float timeroff;      		
+	bool active;
+	bool last_active;
+	float delay_timer;
+	int count;
+	int start_delay;
+} BrakingData;
+
+typedef struct {
+	float debug1;
+	float debug2;
+	float debug3;
+	int debug4;
+	float debug5;
+	float debug6;
+	float debug7;
+	float debug8;
+	float debug9;
+	float aggregate_timer;
+	float freq_factor;
+} BrakingDebug;
+
+void check_traction(MotorData *m, TractionData *traction, State *state, tnt_config *config, PidData *p, TractionDebug *traction_dbg);
+void reset_traction(TractionData *traction, State *state, BrakingData *braking);
+void deactivate_traction(TractionData *traction, State *state, TractionDebug *traction_dbg, float exit);
+void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg);
+void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config, float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg);

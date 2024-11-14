@@ -19,7 +19,7 @@
 #include "utils_tnt.h"
 #include <math.h>
 
-void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float *input_tiltback_target){ 
+void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_filtered, float *input_tiltback_target){ 
 	// Monitor the throttle to start sticky tilt
 	if ((fabsf(r->throttle_val) - fabsf(s->last_throttle_val) > .001) || // If the throttle is travelling away from center
 	   (fabsf(r->throttle_val) > 0.95)) {					// Or close to max
@@ -32,7 +32,7 @@ void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float
 		if ((!s->deactivate) && 				// Don't apply sticky tilt if we just left sticky tilt
 		   (fabsf(s->max_value) < .95)) { 			//Check that we have not pushed beyond this limit
 			if (s->active) {				//if sticky tilt is activated, switch values
-				if (((fabsf(current_avg) < s->hold_current) &&
+				if (((fabsf(current_filtered) < s->hold_current) &&
 				   (fabsf(s->value) == s->high_value)) ||			//If we are val2 we must be below max current to change
 				   (fabsf(s->value) == s->low_value)) {				//If we are at val1 the current restriction is not required to change
 					s->value = sign(s->max_value) * ((fabsf(s->value) == s->low_value) ? s->high_value : s->low_value); //switch sticky tilt values from 1 to 2

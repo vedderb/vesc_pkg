@@ -110,9 +110,18 @@ typedef struct {
 	uint16_t tiltback_surge_speed;
 	bool is_traction_enabled;
 	uint16_t wheelslip_accelstart;
-	int16_t wheelslip_accelend;
+	uint16_t wheelslip_accelslowed;
+	uint8_t wheelslip_accelend;
 	uint16_t wheelslip_scaleaccel;
 	uint16_t wheelslip_scaleerpm;
+	uint8_t wheelslip_filter_freq;
+	uint8_t wheelslip_max_angle;
+	uint8_t wheelslip_accelhold;
+	bool is_tc_braking_enabled;
+	int8_t tc_braking_angle;
+	uint16_t tc_braking_start_delay;
+	uint16_t tc_braking_end_delay;
+	uint16_t tc_braking_min_erpm;	
 	bool enable_speed_stability;
 	bool enable_throttle_stability;
 	uint16_t stabl_pitch_max_scale;
@@ -132,6 +141,9 @@ typedef struct {
 	uint16_t fault_adc_half_erpm;
 	bool fault_is_dual_switch;
 	bool fault_moving_fault_disabled;
+	bool is_quickstop_enabled;
+	uint16_t quickstop_erpm;
+	uint8_t quickstop_angle;
 	uint16_t tiltback_duty_angle;
 	uint16_t tiltback_duty_speed;
 	uint16_t tiltback_duty;
@@ -141,15 +153,20 @@ typedef struct {
 	uint16_t tiltback_lv_angle;
 	uint16_t tiltback_lv_speed;
 	float tiltback_lv;
+	float midvolt_warning;
+	float lowvolt_warning;
 	uint16_t tiltback_ht_angle;
 	uint16_t tiltback_ht_speed;
 	uint16_t tiltback_return_speed;
 	float tiltback_constant;
 	uint16_t tiltback_constant_erpm;
-	uint16_t haptic_buzz_intensity;
-	uint16_t haptic_buzz_min;
 	bool haptic_buzz_current;
+	uint16_t tone_freq_high_current;
+	float tone_volt_high_current;
 	bool haptic_buzz_duty;
+	uint16_t tone_freq_high_duty;
+	float tone_volt_high_duty;
+	float beep_voltage;
 	INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
 	uint16_t inputtilt_speed;
 	float inputtilt_angle_limit;
@@ -166,6 +183,7 @@ typedef struct {
 	bool startup_simplestart_enabled;
 	bool startup_pushstart_enabled;
 	bool startup_dirtylandings_enabled;
+	float simple_start_delay;
 	uint16_t brake_current;
 	uint16_t overcurrent_margin;
 	float overcurrent_period;
@@ -176,6 +194,7 @@ typedef struct {
 	bool is_surgedebug_enabled;
 	bool is_tcdebug_enabled;
 	bool is_yawdebug_enabled;
+	bool is_brakingdebug_enabled;
 } tnt_config;
 
 // DATATYPES_H_

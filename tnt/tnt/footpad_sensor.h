@@ -18,6 +18,7 @@
 #pragma once
 
 #include "conf/datatypes.h"
+#include "runtime.h"
 
 typedef enum {
     FS_NONE = 0,
@@ -34,3 +35,5 @@ typedef struct {
 void footpad_sensor_update(FootpadSensor *fs, const tnt_config *config);
 
 int footpad_sensor_state_to_switch_compat(FootpadSensorState v);
+
+bool is_engaged(FootpadSensor *fs, RuntimeData *rt, tnt_config *config);

@@ -21,7 +21,7 @@
 
 typedef struct {
 	float P00, P01, P10, P11, bias;
-  float Q_angle, Q_bias, R_measure;
+	float Q_angle, Q_bias, R_measure;
 } KalmanFilter;
 
 void apply_kalman(float in, float in_rate, float *out, float dt, KalmanFilter *k);

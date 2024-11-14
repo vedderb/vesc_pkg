@@ -40,7 +40,7 @@ typedef struct {
 
 void update_remote(tnt_config *config, RemoteData *r);
 void apply_inputtilt(RemoteData *r, float input_tiltback_target);
-void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_avg, float *input_tiltback_target);
+void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_filtered, float *input_tiltback_target);
 void configure_remote_features(tnt_config *config, RemoteData *r, StickyTiltData *s);
 void reset_remote(RemoteData *r, StickyTiltData *s);
 
