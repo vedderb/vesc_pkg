@@ -24,7 +24,10 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-	
+
+	if (traction->reverse_wheelslip)
+		traction->reverse_timer = current_time;
+		
 	// Conditions to end traction control
 	if (state->wheelslip) {
 		if (current_time - traction->timeron > 1) {		// Time out at 1s
@@ -64,7 +67,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
-			if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 							//Check sign of the motor at the start of acceleration
+			if (current_time - traction->reverse_timer > .01 &&
+			    m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
 				if (fabsf(m->erpm_filtered) > fabsf(m->erpm_history[m->last_erpm_idx])) { 				//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
@@ -131,6 +135,7 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
 	braking->start_delay = config->tc_braking_start_delay / 1000.0  * config->hertz;
+	traction->reverse_timer = 0;
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
