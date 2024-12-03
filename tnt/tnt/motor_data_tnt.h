@@ -16,50 +16,57 @@
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
-
+#include "conf/datatypes.h"
 #include "biquad.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ACCEL_ARRAY_SIZE 10 // For Traction Control acceleration average
-#define ERPM_ARRAY_SIZE 25 // For traction control erpm tracking
-#define CURRENT_ARRAY_SIZE 20 // For surge current tracking
+#define ACCEL_ARRAY_SIZE 5 // For traction control erpm tracking
+#define ERPM_ARRAY_SIZE 5 // For traction control erpm tracking
 
 typedef struct {
     float erpm;
     float abs_erpm;
-    float last_erpm;
     int8_t erpm_sign;
+
+    float erpm_sign_factor;
     float erpm_sign_soft;
     bool erpm_sign_check;
 
+    Biquad erpm_biquad;
+    float erpm_filtered;
+    float last_erpm_filtered;
+
     float current;
     bool braking;
+    Biquad current_biquad;
+    float current_filtered;
 
-    float duty_cycle;
-
-    // an average calculated over last ACCEL_ARRAY_SIZE values
-    float acceleration;
+    float accel_avg;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
     uint8_t last_accel_idx;
-	
+    float accel_filtered;
+    float last_accel_filtered;
+
     float erpm_history[ERPM_ARRAY_SIZE];
     int erpm_idx;
     int last_erpm_idx;
 
-    float current_avg;
-    float current_history[CURRENT_ARRAY_SIZE];
-    int8_t current_idx;
+    float mc_max_temp_fet;
+    float mc_max_temp_mot;
+    float mc_current_max;
+    float mc_current_min;
 
-    bool atr_filter_enabled;
-    Biquad atr_current_biquad;
-    float atr_filtered_current;
+    float duty_cycle;
+    float duty_cycle_filtered;
+    float duty_filter_factor;
+
+    float voltage_filtered;
+    float voltage_filter_factor;
 } MotorData;
 
 void motor_data_reset(MotorData *m);
-
-void motor_data_configure(MotorData *m, float frequency);
-
-void motor_data_update(MotorData *m);
+void motor_data_configure(MotorData *m, tnt_config *config);
+void update_erpm_sign(MotorData *m);
+void motor_data_update(MotorData *m, tnt_config *config);

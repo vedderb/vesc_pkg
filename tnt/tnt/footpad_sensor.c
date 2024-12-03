@@ -66,3 +66,20 @@ int footpad_sensor_state_to_switch_compat(FootpadSensorState v) {
         return 0;
     }
 }
+
+bool is_engaged(FootpadSensor *fs, RuntimeData *rt, tnt_config *config) {
+    if (fs->state == FS_BOTH) {
+        return true;
+    }
+
+    if (fs->state == FS_LEFT || fs->state == FS_RIGHT) {
+        // 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
+        bool is_simple_start =
+            config->startup_simplestart_enabled && (rt->current_time - rt->disengage_timer > config->simple_start_delay);
+
+        if (config->fault_is_dual_switch || is_simple_start) {
+            return true;
+        }
+    }
+    return false;
+}

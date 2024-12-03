@@ -25,70 +25,74 @@
 
 void motor_data_reset(MotorData *m) {
     m->erpm_sign_soft = 0;
-    m->acceleration = 0;
-    m->accel_idx = 0;
-    for (int i = 0; i < ACCEL_ARRAY_SIZE; i++) {
-        m->accel_history[i] = 0;
-    }
-
+    m->accel_filtered = 0;
+    m->last_accel_filtered = 0;
+    m->erpm_filtered = 0;
+    m->last_erpm_filtered = 0;
+    m->accel_avg = 0;
+    m->current_filtered = 0;	
+	    
     m->erpm_idx = 0;
     for (int i = 0; i < ERPM_ARRAY_SIZE; i++) {
         m->erpm_history[i] = 0;
     }
-    
-    m->current_avg = 0;
-    m->current_idx = 0;
-    for (int i = 0; i < CURRENT_ARRAY_SIZE; i++) {
-        m->current_history[i] = 0;
+    m->accel_idx = 0;
+    for (int i = 0; i < ACCEL_ARRAY_SIZE; i++) {
+        m->accel_history[i] = 0;
     }
+    biquad_reset(&m->current_biquad);
+    biquad_reset(&m->erpm_biquad);
 
-    biquad_reset(&m->atr_current_biquad);
+    m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered();
 }
 
-void motor_data_configure(MotorData *m, float frequency) {
-    if (frequency > 0) {
-        biquad_configure(&m->atr_current_biquad, BQ_LOWPASS, frequency);
-        m->atr_filter_enabled = true;
-    } else {
-        m->atr_filter_enabled = false;
-    }
+void motor_data_configure(MotorData *m, tnt_config *config) {
+    biquad_configure(&m->current_biquad, BQ_LOWPASS, 3.0 / config->hertz);
+    biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
+   
+    m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
+
+    m->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
+    m->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
+    m->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max); 
+    m->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));    // min current is a positive value here!
+    m->voltage_filter_factor = 0.001 * 832 / config->hertz;
+    m->duty_filter_factor = 0.01 * 832 / config->hertz;
 }
 
-void motor_data_update(MotorData *m) {
+void update_erpm_sign(MotorData *m) {
+	// Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
+	m->erpm_sign_soft = max(-1, min( 1, m->erpm_sign_soft + m->erpm_sign_factor * m->erpm_sign));
+	m->erpm_sign_check = m->erpm_sign == sign(m->erpm_sign_soft);
+}
+
+void motor_data_update(MotorData *m, tnt_config *config) {
     m->erpm = VESC_IF->mc_get_rpm();
     m->abs_erpm = fabsf(m->erpm);
     m->erpm_sign = sign(m->erpm);
-    m->erpm_sign_soft = 0.999 * m->erpm_sign_soft + (1-0.999) * m->erpm_sign;  // Monitors erpm direction with a delay to prevent nuisance trips to surge and traction control
-    m->erpm_sign_check = m->erpm_sign == sign(m->erpm_sign_soft);
+    update_erpm_sign(m);
+	
+    m->erpm_filtered = config->wheelslip_filter_freq > 0 ? biquad_process(&m->erpm_biquad, m->erpm) : m->erpm;
+    m->erpm_history[m->erpm_idx] = m->erpm_filtered;
+    m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE; 
+    m->last_erpm_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; 
+    if (m->last_erpm_idx < 0) 
+       m->last_erpm_idx += ERPM_ARRAY_SIZE;
+
+    m->last_accel_filtered = m->accel_filtered;
+    m->accel_filtered =  m->erpm_filtered - m->last_erpm_filtered;
+    m->last_erpm_filtered = m->erpm_filtered;
+
+    m->accel_avg += (m->accel_filtered - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
+    m->accel_history[m->accel_idx] = m->accel_filtered;
+    m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
 
     m->current = VESC_IF->mc_get_tot_current_directional_filtered();
+    m->current_filtered = biquad_process(&m->current_biquad, m->current);
     m->braking = m->abs_erpm > 250 && sign(m->current) != m->erpm_sign;
 
     m->duty_cycle = fabsf(VESC_IF->mc_get_duty_cycle_now());
-    
-    if (m->atr_filter_enabled) {
-        m->atr_filtered_current = biquad_process(&m->atr_current_biquad, m->current);
-    } else {
-        m->atr_filtered_current = m->current;
-    }
+    m->duty_cycle_filtered = m->duty_cycle * m->duty_filter_factor + m->duty_cycle_filtered * (1 - m->duty_filter_factor);
 
-    //Averaging/tracking for acceleration, erpm, and current
-    float current_acceleration = m->erpm - m->last_erpm;
-    m->acceleration += (current_acceleration - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
-    m->accel_history[m->accel_idx] = current_acceleration;
-    m->last_accel_idx = m->accel_idx;
-    m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
-
-    m->erpm_history[m->erpm_idx] = m->erpm;
-    m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE;
-    m->last_erpm_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; // Identify ERPM at the start of the acceleration array
-	if (m->last_erpm_idx < 0) {
-		m->last_erpm_idx += ERPM_ARRAY_SIZE;
-	}
-    
-    m->current_avg += (m->atr_filtered_current - m->current_history[m->current_idx]) / CURRENT_ARRAY_SIZE;
-    m->current_history[m->current_idx] = m->atr_filtered_current;
-    m->current_idx = (m->current_idx + 1) % CURRENT_ARRAY_SIZE;
-    
-    m->last_erpm = m->erpm;
+    m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered() * m->voltage_filter_factor + m->voltage_filtered * (1 - m->voltage_filter_factor);
 }

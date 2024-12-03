@@ -98,11 +98,9 @@ Item {
             }
             if (msgtype == 1) {
 		var state = dv.getInt8(ind); ind += 1;
-                var state_sat = dv.getInt8(ind); ind += 1; // state >> 4;
-                //state = state &0xF;
+                var state_sat = dv.getInt8(ind); ind += 1; 
                 var switch_state = dv.getInt8(ind); ind += 1;
-              	var new_beep_reason = switch_state >> 4;
-		switch_state = switch_state & 0x3;
+              	var new_beep_reason = dv.getInt8(ind); ind += 1;
   		var state_stop = dv.getInt8(ind); ind += 1;
                 var adc1 = dv.getFloat32(ind); ind += 4;
                 var adc2 = dv.getFloat32(ind); ind += 4;
@@ -116,6 +114,7 @@ Item {
                 var throttle_val = dv.getFloat32(ind); ind += 4;
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var surge_lasttime = dv.getFloat32(ind); ind += 4; 
+                var brake_lasttime = dv.getFloat32(ind); ind += 4; 
 	
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
@@ -149,12 +148,20 @@ Item {
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
                 } else if (debug_state == 4) {
-                    var debug6 = dv.getFloat32(ind); ind += 4; //yaw angle
-                    var debug1 = dv.getFloat32(ind); ind += 4; //yaw change
-		    var debug2 = dv.getFloat32(ind); ind += 4; //yaw kp raw
-      		    var debug3 = dv.getFloat32(ind); ind += 4; //yaw kp scaled
-                    var debug4 = dv.getFloat32(ind); ind += 4; //erpm scaler 
-                    var debug5 = dv.getFloat32(ind); ind += 4; //max kp
+                    var debug1 = dv.getFloat32(ind); ind += 4; //yaw angle
+                    var debug2 = dv.getFloat32(ind); ind += 4; //erpm scaler
+		    var debug3 = dv.getFloat32(ind); ind += 4; //yaw change
+      		    var debug4 = dv.getFloat32(ind); ind += 4; //max yaw change
+                    var debug5 = dv.getFloat32(ind); ind += 4; // yaw kp 
+                    var debug6 = dv.getFloat32(ind); ind += 4; //max kp
+                } else if (debug_state == 5) {
+                    var debug1 = dv.getFloat32(ind); ind += 4; // duty
+                    var debug2 = dv.getFloat32(ind); ind += 4; // accel
+                    var debug3 = dv.getFloat32(ind); ind += 4; // min erpm 
+                    var debug4 = dv.getFloat32(ind); ind += 4; // max erpm 
+                    var debug5 = dv.getFloat32(ind); ind += 4; // debug 
+                    var debug6 = dv.getFloat32(ind); ind += 4; // duration 
+                    var debug7 = dv.getFloat32(ind); ind += 4; // count 
 		} else {
 		    //space for temporary debugs
                 }
@@ -198,20 +205,24 @@ Item {
 		}else if(state == 4){		
                     stateString = "WHEELSLIP";
 		}
-
-                var beepString
+		
+  		if(new_beep_reason > 0) {
+		    beep_reason = new_beep_reason;
+		}
+                
+		var beepString
                 if(beep_reason == 1){
-                    beepString = "Low Voltage"
+                    beepString = "Low Voltage Alert"
                 }else if(beep_reason == 2){
-                    beepString = "High Voltage"
+                    beepString = "High Voltage Alert"
                 }else if(beep_reason == 3){
-                    beepString = "Controller Temp"
+                    beepString = "High FET Temp"
                 }else if(beep_reason == 4){
-                    beepString = "Motor Temp"
+                    beepString = "High Motor Temp"
                 }else if(beep_reason == 5){
-                    beepString = "Overcurrent"
+                    beepString = "High Current Beep"
                 }else if(beep_reason == 6){
-                    beepString = "Duty Cycle"
+                    beepString = "Duty Cycle Beep"
                 }else if(beep_reason == 7){
                     beepString = "Foot Sensors"
                 }else if(beep_reason == 8){
@@ -220,8 +231,22 @@ Item {
                     beepString = "Board Idle"
                 }else if(beep_reason == 10){
                     beepString = "Other"
-                }
-        
+                }else if(beep_reason == 11){
+                    beepString = "High Current Tone"
+                }else if(beep_reason == 12){
+                    beepString = "Duty Cycle Tone"
+                }else if(beep_reason == 13){
+                    beepString = "Mid Range Warning"
+		}else if(beep_reason == 14){
+                    beepString = "Low Range Warning"
+                }else if(beep_reason == 15){
+                    beepString = "FET Temp Recovery"
+		}else if(beep_reason == 16){
+                    beepString = "Motor Temp Recovery"
+		}else if(beep_reason == 17){
+                    beepString = "Charge Complete"
+		}
+  
                 var switchString
                 if(switch_state == 0){
                     switchString = "Off"
@@ -232,10 +257,6 @@ Item {
 		}else{
                     switchString = "On"
                 }
-
-        		if(new_beep_reason > 0) {
-        		    beep_reason = new_beep_reason;
-        		}
 
   		var wheelsliptime1 = ("0" + Math.trunc(lastwheelslip/3600)).slice(-2);
     		var wheelsliptime2 = ("0" + Math.trunc(lastwheelslip/60 - wheelsliptime1*60)).slice(-2);
@@ -249,6 +270,9 @@ Item {
         	var resttime1 = ("0" + Math.trunc(resttime/3600)).slice(-2);
     		var resttime2 = ("0" + Math.trunc(resttime/60 - resttime1*60)).slice(-2);
     		var resttime3 = ("0" + Math.trunc(resttime - resttime1*3600 - resttime2*60)).slice(-2);
+              	var braketime1 = ("0" + Math.trunc(brake_lasttime/3600)).slice(-2);
+    		var braketime2 = ("0" + Math.trunc(brake_lasttime/60 - braketime1*60)).slice(-2);
+    		var braketime3 = ("0" + Math.trunc(brake_lasttime - braketime1*3600 - braketime2*60)).slice(-2);
       
                 if(state == 0){
                     stateString = "DISABLED"
@@ -264,8 +288,8 @@ Item {
 	                    "Switch              : " + switchString + "\n" +
 	                    "ADC1 / ADC2         : " + adc1.toFixed(2) + "V / " + adc2.toFixed(2) + "V\n" +
 	                    "Last Beep Reason    : " + beepString + "\n" +
-	                    "Voltage             : " + voltage.toFixed(1) + "V\n" +
-	                    "Current             : " + current.toFixed(0) + " A\n" +
+	                    "Voltage             : " + voltage.toFixed(2) + "V\n" +
+	                    "Current             : " + current.toFixed(1) + " A\n" +
 			    "Pitch               : " + pitch.toFixed(2) + "°\n" +
 	   		    "Roll                : " + roll.toFixed(2) + "°\n" 
 	                
@@ -274,7 +298,8 @@ Item {
 	                    "Setpoint            : " + float_setpoint.toFixed(2) + "°\n" +
 	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
 	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
-	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n"  
+	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n" +
+	                    "Last Traction Brake : " + braketime1 + ":" + braketime2 + ":" + braketime3 + "\n"       
 		     
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
@@ -287,12 +312,13 @@ Item {
 			if (debug_state == 1) {
 				debug.text =
 				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-				"Start Accleration   : " + debug2.toFixed(1) + " ERPM/ms\n" +
+				"Start Acceleration  : " + debug2.toFixed(1) + " ERPM/ms\n" +
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"Last ERPM           : " + debug3.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
 				"Last Duration       : " + debug6.toFixed(3) + " s\n" +
-				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" 
+				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" +
+    				"End Conditions \n 1 - Accel Direction Change \n 2 - Accel Magnitude Change \n 3 - Reverse Direction \n 4 - Pitch Angle Limit \n 5 - 1 Second Timeout \n 6 - Traction Braking \n"
 	                } else if (debug_state == 2) {
 				debug.text =
 				"Start Current       : " + debug7.toFixed(0) + " A\n" +
@@ -301,7 +327,8 @@ Item {
 				"Duty Ramp Rate      : " + debug2.toFixed(0) + " %/s\n" +
 				"Added Duty          : " + (debug3 * 100).toFixed(1) + " %\n" +
 				"End Proportional    : " + debug5.toFixed(1) + " °\n" +
-				"Last Surge Duration : " + debug6.toFixed(3) + " s\n" 
+				"Last Surge Duration : " + debug6.toFixed(3) + " s\n" +
+            			"End Conditions \n #.# - End Pitch Angle \n 111 - 500ms Timeout \n 222 - Wheelslip Detected \n"
 			} else if (debug_state == 3) {
 				debug.text =
 				"Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
@@ -312,13 +339,23 @@ Item {
 				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
 			} else if (debug_state == 4) {
 				debug.text =
-				"Yaw Angle           : " + debug6.toFixed(1) + " ° \n" +
-				"Yaw Change          : " + debug1.toFixed(0) + " °/s \n" +         
-				"Yaw Kp (raw)        : " + debug2.toFixed(2) + " \n" +
-    				"Yaw Kp (scaled)     : " + debug3.toFixed(2) + " \n" +
-				"ERPM Scaler         : " + debug4.toFixed(1) + " \n" +
-    				"Max Yaw Kp          : " + debug5.toFixed(2) + " \n" 
-      			} else { 
+				"Yaw Angle           : " + debug1.toFixed(1) + " ° \n" +
+ 				"ERPM Scaler         : " + debug2.toFixed(1) + " \n" +
+				"Yaw Change          : " + debug3.toFixed(0) + " °/s \n" +         
+     				"Max Yaw Change      : " + debug4.toFixed(0) + " °/s \n" +
+     				"Yaw Kp              : " + debug5.toFixed(2) + " \n" +
+    				"Max Yaw Kp          : " + debug6.toFixed(2) + " \n" 
+    			} else if (debug_state == 5) {
+				debug.text =
+				"Duty Filtered       : " + debug1.toFixed(2) + "\n" +  
+				"Max Acceleration    : " + debug2.toFixed(1) + " ERPM/ms\n" +
+				"Min ERPM            : " + debug3.toFixed(0) + " ERPM\n" +
+				"Max ERPM            : " + debug4.toFixed(0) + " ERPM\n" +
+				"End Condition       : " + debug5.toFixed(0) + "\n" +
+				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
+				"Brake Count         : " + debug7.toFixed(0) + "\n" +
+        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Not in Braking Position \n 3 - Minimum Duty \n 4 - Minimum Brake Current \n 5 - Minimum ERPM \n"
+    			} else { 
 				debug.text = 
 				"-- n/a --"       
 	  		}

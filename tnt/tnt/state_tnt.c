@@ -30,6 +30,9 @@ void state_stop(State *state, StopCondition stop_condition) {
     state->state = STATE_READY;
     state->stop_condition = stop_condition;
     state->wheelslip = false;
+    state->surge_active = false;
+    state->surge_deactivate = false;
+    state->braking_active = false;
 }
 
 void state_engage(State *state) {
