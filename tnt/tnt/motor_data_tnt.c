@@ -95,4 +95,5 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->duty_cycle_filtered = m->duty_cycle * m->duty_filter_factor + m->duty_cycle_filtered * (1 - m->duty_filter_factor);
 
     m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered() * m->voltage_filter_factor + m->voltage_filtered * (1 - m->voltage_filter_factor);
+    m->vq = VESC_IF->foc_get_vq();
 }
