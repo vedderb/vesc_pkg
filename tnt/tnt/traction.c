@@ -142,12 +142,13 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
     float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg){
 	float current_time = VESC_IF->system_time();
 	bool check_last = braking->last_active ||  current_time - braking->delay_timer > config->tc_braking_end_delay / 1000.0; //we were just traction braking or we are beyond the brake delay
-	
+	braking_dbg->debug2 = m->vq;
+
 	//Check that conditions for traciton braking are satisfied and add to counter
 	if (-inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	//Minimum nose down angle from remote, can be 0
 	    state->braking_pos_smooth &&						// braking position active
 	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// deadzone to prevent zero current demand
-	    m->duty_cycle > 0 &&							// avoid transtion to active balancing
+	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				//Minimum speed threshold
 		braking->count++;
@@ -172,7 +173,6 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 		braking_dbg->aggregate_timer = current_time;
 		if (!braking->last_active) // Just entered traction braking, reset
 			braking->timeron = current_time;
-		braking_dbg->debug2 = braking_dbg->debug2 * .999 + .001 * m->duty_cycle;
 		braking_dbg->debug6 = max(braking_dbg->debug6, fabsf(m->accel_avg / braking_dbg->freq_factor));
 		braking_dbg->debug9 = max(braking_dbg->debug9, m->abs_erpm);
 		braking_dbg->debug3 = min(braking_dbg->debug3, m->abs_erpm);	
