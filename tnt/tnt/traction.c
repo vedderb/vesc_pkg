@@ -67,7 +67,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
-			if (current_time - traction->reverse_timer > .01 &&
+			if (current_time - traction->reverse_timer > .02 &&
 			    m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
 				if (fabsf(m->erpm_filtered) > fabsf(m->erpm_history[m->last_erpm_idx])) { 				//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
@@ -149,6 +149,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    state->braking_pos_smooth &&						// braking position active
 	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// deadzone to prevent zero current demand
 	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
+	    m->erpm_sign * m->vd > 0.1							// reverse wheel spin
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				//Minimum speed threshold
 		braking->count++;
@@ -200,6 +201,8 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 4;
 			} else if (m->abs_erpm < config->tc_braking_min_erpm) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 5;
+			} else if (m->erpm_sign * m->vd < 0.1) {
+				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
 			}
 		}
 	}
