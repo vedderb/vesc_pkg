@@ -153,7 +153,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    state->braking_pos_smooth &&						// braking position active
 	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// deadzone to prevent zero current demand
 	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
-	    m->erpm_sign * m->vd > 0.1							// reverse wheel spin
+	    m->erpm_sign * m->vd > 0.1	&&						// reverse wheel spin
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				//Minimum speed threshold
 		braking->count++;
