@@ -96,4 +96,8 @@ void motor_data_update(MotorData *m, tnt_config *config) {
 
     m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered() * m->voltage_filter_factor + m->voltage_filtered * (1 - m->voltage_filter_factor);
     m->vq = VESC_IF->foc_get_vq();
+    m->vd = VESC_IF->foc_get_vd();
+    m->iq = VESC_IF->foc_get_iq();
+    m->id = VESC_IF->foc_get_id();
+    m->i_batt = VESC_IF->mc_get_tot_current_in();
 }
