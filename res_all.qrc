@@ -6,6 +6,7 @@
         <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
+        <file>vbms32_micro/vbms32_micro.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
         <file>lib_nau7802/nau7802.vescpkg</file>
         <file>lib_interpolation/interpolation.vescpkg</file>
