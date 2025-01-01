@@ -347,14 +347,14 @@ Item {
     				"Max Yaw Kp          : " + debug6.toFixed(2) + " \n" 
     			} else if (debug_state == 5) {
 				debug.text =
-				"Vq                  : " + debug1.toFixed(1) + " V\n" +  
-				"Vd                  : " + debug2.toFixed(1) + " V\n" +
-				"Iq                  : " + debug3.toFixed(1) + " A\n" +
-				"Id                  : " + debug4.toFixed(1) + " A\n" +
-				"I Battery           : " + debug7.toFixed(1) + " A\n" +
-    				"End Condition       : " + debug5.toFixed(0) + "\n" +
+				"Battery Current     : " + debug1.toFixed(0) + " A\n" +  
+				"Max Acceleration    : " + debug2.toFixed(1) + " ERPM/ms\n" +
+				"Min ERPM            : " + debug3.toFixed(0) + " ERPM\n" +
+				"Max ERPM            : " + debug4.toFixed(0) + " ERPM\n" +
+				"End Condition       : " + debug5.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
-        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Not in Braking Position \n 3 - Minimum Duty \n 4 - Minimum Brake Current \n 5 - Minimum ERPM \n"
+				"Brake Count         : " + debug7.toFixed(0) + "\n" +
+        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Not Braking Vq,Iq \n 5 - Minimum ERPM \n"
     			} else { 
 				debug.text = 
 				"-- n/a --"       
