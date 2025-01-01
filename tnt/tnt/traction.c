@@ -142,18 +142,15 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
     float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg){
 	float current_time = VESC_IF->system_time();
 	bool check_last = braking->last_active ||  current_time - braking->delay_timer > config->tc_braking_end_delay / 1000.0; //we were just traction braking or we are beyond the brake delay
-	braking_dbg->debug2 = m->vq;
-	braking_dbg->debug6 = m->vd;
-	braking_dbg->debug3 = m->iq;
-	braking_dbg->debug9 = m->id;
-	braking_dbg->debug5 = m->i_batt;
+	braking_dbg->debug2 = m->i_batt;
 
 	//Check that conditions for traciton braking are satisfied and add to counter
-	if (-inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	//Minimum nose down angle from remote, can be 0
-	    state->braking_pos_smooth &&						// braking position active
-	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// deadzone to prevent zero current demand
+	if (//state->braking_pos_smooth &&						// braking position active
+	    //m->erpm_sign * pid->new_pid_value < -0.1 &&				// deadzone to prevent zero current demand
+	    m->i_batt < 0 &&								// Regeration current to the battery
 	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
-	    m->erpm_sign * m->vd > 0.1	&&						// reverse wheel spin
+	    sign(m->vq) != sign(m->iq) &&						// braking
+	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	//Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				//Minimum speed threshold
 		braking->count++;
@@ -166,21 +163,20 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 		
 		//Debug Section
 		if (current_time - braking_dbg->aggregate_timer > 5) { // Reset these values after we have not braked for a few seconds
-			//braking_dbg->debug5 = 0;
+			braking_dbg->debug5 = 0;
 			braking_dbg->debug8 = 0;
-			//braking_dbg->debug6 = 0;
+			braking_dbg->debug6 = 0;
 			braking_dbg->debug4 = 0;
 			braking_dbg->debug1 = 0;
-			//braking_dbg->debug3 = m->abs_erpm;
-			//braking_dbg->debug9 = 0;
-			//braking_dbg->debug2 = m->duty_cycle;
+			braking_dbg->debug3 = m->abs_erpm;
+			braking_dbg->debug9 = 0;
 		}
 		braking_dbg->aggregate_timer = current_time;
 		if (!braking->last_active) // Just entered traction braking, reset
 			braking->timeron = current_time;
-		//braking_dbg->debug6 = max(braking_dbg->debug6, fabsf(m->accel_avg / braking_dbg->freq_factor));
-		//braking_dbg->debug9 = max(braking_dbg->debug9, m->abs_erpm);
-		//braking_dbg->debug3 = min(braking_dbg->debug3, m->abs_erpm);	
+		braking_dbg->debug6 = max(braking_dbg->debug6, fabsf(m->accel_avg / braking_dbg->freq_factor));
+		braking_dbg->debug9 = max(braking_dbg->debug9, m->abs_erpm);
+		braking_dbg->debug3 = min(braking_dbg->debug3, m->abs_erpm);	
 		braking_dbg->debug8 = current_time - braking->timeron + braking_dbg->debug1; //running on time tracker
 	} else { 
 		state->braking_active = false; 
@@ -190,23 +186,21 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 			braking->timeroff = current_time;
 			braking_dbg->debug1 += braking->timeroff - braking->timeron; //sum all activation times
 			braking_dbg->debug8 = braking_dbg->debug1; //deactivated on time tracker
-			//braking_dbg->debug5 += 1; //count deactivations
+			braking_dbg->debug5 += 1; //count deactivations
 		
 			if (braking_dbg->debug4 > 10000)  //Save 5 of the most recent deactivation reasons
 				braking_dbg->debug4 = braking_dbg->debug4 % 10000;
 			
 			if (-inputtilt_interpolated * m->erpm_sign < config->tc_braking_angle) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 1;
-			} else if (!state->braking_pos_smooth) {
+			} else if (m->i_batt > 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 2;
-			} else if (m->duty_cycle == 0) {
+			} else if (m->duty_cycle < 0.01) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 3;
-			} else if (m->erpm_sign * pid->new_pid_value > -0.1) {
+			} else if (sign(m->vq) == sign(m->iq)) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 4;
 			} else if (m->abs_erpm < config->tc_braking_min_erpm) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 5;
-			} else if (m->erpm_sign * m->vd < 0.1) {
-				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
 			}
 		}
 	}
