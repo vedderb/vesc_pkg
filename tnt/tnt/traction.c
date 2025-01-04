@@ -146,9 +146,9 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 
 	//Check that conditions for traciton braking are satisfied and add to counter
 	if (state->braking_pos_smooth &&						// braking position active, IMU
-	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// braking current demand, IMU
-	    m->i_batt < -0.1 &&								// Regeration current delivered to the battery
-	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
+	    m->erpm_sign * pid->new_pid_value < 0 &&					// braking current demand, IMU
+	    m->i_batt < 0 &&								// Regeration current delivered to the battery
+	    m->duty_cycle > 0 &&							// avoid transtion to active balancing
 	    sign(m->vq) != sign(m->iq) &&						// braking, FOC
 	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	// Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
@@ -193,9 +193,9 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 			
 			if (-inputtilt_interpolated * m->erpm_sign < config->tc_braking_angle) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 1;
-			} else if (m->i_batt > 0) {
+			} else if (m->i_batt >= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 2;
-			} else if (m->duty_cycle < 0.01) {
+			} else if (m->duty_cycle <= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 3;
 			} else if (sign(m->vq) == sign(m->iq)) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 4;
@@ -203,7 +203,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 5;
 			} else if (!state->braking_pos_smooth) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
-			} else if (m->erpm_sign * pid->new_pid_value > -0.1) {
+			} else if (m->erpm_sign * pid->new_pid_value >= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 7;
 			}
 		}
