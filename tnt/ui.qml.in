@@ -354,7 +354,7 @@ Item {
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
 				"Brake Count         : " + debug7.toFixed(0) + "\n" +
-        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Not Braking Vq,Iq \n 5 - Minimum ERPM \n"
+        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
     			} else { 
 				debug.text = 
 				"-- n/a --"       
