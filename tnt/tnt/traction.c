@@ -145,14 +145,14 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	braking_dbg->debug2 = m->i_batt;
 
 	//Check that conditions for traciton braking are satisfied and add to counter
-	if (//state->braking_pos_smooth &&						// braking position active
-	    //m->erpm_sign * pid->new_pid_value < -0.1 &&				// deadzone to prevent zero current demand
-	    m->i_batt < 0 &&								// Regeration current to the battery
+	if (state->braking_pos_smooth &&						// braking position active, IMU
+	    m->erpm_sign * pid->new_pid_value < -0.1 &&					// braking current demand, IMU
+	    m->i_batt < -0.1 &&								// Regeration current delivered to the battery
 	    m->duty_cycle > 0.01 &&							// avoid transtion to active balancing
-	    sign(m->vq) != sign(m->iq) &&						// braking
-	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	//Minimum nose down angle from remote, can be 0
+	    sign(m->vq) != sign(m->iq) &&						// braking, FOC
+	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	// Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
-	    m->abs_erpm > config->tc_braking_min_erpm) {				//Minimum speed threshold
+	    m->abs_erpm > config->tc_braking_min_erpm) {				// Minimum speed threshold
 		braking->count++;
 	} else { braking->count = 0;}
 		
@@ -201,6 +201,10 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 4;
 			} else if (m->abs_erpm < config->tc_braking_min_erpm) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 5;
+			} else if (!state->braking_pos_smooth) {
+				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
+			} else if (m->erpm_sign * pid->new_pid_value > -0.1) {
+				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 7;
 			}
 		}
 	}
