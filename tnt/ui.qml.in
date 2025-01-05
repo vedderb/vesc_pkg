@@ -161,7 +161,7 @@ Item {
                     var debug4 = dv.getFloat32(ind); ind += 4; // max erpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debug 
                     var debug6 = dv.getFloat32(ind); ind += 4; // duration 
-                    var debug7 = dv.getFloat32(ind); ind += 4; // count 
+                    var debug7 = dv.getFloat32(ind); ind += 4; // end condition 3 sec 
 		} else {
 		    //space for temporary debugs
                 }
@@ -352,8 +352,8 @@ Item {
 				"Min ERPM            : " + debug3.toFixed(0) + " ERPM\n" +
 				"Max ERPM            : " + debug4.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
+				"End Cond, 3 sec min : " + debug7.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
-				"Brake Count         : " + debug7.toFixed(0) + "\n" +
         			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
     			} else { 
 				debug.text = 
