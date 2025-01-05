@@ -202,7 +202,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug5 = braking_dbg->debug5 % 10000;
 
 			if (braking->timeroff - braking->timeron > 3) //Only save end conditions from braking period greater than 3 seconds
-				braking_dbg->debug5 = braking_dbg->debug4 * 10 + braking_dbg->debug4 % 10;
+				braking_dbg->debug5 = braking_dbg->debug5 * 10 + braking_dbg->debug4 % 10;
 		}
 	}
 	braking->last_active = state->braking_active;
