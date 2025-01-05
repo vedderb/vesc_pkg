@@ -134,14 +134,12 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	traction->hold_accel = 1000.0 * config->wheelslip_accelhold / config->hertz;
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
-	braking->start_delay = config->tc_braking_start_delay / 1000.0  * config->hertz;
 	traction->reverse_timer = 0;
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
     float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg){
 	float current_time = VESC_IF->system_time();
-	bool check_last = braking->last_active ||  current_time - braking->delay_timer > config->tc_braking_end_delay / 1000.0; //we were just traction braking or we are beyond the brake delay
 	braking_dbg->debug2 = m->i_batt;
 
 	//Check that conditions for traciton braking are satisfied and add to counter
@@ -153,13 +151,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	// Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				// Minimum speed threshold
-		braking->count++;
-	} else { braking->count = 0;}
-		
-	if (braking->count > braking->start_delay &&
-	    check_last) {								// the braking delay is satified, allow traction braking
 		state->braking_active = true;
-		braking->delay_timer = current_time; //reset delay counter for when we exit traciton braking
 		
 		//Debug Section
 		if (current_time - braking_dbg->aggregate_timer > 5) { // Reset these values after we have not braked for a few seconds
@@ -181,12 +173,11 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	} else { 
 		state->braking_active = false; 
 
+		//Debug Section
 		if (braking->last_active) {
-			//Debug Section
 			braking->timeroff = current_time;
 			braking_dbg->debug1 += braking->timeroff - braking->timeron; //sum all activation times
 			braking_dbg->debug8 = braking_dbg->debug1; //deactivated on time tracker
-			braking_dbg->debug5 += 1; //count deactivations
 		
 			if (braking_dbg->debug4 > 10000)  //Save 5 of the most recent deactivation reasons
 				braking_dbg->debug4 = braking_dbg->debug4 % 10000;
@@ -206,6 +197,12 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 			} else if (m->erpm_sign * pid->new_pid_value >= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 7;
 			}
+
+			if (braking_dbg->debug5 > 10000)  //Save 5 of the most recent deactivation reasons
+				braking_dbg->debug5 = braking_dbg->debug5 % 10000;
+
+			if (braking->timeroff - braking->timeron > 3) //Only save end conditions from braking period greater than 3 seconds
+				braking_dbg->debug5 = braking_dbg->debug4 * 10 + braking_dbg->debug4 % 10;
 		}
 	}
 	braking->last_active = state->braking_active;
