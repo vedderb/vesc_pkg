@@ -52,6 +52,20 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.5
+* **This version requires 6.05 firmware to fuction properly**
+* _Fixes/Improvements_
+  * Traction Control Braking
+    * Added new conditions to engage traction control braking
+      * Vq and Iq comparison to confirm FOC braking
+      * Battery current less than zero to confirm regeneration
+    * Removed start and end delay parameters as they are no longer required
+    * Changed count debug on AppUI to track end condition after a minimum of 3 seconds of braking
+    * Added new end condtions to AppUI debug
+  * Traction Control
+    * Added a 20ms timer to prevent accelerating wheelsip after a reverse wheelslip to allow for higher loop rates (i.e. 10,000 Hz)
+    * Changed default start acceleration from 29 ERPM/ms to 33 ERPM/ms to allow for higher loop rates
+
 ### 1.4
 * **This version requires 6.05 firmware to fuction properly**
 * **Version 1.4 parameters are not compatible with v1.3 and will be set to default. Screenshot your tunes to save.**
