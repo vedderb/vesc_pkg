@@ -119,8 +119,6 @@ typedef struct {
 	uint8_t wheelslip_accelhold;
 	bool is_tc_braking_enabled;
 	int8_t tc_braking_angle;
-	uint16_t tc_braking_start_delay;
-	uint16_t tc_braking_end_delay;
 	uint16_t tc_braking_min_erpm;	
 	bool enable_speed_stability;
 	bool enable_throttle_stability;
