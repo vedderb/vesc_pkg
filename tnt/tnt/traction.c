@@ -201,7 +201,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 			if (braking_dbg->debug5 > 10000)  //Save 5 of the most recent deactivation reasons
 				braking_dbg->debug5 = braking_dbg->debug5 % 10000;
 
-			if (braking->timeroff - braking->timeron > 3) //Only save end conditions from braking period greater than 3 seconds
+			if (braking->timeroff - braking->timeron > 1) //Only save end conditions from braking period greater than 1 seconds
 				braking_dbg->debug5 = braking_dbg->debug5 * 10 + braking_dbg->debug4 % 10;
 		}
 	}
