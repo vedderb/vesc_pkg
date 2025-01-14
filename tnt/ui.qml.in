@@ -352,7 +352,7 @@ Item {
 				"Min ERPM            : " + debug3.toFixed(0) + " ERPM\n" +
 				"Max ERPM            : " + debug4.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
-				"End Cond, 3 sec min : " + debug7.toFixed(0) + "\n" +
+				"End Cond, 1 sec min : " + debug7.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
         			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
     			} else { 
