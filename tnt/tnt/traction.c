@@ -150,6 +150,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    sign(m->vq) != sign(m->iq) &&						// braking, FOC
 	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	// Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
+	    pid->abs_prop_smooth < config->tc_braking_angle_limit &&			// prevent traction braking if the nose has dipped
 	    m->abs_erpm > config->tc_braking_min_erpm) {				// Minimum speed threshold
 		state->braking_active = true;
 		
@@ -196,6 +197,8 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
 			} else if (m->erpm_sign * pid->new_pid_value >= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 7;
+			} else if (pid->abs_prop_smooth > config->tc_braking_angle_limit) {
+				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 8;
 			}
 
 			if (braking_dbg->debug5 > 10000)  //Save 5 of the most recent deactivation reasons
