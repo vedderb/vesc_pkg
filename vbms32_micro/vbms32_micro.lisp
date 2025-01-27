@@ -1,3 +1,11 @@
+; Compatibility Check
+(loopwhile (!= (bms-fw-version) 1) {
+        (print "Incompatible firmware, please update")
+        (sleep 5)
+})
+
+(set-fw-name "micro")
+
 ;;;;;;;;; User Settings ;;;;;;;;;
 
 ; TODO: Move into config?
@@ -18,6 +26,7 @@
 (def c-max 0.0)
 (def t-min 0.0)
 (def t-max 0.0)
+(def t-mos 0.0)
 (def charge-wakeup false)
 
 ; Make sure that we receive messages on CAN
@@ -158,6 +167,7 @@
                     (= (bms-get-btn) 0)
                     (not com-force-on)
                     (not (is-connected))
+                    (not is-charging)
                 )
                 (gpio-write 9 1)
             )
@@ -470,9 +480,17 @@
             (var bms-temps (with-com '(bms-get-temps)))
 
             ; First and last are balance IC temps
-            (var t-sorted (sort < (take (drop bms-temps 1) 4)))
+            (var t-sorted (sort < (map
+                        (fn (x) (ix bms-temps (+ x 1)))
+                        (range 0 (truncate (bms-get-param 'temp_num) 0 4))
+            )))
+
+            ; If all sensors are disabled pretend we are at 24c
+            (if (= (length t-sorted) 0) (setq t-sorted '(24)))
+
             (setq t-min (ix t-sorted 0))
             (setq t-max (ix t-sorted -1))
+            (setq t-mos (ix bms-temps 5))
 
             (var c-sorted (sort < v-cells))
             (setq c-min (ix c-sorted 0))
@@ -491,7 +509,7 @@
             (set-bms-val 'bms-temps-adc 0 (ix bms-temps 0)) ; IC
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
-            (set-bms-val 'bms-temps-adc 3 -300.0) ; Mosfet
+            (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
             (set-bms-val 'bms-temps-adc 4 -300.0) ; Ambient
             (set-bms-val 'bms-temps-adc 5 (ix bms-temps 1)) ; T1
             (set-bms-val 'bms-temps-adc 6 (ix bms-temps 2)) ; T2
@@ -566,7 +584,8 @@
                     ))
                     (> c-min (bms-get-param 'vc_charge_min))
                     (< t-max (bms-get-param 't_charge_max))
-                    ;(> t-min (bms-get-param 't_charge_min))
+                    (> t-min (bms-get-param 't_charge_min))
+                    (< t-mos 85.0)
                     chg-allowed
                     (not (assoc rtc-val 'charge-fault))
             ))
