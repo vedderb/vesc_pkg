@@ -3,7 +3,7 @@ VESC_TOOL ?= vesc_tool
 all: balance.vescpkg
 
 balance.vescpkg: balance
-	$(VESC_TOOL) --buildPkg "balance.vescpkg:balance.lisp:ui.qml:0:README.md:Balance"
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'custom:test' --testPkgDesc 'vesc:test'
 
 balance:
 	$(MAKE) -C $@

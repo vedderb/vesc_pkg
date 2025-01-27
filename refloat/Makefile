@@ -6,7 +6,7 @@ MINIFY_QML ?= 1
 all: refloat.vescpkg
 
 refloat.vescpkg: src package.lisp package_README-gen.md ui.qml
-	$(VESC_TOOL) --buildPkg "refloat.vescpkg:package.lisp:ui.qml:0:package_README-gen.md:Refloat"
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'custom:test' --testPkgDesc 'vesc:test'
 
 src:
 	$(MAKE) -C $@
