@@ -102,7 +102,8 @@
 })
 
 ; Current inverted and different shunt compared to stock FW
-(defun bms-current () (* (bms-get-current) -0.4))
+; TODO: The hardware should provide a unitless raw value...
+(defun bms-current () (* (bms-get-current) -0.2))
 
 (defun test-chg (samples) {
         ; Many chargers "pulse" before starting, try to catch a pulse
