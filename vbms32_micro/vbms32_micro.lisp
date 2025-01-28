@@ -1,5 +1,5 @@
 ; Compatibility Check
-(loopwhile (!= (bms-fw-version) 1) {
+(loopwhile (!= (bms-fw-version) 2) {
         (print "Incompatible firmware, please update")
         (sleep 5)
 })
@@ -327,7 +327,6 @@
 (undefine 'start-fun)
 
 (def is-bal false)
-(def temp-num (+ 5 4))
 (def vtot 0.0)
 (def vout 0.0)
 (def vt-vchg 0.0)
@@ -478,11 +477,12 @@
 
             (var v-cells (with-com '(bms-get-vcells)))
             (var bms-temps (with-com '(bms-get-temps)))
+            (var temp-ext-num (truncate (bms-get-param 'temp_num) 0 4))
 
             ; First and last are balance IC temps
             (var t-sorted (sort < (map
                         (fn (x) (ix bms-temps (+ x 1)))
-                        (range 0 (truncate (bms-get-param 'temp_num) 0 4))
+                        (range 0 temp-ext-num)
             )))
 
             ; If all sensors are disabled pretend we are at 24c
@@ -506,15 +506,15 @@
                     (set-bms-val 'bms-bal-state i (bms-get-bal i))
             })
 
+            (set-bms-val 'bms-temp-adc-num (+ 5 temp-ext-num))
             (set-bms-val 'bms-temps-adc 0 (ix bms-temps 0)) ; IC
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
             (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
             (set-bms-val 'bms-temps-adc 4 -300.0) ; Ambient
-            (set-bms-val 'bms-temps-adc 5 (ix bms-temps 1)) ; T1
-            (set-bms-val 'bms-temps-adc 6 (ix bms-temps 2)) ; T2
-            (set-bms-val 'bms-temps-adc 7 (ix bms-temps 3)) ; T3
-            (set-bms-val 'bms-temps-adc 8 (ix bms-temps 4)) ; T4
+            (looprange i 0 temp-ext-num {
+                    (set-bms-val 'bms-temps-adc (+ 5 i) (ix bms-temps (+ i 1)))
+            })
             (set-bms-val 'bms-data-version 1)
 
             (set-bms-val 'bms-v-cell-min c-min)
@@ -585,7 +585,7 @@
                     (> c-min (bms-get-param 'vc_charge_min))
                     (< t-max (bms-get-param 't_charge_max))
                     (> t-min (bms-get-param 't_charge_min))
-                    (< t-mos 85.0)
+                    (< t-mos (bms-get-param 't_charge_max_mos))
                     chg-allowed
                     (not (assoc rtc-val 'charge-fault))
             ))
@@ -778,7 +778,6 @@
 (event-enable 'event-bms-zero-ofs)
 
 (set-bms-val 'bms-cell-num cell-num)
-(set-bms-val 'bms-temp-adc-num temp-num)
 (set-bms-val 'bms-can-id (can-local-id))
 
 (def did-crash false)
