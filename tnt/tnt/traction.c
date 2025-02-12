@@ -67,7 +67,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
-			if (current_time - traction->reverse_timer > .02 &&
+			if (current_time - traction->reverse_timer > .05 &&
 			    m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
 				if (fabsf(m->erpm_filtered) > fabsf(m->erpm_history[m->last_erpm_idx])) { 				//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
@@ -150,7 +150,6 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    sign(m->vq) != sign(m->iq) &&						// braking, FOC
 	    -inputtilt_interpolated * m->erpm_sign_soft >= config->tc_braking_angle && 	// Minimum nose down angle from remote, can be 0
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
-	    pid->abs_prop_smooth < config->tc_braking_angle_limit &&			// prevent traction braking if the nose has dipped
 	    m->abs_erpm > config->tc_braking_min_erpm) {				// Minimum speed threshold
 		state->braking_active = true;
 		
@@ -197,8 +196,6 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 6;
 			} else if (m->erpm_sign * pid->new_pid_value >= 0) {
 				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 7;
-			} else if (pid->abs_prop_smooth > config->tc_braking_angle_limit) {
-				braking_dbg->debug4 = braking_dbg->debug4 * 10 + 8;
 			}
 
 			if (braking_dbg->debug5 > 10000)  //Save 5 of the most recent deactivation reasons
