@@ -107,6 +107,7 @@ typedef struct {
 	float surge_maxangle;
 	uint16_t surge_minerpm;
 	uint16_t surge_duty;
+	uint16_t current_filter;
 	uint16_t tiltback_surge_speed;
 	bool is_traction_enabled;
 	uint16_t wheelslip_accelstart;
