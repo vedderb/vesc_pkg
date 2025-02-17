@@ -24,9 +24,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-
-	if (traction->reverse_wheelslip)
-		traction->reverse_timer = current_time;
 		
 	// Conditions to end traction control
 	if (state->wheelslip) {
@@ -67,8 +64,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
-			if (current_time - traction->reverse_timer > .05 &&
-			    m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
+			if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
 				if (fabsf(m->erpm_filtered) > fabsf(m->erpm_history[m->last_erpm_idx])) { 				//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
@@ -81,7 +77,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 		
 		// Initiate traction control
 		if ((start_condition1 || start_condition2) && 			// Conditions false by default
-		   (current_time - traction->timeroff > 0.02)) {		// Did not recently wheel slip.
+		   ((current_time - traction->timeroff) * 1000 > config->wheelslip_resettime)) {	// Did not recently wheel slip.
 			state->wheelslip = true;
 			traction->accelstartval = m->accel_avg;
 			traction->highaccelon1 = true;
@@ -134,7 +130,6 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	traction->hold_accel = 1000.0 * config->wheelslip_accelhold / config->hertz;
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
-	traction->reverse_timer = 0;
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
