@@ -33,7 +33,6 @@ typedef struct {
 	float end_accel;
 	float hold_accel;
 	bool end_accel_hold;
-	float reverse_timer;
 } TractionData;
 
 typedef struct {
