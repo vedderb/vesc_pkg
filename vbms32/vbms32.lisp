@@ -4,14 +4,17 @@
         (sleep 5)
 })
 
-(set-fw-name "micro")
+(set-fw-name "")
 
 ;;;;;;;;; User Settings ;;;;;;;;;
 
 ; TODO: Move into config?
 
 ; Wait this long for charger to start charging
-(def charger-max-delay 3.0)
+(def charger-max-delay 10.0)
+
+; Swap current polarity
+(def invert-current true)
 
 ;;;;;;;;; End User Settings ;;;;;;;;;
 
@@ -28,12 +31,8 @@
 (def t-max 0.0)
 (def t-mos 0.0)
 (def charge-wakeup false)
-
-; Make sure that we receive messages on CAN
-(gpio-configure 9 'pin-mode-out)
-(gpio-write 9 0)
-(loopwhile (not (main-init-done)) (sleep 0.01))
-(gpio-write 9 0)
+(def psw-state false)
+(def psw-error false)
 
 ; Buzzer
 (pwm-start 4000 0.0 0 3)
@@ -101,9 +100,7 @@
         (bufset-u8 (rtc-data) 900 rtc-val-magic)
 })
 
-; Current inverted and different shunt compared to stock FW
-; TODO: The hardware should provide a unitless raw value...
-(defun bms-current () (* (bms-get-current) -0.2))
+(defun bms-current () (if invert-current (- (bms-get-current)) (bms-get-current)))
 
 (defun test-chg (samples) {
         ; Many chargers "pulse" before starting, try to catch a pulse
@@ -193,6 +190,70 @@
         }
     )
 )
+
+; Start power switch thread early to avoid output on delay
+(defun psw-on () {
+        (var res false)
+
+        ;(var v-tot (apply + (bms-get-vcells)))
+        (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
+        (var v-tot (assoc rtc-val 'v-tot))
+
+        (bms-set-pchg 0)
+        (bms-set-out 0)
+
+        (var t-start (systime))
+        (var v-start (bms-get-vout))
+        (bms-set-pchg 1)
+
+        (loopwhile (< (secs-since t-start) 3.0) {
+                (if (< (- v-tot (bms-get-vout)) 10.0) {
+                        (setq res t)
+                        (print (str-from-n (* (secs-since t-start) 1000.0) "PCHG T: %.1f ms"))
+                        (break)
+                })
+                (sleep 0.005)
+        })
+
+        (if res
+            {
+                (bms-set-out 1)
+                (var diff (- (bms-get-vout) v-start))
+                (if (> diff 0.01) {
+                        (var cap-est (/ (* (secs-since t-start) 0.9) diff))
+                        (print (list "Cap est: " (* cap-est 1000.0) "mF"))
+                })
+            }
+            (print "Timed out, make sure that there is a load on the output and no short!")
+        )
+
+        (bms-set-pchg 0)
+        (setq psw-state true)
+        res
+})
+
+(defun psw-off () {
+        (bms-set-pchg 0)
+        (bms-set-out 0)
+        (setq psw-state false)
+})
+
+; Power switch
+(loopwhile-thd ("PSW" 100) t {
+        (loopwhile (not (main-init-done)) (sleep 0.1))
+
+        (if (and (= (bms-get-btn) 0) psw-state) {
+                (psw-off)
+                (setq psw-error false)
+        })
+
+        (if (and (= (bms-get-btn) 1) (not psw-state) (not psw-error)) {
+                (beep 1 0.1)
+                (setq psw-error (not (psw-on)))
+        })
+
+        (sleep 0.2)
+})
 
 (defun update-temps () {
         (var bms-temps (with-com '(bms-get-temps)))
@@ -378,18 +439,6 @@
 ; boot from sleep to conserve power.
 @const-start
 
-(defun can-sum-current () {
-        (var devs (can-list-devs))
-        (var i-sum 0.0)
-
-        (loopforeach d devs {
-                (var res (can-msg-age d 4))
-                (if (and res (< res 0.1)) (setq i-sum (+ i-sum (canget-current-in d))))
-        })
-
-        i-sum
-})
-
 ; Persistent settings
 ; Format: (label . (offset type))
 (def eeprom-addrs '(
@@ -501,6 +550,14 @@
                 (exit-error 0)
             )
 
+            ; Exit if any of the BQs has invalid temperature settings
+            (if (or
+                    (!= (bms-read-reg 1 0x92fd 1) 0x3b)
+                    (and (> (bms-get-param 'cells_ic2) 0) (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b))
+                )
+                (exit-error 0)
+            )
+
             (var v-cells (with-com '(bms-get-vcells)))
             (var bms-temps (update-temps))
             (var temp-ext-num (truncate (bms-get-param 'temp_num) 0 4))
@@ -512,7 +569,7 @@
             (setq vtot (apply + v-cells))
             (setq vout (with-com '(bms-get-vout)))
             (setq vt-vchg (bms-get-vchg))
-            (setq iout (+ (with-com '(bms-current)) (can-sum-current)))
+            (setq iout (bms-current))
 
             (looprange i 0 cell-num {
                     (set-bms-val 'bms-v-cell i (ix v-cells i))
