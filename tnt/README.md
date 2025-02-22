@@ -67,6 +67,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added Hold Period which allows the user to control the period between traction control engagements
   * Surge
     * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current
+  * Increased the voltage threshold that designates a charging situation from 0.1V to 0.5V to avoid nuisance activations
 
 ### 1.4
 * **This version requires 6.05 firmware to fuction properly**
