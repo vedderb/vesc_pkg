@@ -63,8 +63,10 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Changed count debug on AppUI to track end condition after a minimum of 3 seconds of braking
     * Added new end condtions to AppUI debug
   * Traction Control
-    * Added a 20ms timer to prevent accelerating wheelsip after a reverse wheelslip to allow for higher loop rates (i.e. 10,000 Hz)
-    * Changed default start acceleration from 29 ERPM/ms to 33 ERPM/ms to allow for higher loop rates
+    * Changed default start acceleration from 29 ERPM/ms to 50 ERPM/ms to allow for higher package loop frequencies
+    * Added Hold Period which allows the user to control the period between traction control engagements
+  * Surge
+    * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current
 
 ### 1.4
 * **This version requires 6.05 firmware to fuction properly**
