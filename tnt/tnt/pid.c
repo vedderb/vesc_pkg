@@ -380,24 +380,29 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
             if (!disable_switch_faults) {
                 if ((1000.0 * (rt->current_time - rt->fault_switch_timer)) >
                     config->fault_delay_switch_full) {
-                    state_stop(state, STOP_SWITCH_FULL);
-                    return true;
+					    state_stop(state, 
+							state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+							STOP_SWITCH_FULL);
+					    return true;
                 }
                 // low speed (below 6 x half-fault threshold speed):
-                else if (
-                    (motor->abs_erpm < config->fault_adc_half_erpm * 6) &&
+                else if ((motor->abs_erpm < config->fault_adc_half_erpm * 6) &&
                     (1000.0 * (rt->current_time - rt->fault_switch_timer) >
-                     config->fault_delay_switch_half)) {
-                    state_stop(state, STOP_SWITCH_FULL);
+                    config->fault_delay_switch_half)) {
+                    	state_stop(state, 
+			    			state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+			    			STOP_SWITCH_FULL);
                     return true;
                 }
             }
     		if ((motor->abs_erpm < config->quickstop_erpm) && (fabsf(rt->true_pitch_angle) > config->quickstop_angle) && 
                 (fabsf(inputtilt_interpolated) < 30) && 
-		(config->is_quickstop_enabled) &&
+				(config->is_quickstop_enabled) &&
                 (sign(rt->true_pitch_angle) ==  motor->erpm_sign)) {
-    			state_stop(state, STOP_QUICKSTOP);
-    			return true;
+    				state_stop(state, 
+			    		state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+						STOP_QUICKSTOP);
+    				return true;
     		}
         } else {
             rt->fault_switch_timer = rt->current_time;
@@ -408,8 +413,10 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
             if (!is_engaged(fs, rt, config) && motor->abs_erpm < config->fault_adc_half_erpm) {
                 if ((1000.0 * (rt->current_time - rt->fault_switch_half_timer)) >
                     config->fault_delay_switch_half) {
-                    state_stop(state, STOP_SWITCH_HALF);
-                    return true;
+        				state_stop(state, 
+			    			state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+							STOP_SWITCH_HALF);
+                    	return true;
                 }
             } else {
                 rt->fault_switch_half_timer = rt->current_time;
@@ -420,24 +427,28 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
         if (fabsf(rt->roll_angle) > config->fault_roll) {
             if ((1000.0 * (rt->current_time - rt->fault_angle_roll_timer)) >
                 config->fault_delay_pitch) {
-                state_stop(state, STOP_ROLL);
-                return true;
+                	state_stop(state, 
+			    		state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+						STOP_ROLL);
+                	return true;
             }
         } else {
             rt->fault_angle_roll_timer = rt->current_time;
         }
         
-
-    // Check pitch angle
-    if (fabsf(rt->pitch_angle) > config->fault_pitch && fabsf(inputtilt_interpolated) < 30) {
-        if ((1000.0 * (rt->current_time - rt->fault_angle_pitch_timer)) >
-            config->fault_delay_pitch) {
-            state_stop(state, STOP_PITCH);
-            return true;
-        }
-    } else {
-        rt->fault_angle_pitch_timer = rt->current_time;
-    }
+	
+	    // Check pitch angle
+	    if (fabsf(rt->pitch_angle) > config->fault_pitch && fabsf(inputtilt_interpolated) < 30) {
+	        if ((1000.0 * (rt->current_time - rt->fault_angle_pitch_timer)) >
+	            config->fault_delay_pitch) {
+	    			state_stop(state, 
+				    	state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+						STOP_PITCH);
+	            	return true;
+	        }
+	    } else {
+	        rt->fault_angle_pitch_timer = rt->current_time;
+	    }
 
     return false;
 }
