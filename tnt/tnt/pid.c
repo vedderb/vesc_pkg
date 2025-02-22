@@ -381,7 +381,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
                 if ((1000.0 * (rt->current_time - rt->fault_switch_timer)) >
                     config->fault_delay_switch_full) {
 					    state_stop(state, 
-							state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+							state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 							STOP_SWITCH_FULL);
 					    return true;
                 }
@@ -390,7 +390,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
                     (1000.0 * (rt->current_time - rt->fault_switch_timer) >
                     config->fault_delay_switch_half)) {
                     	state_stop(state, 
-			    			state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+			    			state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 			    			STOP_SWITCH_FULL);
                     return true;
                 }
@@ -400,7 +400,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
 				(config->is_quickstop_enabled) &&
                 (sign(rt->true_pitch_angle) ==  motor->erpm_sign)) {
     				state_stop(state, 
-			    		state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+			    		state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 						STOP_QUICKSTOP);
     				return true;
     		}
@@ -414,7 +414,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
                 if ((1000.0 * (rt->current_time - rt->fault_switch_half_timer)) >
                     config->fault_delay_switch_half) {
         				state_stop(state, 
-			    			state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+			    			state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 							STOP_SWITCH_HALF);
                     	return true;
                 }
@@ -428,7 +428,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
             if ((1000.0 * (rt->current_time - rt->fault_angle_roll_timer)) >
                 config->fault_delay_pitch) {
                 	state_stop(state, 
-			    		state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+			    		state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 						STOP_ROLL);
                 	return true;
             }
@@ -442,7 +442,7 @@ bool check_faults(MotorData *motor, FootpadSensor *fs, RuntimeData *rt, State *s
 	        if ((1000.0 * (rt->current_time - rt->fault_angle_pitch_timer)) >
 	            config->fault_delay_pitch) {
 	    			state_stop(state, 
-				    	state->wheelslip && config->is_traction_enabled ? TRACTION_CTRL : 
+				    	state->wheelslip && config->is_traction_enabled ? STOP_TRACTN_CTRL : 
 						STOP_PITCH);
 	            	return true;
 	        }
