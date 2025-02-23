@@ -37,6 +37,10 @@
 (def scd-latched false) ; Short circuit detected HW
 (def init-done false)
 
+(def psw-status "PSW_OFF")
+(def chg-status "")
+(def bal-status "")
+
 ; Buzzer
 (pwm-start 4000 0.0 0 3)
 
@@ -245,6 +249,8 @@
 (defun psw-on () {
         (var res false)
 
+        (setq psw-status "PWS_PCHG")
+
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
 
         (if (= (bms-get-param 'psw_wait_init) 1) {
@@ -311,16 +317,23 @@
             {
                 (bms-set-pchg 0)
                 (bms-set-out 0)
+
+                (if (not psw-error)
+                    (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
+                )
+
                 (setq psw-error true)
         })
 
         (if (and (= (bms-get-btn) 0) psw-state) {
                 (psw-off)
                 (setq psw-error false)
+                (setq psw-status "PSW_OFF")
         })
 
         (if (and (= (bms-get-btn) 1) (not psw-state) (not psw-error)) {
                 (setq psw-error (not (psw-on)))
+                (setq psw-status (if psw-error "FLT_PCHG" "PSW_ON"))
         })
 
         (sleep 0.2)
@@ -763,6 +776,20 @@
                     (setassoc rtc-val 'charge-fault false)
             })
 
+            (setq chg-status
+                (cond
+                    ((assoc rtc-val 'charge-fault) "FLT_CHG_OC")
+                    (is-charging "CHARGING")
+                    (true "")
+            ))
+
+            ; Set combined BMS status
+            (set-bms-val 'bms-status (str-merge
+                    psw-status
+                    (if (> (str-len chg-status) 0) (str-merge " | " chg-status) "")
+                    (if (> (str-len bal-status) 0) (str-merge " | " bal-status) "")
+            ))
+
             (if (and (test-chg 1) charge-ok)
                 {
                     (if (< (secs-since charge-ts) charger-max-delay)
@@ -898,6 +925,8 @@
                     (looprange i 0 cell-num (with-com `(bms-set-bal ,i 0)))
                     (setq is-balancing false)
             })
+
+            (setq bal-status (if is-balancing "BAL" ""))
 
             (var bal-ok-before bal-ok)
             (looprange i 0 15 {

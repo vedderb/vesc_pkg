@@ -30,6 +30,9 @@
 (def t-ic 0.0)
 (def charge-wakeup false)
 
+(def chg-status "")
+(def bal-status "")
+
 ; Make sure that we receive messages on CAN
 (gpio-configure 9 'pin-mode-out)
 (gpio-write 9 0)
@@ -616,6 +619,20 @@
                     (setassoc rtc-val 'charge-fault false)
             })
 
+            (setq chg-status
+                (cond
+                    ((assoc rtc-val 'charge-fault) "FLT_CHG_OC")
+                    (is-charging "CHARGING")
+                    (true "")
+            ))
+
+            ; Set combined BMS status
+            (set-bms-val 'bms-status (str-merge
+                    chg-status
+                    (if (and (> (str-len chg-status) 0) (> (str-len bal-status) 0)) " | " "")
+                    bal-status
+            ))
+
             (if (and (test-chg 1) charge-ok)
                 {
                     (if (< (secs-since charge-ts) charger-max-delay)
@@ -751,6 +768,8 @@
                     (looprange i 0 cell-num (with-com `(bms-set-bal ,i 0)))
                     (setq is-balancing false)
             })
+
+            (setq bal-status (if is-balancing "BAL" ""))
 
             (var bal-ok-before bal-ok)
             (looprange i 0 15 {
