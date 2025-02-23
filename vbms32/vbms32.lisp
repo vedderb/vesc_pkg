@@ -33,7 +33,6 @@
 (def t-ic 0.0)
 (def charge-wakeup false)
 (def psw-state false)
-(def psw-error false)
 (def scd-latched false) ; Short circuit detected HW
 (def init-done false)
 
@@ -63,6 +62,9 @@
 ;   - 0b10000010 - DDSG, Active low, no pull, REG18, Tristate high
 ; - EnabledProtectionsA (0x9261)
 ;   - Bit 7 enables SCD
+; - DSGFETProtectionsA (0x9269)
+;   - Bit 7 enables SCD
+;   - Note: Must be 0xE4, otherwise the protection will be slow!
 ; - SCDThreshold (0x9286)
 ;   0: 10 mV
 ;   1: 20 mV
@@ -84,23 +86,38 @@
 ;   - Set to 1 for no delay, each step above 1 is 15 uS, max 31
 ; - SCDLLatchLimit (0x9295)
 ;   - Set to 1 to latch directly without recovering
+; - MfgStatusInit (0x9343)
+;   - Bit 4 FET EN has to be set
 ; - Recover from latch: bms-subcmd-cmdonly SCDL_RECOVER (0x009C)
 ; - Latch status: bms-direct-cmd SafetyAlertA (0x02) bit 7
 (defun config-scd () {
         (bms-subcmd-cmdonly 1 0x0090) ; SET_CFGUPDATE
-        (bms-write-reg 1 0x9302 0x80 1) ; DDSGPinConfig
+        (bms-write-reg 1 0x9343 0x10 1) ; MfgStatusInit
+        (bms-write-reg 1 0x9302 0x82 1) ; DDSGPinConfig
         (bms-write-reg 1 0x9261 (if (= (bms-get-param 'psw_scd_en) 1) 0x80 0x00) 1) ; EnabledProtectionsA
+        (bms-write-reg 1 0x9269 (if (= (bms-get-param 'psw_scd_en) 1) 0xE4 0x00) 1) ; DSGFETProtectionsA
         (bms-write-reg 1 0x9286 (bms-get-param 'psw_scd_tres) 1) ; SCDThreshold
         (bms-write-reg 1 0x9287 1 1) ; SCDDelay
         (bms-write-reg 1 0x9295 1 1) ; SCDLLatchLimit
         (bms-subcmd-cmdonly 1 0x0092) ; EXIT_CFGUPDATE
+        (bms-subcmd-cmdonly 1 0x0096) ; All FETs on
 
-        ; (bms-read-reg 1 0x9302 1)
-        ; (bms-read-reg 1 0x9261 1)
-        ; (bms-read-reg 1 0x9286 1)
-        ; (bms-read-reg 1 0x9287 1)
-        ; (bms-read-reg 1 0x9295 1)
-        ; (bms-direct-cmd 1 0x02)
+        ; (bms-read-reg 1 0x9343 1) ; MfgStatusInit
+        ; (bms-read-reg 1 0x9302 1) ; DDSGPinConfig
+        ; (bms-read-reg 1 0x9261 1) ; EnabledProtectionsA
+        ; (bms-read-reg 1 0x9269 1) ; DSGFETProtectionsA
+        ; (bms-read-reg 1 0x9286 1) ; SCDThreshold
+        ; (bms-read-reg 1 0x9287 1) ; SCDDelay
+        ; (bms-read-reg 1 0x9295 1) ; SCDLLatchLimit
+        ; (bms-direct-cmd 1 0x02) ; SafetyAlertA
+        ; (bms-direct-cmd 1 0x7F) ; FetStatus
+
+        ; (bms-read-reg 1 0x9308 1) ; FETOptions
+        ; (bms-read-reg 1 0x9309 1) ; ChgPumpControl
+
+        ; (bms-subcmd-cmdonly 1 0x0095) ; All FETs off
+        ; (bms-subcmd-cmdonly 1 0x0096) ; All FETs on
+        ; (bms-subcmd-cmdonly 1 0x0022) ; Fet Enable
 })
 
 ; If in deepsleep, this will return 4
@@ -246,7 +263,7 @@
 )
 
 ; Start power switch thread early to avoid output on delay
-(defun psw-on () {
+(defunret psw-on () {
         (var res false)
 
         (setq psw-status "PSW_PCHG")
@@ -264,9 +281,16 @@
         (loopwhile (and
                 (> (bms-get-vout) 4.0)
                 (> (- (assoc rtc-val 'v-tot) (bms-get-vout)) 5.0)
+                (= (bms-get-btn) 1)
             )
             (sleep 0.1)
         )
+
+        ; Return if button has been switched off
+        (if (= (bms-get-btn) 0) {
+                (setq psw-state true)
+                (return true)
+        })
 
         (var t-start (systime))
         (var v-start (bms-get-vout))
@@ -309,7 +333,7 @@
         (loopwhile (not (main-init-done)) (sleep 0.1))
 
         (if (and
-                (= (bms-get-btn) 1)
+                psw-state
                 (or
                     (and (= (bms-get-param 't_psw_en) 1) (> t-mos (bms-get-param 't_psw_max_mos)))
                     scd-latched
@@ -318,22 +342,16 @@
                 (bms-set-pchg 0)
                 (bms-set-out 0)
 
-                (if (not psw-error)
-                    (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
-                )
-
-                (setq psw-error true)
+                (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
         })
 
         (if (and (= (bms-get-btn) 0) psw-state) {
                 (psw-off)
-                (setq psw-error false)
                 (setq psw-status "PSW_OFF")
         })
 
-        (if (and (= (bms-get-btn) 1) (not psw-state) (not psw-error)) {
-                (setq psw-error (not (psw-on)))
-                (setq psw-status (if psw-error "FLT_PCHG" "PSW_ON"))
+        (if (and (= (bms-get-btn) 1) (not psw-state)) {
+                (setq psw-status (if (psw-on) "PSW_ON" "FLT_PCHG"))
         })
 
         (sleep 0.2)
