@@ -255,7 +255,12 @@
         (bms-set-out 0)
 
         ; Wait for output voltage to drop below 4V, otherwise the precharge buck converter won't start
-        (loopwhile (> (bms-get-vout) 4.0) (sleep 0.1))
+        (loopwhile (and
+                (> (bms-get-vout) 4.0)
+                (> (- (assoc rtc-val 'v-tot) (bms-get-vout)) 5.0)
+            )
+            (sleep 0.1)
+        )
 
         (var t-start (systime))
         (var v-start (bms-get-vout))
@@ -611,6 +616,7 @@
 })
 
 (def tres-scd-before (bms-get-param 'psw_scd_tres))
+(def scd-before false)
 
 (defun main-ctrl () (loopwhile t {
             ; Exit if any of the BQs has fallen asleep
@@ -631,6 +637,9 @@
 
             ; Detect if short circuit has been latched
             (setq scd-latched (!= (bms-direct-cmd 1 0x02) 0))
+
+            (if (and scd-latched (not scd-before)) (print "Shorciruit protection triggered!"))
+            (setq scd-before scd-latched)
 
             ; Reset latch when button has been switched off
             (if (and scd-latched (= (bms-get-btn) 0))
