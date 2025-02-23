@@ -249,7 +249,7 @@
 (defun psw-on () {
         (var res false)
 
-        (setq psw-status "PWS_PCHG")
+        (setq psw-status "PSW_PCHG")
 
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
 
