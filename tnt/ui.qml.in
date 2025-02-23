@@ -186,7 +186,9 @@ Item {
 		        stateString += "-FULL SWITCH"
 		    }else if(state_stop == 6){ 
 		        stateString += "-QUICKSTOP"
-            	    }
+		    }else if(state_stop == 7){ 
+		        stateString += "-TRACTN CTRL"
+	  	    }
 		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "RUNNING";
 
