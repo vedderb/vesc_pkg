@@ -21,7 +21,7 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 * High Current FOC Tone - instant, high torque warning.
 
 ### Default Settings
-Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are similar to the settings I ride for trails. One exception is surge which is disabled. Here are more details on the default settings:
+Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. Here are more details on the default settings:
 
 * Pitch Tune - The default pitch tune is a simple beginner tune using only TNT Cfg->Acceleration kp0, kp rate, current 1 and pitch 1.
   * For a trick or trail tune you will want a lower kp0 and gradually increasing pitch angles and currents.
@@ -55,19 +55,21 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
+  * Testing and support for higher package loop frequencies. 
   * Traction Control Braking
     * Added new conditions to engage traction control braking
       * Vq and Iq comparison to confirm FOC braking
       * Battery current less than zero to confirm regeneration
     * Removed start and end delay parameters as they are no longer required
-    * Changed count debug on AppUI to track end condition after a minimum of 3 seconds of braking
+    * Changed AppUI debug to show battery current and end conditions after 1 second of engagement
     * Added new end condtions to AppUI debug
   * Traction Control
     * Changed default start acceleration from 29 ERPM/ms to 50 ERPM/ms to allow for higher package loop frequencies
-    * Added Hold Period which allows the user to control the period between traction control engagements
-  * Surge
-    * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current
-  * Increased the voltage threshold that designates a charging situation from 0.1V to 0.5V to avoid nuisance activations
+    * Added Hold Period configurable parameter which allows the user to control the period between traction control engagements
+  * Surge/High Current
+    * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current which is necessary for for higher package loop frequencies
+  * Increased the voltage threshold that designates a charging situation from 0.1V to 0.3V to avoid nuisance activations
+  * AppUI will now display the stop condition as TRACTN CTRL if traction control is active when the board is deactivated
 
 ### 1.4
 * **This version requires 6.05 firmware to fuction properly**
