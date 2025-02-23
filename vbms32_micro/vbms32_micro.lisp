@@ -1,5 +1,5 @@
 ; Compatibility Check
-(loopwhile (!= (bms-fw-version) 3) {
+(loopwhile (!= (bms-fw-version) 4) {
         (print "Incompatible firmware, please update")
         (sleep 5)
 })
@@ -27,6 +27,7 @@
 (def t-min 0.0)
 (def t-max 0.0)
 (def t-mos 0.0)
+(def t-ic 0.0)
 (def charge-wakeup false)
 
 ; Make sure that we receive messages on CAN
@@ -210,6 +211,7 @@
         (setq t-min (ix t-sorted 0))
         (setq t-max (ix t-sorted -1))
         (setq t-mos (ix bms-temps 5))
+        (setq t-ic (ix bms-temps 0))
 
         bms-temps
 })
@@ -704,7 +706,11 @@
                     (setq bal-ok false)
             })
 
-            (if (> t-max (bms-get-param 't_bal_lim_start)) {
+            (if (> t-max (bms-get-param 't_bal_max_cell)) {
+                    (setq bal-ok false)
+            })
+
+            (if (> t-ic (bms-get-param 't_bal_max_ic)) {
                     (setq bal-ok false)
             })
 

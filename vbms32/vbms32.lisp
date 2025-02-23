@@ -1,5 +1,5 @@
 ; Compatibility Check
-(loopwhile (!= (bms-fw-version) 3) {
+(loopwhile (!= (bms-fw-version) 4) {
         (print "Incompatible firmware, please update")
         (sleep 5)
 })
@@ -30,9 +30,12 @@
 (def t-min 0.0)
 (def t-max 0.0)
 (def t-mos 0.0)
+(def t-ic 0.0)
 (def charge-wakeup false)
 (def psw-state false)
 (def psw-error false)
+(def scd-latched false) ; Short circuit detected HW
+(def init-done false)
 
 ; Buzzer
 (pwm-start 4000 0.0 0 3)
@@ -50,6 +53,51 @@
 (def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
 
 (def rtc-val-magic 114)
+
+; Short-circuit protection (SCD)
+; - DDSGPinConfig (0x9302)
+;   - 0b10000010 - DDSG, Active low, no pull, REG18, Tristate high
+; - EnabledProtectionsA (0x9261)
+;   - Bit 7 enables SCD
+; - SCDThreshold (0x9286)
+;   0: 10 mV
+;   1: 20 mV
+;   2: 40 mV
+;   3: 60 mV
+;   4: 80 mV
+;   5: 100 mV
+;   6: 125 mV
+;   7: 150 mV
+;   8: 175 mV
+;   9: 200 mV
+;   10: 250 mV
+;   11: 300 mV
+;   12: 350 mV
+;   13: 400 mV
+;   14: 450 mV
+;   15: 500 mV
+; - SCDDelay (0x9287)
+;   - Set to 1 for no delay, each step above 1 is 15 uS, max 31
+; - SCDLLatchLimit (0x9295)
+;   - Set to 1 to latch directly without recovering
+; - Recover from latch: bms-subcmd-cmdonly SCDL_RECOVER (0x009C)
+; - Latch status: bms-direct-cmd SafetyAlertA (0x02) bit 7
+(defun config-scd () {
+        (bms-subcmd-cmdonly 1 0x0090) ; SET_CFGUPDATE
+        (bms-write-reg 1 0x9302 0x80 1) ; DDSGPinConfig
+        (bms-write-reg 1 0x9261 (if (= (bms-get-param 'psw_scd_en) 1) 0x80 0x00) 1) ; EnabledProtectionsA
+        (bms-write-reg 1 0x9286 (bms-get-param 'psw_scd_tres) 1) ; SCDThreshold
+        (bms-write-reg 1 0x9287 1 1) ; SCDDelay
+        (bms-write-reg 1 0x9295 1 1) ; SCDLLatchLimit
+        (bms-subcmd-cmdonly 1 0x0092) ; EXIT_CFGUPDATE
+
+        ; (bms-read-reg 1 0x9302 1)
+        ; (bms-read-reg 1 0x9261 1)
+        ; (bms-read-reg 1 0x9286 1)
+        ; (bms-read-reg 1 0x9287 1)
+        ; (bms-read-reg 1 0x9295 1)
+        ; (bms-direct-cmd 1 0x02)
+})
 
 ; If in deepsleep, this will return 4
 ; (bms-direct-cmd 1 0x00)
@@ -77,6 +125,8 @@
         (if was-sleep {
                 (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) (sleep 1))
         })
+
+        (config-scd)
 })
 
 (def rtc-val '(
@@ -195,19 +245,24 @@
 (defun psw-on () {
         (var res false)
 
-        ;(var v-tot (apply + (bms-get-vcells)))
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
-        (var v-tot (assoc rtc-val 'v-tot))
+
+        (if (= (bms-get-param 'psw_wait_init) 1) {
+            (loopwhile (not init-done) (sleep 0.1))
+        })
 
         (bms-set-pchg 0)
         (bms-set-out 0)
+
+        ; Wait for output voltage to drop below 4V, otherwise the precharge buck converter won't start
+        (loopwhile (> (bms-get-vout) 4.0) (sleep 0.1))
 
         (var t-start (systime))
         (var v-start (bms-get-vout))
         (bms-set-pchg 1)
 
-        (loopwhile (< (secs-since t-start) 3.0) {
-                (if (< (- v-tot (bms-get-vout)) 10.0) {
+        (loopwhile (< (secs-since t-start) (bms-get-param 'psw_t_pchg)) {
+                (if (< (- (assoc rtc-val 'v-tot) (bms-get-vout)) 10.0) {
                         (setq res t)
                         (print (str-from-n (* (secs-since t-start) 1000.0) "PCHG T: %.1f ms"))
                         (break)
@@ -224,7 +279,7 @@
                         (print (list "Cap est: " (* cap-est 1000.0) "mF"))
                 })
             }
-            (print "Timed out, make sure that there is a load on the output and no short!")
+            (print "PCHG timeout, make sure that there is a load on the output and no short!")
         )
 
         (bms-set-pchg 0)
@@ -242,13 +297,24 @@
 (loopwhile-thd ("PSW" 100) t {
         (loopwhile (not (main-init-done)) (sleep 0.1))
 
+        (if (and
+                (= (bms-get-btn) 1)
+                (or
+                    (and (= (bms-get-param 't_psw_en) 1) (> t-mos (bms-get-param 't_psw_max_mos)))
+                    scd-latched
+                ))
+            {
+                (bms-set-pchg 0)
+                (bms-set-out 0)
+                (setq psw-error true)
+        })
+
         (if (and (= (bms-get-btn) 0) psw-state) {
                 (psw-off)
                 (setq psw-error false)
         })
 
         (if (and (= (bms-get-btn) 1) (not psw-state) (not psw-error)) {
-                (beep 1 0.1)
                 (setq psw-error (not (psw-on)))
         })
 
@@ -271,6 +337,7 @@
         (setq t-min (ix t-sorted 0))
         (setq t-max (ix t-sorted -1))
         (setq t-mos (ix bms-temps 5))
+        (setq t-ic (ix bms-temps 0))
 
         bms-temps
 })
@@ -349,6 +416,8 @@
         (save-rtc-val)
 
         (update-temps)
+
+        (setq init-done true)
 
         (setq charge-ok (and
                 (< c-max (bms-get-param 'vc_charge_end))
@@ -541,6 +610,8 @@
         (send-bms-can)
 })
 
+(def tres-scd-before (bms-get-param 'psw_scd_tres))
+
 (defun main-ctrl () (loopwhile t {
             ; Exit if any of the BQs has fallen asleep
             (if (or
@@ -557,6 +628,18 @@
                 )
                 (exit-error 0)
             )
+
+            ; Detect if short circuit has been latched
+            (setq scd-latched (!= (bms-direct-cmd 1 0x02) 0))
+
+            ; Reset latch when button has been switched off
+            (if (and scd-latched (= (bms-get-btn) 0))
+                (bms-subcmd-cmdonly 1 0x009C)
+            )
+
+            ; Update short circuit threshold when it changes in the config
+            (if (!= (bms-get-param 'psw_scd_tres) tres-scd-before) (config-scd))
+            (setq tres-scd-before (bms-get-param 'psw_scd_tres))
 
             (var v-cells (with-com '(bms-get-vcells)))
             (var bms-temps (update-temps))
@@ -577,7 +660,7 @@
             })
 
             (set-bms-val 'bms-temp-adc-num (+ 5 temp-ext-num))
-            (set-bms-val 'bms-temps-adc 0 (ix bms-temps 0)) ; IC
+            (set-bms-val 'bms-temps-adc 0 t-ic) ; IC
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
             (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
@@ -761,7 +844,11 @@
                     (setq bal-ok false)
             })
 
-            (if (> t-max (bms-get-param 't_bal_lim_start)) {
+            (if (> t-max (bms-get-param 't_bal_max_cell)) {
+                    (setq bal-ok false)
+            })
+
+            (if (> t-ic (bms-get-param 't_bal_max_ic)) {
                     (setq bal-ok false)
             })
 
