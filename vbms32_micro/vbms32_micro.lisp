@@ -368,17 +368,6 @@
 (def t-last (systime))
 (def charge-ts (systime))
 
-; === TODO===
-;
-; = Sleep =
-;  - Go to sleep when key is left on
-; = Charge control =
-;  - T min is disabled now. Figure out when temp
-;    sensors are missing.
-; = Balancing =
-;  - Balance modes
-;  - Limit channel number when getting warm
-
 ; Note that const starts here and not in the beginning as we want the fastest possible
 ; boot from sleep to conserve power.
 @const-start
