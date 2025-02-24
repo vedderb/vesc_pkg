@@ -1,5 +1,5 @@
 ; Compatibility Check
-(loopwhile (!= (bms-fw-version) 4) {
+(loopwhile (!= (bms-fw-version) 5) {
         (print "Incompatible firmware, please update")
         (sleep 5)
 })
@@ -266,7 +266,7 @@
 (defunret psw-on () {
         (var res false)
 
-        (setq psw-status "PSW_PCHG")
+        (setq psw-status "PSW_WAIT")
 
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
 
@@ -282,15 +282,18 @@
                 (> (bms-get-vout) 4.0)
                 (> (- (assoc rtc-val 'v-tot) (bms-get-vout)) 5.0)
                 (= (bms-get-btn) 1)
-            )
-            (sleep 0.1)
-        )
+                ) {
+                (setq psw-status (str-from-n (bms-get-vout) "PSW_%.1fV"))
+                (sleep 0.1)
+        })
 
         ; Return if button has been switched off
         (if (= (bms-get-btn) 0) {
                 (setq psw-state true)
                 (return true)
         })
+
+        (setq psw-status "PSW_PCHG")
 
         (var t-start (systime))
         (var v-start (bms-get-vout))
@@ -963,6 +966,25 @@
             ;((? a) (print a))
 )))
 
+(defun start-hum-thd ()
+    ; Use humidity sensor if it is detected on the i2c-bus
+    (if (i2c-detect-addr 0x40) {
+            (i2c-tx-rx 0x40 '(2 0x10 0)) ; Temperature and humidity in sequence
+            (i2c-tx-rx 0x40 '(0)) ; Start first measurement
+
+            (loopwhile-thd ("hum" 100) t {
+                    (sleep 0.5)
+                    (var rx (bufcreate 4))
+                    (i2c-tx-rx 0x40 '() rx)
+                    (i2c-tx-rx 0x40 '(0)) ; Start next measurement
+                    (var hum (* (/ (bufget-u16 rx 2) 65536.0) 100.0))
+                    (var hum-temp (- (* (/ (bufget-u16 rx 0) 65536.0) 165.0) 40.0))
+
+                    (set-bms-val 'bms-hum hum)
+                    (set-bms-val 'bms-temp-hum hum-temp)
+            })
+}))
+
 @const-end
 
 ; Restore settings if version number does not match
@@ -1014,3 +1036,5 @@
 
         (sleep 0.1)
 })
+
+(start-hum-thd)

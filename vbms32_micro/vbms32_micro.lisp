@@ -1,5 +1,5 @@
 ; Compatibility Check
-(loopwhile (!= (bms-fw-version) 4) {
+(loopwhile (!= (bms-fw-version) 5) {
         (print "Incompatible firmware, please update")
         (sleep 5)
 })
@@ -783,6 +783,25 @@
             ;((? a) (print a))
 )))
 
+(defun start-hum-thd ()
+    ; Use humidity sensor if it is detected on the i2c-bus
+    (if (i2c-detect-addr 0x40) {
+            (i2c-tx-rx 0x40 '(2 0x10 0)) ; Temperature and humidity in sequence
+            (i2c-tx-rx 0x40 '(0)) ; Start first measurement
+
+            (loopwhile-thd ("hum" 100) t {
+                    (sleep 0.5)
+                    (var rx (bufcreate 4))
+                    (i2c-tx-rx 0x40 '() rx)
+                    (i2c-tx-rx 0x40 '(0)) ; Start next measurement
+                    (var hum (* (/ (bufget-u16 rx 2) 65536.0) 100.0))
+                    (var hum-temp (- (* (/ (bufget-u16 rx 0) 65536.0) 165.0) 40.0))
+
+                    (set-bms-val 'bms-hum hum)
+                    (set-bms-val 'bms-temp-hum hum-temp)
+            })
+}))
+
 @const-end
 
 ; Restore settings if version number does not match
@@ -834,3 +853,5 @@
 
         (sleep 0.1)
 })
+
+(start-hum-thd)
