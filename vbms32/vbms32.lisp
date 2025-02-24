@@ -270,7 +270,7 @@
 
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
 
-        (if (= (bms-get-param 'psw_wait_init) 1) {
+        (if (or (= (bms-get-param 'psw_wait_init) 1) (= (bms-get-param 'psw_scd_en) 1)) {
             (loopwhile (not init-done) (sleep 0.1))
         })
 
