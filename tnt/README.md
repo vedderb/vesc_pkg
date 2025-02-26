@@ -55,7 +55,10 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
-  * Testing and support for higher package loop frequencies. 
+  * Testing and support for higher package loop frequencies. Add help text tot he following parameters:
+    * Traction Control Start Acceleration
+    * Traction Control Scale ERPM
+    * High Current Filter Frequency
   * Traction Control Braking
     * Added new conditions to engage traction control braking
       * Vq and Iq comparison to confirm FOC braking
@@ -64,10 +67,11 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Changed AppUI debug to show battery current and end conditions after 1 second of engagement
     * Added new end condtions to AppUI debug
   * Traction Control
-    * Changed default start acceleration from 29 ERPM/ms to 50 ERPM/ms to allow for higher package loop frequencies
+    * Changed default start acceleration from 29 ERPM/ms to 50 ERPM/ms to allow for higher package loop frequencies by default.
     * Added Hold Period configurable parameter which allows the user to control the period between traction control engagements
   * Surge/High Current
     * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current which is necessary for for higher package loop frequencies
+    * Changed default Current Filter Frequency from 3 to 5 Hz.
   * Increased the voltage threshold that designates a charging situation from 0.1V to 0.3V to avoid nuisance activations
   * AppUI will now display the stop condition as TRACTN CTRL if traction control is active when the board is deactivated
 
