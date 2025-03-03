@@ -41,7 +41,6 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Disabled by default for safety.
   * Set your high current section first.
 * Traction Control
-  * Should work well for most boards. Light riders on powerful boards may need to increase Start Condition to prevent nuisance trips.
   * Decrease Transition Condition and increase End Condition for looser landings and less wheel spin.
   * Increase ERPM filter frequnecy for a faster response, decrease to control wheel spin for longer air time.
   * Traction Braking disabled by default.
@@ -55,10 +54,11 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
-  * Testing and support for higher package loop frequencies. Add help text tot he following parameters:
-    * Traction Control Start Acceleration
-    * Traction Control Scale ERPM
-    * High Current Filter Frequency
+  * Testing and support for higher package loop frequencies.
+    * Traction Control Start Acceleration help text updated.
+    * Traction Control Scale ERPM help text updated.
+    * High Current Filter Frequency help text updated.
+    * Changed parameter name Specs->Loop Rate to Package Loop Frequency. Updated help text.
   * Traction Control Braking
     * Added new conditions to engage traction control braking
       * Vq and Iq comparison to confirm FOC braking
