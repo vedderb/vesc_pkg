@@ -47,7 +47,7 @@ void motor_data_reset(MotorData *m) {
 }
 
 void motor_data_configure(MotorData *m, tnt_config *config) {
-    biquad_configure(&m->current_biquad, BQ_LOWPASS, 3.0 / config->hertz);
+    biquad_configure(&m->current_biquad, BQ_LOWPASS, 1.0 * config->current_filter / config->hertz);
     biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
    
     m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
@@ -95,4 +95,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->duty_cycle_filtered = m->duty_cycle * m->duty_filter_factor + m->duty_cycle_filtered * (1 - m->duty_filter_factor);
 
     m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered() * m->voltage_filter_factor + m->voltage_filtered * (1 - m->voltage_filter_factor);
+    m->vq = VESC_IF->foc_get_vq();
+    m->iq = VESC_IF->foc_get_iq();
+    m->i_batt = VESC_IF->mc_get_tot_current_in();
 }

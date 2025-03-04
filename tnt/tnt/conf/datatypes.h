@@ -107,6 +107,7 @@ typedef struct {
 	float surge_maxangle;
 	uint16_t surge_minerpm;
 	uint16_t surge_duty;
+	float current_filter;
 	uint16_t tiltback_surge_speed;
 	bool is_traction_enabled;
 	uint16_t wheelslip_accelstart;
@@ -117,10 +118,9 @@ typedef struct {
 	uint8_t wheelslip_filter_freq;
 	uint8_t wheelslip_max_angle;
 	uint8_t wheelslip_accelhold;
+	uint8_t wheelslip_resettime;
 	bool is_tc_braking_enabled;
 	int8_t tc_braking_angle;
-	uint16_t tc_braking_start_delay;
-	uint16_t tc_braking_end_delay;
 	uint16_t tc_braking_min_erpm;	
 	bool enable_speed_stability;
 	bool enable_throttle_stability;

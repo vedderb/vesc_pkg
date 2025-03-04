@@ -154,7 +154,7 @@ void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *t
 
 void idle_tone(ToneData *tone, ToneConfig *toneconfig, RuntimeData *rt, MotorData *m) {
 	//Conditions to play a charged or idle tone
-	if (tone->voltage_diff >= 0.1) {						// Allow a possible charged beep if increasing voltage differential. Don't idle beep.
+	if (tone->voltage_diff >= 0.3) {						// Allow a possible charged beep if increasing voltage differential. Don't idle beep.
 		if (m->voltage_filtered - tone->charged_voltage > 0.01) {		//Once the voltage stops climbing this will no longer be true
 			tone->charged_timer = rt->current_time;				//and this timer will record how long the voltage has stopped climbing for
 			tone->charged_voltage = m->voltage_filtered;
