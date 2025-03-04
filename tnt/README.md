@@ -72,6 +72,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * Surge/High Current
     * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current which is necessary for for higher package loop frequencies
     * Changed default Current Filter Frequency from 3 to 5 Hz.
+    * Changed default Min ERPM for surge from 1500 to 2000.
   * Increased the voltage threshold that designates a charging situation from 0.1V to 0.3V to avoid nuisance activations
   * AppUI will now display the stop condition as TRACTN CTRL if traction control is active when the board is deactivated
 
