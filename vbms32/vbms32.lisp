@@ -966,6 +966,8 @@
             ;((? a) (print a))
 )))
 
+@const-end
+
 (defun start-hum-thd ()
     ; Use humidity sensor if it is detected on the i2c-bus
     (if (i2c-detect-addr 0x40) {
@@ -984,8 +986,6 @@
                     (set-bms-val 'bms-temp-hum hum-temp)
             })
 }))
-
-@const-end
 
 ; Restore settings if version number does not match
 ; as that probably means something else is in eeprom
