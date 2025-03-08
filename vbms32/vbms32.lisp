@@ -331,6 +331,10 @@
         (setq psw-state false)
 })
 
+; Wait here on the first boot so that the upper BQ does not shut down its regulator
+; when communicating with it before all connectors are plugged in.
+(if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+
 ; Power switch
 (loopwhile-thd ("PSW" 100) t {
         (loopwhile (not (main-init-done)) (sleep 0.1))

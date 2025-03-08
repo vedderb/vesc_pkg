@@ -33,12 +33,6 @@
 (def chg-status "")
 (def bal-status "")
 
-; Make sure that we receive messages on CAN
-(gpio-configure 9 'pin-mode-out)
-(gpio-write 9 0)
-(loopwhile (not (main-init-done)) (sleep 0.01))
-(gpio-write 9 0)
-
 ; Buzzer
 (pwm-start 4000 0.0 0 3)
 
@@ -218,6 +212,16 @@
 
         bms-temps
 })
+
+; Wait here on the first boot so that the upper BQ does not shut down its regulator
+; when communicating with it before all connectors are plugged in.
+(if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+
+; Make sure that we receive messages on CAN
+(gpio-configure 9 'pin-mode-out)
+(gpio-write 9 0)
+(loopwhile (not (main-init-done)) (sleep 0.01))
+(gpio-write 9 0)
 
 (defun start-fun () {
         (setassoc rtc-val 'wakeup-cnt (+ (assoc rtc-val 'wakeup-cnt) 1))
