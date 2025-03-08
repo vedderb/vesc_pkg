@@ -127,7 +127,11 @@
 ; (bms-subcmd-cmdonly 1 0x000e)
 
 (defun init-hw () {
-        (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) (sleep 1))
+        (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) {
+                (bms-subcmd-cmdonly 1 0x000e)
+                (bms-subcmd-cmdonly 1 0x000e)
+                (sleep 1)
+        })
         (var was-sleep false)
         (if (= (bms-direct-cmd 1 0x00) 4) {
                 (setq was-sleep true)
@@ -144,7 +148,11 @@
                 })
         })
         (if was-sleep {
-                (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) (sleep 1))
+                (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) {
+                        (bms-subcmd-cmdonly 1 0x000e)
+                        (bms-subcmd-cmdonly 1 0x000e)
+                        (sleep 1)
+                })
         })
 
         (config-scd)
@@ -365,6 +373,14 @@
 })
 
 (defun update-temps () {
+        ; Exit if any of the BQs has invalid temperature settings
+        (if (or
+                (!= (bms-read-reg 1 0x92fd 1) 0x3b)
+                (and (> (bms-get-param 'cells_ic2) 0) (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b))
+            )
+            (exit-error 0)
+        )
+
         (var bms-temps (with-com '(bms-get-temps)))
         (var temp-ext-num (truncate (bms-get-param 'temp_num) 0 4))
 
@@ -655,14 +671,6 @@
             (if (or
                     (= (bms-direct-cmd 1 0x00) 4)
                     (and (> (bms-get-param 'cells_ic2) 0) (= (with-com '(bms-direct-cmd 2 0x00)) 4))
-                )
-                (exit-error 0)
-            )
-
-            ; Exit if any of the BQs has invalid temperature settings
-            (if (or
-                    (!= (bms-read-reg 1 0x92fd 1) 0x3b)
-                    (and (> (bms-get-param 'cells_ic2) 0) (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b))
                 )
                 (exit-error 0)
             )
