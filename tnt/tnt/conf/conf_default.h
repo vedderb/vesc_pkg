@@ -370,12 +370,17 @@
 
 // High Current Minimum ERPM
 #ifndef APPCONF_TNT_SURGE_MINERPM
-#define APPCONF_TNT_SURGE_MINERPM 1500
+#define APPCONF_TNT_SURGE_MINERPM 2000
 #endif
 
 // Surge Max Ramp Rate
 #ifndef APPCONF_TNT_SURGE_DUTY
 #define APPCONF_TNT_SURGE_DUTY 150
+#endif
+
+// Current Filter Frequency
+#ifndef APPCONF_TNT_CURRENT_FILTER
+#define APPCONF_TNT_CURRENT_FILTER 5
 #endif
 
 // Surge Return Speed
@@ -390,7 +395,7 @@
 
 // Start Acceleration
 #ifndef APPCONF_TNT_WHEELSLIP_ACCELSTART
-#define APPCONF_TNT_WHEELSLIP_ACCELSTART 29
+#define APPCONF_TNT_WHEELSLIP_ACCELSTART 50
 #endif
 
 // Transition Condition
@@ -428,6 +433,11 @@
 #define APPCONF_TNT_WHEELSLIP_ACCELHOLD 2
 #endif
 
+// Hold Period
+#ifndef APPCONF_TNT_WHEELSLIP_RESETTIME
+#define APPCONF_TNT_WHEELSLIP_RESETTIME 20
+#endif
+
 // Enable Traction Control Braking
 #ifndef APPCONF_TNT_IS_TC_BRAKING_ENABLED
 #define APPCONF_TNT_IS_TC_BRAKING_ENABLED 0
@@ -436,16 +446,6 @@
 // Minimum Remote Angle
 #ifndef APPCONF_TNT_TC_BRAKING_ANGLE
 #define APPCONF_TNT_TC_BRAKING_ANGLE 0
-#endif
-
-// Start Delay
-#ifndef APPCONF_TNT_TC_BRAKING_START_DELAY
-#define APPCONF_TNT_TC_BRAKING_START_DELAY 50
-#endif
-
-// End Delay
-#ifndef APPCONF_TNT_TC_BRAKING_END_DELAY
-#define APPCONF_TNT_TC_BRAKING_END_DELAY 50
 #endif
 
 // Minimum ERPM
@@ -493,7 +493,7 @@
 #define APPCONF_TNT_STABL_RAMP_DOWN 5
 #endif
 
-// Loop Hertz
+// Package Loop Frequency
 #ifndef APPCONF_TNT_HERTZ
 #define APPCONF_TNT_HERTZ 832
 #endif
@@ -825,7 +825,7 @@
 
 // Package Version
 #ifndef APPCONF_TNT_VERSION
-#define APPCONF_TNT_VERSION 1.4
+#define APPCONF_TNT_VERSION 1.5
 #endif
 
 // CONF_DEFAULT_H_

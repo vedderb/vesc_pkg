@@ -1617,8 +1617,8 @@ p, li { white-space: pre-wrap; }
             <maxInt>50000</maxInt>
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
-            <stepInt>500</stepInt>
-            <valInt>1500</valInt>
+            <stepInt>250</stepInt>
+            <valInt>2000</valInt>
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </surge_minerpm>
@@ -1642,6 +1642,28 @@ p, li { white-space: pre-wrap; }
             <suffix> %/s</suffix>
             <vTx>1</vTx>
         </surge_duty>
+        <current_filter>
+            <longName>Current Filter Frequency</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the low pass filter applied to the motor current to reduce signal noise. Lower values provide more filtering but can be delayed. Higher package frequencies, &amp;gt;10kHz, require slightly higher current filter frequencies.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_CURRENT_FILTER</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1000</maxDouble>
+            <minDouble>1</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>5</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> Hz</suffix>
+            <vTx>7</vTx>
+        </current_filter>
         <tiltback_surge_speed>
             <longName>Surge Return Speed</longName>
             <type>2</type>
@@ -1682,7 +1704,9 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the value that defines when the motor no longer has traction and should enter traction control. More powerful motors and batteries will likely require higher values to prevent nuisance trips when rapidly accelerating or surging. For 15S and 20S hypercore setups 29 works well.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the value that defines when the motor no longer has traction and should enter traction control. More powerful motors and batteries will likely require higher values to prevent nuisance trips when rapidly accelerating or surging. &lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The default of 50 is tuned for higher package loop frequencies, like 10kHz. Lower frequencies like &amp;lt;1kHz can use values lower like 30.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_WHEELSLIP_ACCELSTART</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -1690,7 +1714,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>29</valInt>
+            <valInt>50</valInt>
             <suffix> ERPM/ms</suffix>
             <vTx>3</vTx>
         </wheelslip_accelstart>
@@ -1742,7 +1766,9 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower ERPM the motor is capable of high accelerations. For this reason we apply a scaler to the wheelslip start acceleration value. This value applies linearly, 100% at 0 ERPM to 0% at wheelslip scale ERPM.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;At lower ERPM the motor is capable of high accelerations. For this reason we apply a scaler to the wheelslip start acceleration value. This value applies linearly, 100% at 0 ERPM to 0% at wheelslip scale ERPM.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This value can be reduce at higher package requencies, like 10 kHz, to 2 or 3. At low package frequencies this needs to be higher to prevent nuisance trips. 4 or 5 is more likely to work at low frequencies like &amp;lt;1kHz.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_WHEELSLIP_SCALEACCEL</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -1834,6 +1860,26 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM/ms</suffix>
             <vTx>1</vTx>
         </wheelslip_accelhold>
+        <wheelslip_resettime>
+            <longName>Hold Period</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;After the end of traction control, the motor will wait this amount of time before re-engaging traction contrl.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_RESETTIME</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>250</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>5</stepInt>
+            <valInt>20</valInt>
+            <suffix> ms</suffix>
+            <vTx>1</vTx>
+        </wheelslip_resettime>
         <is_tc_braking_enabled>
             <longName>Enable Traction Control Braking</longName>
             <type>5</type>
@@ -1842,7 +1888,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allows the board to use the set brake function which prevents reverse wheel spin while braking.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Allows the board to use the set brake function which prevents reverse wheel spin while braking. This works better at high loop rates (i.e. 10,000 Hz). Specs-&amp;gt;Balance Loop-&amp;gt;Loop Hertz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_IS_TC_BRAKING_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_tc_braking_enabled>
@@ -1866,46 +1912,6 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>2</vTx>
         </tc_braking_angle>
-        <tc_braking_start_delay>
-            <longName>Start Delay</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Traction braking conditions must be met for this amount of time before traction braking will engage. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_TC_BRAKING_START_DELAY</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>1000</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>50</stepInt>
-            <valInt>50</valInt>
-            <suffix> ms</suffix>
-            <vTx>3</vTx>
-        </tc_braking_start_delay>
-        <tc_braking_end_delay>
-            <longName>End Delay</longName>
-            <type>2</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This adds a delay after traction braking ends before it can re-engage to prevent rapid switching on and off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_TC_BRAKING_END_DELAY</cDefine>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxInt>1000</maxInt>
-            <minInt>0</minInt>
-            <showDisplay>0</showDisplay>
-            <stepInt>50</stepInt>
-            <valInt>50</valInt>
-            <suffix> ms</suffix>
-            <vTx>3</vTx>
-        </tc_braking_end_delay>
         <tc_braking_min_erpm>
             <longName>Minimum ERPM</longName>
             <type>2</type>
@@ -2071,25 +2077,32 @@ p, li { white-space: pre-wrap; }
             <vTx>1</vTx>
         </stabl_ramp_down>
         <hertz>
-            <longName>Loop Hertz</longName>
+            <longName>Package Loop Frequency</longName>
             <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the code cycle that runs the package. For example, 1000 Hz would be 1000 code cycles per second or 1 code cycle every millisecond. This value should correspond to the response rate of your IMU for the best results.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the code cycle that runs the package. Generally the minimum frequencies should be the IMU sample rate or one half the sample rate. &lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Recommended Value: Same or multiple of IMU Sample Rate&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Higher frequencies are advantageous for traction control and high current. Frequencies as high as 15kHz have been trail tested and 20kHz has been bench tested. 10kHz recommended.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The following parameters may need to be adjusted at higher frequencies:&lt;/p&gt;
+&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:normal;&quot;&gt;Traction control start acceleration&lt;/span&gt;&lt;/li&gt;
+&lt;li style=&quot;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Traction control low ERPM scaler&lt;/li&gt;
+&lt;li style=&quot;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;High Current Filter Frequency&lt;/li&gt;&lt;/ul&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;IMU Sample Rates:&lt;/span&gt;&lt;/p&gt;
 &lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3.1 (LSM6DS3): 832Hz&lt;/li&gt;
 &lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3 (BMI160): 800Hz&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HERTZ</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxInt>50000</maxInt>
-            <minInt>50</minInt>
+            <minInt>0</minInt>
             <showDisplay>0</showDisplay>
-            <stepInt>832</stepInt>
+            <stepInt>500</stepInt>
             <valInt>832</valInt>
             <suffix> Hz</suffix>
             <vTx>3</vTx>
@@ -3347,8 +3360,8 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.4</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
+            <valDouble>1.5</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
         </version>
@@ -3429,6 +3442,7 @@ p, li { white-space: pre-wrap; }
         <ser>surge_maxangle</ser>
         <ser>surge_minerpm</ser>
         <ser>surge_duty</ser>
+        <ser>current_filter</ser>
         <ser>tiltback_surge_speed</ser>
         <ser>is_traction_enabled</ser>
         <ser>wheelslip_accelstart</ser>
@@ -3439,13 +3453,9 @@ p, li { white-space: pre-wrap; }
         <ser>wheelslip_filter_freq</ser>
         <ser>wheelslip_max_angle</ser>
         <ser>wheelslip_accelhold</ser>
+        <ser>wheelslip_resettime</ser>
         <ser>is_tc_braking_enabled</ser>
         <ser>tc_braking_angle</ser>
-        <ser>tc_braking_start_delay</ser>
-        <ser>tc_braking_end_delay</ser>
-        <ser>tc_braking_feature_delay1</ser>
-        <ser>tc_braking_feature_delay2</ser>
-        <ser>tc_braking_feature_delay3</ser>
         <ser>tc_braking_min_erpm</ser>
         <ser>enable_speed_stability</ser>
         <ser>enable_throttle_stability</ser>
@@ -3640,6 +3650,7 @@ p, li { white-space: pre-wrap; }
                     <param>surge_start_hd_current</param>
                     <param>surge_scaleduty</param>
                     <param>surge_minerpm</param>
+                    <param>current_filter</param>
                     <param>::sep::Surge</param>
                     <param>is_surge_enabled</param>
                     <param>surge_duty</param>
@@ -3662,11 +3673,10 @@ p, li { white-space: pre-wrap; }
                     <param>wheelslip_accelend</param>
                     <param>wheelslip_accelhold</param>
                     <param>wheelslip_max_angle</param>
+                    <param>wheelslip_resettime</param>
                     <param>::sep:: Traction Braking (beta)</param>
                     <param>is_tc_braking_enabled</param>
                     <param>tc_braking_angle</param>
-                    <param>tc_braking_start_delay</param>
-                    <param>tc_braking_end_delay</param>
                     <param>tc_braking_min_erpm</param>
                 </subgroupParams>
             </subgroup>
@@ -3774,7 +3784,7 @@ p, li { white-space: pre-wrap; }
                     <param>::sep::Package Details</param>
                     <param>version</param>
                     <param>disable_pkg</param>
-                    <param>::sep::Balance Loop</param>
+                    <param>::sep::Package Loop</param>
                     <param>hertz</param>
                     <param>::sep::AppUI Debug Information</param>
                     <param>is_tunedebug_enabled</param>
