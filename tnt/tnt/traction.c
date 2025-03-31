@@ -24,7 +24,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-		
+	traction_dbg->debug2 = m->erpm_avg;
+	
 	// Conditions to end traction control
 	if (state->wheelslip) {
 		if (current_time - traction->timeron > 1) {		// Time out at 1s
@@ -64,8 +65,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
-			if (m->erpm_sign == sign(m->erpm_history[m->last_erpm_idx])) { 								//Check sign of the motor at the start of acceleration 
-				if (fabsf(m->erpm_filtered) > fabsf(m->erpm_history[m->last_erpm_idx])) { 				//If signs the same check for magnitude increase
+			if (m->erpm_sign == sign(m->erpm_at_accel_start)) { 								//Check sign of the motor at the start of acceleration 
+				if (fabsf(m->erpm) > fabsf(m->erpm_avg) { 								//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
 				} // else if (...TODO Put working braking condition here
@@ -90,10 +91,10 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			if (current_time - traction_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
 				traction_dbg->aggregate_timer = current_time;
 				traction_dbg->debug5 = 0;
-				traction_dbg->debug2 = erpmfactor;		//only record the first traction loss for some debug variables
-				traction_dbg->debug6 = m->accel_avg / traction_dbg->freq_factor; 
+				//traction_dbg->debug2 = erpmfactor;		//only record the first traction loss for some debug variables
+				traction_dbg->debug6 = m->erpm_avg;		//m->accel_avg / traction_dbg->freq_factor; 
 				traction_dbg->debug9 = m->erpm;
-				traction_dbg->debug3 = m->erpm_history[m->last_erpm_idx];
+				traction_dbg->debug3 = m->erpm_at_accel_start;
 				traction_dbg->debug4 = 0;
 				traction_dbg->debug8 = 0;
 			}
