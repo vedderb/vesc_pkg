@@ -313,8 +313,8 @@ Item {
 	             
 			if (debug_state == 1) {
 				debug.text =
-				"Start ERPM Factor   : " + debug1.toFixed(1) + "\n" +  
-				"Start Acceleration  : " + debug2.toFixed(1) + " ERPM/ms\n" +
+				"ERPM Average        : " + debug1.toFixed(0) + "\n" +  
+				"ERPM Average        : " + debug2.toFixed(0) + " ERPM/ms\n" +
 				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
 				"Last ERPM           : " + debug3.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
