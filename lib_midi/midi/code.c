@@ -161,6 +161,7 @@ static lbm_value ext_midi_parse(lbm_value *args, lbm_uint argn) {
 	}
 
 	struct midi_parser *parser = &state->parser[parser_num];
+	struct midi_parser parser_state_old = *parser;
 
 	enum midi_parser_status status = midi_parse(parser);
 
@@ -248,6 +249,11 @@ static lbm_value ext_midi_parse(lbm_value *args, lbm_uint argn) {
 
 	default:
 		break;
+	}
+	
+	// Restore state as GC will make one retry
+	if (res == SYM_MERROR) {
+		state->parser[parser_num] = parser_state_old;
 	}
 
 	return res;

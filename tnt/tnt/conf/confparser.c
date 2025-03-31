@@ -85,6 +85,7 @@ int32_t confparser_serialize_tnt_config(uint8_t *buffer, const tnt_config *conf)
 	buffer_append_float16(buffer, conf->surge_maxangle, 10, &ind);
 	buffer_append_uint16(buffer, conf->surge_minerpm, &ind);
 	buffer[ind++] = (uint8_t)conf->surge_duty;
+	buffer_append_float16(buffer, conf->current_filter, 10, &ind);
 	buffer[ind++] = (uint8_t)conf->tiltback_surge_speed;
 	buffer[ind++] = conf->is_traction_enabled;
 	buffer_append_uint16(buffer, conf->wheelslip_accelstart, &ind);
@@ -95,10 +96,9 @@ int32_t confparser_serialize_tnt_config(uint8_t *buffer, const tnt_config *conf)
 	buffer[ind++] = (uint8_t)conf->wheelslip_filter_freq;
 	buffer[ind++] = (uint8_t)conf->wheelslip_max_angle;
 	buffer[ind++] = (uint8_t)conf->wheelslip_accelhold;
+	buffer[ind++] = (uint8_t)conf->wheelslip_resettime;
 	buffer[ind++] = conf->is_tc_braking_enabled;
 	buffer[ind++] = (uint8_t)conf->tc_braking_angle;
-	buffer_append_uint16(buffer, conf->tc_braking_start_delay, &ind);
-	buffer_append_uint16(buffer, conf->tc_braking_end_delay, &ind);
 	buffer_append_uint16(buffer, conf->tc_braking_min_erpm, &ind);
 	buffer[ind++] = conf->enable_speed_stability;
 	buffer[ind++] = conf->enable_throttle_stability;
@@ -174,7 +174,7 @@ int32_t confparser_serialize_tnt_config(uint8_t *buffer, const tnt_config *conf)
 	buffer[ind++] = conf->is_yawdebug_enabled;
 	buffer[ind++] = conf->is_brakingdebug_enabled;
 	buffer[ind++] = conf->disable_pkg;
-	buffer_append_float16(buffer, conf->version, 1000, &ind);
+	buffer_append_float16(buffer, conf->version, 100, &ind);
 
 	return ind;
 }
@@ -262,6 +262,7 @@ bool confparser_deserialize_tnt_config(const uint8_t *buffer, tnt_config *conf) 
 	conf->surge_maxangle = buffer_get_float16(buffer, 10, &ind);
 	conf->surge_minerpm = buffer_get_uint16(buffer, &ind);
 	conf->surge_duty = buffer[ind++];
+	conf->current_filter = buffer_get_float16(buffer, 10, &ind);
 	conf->tiltback_surge_speed = buffer[ind++];
 	conf->is_traction_enabled = buffer[ind++];
 	conf->wheelslip_accelstart = buffer_get_uint16(buffer, &ind);
@@ -272,10 +273,9 @@ bool confparser_deserialize_tnt_config(const uint8_t *buffer, tnt_config *conf) 
 	conf->wheelslip_filter_freq = buffer[ind++];
 	conf->wheelslip_max_angle = buffer[ind++];
 	conf->wheelslip_accelhold = buffer[ind++];
+	conf->wheelslip_resettime = buffer[ind++];
 	conf->is_tc_braking_enabled = buffer[ind++];
 	conf->tc_braking_angle = (int8_t)buffer[ind++];
-	conf->tc_braking_start_delay = buffer_get_uint16(buffer, &ind);
-	conf->tc_braking_end_delay = buffer_get_uint16(buffer, &ind);
 	conf->tc_braking_min_erpm = buffer_get_uint16(buffer, &ind);
 	conf->enable_speed_stability = buffer[ind++];
 	conf->enable_throttle_stability = buffer[ind++];
@@ -351,7 +351,7 @@ bool confparser_deserialize_tnt_config(const uint8_t *buffer, tnt_config *conf) 
 	conf->is_yawdebug_enabled = buffer[ind++];
 	conf->is_brakingdebug_enabled = buffer[ind++];
 	conf->disable_pkg = buffer[ind++];
-	conf->version = buffer_get_float16(buffer, 1000, &ind);
+	conf->version = buffer_get_float16(buffer, 100, &ind);
 
 	return true;
 }
@@ -432,6 +432,7 @@ void confparser_set_defaults_tnt_config(tnt_config *conf) {
 	conf->surge_maxangle = APPCONF_TNT_SURGE_MAXANGLE;
 	conf->surge_minerpm = APPCONF_TNT_SURGE_MINERPM;
 	conf->surge_duty = APPCONF_TNT_SURGE_DUTY;
+	conf->current_filter = APPCONF_TNT_CURRENT_FILTER;
 	conf->tiltback_surge_speed = APPCONF_TNT_TILTBACK_SURGE_SPEED;
 	conf->is_traction_enabled = APPCONF_TNT_IS_TRACTION_ENABLED;
 	conf->wheelslip_accelstart = APPCONF_TNT_WHEELSLIP_ACCELSTART;
@@ -442,10 +443,9 @@ void confparser_set_defaults_tnt_config(tnt_config *conf) {
 	conf->wheelslip_filter_freq = APPCONF_TNT_WHEELSLIP_FILTER_FREQ_FAST;
 	conf->wheelslip_max_angle = APPCONF_TNT_WHEELSLIP_MAX_ANGLE;
 	conf->wheelslip_accelhold = APPCONF_TNT_WHEELSLIP_ACCELHOLD;
+	conf->wheelslip_resettime = APPCONF_TNT_WHEELSLIP_RESETTIME;
 	conf->is_tc_braking_enabled = APPCONF_TNT_IS_TC_BRAKING_ENABLED;
 	conf->tc_braking_angle = APPCONF_TNT_TC_BRAKING_ANGLE;
-	conf->tc_braking_start_delay = APPCONF_TNT_TC_BRAKING_START_DELAY;
-	conf->tc_braking_end_delay = APPCONF_TNT_TC_BRAKING_END_DELAY;
 	conf->tc_braking_min_erpm = APPCONF_TNT_TC_BRAKING_MIN_ERPM;
 	conf->enable_speed_stability = APPCONF_TNT_ENABLE_SPEED_STABILITY;
 	conf->enable_throttle_stability = APPCONF_TNT_ENABLE_THROTTLE_STABILITY;

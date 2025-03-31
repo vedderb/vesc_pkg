@@ -161,7 +161,7 @@ Item {
                     var debug4 = dv.getFloat32(ind); ind += 4; // max erpm 
                     var debug5 = dv.getFloat32(ind); ind += 4; // debug 
                     var debug6 = dv.getFloat32(ind); ind += 4; // duration 
-                    var debug7 = dv.getFloat32(ind); ind += 4; // count 
+                    var debug7 = dv.getFloat32(ind); ind += 4; // end condition 3 sec 
 		} else {
 		    //space for temporary debugs
                 }
@@ -186,7 +186,9 @@ Item {
 		        stateString += "-FULL SWITCH"
 		    }else if(state_stop == 6){ 
 		        stateString += "-QUICKSTOP"
-            	    }
+		    }else if(state_stop == 7){ 
+		        stateString += "-TRACTN CTRL"
+	  	    }
 		}else if(state == 3){		//If the board is running we can receive setpoint adjustment, add SAT reason.
                     stateString = "RUNNING";
 
@@ -347,14 +349,14 @@ Item {
     				"Max Yaw Kp          : " + debug6.toFixed(2) + " \n" 
     			} else if (debug_state == 5) {
 				debug.text =
-				"Duty Filtered       : " + debug1.toFixed(2) + "\n" +  
+				"Battery Current     : " + debug1.toFixed(0) + " A\n" +  
 				"Max Acceleration    : " + debug2.toFixed(1) + " ERPM/ms\n" +
 				"Min ERPM            : " + debug3.toFixed(0) + " ERPM\n" +
 				"Max ERPM            : " + debug4.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
+				"End Cond, 1 sec min : " + debug7.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
-				"Brake Count         : " + debug7.toFixed(0) + "\n" +
-        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Not in Braking Position \n 3 - Minimum Duty \n 4 - Minimum Brake Current \n 5 - Minimum ERPM \n"
+        			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
     			} else { 
 				debug.text = 
 				"-- n/a --"       

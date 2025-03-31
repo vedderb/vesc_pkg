@@ -3,8 +3,8 @@ VESC_TOOL ?= vesc_tool
 all: vdisp.vescpkg vdisp_esc.vescpkg
 
 vdisp.vescpkg: README_Disp-gen.md README_ESC-gen.md
-	$(VESC_TOOL) --buildPkg "vdisp.vescpkg:main.lisp::0:README_Disp-gen.md:VDisp"
-	$(VESC_TOOL) --buildPkg "vdisp_esc.vescpkg:main-esc.lisp::0:README_ESC-gen.md:VDisp ESC"
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc_esc.qml --testPkgDesc 'custom:test' --testPkgDesc 'custom:vdisp' --testPkgDesc 'vesc:test'
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'custom:test' --testPkgDesc 'custom:vdisp' --testPkgDesc 'vesc:test'
 
 VERSION=`cat version`
 VERSION_ESC=`cat version_esc`

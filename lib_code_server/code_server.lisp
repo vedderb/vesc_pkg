@@ -5,9 +5,9 @@
     (loopwhile t {
             (var rx (unflatten (canmsg-recv 0 -1)))
             (var id (first rx))
-            
+
             (send parent (list 'can-id id))
-            
+
             (if (>= id 0)
                 (canmsg-send id 1 (flatten (eval (second rx))))
                 (eval (second rx))
@@ -15,16 +15,16 @@
 }))
 
 (defun start-code-server ()
-    (spawn 50 (fn () {
+    (spawn 150 (fn () {
                 (var last-id 0)
                 (var respawn true)
-                
+
                 (loopwhile t {
                         (if respawn {
                                 (spawn-trap "CodeSrv" code-server-worker (self))
                                 (setq respawn false)
                         })
-                        
+
                         (recv
                             ((exit-error (? tid) (? v)) {
                                     (setq respawn true)
@@ -32,7 +32,7 @@
                                         (canmsg-send last-id 1 (flatten 'eerror))
                                     )
                             })
-                            
+
                             ((can-id (? id)) {
                                     (setq last-id id)
                             })
@@ -52,4 +52,4 @@
         (canmsg-send id 0 (flatten (list -1 code)))
 })
 
- @const-end
+@const-end

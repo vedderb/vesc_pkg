@@ -21,7 +21,7 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 * High Current FOC Tone - instant, high torque warning.
 
 ### Default Settings
-Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. These are similar to the settings I ride for trails. One exception is surge which is disabled. Here are more details on the default settings:
+Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. Here are more details on the default settings:
 
 * Pitch Tune - The default pitch tune is a simple beginner tune using only TNT Cfg->Acceleration kp0, kp rate, current 1 and pitch 1.
   * For a trick or trail tune you will want a lower kp0 and gradually increasing pitch angles and currents.
@@ -41,7 +41,6 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Disabled by default for safety.
   * Set your high current section first.
 * Traction Control
-  * Should work well for most boards. Light riders on powerful boards may need to increase Start Condition to prevent nuisance trips.
   * Decrease Transition Condition and increase End Condition for looser landings and less wheel spin.
   * Increase ERPM filter frequnecy for a faster response, decrease to control wheel spin for longer air time.
   * Traction Braking disabled by default.
@@ -52,6 +51,31 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.5
+* **This version requires 6.05 firmware to fuction properly**
+* _Fixes/Improvements_
+  * Testing and support for higher package loop frequencies.
+    * Traction Control Start Acceleration help text updated.
+    * Traction Control Scale ERPM help text updated.
+    * High Current Filter Frequency help text updated.
+    * Changed parameter name Specs->Loop Rate to Package Loop Frequency. Updated help text.
+  * Traction Control Braking
+    * Added new conditions to engage traction control braking
+      * Vq and Iq comparison to confirm FOC braking
+      * Battery current less than zero to confirm regeneration
+    * Removed start and end delay parameters as they are no longer required
+    * Changed AppUI debug to show battery current and end conditions after 1 second of engagement
+    * Added new end condtions to AppUI debug
+  * Traction Control
+    * Changed default start acceleration from 29 ERPM/ms to 50 ERPM/ms to allow for higher package loop frequencies by default.
+    * Added Hold Period configurable parameter which allows the user to control the period between traction control engagements
+  * Surge/High Current
+    * Added Current Filter Frequency parameter to allow the user to change the low pass filter frequency on motor current which is necessary for for higher package loop frequencies
+    * Changed default Current Filter Frequency from 3 to 5 Hz.
+    * Changed default Min ERPM for surge from 1500 to 2000.
+  * Increased the voltage threshold that designates a charging situation from 0.1V to 0.3V to avoid nuisance activations
+  * AppUI will now display the stop condition as TRACTN CTRL if traction control is active when the board is deactivated
+
 ### 1.4
 * **This version requires 6.05 firmware to fuction properly**
 * **Version 1.4 parameters are not compatible with v1.3 and will be set to default. Screenshot your tunes to save.**
