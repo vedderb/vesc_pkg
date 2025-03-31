@@ -22,7 +22,6 @@
 #include <stdint.h>
 
 #define ACCEL_ARRAY_SIZE 5 // For traction control erpm tracking
-#define ERPM_ARRAY_SIZE 5 // For traction control erpm tracking
 
 typedef struct {
     float erpm;
@@ -49,9 +48,13 @@ typedef struct {
     float accel_filtered;
     float last_accel_filtered;
 
-    float erpm_history[ERPM_ARRAY_SIZE];
-    int erpm_idx;
-    int last_erpm_idx;
+    float erpm_history[500];
+    uint16_t erpm_array_size;
+    uint16_t erpm_idx;
+    int start_accel_idx;
+    float erpm_at_accel_start;
+    float erpm_sum;
+    float erpm_avg;
 
     float mc_max_temp_fet;
     float mc_max_temp_mot;
