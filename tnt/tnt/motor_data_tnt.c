@@ -51,6 +51,7 @@ void motor_data_configure(MotorData *m, tnt_config *config) {
     biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
    
     m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
+    m->erpm_array_size = max(5, config->erpm_avg_period * config->hertz /1000); //convert from time period in ms to number of code cycles
 
     m->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
     m->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
@@ -71,18 +72,26 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->abs_erpm = fabsf(m->erpm);
     m->erpm_sign = sign(m->erpm);
     update_erpm_sign(m);
-	
-    m->erpm_filtered = config->wheelslip_filter_freq > 0 ? biquad_process(&m->erpm_biquad, m->erpm) : m->erpm;
-    m->erpm_history[m->erpm_idx] = m->erpm_filtered;
-    m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE; 
-    m->last_erpm_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; 
-    if (m->last_erpm_idx < 0) 
-       m->last_erpm_idx += ERPM_ARRAY_SIZE;
 
+    //ERPM Moving Average
+    m->erpm_sum += m->erpm - m->erpm_history[m->erpm_idx]
+    m->erpm_history[m->erpm_idx] = m->erpm;
+    m->erpm_avg = m->erpm_sum / m->erpm_array_size;
+    m->erpm_idx = (m->erpm_idx + 1) % m->erpm_array_size; 
+
+    //ERPM at the start of the acceleration array
+    m->start_accel_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; 
+    if (m->start_accel_idx < 0) 
+       m->start_accel_idx += m->erpm_array_size;
+    m->erpm_at_accel_start =  m->erpm_history[m->start_accel_idx]
+
+    //Use low pass filtered erpm for accleration calculation
+    m->erpm_filtered = config->wheelslip_filter_freq > 0 ? biquad_process(&m->erpm_biquad, m->erpm) : m->erpm;	
     m->last_accel_filtered = m->accel_filtered;
     m->accel_filtered =  m->erpm_filtered - m->last_erpm_filtered;
     m->last_erpm_filtered = m->erpm_filtered;
 
+    //Use averaging for acceleration across a few cycles, 5-10
     m->accel_avg += (m->accel_filtered - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
     m->accel_history[m->accel_idx] = m->accel_filtered;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
