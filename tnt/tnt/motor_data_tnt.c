@@ -33,7 +33,7 @@ void motor_data_reset(MotorData *m) {
     m->current_filtered = 0;	
 	    
     m->erpm_idx = 0;
-    for (int i = 0; i < ERPM_ARRAY_SIZE; i++) {
+    for (int i = 0; i < m->erpm_array_size; i++) {
         m->erpm_history[i] = 0;
     }
     m->accel_idx = 0;
@@ -74,7 +74,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     update_erpm_sign(m);
 
     //ERPM Moving Average
-    m->erpm_sum += m->erpm - m->erpm_history[m->erpm_idx]
+    m->erpm_sum += m->erpm - m->erpm_history[m->erpm_idx];
     m->erpm_history[m->erpm_idx] = m->erpm;
     m->erpm_avg = m->erpm_sum / m->erpm_array_size;
     m->erpm_idx = (m->erpm_idx + 1) % m->erpm_array_size; 
@@ -83,7 +83,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->start_accel_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; 
     if (m->start_accel_idx < 0) 
        m->start_accel_idx += m->erpm_array_size;
-    m->erpm_at_accel_start =  m->erpm_history[m->start_accel_idx]
+    m->erpm_at_accel_start =  m->erpm_history[m->start_accel_idx];
 
     //Use low pass filtered erpm for accleration calculation
     m->erpm_filtered = config->wheelslip_filter_freq > 0 ? biquad_process(&m->erpm_biquad, m->erpm) : m->erpm;	
