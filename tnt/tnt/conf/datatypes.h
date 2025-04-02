@@ -119,6 +119,7 @@ typedef struct {
 	uint8_t wheelslip_max_angle;
 	uint8_t wheelslip_accelhold;
 	uint8_t wheelslip_resettime;
+	uint16_t wheelslip_filter_period;
 	bool is_tc_braking_enabled;
 	int8_t tc_braking_angle;
 	uint16_t tc_braking_min_erpm;	
