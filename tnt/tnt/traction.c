@@ -66,10 +66,13 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
 			if (m->erpm_sign == sign(m->erpm_at_accel_start)) { 								//Check sign of the motor at the start of acceleration 
-				if (fabsf(m->erpm) > fabsf(m->erpm_avg)) { 								//If signs the same check for magnitude increase
+				if (m->erpm_sign != sign(m->erpm_avg)) {
+					start_condition2 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
+			   		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 				
+				} else if (fabsf(m->erpm) > fabsf(m->erpm_avg)) { 								//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
-				} // else if (...TODO Put working braking condition here
+				} 
 			} else if (sign(m->erpm_sign_soft) != sign(m->accel_avg)) {						// If the motor is back spinning engage but don't allow wheelslip on landing
 				start_condition2 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			   	    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 
