@@ -69,7 +69,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 				if (m->erpm_sign != sign(m->erpm_avg)) {
 					start_condition2 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			   		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 				
-				} else if (fabsf(m->erpm) > fabsf(m->erpm_avg)) { 								//If signs the same check for magnitude increase
+				} else if (m->abs_erpm > fabsf(m->erpm_avg) + config->wheelslip_erpm_margin) { 			//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
 				} 
