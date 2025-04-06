@@ -40,6 +40,7 @@ typedef struct {
     float acceleration;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
+    float accel_sum;
 
     bool atr_filter_enabled;
     Biquad atr_current_biquad;
