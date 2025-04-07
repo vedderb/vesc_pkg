@@ -92,7 +92,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->last_erpm_filtered = m->erpm_filtered;
 
     //Use averaging for acceleration across a few cycles, 5-10
-    m->accel_sum += m->accel_filtered - m->accel_history[m->accel_idx]
+    m->accel_sum += m->accel_filtered - m->accel_history[m->accel_idx];
     m->accel_avg = m->accel_sum / ACCEL_ARRAY_SIZE;
     m->accel_history[m->accel_idx] = m->accel_filtered;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
