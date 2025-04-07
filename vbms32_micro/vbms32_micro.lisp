@@ -1,11 +1,3 @@
-; Compatibility Check
-(loopwhile (!= (bms-fw-version) 5) {
-        (print "Incompatible firmware, please update")
-        (sleep 5)
-})
-
-(set-fw-name "micro")
-
 ;;;;;;;;; User Settings ;;;;;;;;;
 
 ; TODO: Move into config?
@@ -29,12 +21,43 @@
 (def t-mos 0.0)
 (def t-ic 0.0)
 (def charge-wakeup false)
+(def init-done false)
 
 (def chg-status "")
 (def bal-status "")
 
-; Buzzer
-(pwm-start 4000 0.0 0 3)
+(def rtc-val '(
+        (wakeup-cnt . 0)
+        (c-min . 3.5)
+        (c-max . 3.5)
+        (v-tot . 50.0)
+        (soc . 0.5)
+        (charge-fault . false)
+        (updated . false)
+))
+
+(def is-bal false)
+(def vtot 0.0)
+(def vout 0.0)
+(def vt-vchg 0.0)
+(def iout 0.0)
+(def soc -1.0)
+(def i-zero-time 0.0)
+(def chg-allowed true)
+(def t-last (systime))
+(def charge-ts (systime))
+
+(def com-force-on false)
+(def com-mutex (mutex-create))
+
+(def did-crash false)
+(def crash-cnt 0)
+
+@const-start
+
+; Current inverted and different shunt compared to stock FW
+; TODO: The hardware should provide a unitless raw value...
+(defun bms-current () (* (bms-get-current) -0.2))
 
 (defun beep (times dt) {
         (loopwhile (> times 0) {
@@ -45,8 +68,6 @@
                 (setq times (- times 1))
         })
 })
-
-(def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
 
 (def rtc-val-magic 114)
 
@@ -86,30 +107,11 @@
         })
 })
 
-(def rtc-val '(
-        (wakeup-cnt . 0)
-        (c-min . 3.5)
-        (c-max . 3.5)
-        (v-tot . 50.0)
-        (soc . 0.5)
-        (charge-fault . false)
-        (updated . false)
-))
-
-(if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
-      (var tmp (unflatten (rtc-data)))
-      (if tmp (setq rtc-val tmp))
-})
-
 (defun save-rtc-val () {
         (var tmp (flatten rtc-val))
         (bufcpy (rtc-data) 0 tmp 0 (buflen tmp))
         (bufset-u8 (rtc-data) 900 rtc-val-magic)
 })
-
-; Current inverted and different shunt compared to stock FW
-; TODO: The hardware should provide a unitless raw value...
-(defun bms-current () (* (bms-get-current) -0.2))
 
 (defun test-chg (samples) {
         ; Many chargers "pulse" before starting, try to catch a pulse
@@ -153,8 +155,17 @@
         false
 })
 
-(def com-force-on false)
-(def com-mutex (mutex-create))
+(defun can-sum-current () {
+        (var devs (can-list-devs))
+        (var i-sum 0.0)
+
+        (loopforeach d devs {
+                (var res (can-msg-age d 4))
+                (if (and res (< res 0.1)) (setq i-sum (+ i-sum (canget-current-in d))))
+        })
+
+        i-sum
+})
 
 ; Run expression with communication enabled. Use up to 4 attempts in case of
 ; glithces from transients. Disable communication again when it is not needed
@@ -228,16 +239,6 @@
 
         bms-temps
 })
-
-; Wait here on the first boot so that the upper BQ does not shut down its regulator
-; when communicating with it before all connectors are plugged in.
-(if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
-
-; Make sure that we receive messages on CAN
-(gpio-configure 9 'pin-mode-out)
-(gpio-write 9 0)
-(loopwhile (not (main-init-done)) (sleep 0.01))
-(gpio-write 9 0)
 
 (defun start-fun () {
         (setassoc rtc-val 'wakeup-cnt (+ (assoc rtc-val 'wakeup-cnt) 1))
@@ -314,6 +315,8 @@
 
         (update-temps)
 
+        (setq init-done true)
+
         (setq charge-ok (and
                 (< c-max (bms-get-param 'vc_charge_end))
                 (> c-min (bms-get-param 'vc_charge_min))
@@ -366,43 +369,10 @@
         })
 })
 
-(loopwhile t {
-        (match (trap (start-fun))
-            ((exit-ok (? a)) (break))
-            (_ nil)
-        )
-        (sleep 1.0)
-})
-
-; Save heap space by getting rid of start-fun
-(undefine 'start-fun)
-
-(def is-bal false)
-(def vtot 0.0)
-(def vout 0.0)
-(def vt-vchg 0.0)
-(def iout 0.0)
-(def soc -1.0)
-(def i-zero-time 0.0)
-(def chg-allowed true)
-(def t-last (systime))
-(def charge-ts (systime))
-
-; Note that const starts here and not in the beginning as we want the fastest possible
-; boot from sleep to conserve power.
-@const-start
-
-(defun can-sum-current () {
-        (var devs (can-list-devs))
-        (var i-sum 0.0)
-
-        (loopforeach d devs {
-                (var res (can-msg-age d 4))
-                (if (and res (< res 0.1)) (setq i-sum (+ i-sum (canget-current-in d))))
-        })
-
-        i-sum
-})
+; === TODO===
+;
+; = Sleep =
+;  - Go to sleep when key is left on
 
 ; Persistent settings
 ; Format: (label . (offset type))
@@ -534,7 +504,7 @@
             })
 
             (set-bms-val 'bms-temp-adc-num (+ 5 temp-ext-num))
-            (set-bms-val 'bms-temps-adc 0 (ix bms-temps 0)) ; IC
+            (set-bms-val 'bms-temps-adc 0 t-ic) ; IC
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
             (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
@@ -803,8 +773,6 @@
             ;((? a) (print a))
 )))
 
-@const-end
-
 (defun start-hum-thd ()
     ; Use humidity sensor if it is detected on the i2c-bus
     (if (i2c-detect-addr 0x40) {
@@ -824,54 +792,95 @@
             })
 }))
 
-; Restore settings if version number does not match
-; as that probably means something else is in eeprom
-(if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+(defun main () {
+        ; Compatibility Check
+        (loopwhile (!= (bms-fw-version) 6) {
+                (if (< (bms-fw-version) 6)
+                    (print "Firmware too old, please update")
+                    (print "Package too old, please update")
+                )
 
-(def ah-cnt (read-setting 'ah-cnt))
-(def wh-cnt (read-setting 'wh-cnt))
-(def ah-chg-tot (read-setting 'ah-chg-tot))
-(def wh-chg-tot (read-setting 'wh-chg-tot))
-(def ah-dis-tot (read-setting 'ah-dis-tot))
-(def wh-dis-tot (read-setting 'wh-dis-tot))
-(def ah-cnt-soc (read-setting 'ah-cnt-soc))
-
-(event-register-handler (spawn event-handler))
-(event-enable 'event-bms-chg-allow)
-(event-enable 'event-bms-bal-ovr)
-(event-enable 'event-bms-reset-cnt)
-(event-enable 'event-bms-force-bal)
-(event-enable 'event-bms-zero-ofs)
-
-(set-bms-val 'bms-cell-num cell-num)
-(set-bms-val 'bms-can-id (can-local-id))
-
-(def did-crash false)
-(def crash-cnt 0)
-
-(loopwhile-thd ("main-ctrl" 200) t {
-        (trap (main-ctrl))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("balance" 200) t {
-        (trap (balance))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("re-init" 200) t {
-        (if did-crash {
-                (com-force true)
-                (init-hw)
-                (com-force false)
-                (bms-set-chg 0)
-                (setq did-crash false)
-                (setq crash-cnt (+ crash-cnt 1))
+                (gpio-write 9 0) ; Enable CAN
+                (sleep 5)
         })
 
-        (sleep 0.1)
+        (set-fw-name "micro")
+
+        ; Buzzer
+        (pwm-start 4000 0.0 0 3)
+
+        (if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
+                (var tmp (unflatten (rtc-data)))
+                (if tmp (setq rtc-val tmp))
+        })
+
+        (def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
+
+        ; Wait here on the first boot so that the upper BQ does not shut down its regulator
+        ; when communicating with it before all connectors are plugged in.
+        (if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+
+        (def t-start-fun (secs-since 0))
+
+        (loopwhile t {
+                (match (trap (start-fun))
+                    ((exit-ok (? a)) (break))
+                    (_ nil)
+                )
+                (sleep 1.0)
+        })
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        (def ah-cnt (read-setting 'ah-cnt))
+        (def wh-cnt (read-setting 'wh-cnt))
+        (def ah-chg-tot (read-setting 'ah-chg-tot))
+        (def wh-chg-tot (read-setting 'wh-chg-tot))
+        (def ah-dis-tot (read-setting 'ah-dis-tot))
+        (def wh-dis-tot (read-setting 'wh-dis-tot))
+        (def ah-cnt-soc (read-setting 'ah-cnt-soc))
+
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-bms-chg-allow)
+        (event-enable 'event-bms-bal-ovr)
+        (event-enable 'event-bms-reset-cnt)
+        (event-enable 'event-bms-force-bal)
+        (event-enable 'event-bms-zero-ofs)
+
+        (set-bms-val 'bms-cell-num cell-num)
+        (set-bms-val 'bms-can-id (can-local-id))
+
+        (loopwhile-thd ("main-ctrl" 200) t {
+                (trap (main-ctrl))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("balance" 200) t {
+                (trap (balance))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("re-init" 200) t {
+                (if did-crash {
+                        (com-force true)
+                        (init-hw)
+                        (com-force false)
+                        (bms-set-chg 0)
+                        (setq did-crash false)
+                        (setq crash-cnt (+ crash-cnt 1))
+                })
+
+                (sleep 0.1)
+        })
+
+        (start-hum-thd)
 })
 
-(start-hum-thd)
+@const-end
+
+(image-save)
+(main)
