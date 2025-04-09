@@ -42,7 +42,6 @@ typedef struct {
     float current_filtered;
 
     float accel_avg;
-    float accel_sum;
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
     uint8_t last_accel_idx;
@@ -54,7 +53,6 @@ typedef struct {
     uint16_t erpm_idx;
     int start_accel_idx;
     float erpm_at_accel_start;
-    float erpm_sum;
     float erpm_avg;
 
     float mc_max_temp_fet;
