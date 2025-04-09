@@ -29,10 +29,8 @@ void motor_data_reset(MotorData *m) {
     m->last_accel_filtered = 0;
     m->erpm_filtered = 0;
     m->last_erpm_filtered = 0;
-    m->accel_sum = 0;
     m->accel_avg = 0;
     m->current_filtered = 0;	
-    m->erpm_sum = 0;
     m->erpm_avg = 0;
 
     m->erpm_idx = 0;
@@ -77,8 +75,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     update_erpm_sign(m);
 
     //ERPM Moving Average
-    m->erpm_sum += m->erpm - m->erpm_history[m->erpm_idx];
-    m->erpm_avg = m->erpm_sum / m->erpm_array_size;
+    m->erpm_avg += (m->erpm - m->erpm_history[m->erpm_idx]) / m->erpm_array_size;
     m->erpm_history[m->erpm_idx] = m->erpm;
     m->erpm_idx = (m->erpm_idx + 1) % m->erpm_array_size; 
 
@@ -95,8 +92,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->last_erpm_filtered = m->erpm_filtered;
 
     //Use averaging for acceleration across a few cycles, 5-10
-    m->accel_sum += m->accel_filtered - m->accel_history[m->accel_idx];
-    m->accel_avg = m->accel_sum / ACCEL_ARRAY_SIZE;
+    m->accel_avg += (m->accel_filtered - m->accel_history[m->accel_idx]) / ACCEL_ARRAY_SIZE;
     m->accel_history[m->accel_idx] = m->accel_filtered;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
 
