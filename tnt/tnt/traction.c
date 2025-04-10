@@ -210,5 +210,5 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 }
 
 void rate_limit_erpm(MotorData *m, TractionData *traction) {
-	rate_limitf(traction->erpm_limited, m->erpm, traction->erpm_rate_limit); 
+	rate_limitf(&traction->erpm_limited, m->erpm, traction->erpm_rate_limit); 
 }
