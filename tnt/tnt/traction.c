@@ -24,7 +24,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-	rate_limit_erpm(m, traction, config);
+	rate_limit_erpm(m, traction);
 	traction_dbg->debug2 = traction->erpm_limited;
 	
 	// Conditions to end traction control
