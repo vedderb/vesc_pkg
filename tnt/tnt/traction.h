@@ -47,6 +47,7 @@ typedef struct {
 	float debug9;
 	float aggregate_timer;
 	float freq_factor;
+	float erpm_rate_limit;
 } TractionDebug;
 
 typedef struct {
@@ -75,3 +76,4 @@ void reset_traction(TractionData *traction, State *state, BrakingData *braking);
 void deactivate_traction(TractionData *traction, State *state, TractionDebug *traction_dbg, float exit);
 void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg);
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config, float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg);
+void rate_limit_erpm(MotorData *m, TractionData *traction, tnt_config *config);
