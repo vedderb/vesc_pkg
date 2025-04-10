@@ -31,7 +31,6 @@ void motor_data_reset(MotorData *m) {
     m->last_erpm_filtered = 0;
     m->accel_avg = 0;
     m->current_filtered = 0;	
-    m->erpm_avg = 0;
 
     m->erpm_idx = 0;
     for (int i = 0; i < m->erpm_array_size; i++) {
@@ -52,7 +51,7 @@ void motor_data_configure(MotorData *m, tnt_config *config) {
     biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
    
     m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
-    m->erpm_array_size = min(5000, max(5, config->wheelslip_filter_period * config->hertz /1000)); //convert from time period in ms to number of code cycles
+    m->erpm_array_size = ACCEL_ARRAY_SIZE;
 
     m->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
     m->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
@@ -74,8 +73,7 @@ void motor_data_update(MotorData *m, tnt_config *config) {
     m->erpm_sign = sign(m->erpm);
     update_erpm_sign(m);
 
-    //ERPM Moving Average
-    m->erpm_avg += (m->erpm - m->erpm_history[m->erpm_idx]) / m->erpm_array_size;
+    //ERPM history
     m->erpm_history[m->erpm_idx] = m->erpm;
     m->erpm_idx = (m->erpm_idx + 1) % m->erpm_array_size; 
 
