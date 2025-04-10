@@ -33,6 +33,8 @@ typedef struct {
 	float end_accel;
 	float hold_accel;
 	bool end_accel_hold;
+	float erpm_rate_limit;
+	float erpm_limited;
 } TractionData;
 
 typedef struct {
@@ -47,7 +49,6 @@ typedef struct {
 	float debug9;
 	float aggregate_timer;
 	float freq_factor;
-	float erpm_rate_limit;
 } TractionDebug;
 
 typedef struct {
