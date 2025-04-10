@@ -33,7 +33,7 @@ void motor_data_reset(MotorData *m) {
     m->current_filtered = 0;	
 
     m->erpm_idx = 0;
-    for (int i = 0; i < m->erpm_array_size; i++) {
+    for (int i = 0; i < ERPM_ARRAY_SIZE; i++) {
         m->erpm_history[i] = 0;
     }
     m->accel_idx = 0;
@@ -51,7 +51,6 @@ void motor_data_configure(MotorData *m, tnt_config *config) {
     biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
    
     m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
-    m->erpm_array_size = ACCEL_ARRAY_SIZE;
 
     m->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
     m->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
@@ -75,12 +74,12 @@ void motor_data_update(MotorData *m, tnt_config *config) {
 
     //ERPM history
     m->erpm_history[m->erpm_idx] = m->erpm;
-    m->erpm_idx = (m->erpm_idx + 1) % m->erpm_array_size; 
+    m->erpm_idx = (m->erpm_idx + 1) % ERPM_ARRAY_SIZE; 
 
     //ERPM at the start of the acceleration array
     m->start_accel_idx = m->erpm_idx - ACCEL_ARRAY_SIZE; 
     if (m->start_accel_idx < 0) 
-       m->start_accel_idx += m->erpm_array_size;
+       m->start_accel_idx += ERPM_ARRAY_SIZE;
     m->erpm_at_accel_start =  m->erpm_history[m->start_accel_idx];
 
     //Use low pass filtered erpm for accleration calculation
