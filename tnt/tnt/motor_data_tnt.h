@@ -48,7 +48,7 @@ typedef struct {
     float accel_filtered;
     float last_accel_filtered;
 
-    float erpm_history[500];
+    float erpm_history[5000];
     uint16_t erpm_array_size;
     uint16_t erpm_idx;
     int start_accel_idx;
