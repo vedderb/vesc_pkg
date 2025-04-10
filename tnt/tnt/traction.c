@@ -24,7 +24,8 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-	traction_dbg->debug2 = m->erpm_avg;
+	rate_limit_erpm(m, traction, config);
+	traction_dbg->debug2 = traction->erpm_limited;
 	
 	// Conditions to end traction control
 	if (state->wheelslip) {
@@ -66,10 +67,10 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 		} else { //Start conditions
 			//Check motor erpm and acceleration to determine the correct detection condition to use if any
 			if (m->erpm_sign == sign(m->erpm_at_accel_start)) { 								//Check sign of the motor at the start of acceleration 
-				if (m->erpm_sign != sign(m->erpm_avg)) {
+				if (m->erpm_sign != sign(traction->erpm_limited)) {
 					start_condition2 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			   		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 				
-				} else if (m->abs_erpm > fabsf(m->erpm_avg) + config->wheelslip_erpm_margin) { 			//If signs the same check for magnitude increase
+				} else if (m->abs_erpm > fabsf(traction->erpm_limited) + config->wheelslip_erpm_margin) { 			//If signs the same check for magnitude increase
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
 				} 
@@ -95,7 +96,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 				traction_dbg->aggregate_timer = current_time;
 				traction_dbg->debug5 = 0;
 				//traction_dbg->debug2 = erpmfactor;		//only record the first traction loss for some debug variables
-				traction_dbg->debug6 = m->erpm_avg;		//m->accel_avg / traction_dbg->freq_factor; 
+				traction_dbg->debug6 = traction->erpm_limited;		//m->accel_avg / traction_dbg->freq_factor; 
 				traction_dbg->debug9 = m->erpm;
 				traction_dbg->debug3 = m->erpm_at_accel_start;
 				traction_dbg->debug4 = 0;
@@ -134,6 +135,7 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	traction->hold_accel = 1000.0 * config->wheelslip_accelhold / config->hertz;
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
+	traction->
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
@@ -205,4 +207,8 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 		}
 	}
 	braking->last_active = state->braking_active;
+}
+
+void rate_limit_erpm(MotorData *m, TractionData *traction, tnt_config *config) {
+	rate_limitf(traction->erpm_limited, m->erpm, traction->erpm_rate_limit); 
 }
