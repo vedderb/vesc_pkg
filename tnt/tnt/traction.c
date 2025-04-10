@@ -209,6 +209,6 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	braking->last_active = state->braking_active;
 }
 
-void rate_limit_erpm(MotorData *m, TractionData *traction, tnt_config *config) {
+void rate_limit_erpm(MotorData *m, TractionData *traction) {
 	rate_limitf(traction->erpm_limited, m->erpm, traction->erpm_rate_limit); 
 }
