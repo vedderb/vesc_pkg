@@ -44,7 +44,8 @@ static float calculate_acc_confidence(float new_acc_mag, BalanceFilterData *data
     // aircraft is being accelerated over and above that due to gravity
     data->acc_mag = data->acc_mag * 0.9 + new_acc_mag * 0.1;
 
-    float confidence = 1.0 - (data->acc_confidence_decay * sqrtf(fabsf(data->acc_mag - 1.0f)));
+    // Hard-coded accelerometer confidence decay of 0.02
+    float confidence = 1.0 - (0.02 * sqrtf(fabsf(data->acc_mag - 1.0f)));
 
     return confidence > 0 ? confidence : 0;
 }
@@ -61,7 +62,6 @@ void balance_filter_init(BalanceFilterData *data) {
 }
 
 void balance_filter_configure(BalanceFilterData *data, const RefloatConfig *config) {
-    data->acc_confidence_decay = config->bf_accel_confidence_decay;
     data->kp_pitch = config->mahony_kp;
     data->kp_roll = config->mahony_kp_roll;
     // Use middle value between Pitch KP and Roll KP. Yaw KP seems to have
@@ -133,7 +133,7 @@ void balance_filter_update(BalanceFilterData *data, float *gyro_xyz, float *acce
     data->q3 *= recip_norm;
 }
 
-float balance_filter_get_roll(BalanceFilterData *data) {
+float balance_filter_get_roll(const BalanceFilterData *data) {
     const float q0 = data->q0;
     const float q1 = data->q1;
     const float q2 = data->q2;
@@ -142,7 +142,7 @@ float balance_filter_get_roll(BalanceFilterData *data) {
     return -atan2f(q0 * q1 + q2 * q3, 0.5 - (q1 * q1 + q2 * q2));
 }
 
-float balance_filter_get_pitch(BalanceFilterData *data) {
+float balance_filter_get_pitch(const BalanceFilterData *data) {
     float sin = -2.0 * (data->q1 * data->q3 - data->q0 * data->q2);
 
     if (sin < -1) {
@@ -154,7 +154,7 @@ float balance_filter_get_pitch(BalanceFilterData *data) {
     return asinf(sin);
 }
 
-float balance_filter_get_yaw(BalanceFilterData *data) {
+float balance_filter_get_yaw(const BalanceFilterData *data) {
     const float q0 = data->q0;
     const float q1 = data->q1;
     const float q2 = data->q2;

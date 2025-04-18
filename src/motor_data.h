@@ -27,23 +27,39 @@
 typedef struct {
     float erpm;
     float abs_erpm;
+    float abs_erpm_smooth;
     float last_erpm;
     int8_t erpm_sign;
 
-    float current;
+    float speed;
+
+    float current;  //  "regular" motor current (positive = accelerating, negative = braking)
+    float dir_current;  // directional current (sign represents direction of torque generation)
+    float filt_current;  // filtered directional current
     bool braking;
 
     float duty_cycle;
-    float duty_smooth;
+    float duty_raw;
 
     // an average calculated over last ACCEL_ARRAY_SIZE values
     float acceleration;
+
+    float batt_current;
+    float batt_voltage;
+
+    float mosfet_temp;
+    float motor_temp;
+
+    float current_min;
+    float current_max;
+    float battery_current_min;
+    float battery_current_max;
+
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
 
-    bool atr_filter_enabled;
-    Biquad atr_current_biquad;
-    float atr_filtered_current;
+    bool current_filter_enabled;
+    Biquad current_biquad;
 } MotorData;
 
 void motor_data_reset(MotorData *m);
@@ -51,3 +67,5 @@ void motor_data_reset(MotorData *m);
 void motor_data_configure(MotorData *m, float frequency);
 
 void motor_data_update(MotorData *m);
+
+float motor_data_get_current_saturation(const MotorData *m);

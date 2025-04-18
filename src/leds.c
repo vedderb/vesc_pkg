@@ -81,6 +81,9 @@ static const uint32_t colors[] = {
 #define FOOTPAD_SENSOR_COLOR 0x0000C0FF
 #define RED_BAR_COLOR 0x00FF3828
 #define BATTERY10_BAR_COLOR 0x00FF5038
+#define CONFIRM_COLOR 0x00A040FF
+
+#define CONFIRM_ANIMATION_DURATION 0.8f
 
 static uint32_t color_blend(uint32_t color1, uint32_t color2, float blend) {
     if (blend <= 0.0f) {
@@ -143,9 +146,8 @@ static void led_set_color(
     if (strip->reverse) {
         led = strip->length - i - 1;
     }
-    led += strip->start;
 
-    if (led >= leds->led_count) {
+    if (led >= strip->length) {
         return;
     }
 
@@ -157,7 +159,7 @@ static void led_set_color(
     uint8_t w = W(color) * br + 0.5f;
 
     if (blend < 1.0f) {
-        uint32_t orig_color = leds->led_data[led];
+        uint32_t orig_color = strip->data[led];
         float orig_blend = 1.0f - blend;
 
         r = r * blend + R(orig_color) * orig_blend;
@@ -166,15 +168,28 @@ static void led_set_color(
         w = w * blend + W(orig_color) * orig_blend;
     }
 
-    leds->led_data[led] = RGBW(r, g, b, w);
+    strip->data[led] = RGBW(r, g, b, w);
+}
+
+static void strip_set_color_range(
+    Leds *leds,
+    const LedStrip *strip,
+    uint32_t color,
+    float brightness,
+    float blend,
+    uint8_t idx_start,
+    uint8_t idx_end
+) {
+    uint8_t end = idx_end < strip->length ? idx_end : strip->length;
+    for (uint8_t i = idx_start; i < end; ++i) {
+        led_set_color(leds, strip, i, color, brightness, blend);
+    }
 }
 
 static void strip_set_color(
     Leds *leds, const LedStrip *strip, uint32_t color, float brightness, float blend
 ) {
-    for (uint8_t i = 0; i < strip->length; ++i) {
-        led_set_color(leds, strip, i, color, brightness, blend);
-    }
+    strip_set_color_range(leds, strip, color, brightness, blend, 0, strip->length);
 }
 
 // Returns a cosine wave oscillating from 0 to 1, starting at 0, with a period of 2s.
@@ -261,24 +276,61 @@ static void anim_knight_rider(Leds *leds, const LedStrip *strip, const LedBar *b
     }
 }
 
+static void anim_felony(Leds *leds, const LedStrip *strip, const LedBar *bar, float time) {
+    static const uint32_t color_off = 0x00000000;
+
+    static const float state_duration = 0.05f;
+    float state_mod = fmodf(time, 3.0f * state_duration);
+
+    // also account for led strips with odd numbers of leds (leaving the middle one black)
+    uint8_t stop_idx = strip->length / 2;
+    uint8_t start_idx = strip->length / 2 + strip->length % 2;
+    if (state_mod < state_duration) {
+        strip_set_color_range(
+            leds, strip, colors[bar->color1], strip->brightness, 1.0f, 0, stop_idx
+        );
+        strip_set_color_range(leds, strip, color_off, strip->brightness, 1.0f, stop_idx, start_idx);
+        strip_set_color_range(
+            leds, strip, color_off, strip->brightness, 1.0f, start_idx, strip->length
+        );
+    } else if (state_mod < 2.0f * state_duration) {
+        strip_set_color_range(leds, strip, color_off, strip->brightness, 1.0f, 0, stop_idx);
+        strip_set_color_range(leds, strip, color_off, strip->brightness, 1.0f, stop_idx, start_idx);
+        strip_set_color_range(
+            leds, strip, colors[bar->color2], strip->brightness, 1.0f, start_idx, strip->length
+        );
+    } else {
+        strip_set_color_range(
+            leds, strip, colors[bar->color2], strip->brightness, 1.0f, 0, stop_idx
+        );
+        strip_set_color_range(leds, strip, color_off, strip->brightness, 1.0f, stop_idx, start_idx);
+        strip_set_color_range(
+            leds, strip, colors[bar->color1], strip->brightness, 1.0f, start_idx, strip->length
+        );
+    }
+}
+
 static void led_strip_animate(Leds *leds, const LedStrip *strip, const LedBar *bar, float time) {
     time *= bar->speed;
 
     switch (bar->mode) {
-    case LED_MODE_SOLID:
+    case LED_ANIM_SOLID:
         strip_set_color(leds, strip, colors[bar->color1], strip->brightness, 1.0f);
         break;
-    case LED_MODE_FADE:
+    case LED_ANIM_FADE:
         anim_fade(leds, strip, bar, time);
         break;
-    case LED_MODE_PULSE:
+    case LED_ANIM_PULSE:
         anim_pulse(leds, strip, bar, time, strip->length / 5.0f);
         break;
-    case LED_MODE_STROBE:
+    case LED_ANIM_STROBE:
         anim_strobe(leds, strip, bar, time);
         break;
-    case LED_MODE_KNIGHT_RIDER:
+    case LED_ANIM_KNIGHT_RIDER:
         anim_knight_rider(leds, strip, bar, time);
+        break;
+    case LED_ANIM_FELONY:
+        anim_felony(leds, strip, bar, time);
         break;
     }
 }
@@ -366,10 +418,59 @@ static void anim_disabled(Leds *leds, const LedStrip *strip, float time) {
         .brightness = 0.0f,
         .color1 = COLOR_RED,
         .color2 = COLOR_BLACK,
-        .mode = LED_MODE_PULSE,
+        .mode = LED_ANIM_PULSE,
         .speed = 0.0f
     };
     anim_pulse(leds, strip, &disabled_bar, time / 2.0f, strip->length / 3.0f);
+}
+
+static void anim_confirm(Leds *leds, const LedStrip *strip, float time) {
+    time = fminf(time, 1.0f);
+
+    const float blend_time = 0.06f;
+    float blend = 1.0f;
+    if (time <= blend_time) {
+        blend = time / blend_time;
+    } else if (time >= 1.0f - blend_time) {
+        blend = (1.0f - time) / blend_time;
+    }
+
+    const float period = 1.0f - blend_time;
+    const float half_period = period * 0.5f;
+    time = fminf(time - blend_time, period);
+
+    const float pulse_ratio = 1.5f;
+    float p;
+    if (time <= half_period) {
+        p = time / half_period * pulse_ratio;
+    } else {
+        p = (period - time) / half_period * pulse_ratio;
+    }
+
+    if (p > 1.0f) {
+        p = 2.0f - p;
+    }
+
+    p = p * p;
+
+    float sides = strip->length * 0.1f;
+    float center = strip->length * 0.125f;
+    float length = strip->length * 0.5f - sides - center;
+    float offset = sides + length * (1.0f - p);
+    float feather = strip->length * 0.25f;
+
+    for (uint8_t i = 0; i < strip->length; ++i) {
+        float d;
+        if (i < strip->length * 0.5f) {
+            d = i - offset + 1.0f;
+        } else {
+            d = strip->length - offset - i;
+        }
+
+        float k = clampf(d / feather, 0.0f, 1.0f);
+        uint32_t color = color_blend(COLOR_BLACK, CONFIRM_COLOR, k);
+        led_set_color(leds, strip, i, color, strip->brightness, blend);
+    }
 }
 
 static void status_animate(
@@ -422,6 +523,12 @@ static void status_animate(
             anim_fs_state(leds, strip, reverse, blend);
         }
     }
+
+    float conf_prog =
+        (current_time - leds->confirm_animation_start) * (1.0f / CONFIRM_ANIMATION_DURATION);
+    if (conf_prog <= 1.0f) {
+        anim_confirm(leds, strip, conf_prog);
+    }
 }
 
 static void transition_reset(const Leds *leds, TransitionState *trans, LedStrip *strip) {
@@ -445,7 +552,7 @@ static void transition_reset(const Leds *leds, TransitionState *trans, LedStrip 
 }
 
 static uint32_t led_bar_to_color(const LedBar *bar) {
-    return bar->mode == LED_MODE_SOLID ? bar->color1 : bar->color2;
+    return bar->mode == LED_ANIM_SOLID ? bar->color1 : bar->color2;
 }
 
 static void trans_fade(Leds *leds, const LedStrip *strip, float progress, const LedBar *to_bar) {
@@ -586,28 +693,15 @@ static const LedBar *target_bar(const Leds *leds, bool flip) {
     }
 }
 
-bool leds_init(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorState fs_state) {
-    leds->status_strip.start = 0;
-    leds->status_strip.length = hw_cfg->status.count;
-    leds->status_strip.reverse = hw_cfg->status.reverse;
-    if (cfg->headlights_on) {
-        leds->status_strip.brightness = cfg->status.brightness_headlights_on;
-    } else {
-        leds->status_strip.brightness = cfg->status.brightness_headlights_off;
-    }
-    leds->front_strip.start = hw_cfg->status.count;
-    leds->front_strip.length = hw_cfg->front.count;
-    leds->front_strip.reverse = hw_cfg->front.reverse;
-    leds->front_strip.brightness = cfg->front.brightness;
-    leds->rear_strip.start = hw_cfg->status.count + hw_cfg->front.count;
-    leds->rear_strip.length = hw_cfg->rear.count;
-    leds->rear_strip.reverse = hw_cfg->rear.reverse;
-    leds->rear_strip.brightness = cfg->rear.brightness;
+void leds_init(Leds *leds) {
+    led_strip_init(&leds->status_strip);
+    led_strip_init(&leds->front_strip);
+    led_strip_init(&leds->rear_strip);
 
-    leds->cfg = cfg;
+    leds->led_data = NULL;
 
     leds->last_updated = 0.0f;
-    state_init(&leds->state, false);
+    state_init(&leds->state);
     leds->pitch = 0.0f;
 
     leds->left_sensor = 0.0f;
@@ -632,11 +726,81 @@ bool leds_init(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorS
     leds->headlights_time = 0.0f;
     leds->animation_start = 0;
 
+    leds->confirm_animation_start = -10.0f;  // Just so it doesn't trigger right after init
+
     leds->headlights_trans.transition = LED_TRANS_FADE;
     leds->headlights_trans.split = 1.0f;
     leds->dir_trans.transition = LED_TRANS_FADE;
     leds->dir_trans.split = 1.0f;
     front_rear_animation_reset(leds, 0);
+
+    leds->front_bar = NULL;
+    leds->front_dir_target = NULL;
+    leds->front_time_target = NULL;
+
+    leds->rear_bar = NULL;
+    leds->rear_dir_target = NULL;
+    leds->rear_time_target = NULL;
+
+    led_driver_init(&leds->led_driver);
+}
+
+void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorState fs_state) {
+    uint8_t status_offset = 0;
+    uint8_t front_offset = 0;
+    uint8_t rear_offset = 0;
+    uint8_t current_offset = 0;
+
+    const LedStrip *strip_array[STRIP_COUNT] = {NULL};
+    size_t strip_i = 0;
+    for (uint8_t i = 1; i <= STRIP_COUNT; ++i) {
+        if (hw_cfg->status.order == i && hw_cfg->status.count > 0) {
+            led_strip_configure(&leds->status_strip, &hw_cfg->status);
+            status_offset = current_offset;
+            current_offset += leds->status_strip.length;
+            strip_array[strip_i++] = &leds->status_strip;
+        } else if (hw_cfg->front.order == i && hw_cfg->front.count > 0) {
+            led_strip_configure(&leds->front_strip, &hw_cfg->front);
+            front_offset = current_offset;
+            current_offset += leds->front_strip.length;
+            strip_array[strip_i++] = &leds->front_strip;
+        } else if (hw_cfg->rear.order == i && hw_cfg->rear.count > 0) {
+            led_strip_configure(&leds->rear_strip, &hw_cfg->rear);
+            rear_offset = current_offset;
+            current_offset += leds->rear_strip.length;
+            strip_array[strip_i++] = &leds->rear_strip;
+        }
+    }
+
+    uint8_t led_count =
+        leds->status_strip.length + leds->front_strip.length + leds->rear_strip.length;
+
+    uint32_t *led_data = NULL;
+    if (fs_state == FS_BOTH) {
+        log_msg("Both sensors pressed, not initializing LEDs.");
+    } else if (leds->front_strip.length + leds->rear_strip.length > LEDS_FRONT_AND_REAR_COUNT_MAX) {
+        log_error("Front and rear LED counts exceed maximum.");
+    } else if (hw_cfg->mode == LED_MODE_INTERNAL && led_count > 0) {
+        led_data = VESC_IF->malloc(sizeof(uint32_t) * led_count);
+        if (!led_data) {
+            log_error("Failed to init LED data, out of memory.");
+        } else {
+            memset(led_data, 0, sizeof(uint32_t) * led_count);
+            leds->status_strip.data = led_data + status_offset;
+            leds->front_strip.data = led_data + front_offset;
+            leds->rear_strip.data = led_data + rear_offset;
+        }
+    }
+
+    if (cfg->headlights_on) {
+        leds->status_strip.brightness = cfg->status.brightness_headlights_on;
+    } else {
+        leds->status_strip.brightness = cfg->status.brightness_headlights_off;
+    }
+    leds->front_strip.brightness = cfg->front.brightness;
+    leds->rear_strip.brightness = cfg->rear.brightness;
+
+    leds->cfg = cfg;
 
     leds->front_bar = &cfg->front;
     leds->front_dir_target = &cfg->front;
@@ -646,43 +810,15 @@ bool leds_init(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorS
     leds->rear_dir_target = &cfg->rear;
     leds->rear_time_target = &cfg->rear;
 
-    leds->led_count = leds->rear_strip.start + leds->rear_strip.length;
-
-    bool driver_init = true;
-    if (fs_state == FS_BOTH) {
-        log_msg("Both sensors pressed, not initializing LEDs.");
-        driver_init = false;
-    }
-
-    if (hw_cfg->front.count + hw_cfg->rear.count > LEDS_FRONT_AND_REAR_COUNT_MAX) {
-        log_error("Front and rear LED counts exceed maximum.");
-        driver_init = false;
-    }
-
-    if (driver_init) {
-        driver_init = led_driver_init(
-            &leds->led_driver, hw_cfg->pin, hw_cfg->type, hw_cfg->color_order, leds->led_count
-        );
-    }
-
-    if (!driver_init) {
-        leds->led_data = NULL;
-        leds->led_count = 0;
-        return false;
-    }
-
-    leds->led_data = VESC_IF->malloc(sizeof(uint32_t) * leds->led_count);
-    if (!leds->led_data) {
-        log_error("Failed to init LED data, out of memory.");
-        led_driver_destroy(&leds->led_driver);
-        return false;
-    }
-
-    memset(leds->led_data, 0, sizeof(uint32_t) * leds->led_count);
-
     leds_configure(leds, cfg);
 
-    return true;
+    if (led_data) {
+        if (led_driver_setup(&leds->led_driver, hw_cfg->pin, strip_array)) {
+            leds->led_data = led_data;
+        } else {
+            VESC_IF->free(led_data);
+        }
+    }
 }
 
 void leds_configure(Leds *leds, const CfgLeds *cfg) {
@@ -802,7 +938,7 @@ void leds_update(Leds *leds, const State *state, FootpadSensorState fs_state) {
         anim_disabled(leds, &leds->front_strip, current_time);
         anim_disabled(leds, &leds->rear_strip, current_time);
         anim_disabled(leds, &leds->status_strip, current_time);
-        led_driver_paint(&leds->led_driver, leds->led_data, leds->led_count);
+        led_driver_paint(&leds->led_driver);
         return;
     }
 
@@ -999,7 +1135,18 @@ void leds_update(Leds *leds, const State *state, FootpadSensorState fs_state) {
         );
     }
 
-    led_driver_paint(&leds->led_driver, leds->led_data, leds->led_count);
+    led_driver_paint(&leds->led_driver);
+}
+
+void leds_status_confirm(Leds *leds) {
+    if (!leds->led_data) {
+        return;
+    }
+
+    float current_time = VESC_IF->system_time();
+    if (current_time - leds->confirm_animation_start > CONFIRM_ANIMATION_DURATION) {
+        leds->confirm_animation_start = current_time;
+    }
 }
 
 void leds_destroy(Leds *leds) {
@@ -1009,5 +1156,4 @@ void leds_destroy(Leds *leds) {
         VESC_IF->free(leds->led_data);
         leds->led_data = NULL;
     }
-    leds->led_count = 0;
 }
