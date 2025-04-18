@@ -28,11 +28,16 @@ typedef enum {
 } FLOAT_INPUTTILT_REMOTE_TYPE;
 
 typedef enum {
-    LED_TYPE_NONE = 0,
-    LED_TYPE_RGB,
-    LED_TYPE_RGBW,
-    LED_TYPE_EXTERNAL,
-} LedType;
+    PARKING_BRAKE_ALWAYS = 0,
+    PARKING_BRAKE_IDLE,
+    PARKING_BRAKE_NEVER
+} ParkingBrakeMode;
+
+typedef enum {
+    LED_MODE_OFF = 0,
+    LED_MODE_INTERNAL,
+    LED_MODE_EXTERNAL,
+} LedMode;
 
 typedef enum {
     LED_PIN_B6 = 0,
@@ -41,8 +46,17 @@ typedef enum {
 
 typedef enum {
     LED_COLOR_GRB = 0,
-    LED_COLOR_RGB
+    LED_COLOR_GRBW,
+    LED_COLOR_RGB,
+    LED_COLOR_WRGB
 } LedColorOrder;
+
+typedef enum {
+    LED_STRIP_ORDER_NONE = 0,
+    LED_STRIP_ORDER_1ST,
+    LED_STRIP_ORDER_2ND,
+    LED_STRIP_ORDER_3RD
+} LedStripOrder;
 
 typedef enum {
     COLOR_BLACK = 0,
@@ -80,12 +94,13 @@ typedef enum {
 } LedColor;
 
 typedef enum {
-    LED_MODE_SOLID = 0,
-    LED_MODE_FADE,
-    LED_MODE_PULSE,
-    LED_MODE_STROBE,
-    LED_MODE_KNIGHT_RIDER
-} LedMode;
+    LED_ANIM_SOLID = 0,
+    LED_ANIM_FADE,
+    LED_ANIM_PULSE,
+    LED_ANIM_STROBE,
+    LED_ANIM_KNIGHT_RIDER,
+    LED_ANIM_FELONY,
+} LedAnimMode;
 
 typedef enum {
     LED_TRANS_FADE = 0,
@@ -98,7 +113,7 @@ typedef struct {
     float brightness;
     LedColor color1;
     LedColor color2;
-    LedMode mode;
+    LedAnimMode mode;
     float speed;
 } LedBar;
 
@@ -130,14 +145,15 @@ typedef struct {
 } CfgLeds;
 
 typedef struct {
+    LedStripOrder order;
     uint8_t count;
+    LedColorOrder color_order;
     bool reverse;
 } CfgLedStrip;
 
 typedef struct {
-    LedType type;
+    LedMode mode;
     LedPin pin;
-    LedColorOrder color_order;
     CfgLedStrip status;
     CfgLedStrip front;
     CfgLedStrip rear;
@@ -148,17 +164,34 @@ typedef struct {
 } CfgHardware;
 
 typedef struct {
-    float version;
+    uint16_t frequency;
+    float strength;
+} CfgHapticTone;
+
+typedef struct {
+    CfgHapticTone duty;
+    CfgHapticTone error;
+    CfgHapticTone vibrate;
+    float min_strength;
+    float strength_curvature;
+    float max_strength_speed;
+    float duty_solid_offset;
+    float current_threshold;
+} CfgHapticFeedback;
+
+typedef struct {
+    bool is_default;
+} CfgMeta;
+
+typedef struct {
     bool disabled;
     float kp;
     float ki;
     float kp2;
     float mahony_kp;
     float mahony_kp_roll;
-    float bf_accel_confidence_decay;
     float kp_brake;
     float kp2_brake;
-    uint16_t kp_brake_erpm;
     uint16_t hertz;
     float fault_pitch;
     float fault_roll;
@@ -191,7 +224,6 @@ typedef struct {
     FLOAT_INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
     float inputtilt_speed;
     float inputtilt_angle_limit;
-    uint16_t inputtilt_smoothing_factor;
     bool inputtilt_invert_throttle;
     float inputtilt_deadband;
     float remote_throttle_current_max;
@@ -204,6 +236,7 @@ typedef struct {
     bool startup_simplestart_enabled;
     bool startup_pushstart_enabled;
     bool startup_dirtylandings_enabled;
+    ParkingBrakeMode parking_brake_mode;
     float brake_current;
     float ki_limit;
     float booster_angle;
@@ -241,16 +274,16 @@ typedef struct {
     uint16_t turntilt_erpm_boost;
     uint16_t turntilt_erpm_boost_end;
     int turntilt_yaw_aggregate;
-    float dark_pitch_offset;
     bool is_beeper_enabled;
     bool is_dutybeep_enabled;
     bool is_footbeep_enabled;
-    bool is_surgebeep_enabled;
-    float surge_duty_start;
-    float surge_angle;
+
+    CfgHapticFeedback haptic;
 
     CfgLeds leds;
     CfgHardware hardware;
+
+    CfgMeta meta;
 } RefloatConfig;
 
 // DATATYPES_H_

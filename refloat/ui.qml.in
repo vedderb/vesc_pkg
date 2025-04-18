@@ -21,6 +21,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.3 as Dl
+import QtQuick.Window 2.2
 import QtGraphicalEffects 1.15
 
 import Vedder.vesc.vescinterface 1.0
@@ -34,9 +35,26 @@ Item {
 
     property Commands vescCommands: VescIf.commands()
 
+    function round(num) {
+        if (num != num) {
+            return "--";
+        }
+        return Math.round(num);
+    }
+
     // Used to fix the float negative zero problem where applicable
     function toFixed1Zero(num) {
+        if (num != num) {
+            return "-.-";
+        }
         return num.toFixed(1).replace("-0.0", "0.0");
+    }
+
+    function toFixed2Zero(num) {
+        if (num != num) {
+            return "-.--";
+        }
+        return num.toFixed(2).replace("-0.00", "0.00");
     }
 
     function clamp(val, min, max) {
@@ -49,6 +67,41 @@ Item {
         }
 
         return val;
+    }
+
+    function arraysEqual(a, b) {
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        if (a.length !== b.length) return false;
+
+        for (var i = 0; i < a.length; ++i) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    function dist(a, b) {
+        return Math.abs(a - b);
+    }
+
+    function getDarkThemeColor(name) {
+        switch (name) {
+        case "normalBackground":
+            return "#303030";
+            break;
+        case "darkBackground":
+            return "#272727";
+            break;
+        case "normalText":
+            return "#b4b4b4";
+            break;
+        case "lightText":
+            return "#dcdcdc";
+            break;
+        case "disabledText":
+            return "#7f7f7f";
+            break;
+        }
     }
 
     // 5s timeout for connection to package
@@ -70,8 +123,10 @@ Item {
         onTriggered: {
             vescCommands.getValuesSetup();
 
-            if (!commands.infoReceived) {
+            if (state.commsState === state.comms_Info) {
                 commands.sendGetInfo();
+            } else if (state.commsState === state.comms_RTDataIDs) {
+                commands.sendGetRtDataIds();
             } else {
                 commands.sendGetRtData();
             }
@@ -139,6 +194,27 @@ Item {
         }
     }
 
+    QtObject {
+        id: board
+
+        function getId() {
+            return VescIf.getLastBleAddr();
+        }
+
+        function getName() {
+            var name = VescIf.getBleName(VescIf.getLastBleAddr());
+            if (!name) {
+                return null;
+            }
+            return name;
+        }
+
+        function setName(name) {
+            VescIf.storeBleName(VescIf.getLastBleAddr(), name);
+            VescIf.storeSettings();
+        }
+    }
+
     Connections {
         id: vescConfig
         target: VescIf
@@ -195,8 +271,102 @@ Item {
 
         property ConfigParams pkgConfig: VescIf.customConfig(0);
 
-       function onCustomConfigLoadDone() {
-           pkgConfig = VescIf.customConfig(0);
+        property bool updateDue: false
+        signal update
+
+        property Connections pkgConns: Connections {
+            target: packageConfig.pkgConfig
+
+            function onParamChangedDouble(src, name, newParam) {
+                packageConfig.pendingUpdate();
+            }
+
+            function onParamChangedInt(src, name, newParam) {
+                packageConfig.pendingUpdate();
+            }
+
+            function onParamChangedEnum(src, name, newParam) {
+                packageConfig.pendingUpdate();
+            }
+
+            function onParamChangedQString(src, name, newParam) {
+                packageConfig.pendingUpdate();
+            }
+
+            function onParamChangedBool(src, name, newParam) {
+                packageConfig.pendingUpdate();
+            }
+        }
+
+        // There is no reliable signal for when the whole config changes,
+        // instead, we hook onto property changes and run a timer for a short
+        // while before we fire off the actual update() signal
+        property Timer updateTimer: Timer {
+            id: updateTimer
+            interval: 100
+
+            onTriggered: {
+                packageConfig.fireDueUpdate();
+            }
+        }
+
+        property Timer dueTimer: Timer {
+            id: dueTimer
+            interval: 2000
+
+            onTriggered: {
+                packageConfig.fireDueUpdate();
+            }
+        }
+
+        function pendingUpdate() {
+            updateTimer.restart();
+        }
+
+        function armDueUpdate() {
+            updateDue = true;
+            dueTimer.restart();
+        }
+
+        function disarmDueUpdate() {
+            updateDue = false;
+            dueTimer.stop();
+        }
+
+        function fireDueUpdate() {
+            if (updateDue) {
+                updateDue = false;
+                update();
+            }
+        }
+
+        function onCustomConfigLoadDone() {
+            pkgConfig = VescIf.customConfig(0);
+
+            // Config was just loaded and...
+            if (isDefault()) {
+                // ... it's default, fire a delayed update based on the config values changing
+                //
+                // Config being the default one here doesn't necessarily mean
+                // the actual package config has been reset, this sometimes
+                // triggers with the config being default at this point, but
+                // the config is updated later (and there is no signal sent on
+                // that event).
+                //
+                // We delay the actual check / update until a bit later when
+                // the actual data is loaded.
+                armDueUpdate();
+            } else {
+                // ... it's not default, trigger the update signal right away
+                update();
+            }
+        }
+
+        // Called explicitly after the Write button in Refloat Cfg qml page is pressed
+        function configWritten() {
+            disarmDueUpdate();
+            unsetDefault();
+            update();
         }
 
         function checkConfig() {
@@ -204,72 +374,137 @@ Item {
             return !!pkgConfig;
         }
 
+        function writeConfig() {
+            if (!checkConfig()) return;
+
+            unsetDefault();
+            vescCommands.customConfigSet(0, pkgConfig);
+            update();
+        }
+
+        function isDefault() {
+            if (!checkConfig()) return null;
+
+            return pkgConfig.getParamBool("meta.is_default");
+        }
+
+        // We unset the is_default flag on every config write. Once we write
+        // something, it's no longer default. This flag is being reset on the
+        // pacakge side as well, but the config is not re-read after write, so
+        // we need to reset it here too.
+        function unsetDefault() {
+            if (!checkConfig()) return;
+            pkgConfig.updateParamBool("meta.is_default", false);
+        }
+
         function setDisabled(disabled) {
             if (!checkConfig()) return;
 
             pkgConfig.updateParamBool("disabled", disabled);
-            vescCommands.customConfigSet(0, pkgConfig);
+            writeConfig();
+        }
+
+        function paramNameToObject(name) {
+            var obj = {
+                "name": name
+            };
+
+            if (pkgConfig.isParamDouble(name)) {
+                obj.type = "Double";
+                obj.value = pkgConfig.getParamDouble(name);
+            } else if (pkgConfig.isParamInt(name)) {
+                obj.type = "Int";
+                obj.value = pkgConfig.getParamInt(name);
+            } else if (pkgConfig.isParamEnum(name)) {
+                obj.type = "Enum";
+                obj.value = pkgConfig.getParamEnum(name);
+            } else if (pkgConfig.isParamBool(name)) {
+                obj.type = "Bool";
+                obj.value = pkgConfig.getParamBool(name);
+            } else if (pkgConfig.isParamQString(name)) {
+                obj.type = "String";
+                obj.value = pkgConfig.getParamQString(name);
+            } else if (pkgConfig.isParamBitfield(name)) {
+                obj.type = "Bitfield";
+                obj.value = pkgConfig.getParamInt(name);
+            } else {
+                return null;
+            }
+
+            return obj;
+        }
+
+        function getDisplayName(name) {
+            return pkgConfig.getLongName(name);
+        }
+
+        function getEnumNames(name) {
+            return pkgConfig.getParamEnumNames(name);
+        }
+
+        function paramIsTune(name) {
+            var tuneBlacklist = [
+                "tiltback_return_speed",
+                "tiltback_duty",
+                "tiltback_duty_angle",
+                "tiltback_duty_speed",
+                "is_dutybeep_enabled",
+                "tiltback_hv_angle",
+                "tiltback_hv_speed",
+                "tiltback_lv_angle",
+                "tiltback_lv_speed",
+                "disabled",
+                "fault_adc1",
+                "fault_adc2",
+                "hertz",
+                "inputtilt_remote_type",
+                "inputtilt_deadband",
+                "is_footbeep_enabled",
+                "is_beeper_enabled",
+                "tiltback_hv",
+                "tiltback_lv",
+            ];
+
+            return !name.startsWith("haptic.") && !name.startsWith("hardware.") && !tuneBlacklist.includes(name);
         }
 
         function fetchConfig(tuneOnly) {
-            if (!checkConfig()) return;
-
-            var tuneBlacklist = [
-                "inputtilt_remote_type",
-                "inputtilt_deadband",
-                "disabled",
-                "hertz",
-                "tiltback_hv",
-                "tiltback_lv",
-                "fault_adc1",
-                "fault_adc2",
-                "dark_pitch_offset",
-            ];
+            if (!checkConfig()) return null;
 
             var settings = [];
             for (let subGroup of pkgConfig.getParamSubgroups("General")) {
                 for (let param of pkgConfig.getParamsFromSubgroup("General", subGroup)) {
-                    if (tuneOnly && tuneBlacklist.includes(param)) {
+                    if (tuneOnly && !paramIsTune(param)) {
                         continue;
                     }
 
-                    var item = {"name": param};
+                    var item = paramNameToObject(param);
 
-                    if (pkgConfig.isParamDouble(param)) {
-                        item.type = "Double";
-                        item.value = pkgConfig.getParamDouble(param);
-                    } else if (pkgConfig.isParamInt(param)) {
-                        item.type = "Int";
-                        item.value = pkgConfig.getParamInt(param);
-                    } else if (pkgConfig.isParamEnum(param)) {
-                        item.type = "Enum";
-                        item.value = pkgConfig.getParamEnum(param);
-                    } else if (pkgConfig.isParamBool(param)) {
-                        item.type = "Bool";
-                        item.value = pkgConfig.getParamBool(param);
-                    } else if (pkgConfig.isParamQString(param)) {
-                        item.type = "String";
-                        item.value = pkgConfig.getParamQString(param);
-                    } else if (pkgConfig.isParamBitfield(param)) {
-                        item.type = "Bitfield";
-                        item.value = pkgConfig.getParamInt(param);
-                    } else {
-                        // e.g. a separator
-                        continue;
+                    if (item) {
+                        settings.push(item);
                     }
-
-                    settings.push(item);
                 }
             }
 
             return settings;
         }
 
+        function versionCompatible(config) {
+            var verArray = config.version.split(".");
+            var major = Number(verArray[0]);
+            var minor = Number(verArray[1]);
+            if (major !== tuneManager.formatVersionMajor || minor > tuneManager.formatVersionMinor) {
+                VescIf.emitStatusMessage("Error: Incompatible version: %1".arg(config.version), false);
+                return false;
+            }
+
+            return true;
+        }
+
         function applyConfig(config) {
             if (!checkConfig()) return;
 
-            if (config.version !== "1.0") {
-                VescIf.emitStatusMessage("Error: Unexpected version: %1".arg(config.version), false);
+            if (!versionCompatible(config)) {
                 return;
             }
 
@@ -289,7 +524,50 @@ Item {
                 }
             }
 
-            vescCommands.customConfigSet(0, pkgConfig);
+            writeConfig();
+        }
+
+        function diffConfig(other) {
+            var typeDiffers = [];
+            var differs = [];
+            var otherMissing = [];
+
+            if (other && other.settings) {
+                var otherSettings = {};
+                for (let item of other.settings) {
+                    otherSettings[item.name] = item;
+                }
+                if (VescIf.customConfigsLoaded()) {
+                    for (let subGroup of pkgConfig.getParamSubgroups("General")) {
+                        for (let paramName of pkgConfig.getParamsFromSubgroup("General", subGroup)) {
+                            var param = paramNameToObject(paramName);
+                            if (!param) {
+                                continue;
+                            }
+
+                            if (otherSettings.hasOwnProperty(paramName)) {
+                                var otherParam = otherSettings[paramName];
+                                if (param.type !== otherParam.type) {
+                                    param.otherType = otherParam.type;
+                                    typeDiffers.push(param);
+                                } else if (param.value !== otherParam.value) {
+                                    param.otherValue = otherParam.value;
+                                    differs.push(param);
+                                }
+                                delete otherSettings[paramName];
+                            } else {
+                                otherMissing.push(param);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return {
+                "differs": differs,
+                "missing": otherSettings,
+                "otherMissing": otherMissing,
+            }
         }
 
         // TODO don't do this...
@@ -298,7 +576,7 @@ Item {
 
             if (pkgConfig.getParamEnum("inputtilt_remote_type", 0) != 1) {
                 pkgConfig.updateParamEnum("inputtilt_remote_type", 1);
-                vescCommands.customConfigSet(0, pkgConfig);
+                writeConfig();
             }
         }
     }
@@ -307,14 +585,54 @@ Item {
         id: commands
         target: vescCommands
 
-        readonly property int c_GET_INFO: 0
+        readonly property int c_INFO: 0
         readonly property int c_RC_MOVE: 7
         readonly property int c_HANDTEST: 13
         readonly property int c_FLYWHEEL: 22
-        readonly property int c_GET_RT_DATA_2: 201
+        readonly property int c_REALTIME_DATA: 31
+        readonly property int c_REALTIME_DATA_IDS: 32
         readonly property int c_LIGHTS_CONTROL: 202
+        readonly property int c_DATA_RECORD_REQUEST: 41
+        readonly property int c_DATA_RECORD_HEADER: 42
+        readonly property int c_DATA_RECORD_DATA: 43
 
-        property bool infoReceived: false
+        // IEEE-754 16-bit floating-point format (without infinity and NaNs)
+        // Dynamic range: +-131008.0
+        // Normal numbers closest to zero: +-6.1035156E-5
+        // Subnormal numbers closes to zero: +-5.9604645E-8
+        // Precision: 3.311 digits
+        //
+        // https://stackoverflow.com/a/60047308
+        function getFloat16(dataView, ind) {
+            var x = dataView.getUint16(ind);
+            var e = (x&0x7C00)>>10; // exponent
+            var m16 = x&0x03FF; // original float16 mantissa
+            var m = m16<<13; // new float 32 mantissa
+            var v = m16>0 ? 140+Math.floor(Math.log2(m16)) : 0;
+            // sign | normalized | denormalized
+            var r = (x&0x8000)<<16 | (e!=0)*((e+112)<<23|m) | ((e==0)&(m!=0))*((v-37)<<23|((m<<(150-v))&0x007FE000));
+            return new Float32Array(new Uint32Array([r]).buffer)[0];
+        }
+
+        function getString(dataView, ind) {
+            var str = "";
+            var size = dataView.getUint8(ind++);
+            for (var j = 0; j < size; j++) {
+                str += String.fromCharCode(dataView.getUint8(ind++));
+            }
+            return [str, ind];
+        }
+
+        function getStrings(dataView, ind) {
+            var num = dataView.getUint8(ind++);
+            var strs = [];
+            for (var i = 0; i < num; i++) {
+                var str;
+                [str, ind] = getString(dataView, ind);
+                strs.push(str);
+            }
+            return [strs, ind];
+        }
 
         function createData(size, command) {
             var data = new DataView(new ArrayBuffer(size));
@@ -325,11 +643,18 @@ Item {
         }
 
         function sendGetInfo() {
-            vescCommands.sendCustomAppData(createData(2, c_GET_INFO).buffer);
+            var data = createData(4, c_INFO);
+
+            data.setUint8(2, 2); // version 2 of the INFO command
+            vescCommands.sendCustomAppData(data.buffer);
         }
 
         function sendGetRtData() {
-            vescCommands.sendCustomAppData(createData(2, c_GET_RT_DATA_2).buffer);
+            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA).buffer);
+        }
+
+        function sendGetRtDataIds() {
+            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA_IDS).buffer);
         }
 
         function sendLightsControl(on, headlightsOn) {
@@ -391,27 +716,47 @@ Item {
             vescCommands.sendCustomAppData(data.buffer);
         }
 
+        readonly property int dr_RECORD: 1
+        readonly property int dr_AUTOSTART: 2
+        readonly property int dr_AUTOSTOP: 3
+
+        // @param key One of the above dr_ properties
+        // @param value Value to set, true or false
+        function sendDataRecordControl(key, value) {
+            var data = createData(5, c_DATA_RECORD_REQUEST);
+            data.setUint8(2, 1); // control
+            data.setUint8(3, key);
+            data.setUint8(4, value);
+
+            vescCommands.sendCustomAppData(data.buffer);
+        }
+
+        function sendDataRecordRequest(header, offset) {
+            if (header) {
+                var data = createData(4, c_DATA_RECORD_REQUEST);
+                data.setUint8(2, 2); // send
+                data.setUint8(3, 1); // header
+            } else {
+                var data = createData(8, c_DATA_RECORD_REQUEST);
+                data.setUint8(2, 2); // send
+                data.setUint8(3, 2); // data
+                data.setUint32(4, offset);
+            }
+
+            vescCommands.sendCustomAppData(data.buffer);
+        }
+
         function onValuesSetupReceived(values, mask) {
             var fault = values.fault_str;
             fault = fault.replace("FAULT_CODE_", "");
             state.vescFault = fault != "NONE" ? fault : "";
 
-            batteryBar.voltage = values.v_in;
             batteryBar.value = values.battery_level * 100;
 
-            var speed = Math.abs(values.speed * 3.6 * vescConfig.imperialFactor);
-            speedDial.value = speed;
-            speedDial.erpm = Math.abs(values.rpm);
-
-            currentDial.value = values.current_motor;
-            dutyDial.value = Math.abs(values.duty_now * 100);
-            batteryCurrent.value = values.current_in;
-
-            motorTemp.value = values.temp_motor;
-            controllerTemp.value = values.temp_mos;
-            odometer.value = Math.round(values.odometer * 0.001 * vescConfig.imperialFactor);
+            odometer.value = values.odometer * 0.001 * vescConfig.imperialFactor;
             tachometer.value = values.tachometer_abs * 0.001 * vescConfig.imperialFactor;
 
+            var speed = Math.abs(values.speed * 3.6 * vescConfig.imperialFactor);
             consumption.add(Math.max(Math.min(values.current_in * values.v_in / Math.max(speed, 1e-6), 60) , -60));
         }
 
@@ -426,68 +771,100 @@ Item {
 
             var msgtype = dv.getUint8(ind++);
 
-            if (msgtype == c_GET_INFO) {
-                ind += 2;
-                var led_type = dv.getUint8(ind++);
-                if (led_type > 0) {
-                    lights.enabled = true;
-                    if (led_type == 3) {
-                        lights.lcm = true;
-                    }
-                }
-                commands.infoReceived = true;
+            if (msgtype == c_INFO) {
+                ind += 1;  // skip version, should always be the current one
+                var flags = dv.getUint8(ind++);
+                ind += 47;  // 20 bytes package name, 3 version numbers, 20 bytes suffix, 4 bytes git hash
+                state.ticksPerSecond = dv.getUint32(ind); ind += 4;
+                var capabilities = dv.getUint32(ind) >>> 0; ind += 4;
+                state.setCapabilities(capabilities);
+
+                var extraFlags = dv.getUint8(ind++);
+
+                state.commsState = state.comms_RTDataIDs;
             } else if (msgtype == c_LIGHTS_CONTROL) {
                 var values = dv.getUint8(ind++);
                 lights.on = values & 0b01;
                 lights.headlightsOn = values & 0b10;
-            } else if (msgtype === c_GET_RT_DATA_2) {
+            } else if (msgtype === c_REALTIME_DATA) {
+                if (state.commsState !== state.comms_Initialized) {
+                    // rt data came because another client app requested them,
+                    // ignore until info is received
+                    return;
+                }
+
                 var mask = dv.getUint8(ind++);
                 var hasRuntime = !!(mask & 0x1);
                 var hasCharging = !!(mask & 0x2);
 
+                var extraFlags = dv.getUint8(ind++);
+                state.extraRecording = extraFlags & 0x1;
+                state.extraRecAutostart = extraFlags & 0x2;
+                state.extraRecAutostop = extraFlags & 0x4;
+
+                var time = dv.getUint32(ind); ind += 4;
+
                 var modeAndState = dv.getUint8(ind++);
                 state.pkgMode = modeAndState >> 4;
-                state.pkgState = modeAndState & 0xF;
+                var pkgState = modeAndState & 0xF;
+                state.pkgState = pkgState;
 
                 var sensorAndFlags = dv.getUint8(ind++);
-                state.fsState = sensorAndFlags >> 6;
-                state.wheelslip = sensorAndFlags & 0b00000001;
+                var fpState = sensorAndFlags >> 6;
+                state.fpState = fpState;
+                var wheelslip = sensorAndFlags & 0b00000001;
+                state.wheelslip = wheelslip;
                 state.darkride = sensorAndFlags & 0b00000010;
                 state.charging = sensorAndFlags & 0b00100000;
 
                 var setpointAndStop = dv.getUint8(ind++);
-                state.setpointAdjustmentType = setpointAndStop >> 4;
+                var sat = setpointAndStop >> 4;
+                state.setpointAdjustmentType = sat;
                 state.stopCondition = setpointAndStop & 0xF;
 
                 state.beepReason = dv.getUint8(ind++);
 
-                pitch.pitchValue = dv.getFloat32(ind); ind += 4;
-                pitch.balancePitchValue = dv.getFloat32(ind); ind += 4;
-                roll.value = dv.getFloat32(ind); ind += 4;
+                var rtDataIdleIts = state.rtDataIdleItems;
+                var rtDataAllIts = state.rtDataAllItems;
+                var newRt = Array(rtDataAllIts.length).fill(NaN);
 
-                state.adc1Voltage = dv.getFloat32(ind); ind += 4;
-                state.adc2Voltage = dv.getFloat32(ind); ind += 4;
-                debugRemoteInput.value = Math.round(dv.getFloat32(ind) * 100); ind += 4;
-
-                if (hasRuntime) {
-                    pitch.setpointValue = dv.getFloat32(ind); ind += 4;
-                    debugAtrSetpoint.rValue = dv.getFloat32(ind); ind += 4;
-                    debugBrakeTiltSetpoint.rValue = dv.getFloat32(ind); ind += 4;
-                    debugTorqueTiltSetpoint.rValue = dv.getFloat32(ind); ind += 4;
-                    debugTurnTiltSetpoint.rValue = dv.getFloat32(ind); ind += 4;
-                    debugRemoteTiltSetpoint.rValue = dv.getFloat32(ind); ind += 4;
-
-                    debugRequestedCurrent.rValue = dv.getFloat32(ind); ind += 4;
-                    debugFilteredCurrent.rValue = dv.getFloat32(ind); ind += 4;
-                    debugAtrAccDiff.rValue = dv.getFloat32(ind); ind += 4;
-                    debugAtrSpeedBoost.value = Math.round(dv.getFloat32(ind) * 100); ind += 4;
-                    debugBoosterCurrent.rValue = dv.getFloat32(ind); ind += 4;
+                // if runtime values are not in the message, limit the loop to
+                // read only values that are always present
+                var i = 0;
+                for (; i < rtDataIdleIts.length; i++) {
+                    newRt[i] = getFloat16(dv, ind);
+                    ind += 2;
                 }
+                if (hasRuntime) {
+                    for (; i < rtDataAllIts.length; i++) {
+                        newRt[i] = getFloat16(dv, ind);
+                        ind += 2;
+                    }
+                }
+
+                state.rtData = state.newRtData(newRt);
 
                 if (hasCharging) {
                     chargingInfo.current = dv.getFloat32(ind); ind += 4;
                     chargingInfo.voltage = dv.getFloat32(ind); ind += 4;
                 }
+
+                var running = +(state.pkgState === state.s_Running);
+                rtPlotData.addSample([time, running, wheelslip, sat, fpState].concat(newRt));
+                rtPlotData.makeReady();
+            } else if (msgtype === c_REALTIME_DATA_IDS) {
+                if (state.commsState !== state.comms_RTDataIDs) {
+                    return;
+                }
+                [state.rtDataIdleItems, ind] = getStrings(dv, ind);
+                [state.rtDataRuntimeItems, ind] = getStrings(dv, ind);
+                state.rtDataAllItems = state.rtDataIdleItems.concat(state.rtDataRuntimeItems);
+
+                state.commsState = state.comms_Initialized;
+            } else if (msgtype === c_DATA_RECORD_HEADER) {
+                recordedPlotData.receiveHeader(dv, ind);
+            } else if (msgtype === c_DATA_RECORD_DATA) {
+                recordedPlotData.receiveData(dv, ind);
             }
 
             packageConnectionWatchdog.restart();
@@ -510,16 +887,25 @@ Item {
         property alias battCurrentLog: prefBattCurrentLog.checked
         property int tempWarningOffset: 10
         property alias tuneSlotCount: prefTuneSlotCount.value
+        property alias showTuneDiffCount: prefShowTuneDiffCount.checked
+        property alias showRTPlotByDefault: prefShowRTPlotByDefault.checked
+        property int plotMaxWindowMinutes: 30
         property alias showWelcomeDialog: prefShowWelcomeDialog.checked
     }
 
-    QtObject {
+    Connections {
         id: tuneManager
+        target: packageConfig
 
-        readonly property string formatVersion: "1.0"
-        readonly property string packageName: "Refloat"
+        readonly property int formatVersionMajor: 1
+        readonly property int formatVersionMinor: 0
+        readonly property string formatVersion: "%1.%2".arg(formatVersionMajor).arg(formatVersionMinor)
+        readonly property string packageName: "{{PACKAGE_NAME}}"
         readonly property string packageVersion: "{{VERSION}}"
         readonly property int maxTunes: 6
+
+        signal idBackupFinished(var backup)
+        signal autoBackupFinished(var backup)
 
         // Storage for tunes as well as full package configs
         property var tuneStorage: Settings {
@@ -537,16 +923,22 @@ Item {
             property var fullBackup
         }
 
-        property var tuneNames: {
-            var names = {}
+        property var tunes: {
+            var tunes = {}
             for (var slot = 1; slot <= maxTunes; slot++) {
                 var tune = loadTune(slot);
                 if (tune) {
-                    names[slot] = tune.name;
+                    tunes[slot] = tune;
                 }
             }
 
-            return names;
+            return tunes;
+        }
+
+        function onUpdate() {
+            triggerAutoRestore();
+            // force recalculation of dependent variables
+            tunes = tunes;
         }
 
         property alias fullBackup: tuneStorage.fullBackup
@@ -564,8 +956,16 @@ Item {
                     "name": packageName,
                     "version": packageVersion
                 },
+                "board": {
+                    "id": board.getId(),
+                },
                 "settings": settings
             };
+
+            var boardName = board.getName();
+            if (boardName) {
+                tune.board.name = boardName;
+            }
 
             if (description) {
                 tune.description = description;
@@ -575,6 +975,10 @@ Item {
         }
 
         function updateTune(tune, name, description, settings) {
+            if (!packageConfig.versionCompatible(tune)) {
+                return false;
+            }
+
             tune.name = name;
             if (description) {
                 tune.description = description;
@@ -583,10 +987,86 @@ Item {
                 tune.settings = settings;
                 tune.date = new Date();
             }
+            tune.version = formatVersion;
+
+            return true;
         }
 
         function createBackup() {
-            return createTune("Full Backup", "", packageConfig.fetchConfig(false));
+            var config = packageConfig.fetchConfig(false);
+            if (!config) {
+                return null;
+            }
+            return createTune("Full Backup", "", config);
+        }
+
+        function globalBackup() {
+            var backup = createBackup();
+            if (!backup) {
+                return;
+            }
+            fullBackup = backup;
+        }
+
+        function globalRestore() {
+            if (!fullBackup) {
+                return;
+            }
+            applyConfigDialog.show(fullBackup);
+        }
+
+        function idBackup() {
+            var backup = createBackup();
+            if (!backup) {
+                return;
+            }
+            tuneStorage.setValue("backup_" + board.getId(), backup);
+            idBackupFinished(backup);
+        }
+
+        function idRestore() {
+            var backup = tuneStorage.value("backup_" + board.getId());
+            if (!backup) {
+                return;
+            }
+            applyConfigDialog.show(backup);
+        }
+
+        function autoBackup() {
+            var backup = createBackup();
+            if (!backup) {
+                return;
+            }
+
+            tuneStorage.setValue("auto_backup_" + board.getId(), backup);
+            autoBackupFinished(backup);
+        }
+
+        function autoRestore() {
+            var backup = tuneStorage.value("auto_backup_" + board.getId());
+            if (!backup) {
+                return;
+            }
+            applyConfigDialog.show(backup);
+        }
+
+        function triggerAutoRestore() {
+            if (!packageConfig.checkConfig()) {
+                return;
+            }
+
+            if (packageConfig.isDefault()) {
+                var backup = tuneStorage.value("auto_backup_" + board.getId());
+                if (backup) {
+                    print("Refloat: Automatic backup restore.");
+                    applyConfigDialog.show(backup, true);
+                } else {
+                    print("Refloat: No automatic backup to restore.");
+                }
+            } else {
+                print("Refloat: Automatic config backup.");
+                autoBackup();
+            }
         }
 
         function saveTune(slot, tune) {
@@ -594,9 +1074,9 @@ Item {
 
             tuneStorage.setValue(id, JSON.stringify(tune));
 
-            tuneNames[slot] = tune.name;
+            tunes[slot] = tune;
             // workaround needed so that the change is written through to the storage
-            tuneNames = tuneNames;
+            tunes = tunes;
         }
 
         function loadTune(slot) {
@@ -609,9 +1089,9 @@ Item {
 
         function eraseTune(slot) {
             tuneStorage.setValue(tuneId(slot), "");
-            tuneNames[slot] = null;
+            tunes[slot] = null;
             // workaround needed so that the change is written through to the storage
-            tuneNames = tuneNames;
+            tunes = tunes;
         }
 
         function slotEmpty(slot) {
@@ -719,11 +1199,54 @@ Item {
 
         Component.onCompleted: {
             convertFloatQuicksaves();
+            var idBackup = tuneStorage.value("backup_" + board.getId());
+            if (idBackup) {
+                idBackupFinished(idBackup);
+            }
+            var autoBackup = tuneStorage.value("auto_backup_" + board.getId());
+            if (autoBackup) {
+                autoBackupFinished(autoBackup);
+            }
         }
     }
 
-    QtObject {
+    property var state: QtObject {
         id: state
+
+        readonly property int comms_Info: 1
+        readonly property int comms_RTDataIDs: 2
+        readonly property int comms_Initialized: 3
+
+        property int commsState: comms_Info
+
+        signal commsInitialized
+
+        onCommsStateChanged: {
+            if (commsState == comms_Initialized) {
+                commsInitialized();
+            }
+        }
+
+        property bool extraRecording: false
+        property bool extraRecAutostart: false
+        property bool extraRecAutostop: false
+
+        property int ticksPerSecond
+
+        // package capabilities
+        readonly property int cap_Lights: 1
+        readonly property int cap_LightsExternal: 2
+        readonly property int cap_DataRecord: 2**31
+
+        property bool capLights
+        property bool capLightsExternal
+        property bool capDataRecord
+
+        function setCapabilities(caps) {
+            capLights = caps & cap_Lights;
+            capLightsExternal = caps & cap_LightsExternal;
+            capDataRecord = caps & cap_DataRecord;
+        }
 
         // package state
         readonly property int s_Disabled: 0
@@ -774,19 +1297,17 @@ Item {
         readonly property int fs_Right: 2
         readonly property int fs_Both: 3
 
-        property int fsState: fs_None
-        property real adc1Voltage: 0
-        property real adc2Voltage: 0
+        property int fpState: fs_None
 
-        onFsStateChanged: {
+        onFpStateChanged: {
             leftSensor.on = false;
             rightSensor.on = false;
 
-            if (fsState & fs_Left) {
+            if (fpState & fs_Left) {
                 leftSensor.on = true;
             }
 
-            if (fsState & fs_Right) {
+            if (fpState & fs_Right) {
                 rightSensor.on = true;
             }
 
@@ -905,13 +1426,37 @@ Item {
                 errorDescription = "";
             }
         }
+
+        property var rtDataIdleItems: []
+        property var rtDataRuntimeItems: []
+        property var rtDataAllItems: []
+
+        property var rtData: newRtData();
+
+        function newRtData(values) {
+            let newData = new Proxy({}, {
+                get: function(target, name) {
+                    return target.hasOwnProperty(name) ? target[name] : NaN;
+                }
+            });
+
+            if (!values) {
+                return newData;
+            }
+
+            var names = rtDataAllItems;
+            for (var i = 0; i < names.length; i++) {
+                newData[names[i]] = values[i];
+            }
+            return newData;
+        }
     }
 
     QtObject {
         id: lights
 
-        property bool enabled: false
-        property bool lcm: false
+        property bool enabled: state.capLights
+        property bool lcm: state.capLightsExternal
 
         property bool on: false
         property bool headlightsOn: false
@@ -927,6 +1472,116 @@ Item {
     property real fontSizeNormal: 0.35 * unit
     property real fontSizeSmall: 0.3 * unit
     property real fontSizeSuperSmall: 0.25 * unit
+
+    // "#e57e20",
+    // "#7640d6",
+    // "#63c339",
+    // "#cf44cd",
+    // "#51c66c",
+    // "#7134a3",
+    // "#b1ba38",
+    // "#6e6ee0",
+    // "#e3ac34",
+    // "#5e88d8",
+    // "#e95314",
+    // "#4bc6af",
+    // "#e33421",
+    // "#53b3bf",
+    // "#dd4044",
+    // "#69c180",
+    // "#df4a98",
+    // "#469138",
+    // "#ce77d2",
+    // "#859b3b",
+    // "#584f99",
+    // "#b58527",
+    // "#893075",
+    // "#3f9469",
+    // "#cd3763",
+    // "#3f6620",
+    // "#b29ad7",
+    // "#ce542e",
+    // "#69aad7",
+    // "#a15622",
+    // "#36738b",
+    // "#e7865d",
+    // "#4f5984",
+    // "#ddae68",
+    // "#254f3a",
+    // "#e095af",
+    // "#34633c",
+    // "#cc686b",
+    // "#88bb93",
+    // "#8f2f26",
+    // "#4a8772",
+    // "#803a4d",
+    // "#b1b277",
+    // "#a2678e",
+    // "#827029",
+    // "#c68f7e",
+    // "#525023",
+    // "#c08959",
+    // "#788554",
+    // "#734828"
+    property var plotSeriesMetaData: [
+        ["motor.erpm", {"name": "ERPM", "color": "#469138", "visible": true}],
+        ["motor.duty_cycle", {"name": "Duty Cycle", "color": "#e3ac34", "visible": true}],
+        ["motor.current", {"name": "Motor Current", "color": "#e33421", "visible": true}],
+        ["motor.dir_current", {"name": "Directional Current", "color": "#cc686b", "visible": false}],
+        ["motor.filt_current", {"name": "Filtered Current", "color": "#734828", "visible": false}],
+
+        ["imu.pitch", {"name": "Pitch", "color": "#b1b277", "visible": true}],
+        ["imu.balance_pitch", {"name": "Balance Pitch", "color": "#53b3bf", "visible": true}],
+
+        ["torque_tilt.setpoint", {"name": "Torque Tilt Setpoint", "color": "#df4a98", "visible": true}],
+        ["atr.setpoint", {"name": "ATR Setpoint", "color": "#7640d6", "visible": true}],
+        ["brake_tilt.setpoint", {"name": "Brake Tilt Setpoint", "color": "#b29ad7", "visible": false}],
+        ["turn_tilt.setpoint", {"name": "Turn Tilt Setpoint", "color": "#e095af", "visible": false}],
+        ["remote.setpoint", {"name": "Remote Setpoint", "color": "#803a4d", "visible": false}],
+        ["setpoint", {"name": "Setpoint", "color": "#e57e20", "visible": true}],
+
+        ["motor.speed", {"name": "Speed", "color": "#3f9469", "visible": false}],
+        ["motor.batt_voltage", {"name": "Battery Voltage", "color": "#6e6ee0", "visible": false}],
+        ["motor.batt_current", {"name": "Battery Current", "color": "#cf44cd", "visible": false}],
+        ["motor.mosfet_temp", {"name": "Controller Temp", "color": "#ddae68", "visible": false}],
+        ["motor.motor_temp", {"name": "Motor Temp", "color": "#88bb93", "visible": false}],
+        ["imu.roll", {"name": "Roll", "color": "#c68f7e", "visible": false}],
+        ["footpad.adc1", {"name": "ADC1 Voltage", "color": "#69aad7", "visible": false}],
+        ["footpad.adc2", {"name": "ADC2 Voltage", "color": "#4a8772", "visible": false}],
+        ["balance_current", {"name": "Balance Current", "color": "#36738b", "visible": false}],
+        ["booster.current", {"name": "Booster Current", "color": "#8f2f26", "visible": false}],
+        ["atr.accel_diff", {"name": "ATR Accel Diff", "color": "#4f5984", "visible": false}],
+        ["atr.speed_boost", {"name": "ATR Speed Boost", "color": "#34633c", "visible": false}],
+        ["remote.input", {"name": "Remote Throttle", "color": "#525023", "visible": false}],
+
+        ["state.running", {"name": "Running", "color": "#3f6620", "visible": false}],
+        ["state.wheelslip", {"name": "Wheelslip", "color": "#893075", "visible": false}],
+        ["footpad.state", {"name": "Footpad State", "color": "#584f99", "visible": false}],
+        ["state.sat", {"name": "Setpoint Adjustment Type", "color": "#c08959", "visible": false}],
+    ]
+
+    property var plotSeriesExtraColors: [
+        "#5e88d8",
+        "#b1ba38",
+        "#e7865d",
+        "#7134a3",
+        "#51c66c",
+        "#a2678e",
+        "#4bc6af",
+        "#a15622",
+        "#254f3a",
+        "#827029",
+        "#e95314",
+        "#69c180",
+        "#ce77d2",
+        "#859b3b",
+        "#dd4044",
+        "#b58527",
+        "#ce542e",
+        "#788554",
+        "#cd3763",
+        "#63c339",
+    ]
 
     anchors.fill: parent
 
@@ -954,13 +1609,19 @@ Item {
         bottomInset: 0
 
         property Path iconPath
+        property Path fillIconPath
         property real iconSize: width * 0.7
         property color strokeColor: Utility.getAppHexColor("normalText")
+        property color fillColor: Utility.getAppHexColor("normalText")
         property color bgColor: Utility.getAppHexColor("darkBackground")
+        property var customBgColor
+
+        onIconPathChanged: iconCanvas.requestPaint()
+        onFillIconPathChanged: iconCanvas.requestPaint()
 
         contentItem: Item {
             Canvas {
-                id: downloadTuneArchiveCanvas
+                id: iconCanvas
                 anchors.centerIn: parent
                 implicitWidth: iconSize
                 implicitHeight: iconSize
@@ -969,12 +1630,20 @@ Item {
                 onPaint: {
                     var context = getContext("2d");
                     context.reset();
-                    context.strokeStyle = button.strokeColor
-                    context.lineCap = "round";
-                    iconPath.scale = Qt.size(iconSize / 50, iconSize / 50)
-                    context.path = iconPath
-                    context.lineWidth = 2
-                    context.stroke()
+                    if (iconPath) {
+                        context.strokeStyle = button.strokeColor;
+                        context.lineCap = "round";
+                        iconPath.scale = Qt.size(iconSize / 50, iconSize / 50);
+                        context.path = iconPath;
+                        context.lineWidth = 2;
+                        context.stroke();
+                    }
+                    if (fillIconPath) {
+                        context.fillStyle = button.fillColor;
+                        fillIconPath.scale = Qt.size(iconSize / 50, iconSize / 50);
+                        context.path = fillIconPath;
+                        context.fill();
+                    }
                 }
             }
         }
@@ -984,12 +1653,12 @@ Item {
             radius: parent.width / 2
             opacity: 0.9
 
-            color: button.bgColor
+            color: button.customBgColor ?? button.bgColor
 
             states: [
                 State {
                     name: "change"
-                    when: button.pressed
+                    when: button.pressed && !button.customBgColor
                     PropertyChanges {target: buttonBg; color: Utility.getAppHexColor("lightestBackground");}
                 }
             ]
@@ -1003,6 +1672,25 @@ Item {
     component ToolButton : FloatingToolButton {
         anchors.margins: 0
         bgColor: Utility.getAppHexColor("normalBackground")
+    }
+
+    component ToggleFloatingToolButton : FloatingToolButton {
+        property bool autonomous: true
+        property bool value: false
+
+        property Path trueIconPath
+        property Path falseIconPath
+        property Path trueFillIconPath
+        property Path falseFillIconPath
+
+        iconPath: value ? trueIconPath : falseIconPath
+        fillIconPath: value ? trueFillIconPath : falseFillIconPath
+
+        onClicked: {
+            if (autonomous) {
+                value = !value;
+            }
+        }
     }
 
     component Dial : Item {
@@ -1147,7 +1835,7 @@ Item {
 
             font.pixelSize: valueFontSize
             horizontalAlignment: Text.AlignHCenter
-            text: Math.round(parent.value)
+            text: round(parent.value)
         }
 
         DText {
@@ -1168,7 +1856,7 @@ Item {
             visible: !allowNegative && topAngle > 0
             z: 4
             font.pixelSize: fontSizeSmall
-            text: topValue.toFixed(1)
+            text: toFixed1Zero(topValue)
         }
     }
 
@@ -1194,9 +1882,1604 @@ Item {
         }
     }
 
+    component PlotData : QtObject {
+        property int sampleSize: 0
+        property var seriesIds
+        property var series: []
+        property var seriesSorted: []
+        property var data: []
+        property int ticksPerSecond
+        // an offset added to timestamps if timestamps older than the last one
+        // arrive, to ensure time is always increasing
+        property real timeOffset: 0
+
+        property var mins: []
+        property var maxs: []
+        property var scales: []
+
+        property real timeStart
+        property real timeEnd
+        property real timeRange
+        property real positiveRatio
+
+        property int sampleNr: 0
+
+        property bool initialized: true
+        property bool dataReady: false
+
+        signal dataUpdate
+        signal scalesUpdate
+
+        property var seriesMetaData
+        property var seriesExtraColors
+        // Static flags always added to data series, not part of the dynamic data series
+        property var extraFlags: [
+            "state.running",
+            "state.wheelslip",
+            "state.sat",
+            "footpad.state",
+        ]
+
+        function reset() {
+            sampleNr = 0;
+            data = [];
+            initialized = false;
+            dataReady = false;
+        }
+
+        function init(seriesIds, ticksPerSec) {
+            ticksPerSecond = ticksPerSec;
+            initSeries(seriesIds, false);
+        }
+
+        function initSeries(ids, allVisible) {
+            var smplSize = ids.length + extraFlags.length;
+            sampleSize = smplSize;
+            mins = Array(smplSize).fill(0);
+            maxs = Array(smplSize).fill(0);
+            scales = Array(smplSize).fill(1);
+
+            if (arraysEqual(ids, seriesIds)) {
+                initialized = true;
+                return;
+            }
+
+            seriesIds = ids;
+            var seriesMeta = seriesMetaData;
+
+            var tmpMd = {};
+            for (var i =0; i < seriesMeta.length; i++) {
+                var sm = seriesMeta[i];
+                var smDataCopy = Object.assign({}, sm[1]);
+                tmpMd[sm[0]] = smDataCopy;
+                smDataCopy.sortOrder = i + 100;
+            }
+
+            var srs = [];
+            var srsSorted = [];
+            var extrasOrder = 0;
+
+            var push_series = function(id, i, visible) {
+                var seriesMd = tmpMd[id] ?? {
+                    "name": id,
+                    "color": seriesExtraColors[extrasOrder],
+                    "sortOrder": extrasOrder++,
+                    "visible": true,
+                };
+                if (visible) {
+                    seriesMd.visible = visible;
+                }
+                seriesMd.dataOrder = i;
+                srs.push(seriesMd);
+                srsSorted.push(seriesMd);
+            }
+
+            for (var i = 0; i < extraFlags.length; i++) {
+                push_series(extraFlags[i], i, false);
+            }
+
+            for (var i = 0; i < ids.length; i++) {
+                push_series(ids[i], i + extraFlags.length, !!allVisible);
+            }
+
+            srsSorted.sort((a, b) => a.sortOrder - b.sortOrder);
+            series = srs;
+            seriesSorted = srsSorted;
+            initialized = true;
+        }
+
+        function addSample(sample, offset) {
+            var sampleTime = sample[0] + timeOffset;
+            var lastTime = data.length > 0 ? data[data.length - 1][0] : undefined;
+
+            // only push sample if it's the next in row, assuming messages
+            // can't change order, this should guarantee consistency
+            //
+            // also don't push if the timestamp is the same as that of the last
+            // record, this can happen if two clients are connected to the same
+            // VESC (they both poll for data and the messages get sent twice)
+            if ((offset !== undefined && offset !== data.length) || lastTime === sampleTime) {
+                return;
+            }
+
+            if (sampleTime < lastTime) {
+                if (lastTime - sampleTime > 2 ** 31) {
+                    // assume ticks have overflown
+                    timeOffset = timeOffset + 2 ** 32;
+                } else {
+                    // a temporary disconnect (as of writing this code, doesn't
+                    // normally occur without the AppUI being brought down)
+                    timeOffset += lastTime + 10 * ticksPerSecond;
+                }
+            }
+
+            if (timeOffset > 0) {
+                sample[0] += timeOffset;
+            }
+
+            data.push(sample);
+
+            for (var i = 0; i < sampleSize; i++) {
+                if (sample[i + 1] > maxs[i]) {
+                    maxs[i] = sample[i + 1];
+                }
+                if (sample[i + 1] < mins[i]) {
+                    mins[i] = sample[i + 1];
+                }
+            }
+
+            sampleNr = data.length;
+        }
+
+        function makeReady() {
+            calculateRanges();
+            dataReady = true;
+            dataUpdate();
+        }
+
+        function calculateRanges() {
+            if (data.length == 0) {
+                return;
+            }
+
+            var lowestRatio = 1;
+            var highestRatio = 0;
+            var lMins = mins;
+            var lMaxs = maxs;
+            var srs = series;
+            for (var i = 0; i < sampleSize; i++) {
+                if (!srs[i].visible) {
+                    continue;
+                }
+
+                if (lMaxs[i] > 1 || lMins[i] < -1) {
+                    var ratio = clamp(lMaxs[i] / (lMaxs[i] - lMins[i]), 0, 1);
+                    lowestRatio = Math.min(lowestRatio, ratio);
+                    highestRatio = Math.max(highestRatio, ratio);
+                }
+            }
+
+            var newRatio;
+            if (lowestRatio < 0.5) {
+                if (highestRatio > 0.5) {
+                    newRatio = 0.5;
+                } else {
+                    newRatio = highestRatio;
+                }
+            } else {
+                newRatio = lowestRatio;
+            }
+
+            positiveRatio = clamp(newRatio, 0.15, 0.85);
+
+            var setScale = function(i, s) {
+                if (s != scales[i]) {
+                    scalesUpdate();
+                }
+                scales[i] = s;
+            }
+
+            var newScale;
+            for (var i = 0; i < sampleSize; i++) {
+                var minRatio = (1 - positiveRatio) / lMins[i];
+                var maxRatio = positiveRatio / lMaxs[i];
+                if (lMaxs[i] > 0) {
+                    if (lMins[i] < 0) {
+                        newScale = Math.min(maxRatio, -minRatio);
+                    } else {
+                        newScale = isFinite(maxRatio) ? maxRatio : 1;
+                    }
+                } else {
+                    newScale = isFinite(minRatio) ? -minRatio : 1;
+                }
+                var rns = Math.min(newScale, srs[i].maxScale ?? 1);
+                setScale(i, rns);
+            }
+
+            timeStart = data[0][0];
+            timeEnd = data[data.length - 1][0];
+            timeRange = timeEnd - timeStart;
+        }
+    }
+
+    component RecordedPlotData : PlotData {
+        id: recPlotData
+
+        property bool noData: false
+        property bool timeout: false
+
+        property int sampleCount: 0
+        property int requestTries: 0
+
+        property Timer receiveTimeout: Timer {
+            interval: 1000
+
+            onTriggered: {
+                recPlotData.requestPlot(true);
+            }
+        }
+
+        function fetch(ticksPerSec) {
+            reset();
+            ticksPerSecond = ticksPerSec;
+            noData = false;
+            timeout = false;
+            requestPlot();
+        }
+
+        function requestPlot(isARetry) {
+            var reqTries = requestTries;
+
+            if (!isARetry) {
+                reqTries = 1;
+            } else if (reqTries > 5) {
+                timeout = true;
+                return;
+            }
+
+            if (!initialized) {
+                commands.sendDataRecordRequest(true);
+            } else {
+                commands.sendDataRecordRequest(false, sampleNr);
+            }
+
+            reqTries++;
+            requestTries = reqTries;
+
+            receiveTimeout.start();
+        }
+
+        function receiveHeader(dv, ind) {
+            if (initialized) {
+                // prevent processing messages in more than one AppUI instance
+                return;
+            }
+
+            receiveTimeout.stop();
+
+            sampleCount = dv.getUint32(ind); ind += 4;
+
+            var sampleSize = dv.getUint8(ind++);
+            var ids = [];
+            for (var i = 0; i < sampleSize; i++) {
+                var id = "";
+                var size = dv.getUint8(ind++);
+                for (var j = 0; j < size; j++) {
+                    id += String.fromCharCode(dv.getUint8(ind++));
+                }
+                ids.push(id);
+            }
+            initSeries(ids, true);
+
+            if (sampleCount === 0) {
+                noData = true;
+            } else {
+                requestPlot();
+            }
+        }
+
+        function receiveData(dv, ind) {
+            receiveTimeout.stop();
+
+            var offset = dv.getUint32(ind); ind += 4;
+
+            var getFloat16 = commands.getFloat16;
+            while (ind < dv.byteLength) {
+                var time = dv.getUint32(ind); ind += 4;
+                var flags = dv.getUint8(ind++);
+                var sat = flags >> 4;
+                var fp_state = (flags & 0b1100) >> 2;
+                var wheelslip = (flags & 0b10) >> 1;
+                var running = flags & 0b1;
+                var data = [time, running, wheelslip, sat, fp_state];
+
+                var remainingSampleSize = sampleSize - extraFlags.length;
+                for (var i = 0; i < remainingSampleSize; i++) {
+                    data.push(getFloat16(dv, ind)); ind += 2;
+                }
+                addSample(data, offset++);
+            }
+
+            if (sampleNr < sampleCount) {
+                requestPlot();
+            } else {
+                makeReady();
+            }
+        }
+    }
+
+    component Plot : Rectangle {
+        id: plot
+        color: "#0b0b0b"
+
+        property var plotData
+        property int ticksPerSecond
+        property bool followEnd: false
+        property real startWindow: 10
+
+        property real toolbarOffset: 0
+
+        property bool showRecordDownload: false
+        property int maxWindowMinutes
+
+        function init(ticksPerSec) {
+            ticksPerSecond = ticksPerSec;
+            reset();
+            // solves updating the plot (series) menu when the series in plotData have changed
+            plotData = plotData;
+        }
+
+        function reset() {
+            plotCanvas.reset();
+        }
+
+        onVisibleChanged: {
+            if (!visible) {
+                menu.visible = false;
+            }
+        }
+
+        Row {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.leftMargin: toolbarOffset * unit + 0.1 * unit
+            anchors.topMargin: 0.1 * unit
+            spacing: 0.1 * unit
+            z: parent.z + 5
+
+            FloatingToolButton {
+                width: 0.8 * unit
+                height: 0.8 * unit
+                visible: plotData.initialized
+
+                iconPath: Path {
+                    PathSvg {path: "M 10 15 L 40 15 M 10 25 L 40 25 M 10 35 L 40 35"}
+                }
+
+                onClicked: {
+                    menu.visible = !menu.visible;
+                }
+            }
+
+            FloatingToolButton {
+                width: 0.8 * unit
+                height: 0.8 * unit
+                visible: plot.showRecordDownload
+
+                iconPath: Path {
+                    PathSvg {path: "M 8 38 L 42 38 M 25 10 L 25 38 M 14 23 L 25 38 M 36 23 L 25 38"}
+                }
+
+                onClicked: {
+                    recordedPlot.show();
+                }
+            }
+
+            ToggleFloatingToolButton {
+                width: 0.8 * unit
+                height: 0.8 * unit
+                visible: plot.showRecordDownload
+
+                autonomous: false
+                value: mainItem.state.extraRecording
+
+                customBgColor: value ? Utility.getAppHexColor("red") : Utility.getAppHexColor("normalBackground")
+                fillColor: value ? Utility.getAppHexColor("normalText") : Utility.getAppHexColor("red")
+
+                trueFillIconPath: Path {
+                    PathSvg {path: "M 13 13 L 13 37 L 37 37 L 37 13 L 13 13"}
+                }
+
+                falseFillIconPath: Path {
+                    PathAngleArc {centerX: 25; centerY: 25; radiusX: 12; radiusY: 12; sweepAngle: 360;}
+                }
+
+                onClicked: {
+                    commands.sendDataRecordControl(commands.dr_RECORD, !value);
+                }
+
+                onPressAndHold: {
+                    recMenu.visible = true;
+                }
+
+                Menu {
+                    id: recMenu
+
+                    CheckBox {
+                        text: "Autostart"
+                        checkable: true
+                        checked: mainItem.state.extraRecAutostart
+                        onClicked: {
+                            commands.sendDataRecordControl(commands.dr_AUTOSTART, checked);
+                        }
+                    }
+
+                    CheckBox {
+                        text: "Autostop"
+                        checkable: true
+                        checked: mainItem.state.extraRecAutostop
+                        onClicked: {
+                            commands.sendDataRecordControl(commands.dr_AUTOSTOP, checked);
+                        }
+                    }
+                }
+            }
+
+//            FloatingToolButton {
+//                width: 0.8 * unit
+//                height: 0.8 * unit
+//
+//                iconPath: Path {
+//                    PathAngleArc {centerX: 25; centerY: 25; radiusX: 12; radiusY: 12; startAngle: 45; sweepAngle: 270;}
+//                }
+//
+//                onClicked: {
+//                    colorPreview.show();
+//                }
+//            }
+        }
+
+        Rectangle {
+            id: menu
+            z: parent.z + 10
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.topMargin: topMargin
+            anchors.leftMargin: sideMargin
+            height: menuScrollView.height
+            width: menuScrollView.width
+            visible: false
+
+            property real topMargin: unit
+            property real sideMargin: 0.2 * unit
+            property real hPadding: 8
+            property real vPadding: 4
+
+            color: getDarkThemeColor("darkBackground");
+
+            ScrollView {
+                id: menuScrollView
+                anchors.top: parent.top
+                anchors.left: parent.left
+                height: Math.min(contentHeight, plot.height - parent.topMargin - parent.sideMargin)
+                width: menuColumn.width + 2 * menu.hPadding + 4
+                contentWidth: availableWidth
+                contentHeight: menuColumn.height + menu.vPadding
+                clip: true
+
+                Column {
+                    id: menuColumn
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.topMargin: menu.vPadding * 0.5
+                    spacing: 0
+
+                    Repeater {
+                        model: plotData.seriesSorted
+
+                        Item {
+                            width: menuRow.width
+                            height: label.height + 2 * menu.vPadding
+
+                            MouseArea {
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                width: menuColumn.width
+                                height: parent.height
+                                onClicked: itemCheckBox.toggle()
+                            }
+
+                            Row {
+                                id: menuRow
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.leftMargin: menu.hPadding
+                                spacing: 4
+
+                                CheckBox {
+                                    id: itemCheckBox
+                                    height: label.height
+                                    width: height
+
+                                    checked: modelData.visible
+
+                                    onCheckedChanged: {
+                                        plot.plotData.seriesSorted[index].visible = checked;
+                                        plot.plotData.calculateRanges();
+                                        plotCanvas.requestPaint();
+                                    }
+
+                                    indicator: Rectangle {
+                                        implicitHeight: parent.height * 0.9
+                                        implicitWidth: implicitHeight
+                                        y: parent.height / 2 - height / 2
+                                        radius: 2
+                                        color: "transparent"
+                                        border.color: parent.checked ? getDarkThemeColor("lightText") : getDarkThemeColor("normalText")
+
+                                        Rectangle {
+                                            height: parent.height * 0.5
+                                            width: height
+                                            x: parent.width / 2 - width / 2
+                                            y: parent.height / 2 - height / 2
+                                            radius: 1
+                                            color: parent.border.color
+                                            visible: parent.parent.checked
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    id: label
+                                    text: modelData.name
+                                    font.pointSize: 16
+                                    color: modelData.color
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        PinchArea {
+            anchors.fill: parent
+
+            property real initialPlotWindow
+            property real initialX
+            property real lastScale
+
+            onPinchStarted: {
+                initialPlotWindow = plotCanvas.window;
+                initialX = plotMouse.x(pinch.center);
+                plotMover.grab();
+            }
+
+            onPinchUpdated: {
+                plotMover.move(initialX - plotMouse.x(pinch.center), pinch.scale != lastScale);
+                plotMover.zoom(initialPlotWindow / pinch.scale, plotMouse.x(pinch.center));
+                lastScale = pinch.scale;
+            }
+
+            onPinchFinished: {
+                plotMouse.release();
+            }
+
+            MouseArea {
+                id: plotMouse
+                anchors.fill: parent
+                propagateComposedEvents: true
+                preventStealing: true
+
+                property real initialX
+                property real initialY
+
+                property bool moving: false
+                property bool holdCursor: false
+                property bool moveCursor: false
+                property bool cancelAction: false
+
+                property real snap: 20
+
+                function x(obj) {
+                    return obj.x - plotCanvas.padding;
+                }
+
+                function dist2d(event) {
+                    var dx = initialX - x(event);
+                    var dy = initialY - event.y;
+                    return Math.sqrt(dx * dx + dy * dy);
+                }
+
+                function release() {
+                    moving = false;
+                    holdCursor = false;
+                    moveCursor = false;
+                    cancelAction = false;
+                    plotCanvas.fadeCursor(1);
+                    plotMover.flick();
+                }
+
+                onWheel: {
+                    if (!plotMover.grabbed) {
+                        plotMover.grab();
+                    }
+
+                    plotMover.zoomAnimated(Math.max(0.75, 1 + wheel.angleDelta.y / 120 * 0.25), x(wheel));
+                }
+
+                onPressed: {
+                    menu.visible = false;
+
+                    initialX = x(mouse);
+                    initialY = mouse.y;
+
+                    var cursorPos = plotCanvas.getCursorPosIfCan();
+                    if (plotMover.rolling) {
+                        moving = true;
+                    } else if (cursorPos !== null && dist(initialX, cursorPos) < snap) {
+                        holdCursor = true;
+                        return;
+                    }
+
+                    plotMover.grab();
+                }
+
+                onPositionChanged: {
+                    if (cancelAction) {
+                        return;
+                    }
+
+                    var d = initialX - x(mouse);
+                    if (holdCursor) {
+                        if (moveCursor) {
+                            plotCanvas.spawnCursor(x(mouse));
+                        } else {
+                            var yd = initialY - mouse.y;
+                            var dist = Math.sqrt(yd * yd + d * d);
+                            var angle = Math.acos(yd / dist);
+
+                            // a cone of 30 degrees (15 to each side) or further than 10 pixels
+                            if (angle > 0.2618 && dist > snap) {
+                                if (yd > 30) {
+                                    cancelAction = true;
+                                } else {
+                                    moveCursor = true;
+                                }
+                                plotCanvas.fadeCursor(1);
+                                return;
+                            }
+
+                            plotCanvas.fadeCursor(clamp(1 - (yd - snap) / 100, 0, 1));
+                        }
+                    } else {
+                        if (Math.abs(d) > snap) {
+                            moving = true;
+                        }
+                        plotMover.move(d);
+                    }
+                }
+
+                onReleased: {
+                    release();
+                }
+
+                onPressAndHold: {
+                    if (cancelAction) {
+                        return;
+                    }
+
+                    if (!moving && (dist2d(mouse) < snap || !holdCursor)) {
+                        holdCursor = true;
+                        moveCursor = true;
+                        plotCanvas.spawnCursor(x(mouse));
+                    }
+                }
+            }
+
+            Canvas {
+                id: plotCanvas
+                anchors.centerIn: parent
+                width: parent.width
+                height: parent.height
+                visible: plotData.dataReady
+                contextType: "2d"
+
+                property real position: NaN
+                property real window
+
+                property int padding: 8
+                property int toolbarHeight: unit
+                property int bottomHeight: 20
+
+                property real length: width
+                property real xLength: width - 2 * padding
+                property real yLength: height - toolbarHeight - bottomHeight
+
+                property var cursor: null
+                property real cursorOpacity: 1
+
+                // for hysteresis (to prevent blinking)
+                property bool paintDotsHyst: false
+                property real hystWindow
+
+                Connections {
+                    target: plotData
+
+                    function onDataUpdate() {
+                        if (isNaN(plotCanvas.position)) {
+                            if (plot.followEnd) {
+                                plotCanvas.position = plotData.timeEnd - plotCanvas.window;
+                                plotMover.followPosition();
+                            } else {
+                                plotCanvas.position = plotData.timeStart;
+                                plotCanvas.window = plotData.timeRange;
+                            }
+                        }
+
+                        if (plot.followEnd && plotMover.following) {
+                            plotMover.positionFollower = plotData.timeEnd - plotCanvas.window;
+                        }
+                    }
+
+                    function onScalesUpdate() {
+                        plotCanvas.requestPaint();
+                    }
+                }
+
+                onVisibleChanged: requestPaint();
+                onPositionChanged: requestPaint();
+                onWindowChanged: requestPaint();
+                onCursorChanged: requestPaint();
+                onCursorOpacityChanged: requestPaint();
+
+                QtObject {
+                    id: plotMover
+
+                    property real bounceOffset: 0.05
+                    property real minWindow: 0.001 * plot.ticksPerSecond
+                    property real maxWindow: Math.max(plot.followEnd ? plot.startWindow * plot.ticksPerSecond : 0, Math.min(plot.maxWindowMinutes * 60 * plot.ticksPerSecond, plotData.timeRange))
+
+                    property real moveReferencePos
+                    property real moveUnbluntedPos
+                    property real animWin
+
+                    property real zoomCenter
+
+                    property real lastDist
+                    property real lastTime
+                    property real speed
+                    property real zoomDampen
+                    property real positionFollower
+                    property real lastZoomCenter
+
+                    property bool grabbed
+                    property bool moving
+                    property bool rolling
+                    property bool following
+
+                    onAnimWinChanged: {
+                        zoom(animWin, zoomCenter);
+                    }
+
+                    onPositionFollowerChanged: {
+                        if (following) {
+                            plotCanvas.position = positionFollower;
+                        }
+                    }
+
+                    Behavior on positionFollower {
+                        id: positionFollowerBehavior
+                        NumberAnimation {
+                            easing.type: Easing.OutExpo
+                            duration: 800
+                        }
+                    }
+
+                    function followPosition() {
+                        positionFollowerBehavior.enabled = false;
+                        positionFollower = plotCanvas.position;
+                        positionFollowerBehavior.enabled = true;
+                        following = true;
+                    }
+
+                    function grab() {
+                        moveReferencePos = plotCanvas.position;
+                        animWin = plotCanvas.window;
+
+                        lastDist = 0;
+                        lastTime = 0;
+                        speed = 0;
+
+                        grabbed = true;
+                        moving = false;
+                        rolling = false;
+                        following = false;
+
+                        zoomAnim.stop();
+                        bounceBack.stop();
+                        bounceBackZoom.stop();
+                    }
+
+                    function release() {
+                        if (grabbed) {
+                            snapToBounds();
+                        }
+                        grabbed = false;
+                    }
+
+                    function blunt(x, a) {
+                        return a * Math.exp(x / a) - a;
+                    }
+
+                    function moveRelative(pos, x) {
+                        moveUnbluntedPos = plotCanvas.toPlotPos(pos, x);
+                        var newPos = moveUnbluntedPos;
+
+                        var endPos = plotData.timeEnd - plotCanvas.window;
+                        var startPos = plot.followEnd && plotCanvas.window > plotData.timeRange ? endPos : plotData.timeStart;
+
+                        var startDist = newPos - startPos;
+                        if (startDist < 0) {
+                            newPos += -startDist + blunt(startDist / plotCanvas.window, bounceOffset) * plotCanvas.window;
+                        }
+
+                        var endDist = endPos - newPos;
+                        if (endDist < 0) {
+                            newPos += endDist - blunt(endDist / plotCanvas.window, bounceOffset) * plotCanvas.window;
+                        }
+
+                        var ret = plotCanvas.toCanvasPos(newPos);
+                        plotCanvas.position = newPos;
+
+                        return ret;
+                    }
+
+                    function move(dist, isZooming) {
+                        moveRelative(moveReferencePos, dist);
+
+                        var now = Date.now();
+                        var dt = now - lastTime;
+                        if (dt === 0) {
+                            // seems to happen on desktop with mouse only
+                            return;
+                        }
+
+                        var alpha = 0.9;
+                        if (isZooming) {
+                            zoomDampen = alpha;
+                        } else {
+                            alpha -= zoomDampen;
+                        }
+                        var s = (dist - lastDist) / dt * 1000;
+                        speed += alpha * (s - speed);
+                        zoomDampen = Math.max(zoomDampen * 0.98 - 0.002, 0);
+
+                        moving = true;
+                        lastDist = dist;
+                        lastTime = now;
+                    }
+
+                    function zoomPosOffset(oldWindow, newWindow, center) {
+                        var perc = oldWindow / newWindow - 1;
+                        return (plotCanvas.toPlotPos(plotCanvas.position, center, newWindow) - plotCanvas.position) * perc;
+                    }
+
+                    function zoom(newWindow, center) {
+                        bounceBackZoom.stop();
+                        lastZoomCenter = center;
+
+                        var maxWin = maxWindow;
+                        var maxDist = maxWin - newWindow;
+                        if (maxDist < 0) {
+                            newWindow = (1 - blunt(maxDist / maxWin, bounceOffset * 2)) * maxWin;
+                        }
+
+                        var minDist = newWindow - minWindow;
+                        if (minDist < 0) {
+                            newWindow = (1 + blunt(minDist / minWindow, bounceOffset * 2)) * minWindow;
+                        }
+
+                        var posOffset = zoomPosOffset(plotCanvas.window, newWindow, center);
+                        moveReferencePos += posOffset;
+                        plotCanvas.position = plotCanvas.position + posOffset;
+                        plotCanvas.window = newWindow;
+                    }
+
+                    function flick() {
+                        grabbed = false;
+                        rolling = true;
+                    }
+
+                    function snapToBounds() {
+                        var windowTo = clamp(plotCanvas.window, minWindow, maxWindow);
+
+                        bounceBackZoom.stop();
+                        bounceBackZoom.to = windowTo;
+                        bounceBackZoom.start();
+
+                        if (plot.followEnd && (plotCanvas.window > plotData.timeRange || plotCanvas.position > plotData.timeEnd - plotCanvas.window * 1.05)) {
+                            plotMover.followPosition();
+                        } else {
+                            bounceBack.stop();
+                            var newPos = plotCanvas.position + zoomPosOffset(plotCanvas.window, windowTo, lastZoomCenter);
+                            bounceBack.to = clamp(newPos, plotData.timeStart, plotData.timeEnd - windowTo);
+                            bounceBack.start();
+                        }
+                    }
+
+                    function zoomAnimated(by, center) {
+                        zoomCenter = center;
+
+                        if (!zoomAnim.running) {
+                            zoomAnim.to = animWin / by;
+                        } else {
+                            zoomAnim.stop();
+                            zoomAnim.to /= by;
+                        }
+
+                        zoomAnim.start();
+                    }
+                }
+
+                Timer {
+                    id: plotFlickTimer
+                    repeat: true
+                    interval: dt * 1000
+                    running: plotCanvas.visible
+
+                    property real dt: 1 / 30
+
+                    onTriggered: {
+                        var sign = plotMover.speed < 0 ? -1 : 1;
+                        if (plotMover.speed * sign > 0) {
+                            var d = plotMover.speed * dt;
+
+                            if (plotMover.rolling) {
+                                var realD = plotMover.moveRelative(plotMover.moveUnbluntedPos, d);
+
+                                if (sign * realD < sign * d - 0.000001) {
+                                    // we hit the edge, real speed is now much slower
+                                    plotMover.speed = realD / dt;
+                                    plotMover.speed -= sign * 0.1;
+                                } else {
+                                    // very gradual deceleration during normal rolling
+                                    plotMover.speed *= 0.98;
+                                    plotMover.speed -= sign * 2;
+                                }
+                            } else if (!plotMover.moving) {
+                                // fast decay when plot is being held in place without moving (i.e. no mouse events incoming)
+                                plotMover.speed *= 0.7;
+                                plotMover.speed -= sign * 20;
+                            }
+
+                            plotMover.moving = false;
+                        }
+
+                        if (plotMover.speed * sign <= 0) {
+                            plotMover.speed = 0;
+                            if (plotMover.rolling) {
+                                plotMover.snapToBounds();
+                            }
+                            plotMover.rolling = false;
+                        }
+                    }
+                }
+
+                NumberAnimation {
+                    id: zoomAnim
+                    target: plotMover
+                    property: "animWin"
+                    easing.type: Easing.OutQuad
+                    duration: 200
+
+                    onFinished: {
+                        plotMover.release();
+                    }
+                }
+
+                NumberAnimation {
+                    id: bounceBack
+                    target: plotCanvas
+                    property: "position"
+                    easing {
+                        type: Easing.OutBack
+                        amplitude: 2.0
+                        period: 0.5
+                    }
+                    duration: 300
+                }
+
+                NumberAnimation {
+                    id: bounceBackZoom
+                    target: plotCanvas
+                    property: "window"
+                    easing {
+                        type: Easing.OutBack
+                        amplitude: 2.0
+                        period: 0.5
+                    }
+                    duration: 300
+                }
+
+                function toPlotPos(oldPos, x, win) {
+                    if (win === undefined) {
+                        win = window;
+                    }
+                    return oldPos + x / xLength * win;
+                }
+
+                function toCanvasPos(pos) {
+                    return (pos - position) / window * xLength;
+                }
+
+                function isCursorPosValid(pos) {
+                    if (pos < plotData.timeStart || pos < position || pos > position + window || pos > plotData.timeEnd) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                function spawnCursor(x) {
+                    var cursorPos = toPlotPos(position, x);
+
+                    if (!isCursorPosValid(cursorPos)) {
+                        return;
+                    }
+
+                    for (var i = 0; i < plotData.data.length; i++) {
+                        var time1 = plotData.data[i][0];
+                        if (cursorPos < time1) {
+                            if (i === 0) {
+                                cursor = plotData.data[i];
+                            } else {
+                                var time2 = plotData.data[i - 1][0];
+                                if (dist(cursorPos, time1) < dist(cursorPos, time2)) {
+                                    cursor = plotData.data[i];
+                                } else {
+                                    cursor = plotData.data[i - 1];
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                function getCursorPosIfCan() {
+                    if (!cursor) {
+                        return null;
+                    }
+
+                    var pos = cursor[0];
+                    if (!isCursorPosValid(pos)) {
+                        return null;
+                    }
+
+                    return toCanvasPos(pos);
+                }
+
+                function fadeCursor(a) {
+                    a = a * a * a;
+                    if (a <= 0.05) {
+                        cursor = null;
+                    } else {
+                        cursorOpacity = a;
+                    }
+                }
+
+                function reset() {
+                    position = NaN;
+                    window = plot.startWindow * plot.ticksPerSecond;
+                    cursor = null;
+                }
+
+                function pointYCoord(point, n) {
+                    return point[n + 1] * yLength * plotData.scales[n];
+                }
+
+                function timeFormat(s, decimals) {
+                    var res = "";
+                    if (s > 60) {
+                        var m = Math.floor(s / 60);
+                        s -= m * 60;
+                        if (m > 60) {
+                            var h = Math.floor(m / 60);
+                            m = String(m - h * 60).padStart(2, "0");
+                            res += h + ":";
+                        }
+                        res += m + ":";
+                    }
+
+                    if (s < 10) {
+                        res += "0";
+                    }
+
+                    if (decimals !== undefined) {
+                        res += s.toFixed(decimals);
+                    } else {
+                        res += s.toFixed(6) / 1;
+                    }
+
+                    return res;
+                }
+
+                function paintXAxis(ctx, yMax, yMin) {
+                    ctx.beginPath();
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = getDarkThemeColor("disabledText");
+
+                    ctx.moveTo(-padding, 0);
+                    ctx.lineTo(xLength + padding, 0);
+                    ctx.stroke();
+
+                    if (window == 0 || xLength == 0) {
+                        // prevent an infinite loop
+                        return;
+                    }
+
+                    var basePixelsPerTick = 60;
+
+                    var calcTick = function(extraWidth) {
+                        var mult = 1;
+                        var tick = window / xLength * (basePixelsPerTick + extraWidth);
+
+                        while (tick < 1) {
+                            mult *= 0.1;
+                            tick *= 10;
+                        }
+
+                        while (tick > 10) {
+                            mult *= 10;
+                            tick *= 0.1;
+                        }
+
+                        if (tick > 5) {
+                            tick = 5;
+                        } else if (tick > 2) {
+                            tick = 2;
+                        } else {
+                            tick = 1;
+                        }
+
+                        return tick * mult;
+                    }
+
+                    // estimate label width
+                    var digitSize = ctx.measureText("8").width;
+                    var sepSize = ctx.measureText(":").width;
+                    var sampleTime = plotData.timeEnd;
+                    var decs = Math.max(-Math.log10(window / xLength * basePixelsPerTick), 0);
+                    var estimatedExtraWidth = decs * digitSize + sepSize;
+                    if (sampleTime >= 60) {
+                        estimatedExtraWidth += digitSize + sepSize;
+                    }
+                    if (sampleTime >= 600) {
+                        estimatedExtraWidth += digitSize;
+                    }
+                    if (sampleTime >= 3600) {
+                        estimatedExtraWidth += digitSize + sepSize;
+                    }
+
+                    var tick = calcTick(Math.max(0, estimatedExtraWidth - 10) * 3.6);
+
+                    ctx.beginPath();
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = getDarkThemeColor("disabledText");
+                    ctx.strokeStyle = getDarkThemeColor("darkBackground");
+                    var notch = Math.floor(position / tick) * tick;
+                    var maxNotch = Math.ceil((position + window) / tick) * tick;
+                    var ticksPerSec = plot.ticksPerSecond;
+                    while (notch <= maxNotch) {
+                        var coord = toCanvasPos(notch);
+                        ctx.moveTo(coord, -yMax);
+                        ctx.lineTo(coord, -yMin);
+
+                        var decimals = Math.max(Math.ceil(-Math.log10(tick / ticksPerSec)), 0);
+                        ctx.fillText(timeFormat(notch / ticksPerSec, decimals), coord, -yMin + 15);
+                        ctx.stroke();
+
+                        notch += tick;
+                    }
+
+                    ctx.stroke();
+                }
+
+                function paintCursor(ctx, yMax, yMin) {
+                    var time = cursor[0];
+                    if (time < position || time > position + window) {
+                        return;
+                    }
+
+                    var originalAlpha = ctx.globalAlpha;
+                    ctx.globalAlpha = cursorOpacity;
+
+                    ctx.beginPath();
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = getDarkThemeColor("normalText");
+
+                    var cursorCoord = toCanvasPos(cursor[0]);
+                    ctx.moveTo(cursorCoord, -yMax - 3);
+                    ctx.lineTo(cursorCoord, -yMin + 3);
+                    ctx.stroke();
+
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "top";
+                    ctx.fillStyle = getDarkThemeColor("normalText");
+                    var text = timeFormat(time / plot.ticksPerSecond);
+                    var rectWidth = ctx.measureText(text).width + 20;
+                    var rectHalfWidth = rectWidth / 2;
+                    var removePadding = padding + 5;
+                    var xTextCoord = clamp(cursorCoord, rectHalfWidth - removePadding, xLength - rectHalfWidth + removePadding - 1);
+                    var yTextCoord = -yMin + 5;
+                    ctx.rect(xTextCoord - rectHalfWidth, yTextCoord, rectWidth, 14);
+
+                    var pc = plot.color;
+                    ctx.fillStyle = Qt.rgba(pc.r, pc.g, pc.b, 0.7);
+                    ctx.fill();
+                    ctx.fillStyle = getDarkThemeColor("normalText");
+                    ctx.fillText(text, xTextCoord, yTextCoord);
+                    ctx.textBaseline = "alphabetic";
+
+                    var textHeight = 10;
+                    var yOffset = 4;
+                    var labelHeight = textHeight + yOffset;
+                    var topLimit = yMax - textHeight - 1;
+                    var bottomLimit = yMin + 1;
+                    var pd = plotData;
+                    var series = pd.series;
+
+                    var textX = cursorCoord;
+                    var textFormat;
+                    if (cursorCoord > xLength / 2) {
+                        textX -= 4;
+                        ctx.textAlign = "right";
+                        textFormat = "%2  %1";
+                    } else {
+                        textX += 4;
+                        ctx.textAlign = "left";
+                        textFormat = "%1  %2";
+                    }
+
+                    var vals = [];
+                    for (var n = 0; n < pd.sampleSize; n++) {
+                        if (!series[n].visible) {
+                            continue;
+                        }
+                        var y = pointYCoord(cursor, n);
+                        if (!Number.isNaN(y)) {
+                            vals.push([y, series[n].sortOrder, n]);
+                        }
+                    }
+
+                    vals.sort((a, b) => b[0] !== a[0] ? b[0] - a[0] : a[1] - b[1]);
+
+                    ctx.strokeStyle = "#000000";
+                    ctx.lineWidth = 3;
+                    for (var i = 0; i < vals.length; i++) {
+                        var p = vals[i];
+                        var n = p[2];
+                        ctx.fillStyle = series[n].color;
+                        var str = textFormat.arg(Number(cursor[n + 1].toPrecision(4))).arg(series[n].name);
+                        var textY = Math.min(p[0] + yOffset, topLimit);
+                        textY = Math.max(bottomLimit + (vals.length - i - 1) * labelHeight, textY);
+                        topLimit = textY - labelHeight;
+
+                        ctx.strokeText(str, textX, -textY);
+                        ctx.fillText(str, textX, -textY);
+                    }
+
+                    ctx.globalAlpha = originalAlpha;
+                }
+
+                function paintSeries(ctx, yMax, yMin) {
+                    var lineWidth = 1;
+                    ctx.lineWidth = lineWidth;
+
+                    // optimization: local variables are much faster than property resolution
+                    var pd = plotData;
+                    var data = pd.data;
+                    var scales = pd.scales;
+                    var sampleSize = pd.sampleSize;
+                    var yLen = yLength;
+                    var pos = position;
+                    var win = window;
+                    var xLen = xLength;
+
+                    // calculate start and end indices according to window
+                    var start = 0;
+                    var end = data.length;
+
+                    var winNotChangedFactor = Math.abs(win - hystWindow) < 0.0001 ? 2 : 1;
+                    hystWindow = win;
+
+                    var pixelsPerTimeUnit = xLen / win;
+                    var prevTime = null;
+                    var paintDots = true;
+                    var dotsThreshold = 20 / (paintDotsHyst ? 1 : (0.8 / winNotChangedFactor));
+                    var distanceSum = 0;
+                    var minDistance = 1e10;
+                    var windowSize = 4;
+                    var lastFour = [];
+                    for (var i = start; i < end; i++) {
+                        var t = data[i][0];
+                        if (t < pos) {
+                            start = i;
+                        } else {
+                            if (t > pos + win) {
+                                end = Math.min(i + 1, data.length);
+                                break;
+                            }
+
+                            // measure point distance until we measure enough to disable painting plot dots
+                            // (or never reach enough distance and paint the dots)
+                            if (prevTime !== null) {
+                                var distance = (t - prevTime) * pixelsPerTimeUnit;
+                                distanceSum += distance;
+                                lastFour.push(distance);
+
+                                if (lastFour.length > 4) {
+                                    distanceSum -= lastFour.shift();
+                                }
+
+                                if (lastFour.length === 4) {
+                                    if (distanceSum / 4 < dotsThreshold) {
+                                        paintDots = false;
+                                    }
+
+                                    minDistance = Math.min(minDistance, distanceSum);
+                                }
+                            }
+                            prevTime = t;
+                        }
+                    }
+
+                    if (lastFour.length < 4 && distanceSum / lastFour.length < dotsThreshold) {
+                        paintDots = false;
+                    }
+                    minDistance = Math.min(minDistance, distanceSum);
+
+                    var dotDistThreshold = Math.max(minDistance / lastFour.length * 3, 10);
+
+                    paintDotsHyst = paintDots;
+
+                    var step = 0.5 / Screen.devicePixelRatio;
+                    var justOutOfMinMax = false;
+                    var halfASecondPixels = 0.5 * plot.ticksPerSecond * xLen / win;
+
+                    var srsSorted = pd.seriesSorted;
+                    for (var k = srsSorted.length - 1; k >= 0; k--) {
+                        var series = srsSorted[k];
+                        if (!series.visible) {
+                            continue;
+                        }
+
+                        ctx.beginPath();
+                        var color = series.color;
+                        ctx.strokeStyle = color;
+                        ctx.fillStyle = color;
+
+                        var n = series.dataOrder;
+                        var nScale = scales[n];
+                        var min = -1e30;
+                        var max = 1e30;
+                        var lastX = -0.001;
+                        var lastSampleX = -0.001;
+                        var lastY = 0;
+                        var lastDrawnX = 0;
+                        var minMaxMode = false;
+                        var drawnLastDot = false;
+                        for (var i = start; i < end; i++) {
+                            var point = data[i];
+                            var nPoint = point[n + 1];
+
+                            // optimization: instead of toCanvasPos(point[0])
+                            var x = (point[0] - pos) / win * xLen;
+
+                            // optimization: NaN check by comparison instead of Number.isNaN()
+                            if (nPoint !== nPoint) {
+                                lastSampleX = x;
+                                continue;
+                            }
+
+                            var y = -nPoint * yLen * nScale;
+                            var origX = x;
+
+                            // handle trimming lines at plot edges
+                            if (i === start && x < 0) {
+                                var nextPoint = data[i + 1];
+                                var nextX = (nextPoint[0] - pos) / win * xLen;
+                                var nextY = -nextPoint[n + 1] * yLen * nScale;
+                                y += (nextY - y) * x / (x - nextX);
+                                x = 0;
+                            } else if (i === end - 1 && x > xLen) {
+                                y -= (y - lastY) * (x - xLen) / (x - lastX);
+                                x = xLen;
+                            }
+
+                            if (i > start && x - lastX < step) {
+                                minMaxMode = true;
+                            }
+
+                            if (minMaxMode) {
+                                // min-max algorithm for dynamically "downsampling" the series
+                                if (x - lastDrawnX > step) {
+                                    var miny = min;
+                                    var maxy = max;
+                                    var dist = miny - maxy;
+                                    if (dist < lineWidth) {
+                                        var offset = (lineWidth - dist) / 2;
+                                        miny += offset;
+                                        maxy -= offset;
+                                    }
+
+                                    ctx.moveTo(lastX, miny);
+                                    ctx.lineTo(lastX, maxy);
+
+                                    var tmp = min;
+                                    min = max;
+                                    max = tmp;
+
+                                    lastDrawnX = x;
+
+                                    if (x - lastX > step) {
+                                        minMaxMode = false;
+                                        justOutOfMinMax = true;
+                                        ctx.moveTo(lastX, lastY);
+                                    }
+                                }
+
+                                min = y > min ? y : min;
+                                max = y < max ? y : max;
+                            }
+
+                            if (!minMaxMode) {
+                                if (origX - lastX > halfASecondPixels) {
+                                    ctx.moveTo(x, y);
+                                } else {
+                                    ctx.lineTo(x, y);
+                                }
+
+                                min = y;
+                                max = y;
+                                lastDrawnX = x;
+                                justOutOfMinMax = false;
+                            }
+
+                            if (i > start && origX >= 0 && (paintDots || x - lastSampleX > dotDistThreshold || origX - lastSampleX > halfASecondPixels)) {
+                                ctx.stroke();
+                                ctx.beginPath();
+                                if (!drawnLastDot && lastX >= 0) {
+                                    ctx.arc(lastX, lastY, 2.5, 0, 2 * Math.PI, false);
+                                }
+                                if (origX <= xLen + 0.001) {
+                                    ctx.arc(x, y, 2.5, 0, 2 * Math.PI, false);
+                                }
+                                ctx.fill();
+                                ctx.beginPath();
+                                if (justOutOfMinMax) {
+                                    ctx.moveTo(lastX, lastY);
+                                } else {
+                                    ctx.moveTo(x, y);
+                                }
+                                drawnLastDot = true;
+                            } else {
+                                // move to the same point to draw a series of disconnected lines,
+                                // which is much faster
+                                ctx.moveTo(x, y);
+                                drawnLastDot = false;
+                            }
+
+                            lastX = origX;
+                            lastSampleX = origX;
+                            lastY = y;
+                        }
+                        ctx.stroke();
+                    }
+                }
+
+                onPaint: {
+                    if (!visible) {
+                        return;
+                    }
+
+                    var ctx = getContext("2d");
+                    ctx.reset();
+
+                    if (!plotData.dataReady) {
+                        return;
+                    }
+
+                    var yMax = yLength * plotData.positiveRatio;
+                    var yMin = yLength * (plotData.positiveRatio - 1);
+
+                    ctx.translate(padding, yMax + toolbarHeight);
+
+                    paintXAxis(ctx, yMax, yMin);
+
+                    paintSeries(ctx, yMax, yMin);
+
+                    if (cursor !== null) {
+                        paintCursor(ctx, yMax, yMin);
+                    }
+                }
+            }
+        }
+    }
+
+    component OverlayPlot : Plot {
+        anchors.centerIn: parent
+        height: vertical ? parent.width : parent.height
+        width: vertical ? parent.height : parent.width
+        rotation: vertical ? 90 : 0
+        z: 100
+        visible: false
+
+        property bool vertical: parent.height > parent.width
+
+        showRecordDownload: parent.state.capDataRecord
+        toolbarOffset: 0.9
+
+        FloatingToolButton {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            width: 0.8 * unit
+            height: 0.8 * unit
+
+            iconPath: Path {
+                PathSvg {path: "M 15 15 L 35 35 M 15 35 L 35 15"}
+            }
+
+            onClicked: {
+                parent.visible = false;
+            }
+        }
+    }
+
+    function locateButton(comp, name) {
+        for (var i = 0; i < comp.children.length; i++) {
+            var child = comp.children[i];
+            if (child.toString().startsWith("Button_QMLTYPE") && child.text === name) {
+                return child;
+            }
+            var res = locateButton(child, name);
+            if (res) {
+                return res;
+            }
+        }
+
+        return null;
+    }
+
+    property var customConfigWriteButton: null
+
     Component.onCompleted: {
+        if (typeof confCustomLoader !== typeof undefined) {
+            // There is no reliable "config updated" signal, we have to hook onto
+            // the VESC Tool custom config buttons (works for QML only, not
+            // for the desktop app config page).
+            print("Refloat: Hooking custom config Write button...");
+            customConfigWriteButton = locateButton(confCustomLoader.item, "Write");
+            if (customConfigWriteButton) {
+                customConfigWriteButton.clicked.connect(packageConfig.configWritten);
+            } else {
+                print("Refloat: Failed to locate Write button.");
+            }
+        }
+
         if (preferences.showWelcomeDialog) {
             welcomeDialog.show();
+        }
+    }
+
+    Component.onDestruction: {
+        if (typeof confCustomLoader !== typeof undefined) {
+            print("Refloat: Unhooking custom config Write button...");
+            if (customConfigWriteButton) {
+                customConfigWriteButton.clicked.disconnect(packageConfig.configWritten);
+            } else {
+                print("Refloat: Write button was not set.");
+            }
         }
     }
 
@@ -1310,8 +3593,11 @@ Item {
 
             property string label
             property string valueUnit: ""
-            property int value: Number(textField.text)
+            property int value
             property int sourceValue
+
+            property int minValue: 0
+            property int maxValue: 100
 
             LText {
                 Layout.fillWidth: true
@@ -1322,11 +3608,36 @@ Item {
                 id: textField
                 implicitWidth: 50
 
-                maximumLength: 2
+                maximumLength: 4
                 horizontalAlignment: TextInput.AlignRight
                 inputMethodHints: Qt.ImhDigitsOnly
-                text: parent.sourceValue
-                validator: IntValidator {bottom: 0; top: 99;}
+
+                property string prevText
+
+                onTextChanged: {
+                    if (text !== "") {
+                        var number = Number(text);
+                        if (number > maxValue) {
+                            text = prevText;
+                        } else if (number < minValue) {
+                            parent.value = Math.max(number, minValue);
+                        } else {
+                            parent.value = number;
+                            prevText = text;
+                        }
+                    }
+                }
+
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        text = parent.value;
+                    }
+                }
+
+                Component.onCompleted: {
+                    text = parent.sourceValue;
+                    prevText = text;
+                }
             }
 
             LText {
@@ -1338,21 +3649,29 @@ Item {
             Layout.fillWidth: true
             Layout.topMargin: 10
             horizontalAlignment: TextInput.AlignHCenter
-            font.pointSize: 15
+            font.pointSize: 16
         }
 
-        component OptionDescription : LText {
+        component SubHeading : LText {
+            Layout.fillWidth: true
+            Layout.topMargin: 10
+            horizontalAlignment: TextInput.AlignHCenter
+            font.pointSize: 14
+        }
+
+        component OptionDescription : NText {
             Layout.fillWidth: true
             Layout.leftMargin: 20
             Layout.rightMargin: 20
             Layout.topMargin: -7
-            font.pointSize: 10
+            font.pointSize: 11
+            horizontalAlignment: TextInput.AlignHCenter
             wrapMode: Text.WordWrap
         }
 
-        component SetupDescription : LText {
+        component SetupDescription : NText {
             Layout.fillWidth: true
-            font.pointSize: 10
+            horizontalAlignment: TextInput.AlignHCenter
             wrapMode: Text.WordWrap
         }
 
@@ -1366,7 +3685,7 @@ Item {
                 clip: true
 
                 Repeater {
-                    model: ["Preferences", "Setup"]
+                    model: ["Setup", "Preferences"]
 
                     TabButton {
                         text: modelData
@@ -1398,10 +3717,217 @@ Item {
                     ColumnLayout {
                         anchors.fill: parent
 
+                        Heading {
+                            text: "Disable Package"
+                        }
+
+                        SetupDescription {
+                            text: "Before running the motor wizard, you need to disable the package to prevent the two fighting over the motor. After configuring your motor, you can re-enable the package."
+                        }
+
+                        Button {
+                            Layout.alignment: Qt.AlignHCenter
+
+                            text: state.pkgState === state.s_Disabled ? "Enable Refloat" : "Disable Refloat"
+
+                            onClicked: {
+                                packageConfig.setDisabled(state.pkgState !== state.s_Disabled);
+                            }
+                        }
+
+                        Heading {
+                            text: "Handtest"
+                        }
+
+                        SetupDescription {
+                            text: "After finishing setup, you can turn on the Handtest mode and engage your board by hand to verify that it balances in the correct direction. Motor currents will be limited to a safe level."
+                        }
+
+                        Button {
+                            Layout.alignment: Qt.AlignHCenter
+
+                            // Only allow if no other mode is active
+                            enabled: [state.m_Normal, state.m_Handtest].includes(state.pkgMode)
+                            text: state.pkgMode === state.m_Handtest ? "Turn Handtest Off" : "Turn Handtest On"
+
+                            onClicked: {
+                                commands.sendHandtest(state.pkgMode === state.m_Normal);
+                            }
+                        }
+
+                        SetupDescription {
+                            visible: state.pkgMode === state.m_Handtest
+                            text: "If your board balances in reverse (shoots off), your Imu Rotation Yaw is off by 180°. If it moves erratically, your Imu Rotation Yaw is likely off by 90°.\nNote: When Handtest is on, any configuration writing is disabled."
+                        }
+
+                        Heading {
+                            text: "Backup / Restore"
+                        }
+
+                        SetupDescription {
+                            text: "Backups are stored in VESC Tool's internal storage."
+                        }
+
+                        SubHeading {
+                            text: "Automatic Board Backup"
+                        }
+
+                        SetupDescription {
+                            id: setupAutoBackupDate
+                            font.pointSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            property var backup: null
+                            visible: !!backup
+                            text: backup ? Qt.formatDateTime(backup.date) : ""
+
+                            Connections {
+                                target: tuneManager
+
+                                function onAutoBackupFinished(backup) {
+                                    setupAutoBackupDate.backup = backup;
+                                }
+                            }
+                        }
+
+                        Button {
+                            Layout.alignment: Qt.AlignHCenter
+
+                            text: "View"
+
+                            onClicked: {
+                                tuneManager.autoRestore();
+                            }
+                        }
+
+                        SubHeading {
+                            text: "Board Backup"
+                        }
+
+                        SetupDescription {
+                            id: setupIdBackupDate
+                            font.pointSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            property var backup: null
+                            visible: !!backup
+                            text: backup ? Qt.formatDateTime(backup.date) : ""
+
+                            Connections {
+                                target: tuneManager
+
+                                function onIdBackupFinished(backup) {
+                                    setupIdBackupDate.backup = backup;
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignHCenter
+
+                            Button {
+                                Layout.alignment: Qt.AlignHCenter
+
+                                text: "Backup"
+
+                                onClicked: {
+                                    tuneManager.idBackup();
+                                }
+                            }
+
+                            Button {
+                                Layout.alignment: Qt.AlignHCenter
+
+                                text: "View"
+
+                                onClicked: {
+                                    tuneManager.idRestore();
+                                }
+                            }
+                        }
+
+                        SubHeading {
+                            text: "Shared Backup"
+                        }
+
+                        SetupDescription {
+                            font.pointSize: 10
+                            horizontalAlignment: TextInput.AlignHCenter
+                            visible: !!tuneManager.fullBackup
+                            text: tuneManager.fullBackup ? Qt.formatDateTime(tuneManager.fullBackup.date) : ""
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignHCenter
+
+                            Button {
+                                Layout.alignment: Qt.AlignHCenter
+
+                                text: "Backup"
+
+                                onClicked: {
+                                    tuneManager.globalBackup();
+                                }
+                            }
+
+                            Button {
+                                Layout.alignment: Qt.AlignHCenter
+
+                                text: "View"
+
+                                onClicked: {
+                                    tuneManager.globalRestore();
+                                }
+                            }
+                        }
+
+                        // Doesn't work on Android :(
+                        //LText {
+                        //    text: "JSON file:"
+                        //}
+
+                        //RowLayout {
+                        //    Layout.fillWidth: true
+                        //    Layout.alignment: Qt.AlignHCenter
+
+                        //    Button {
+                        //        Layout.alignment: Qt.AlignHCenter
+
+                        //        text: "Backup to file"
+
+                        //        onClicked: {
+                        //            jsonSaveDialog.show(tuneManager.createBackup());
+                        //        }
+                        //    }
+
+                        //    Button {
+                        //        Layout.alignment: Qt.AlignHCenter
+
+                        //        text: "Load from file"
+
+                        //        onClicked: {
+                        //            jsonLoadDialog.show();
+                        //        }
+                        //    }
+                        //}
+                    }
+                }
+
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    contentWidth: availableWidth
+                    clip: true
+
+                    ColumnLayout {
+                        anchors.fill: parent
+
                         IntTextField {
                             label: "Speed dial max"
                             valueUnit: vescConfig.speedUnit
                             sourceValue: preferences.speedDialMax
+                            minValue: 10
+                            maxValue: 200
                             onValueChanged: {
                                 preferences.speedDialMax = value
                             }
@@ -1472,142 +3998,33 @@ Item {
                         }
 
                         RightSwitch {
+                            id: prefShowTuneDiffCount
+                            checked: false
+                            label: "Show changed options count on tunes"
+                        }
+
+                        RightSwitch {
+                            id: prefShowRTPlotByDefault
+                            checked: false
+                            label: "Show RT plot on Data tab by default"
+                        }
+
+                        IntTextField {
+                            label: "Realtime plot maximum window"
+                            valueUnit: "minutes"
+                            sourceValue: preferences.plotMaxWindowMinutes
+                            minValue: 1
+                            maxValue: 1000
+                            onValueChanged: {
+                                preferences.plotMaxWindowMinutes = value
+                            }
+                        }
+
+                        RightSwitch {
                             id: prefShowWelcomeDialog
                             checked: true
                             label: "Show Welcome dialog"
                         }
-                    }
-                }
-
-                ScrollView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    contentWidth: availableWidth
-                    clip: true
-
-                    ColumnLayout {
-                        anchors.fill: parent
-
-                        Heading {
-                            text: "Disable Package"
-                        }
-
-                        SetupDescription {
-                            text: "If you've installed Refloat before running the motor wizard, you need to disable the package to prevent it from conflicting with the wizard (this is equivalent to setting Disable Package to True in Refloat Cfg > Spec). After configuring your motor (and IMU, though it's not necessary to disable Refloat for IMU configuration), re-enable the package."
-                        }
-
-                        Button {
-                            Layout.alignment: Qt.AlignHCenter
-
-                            text: state.pkgState === state.s_Disabled ? "Enable Refloat" : "Disable Refloat"
-
-                            onClicked: {
-                                packageConfig.setDisabled(state.pkgState !== state.s_Disabled);
-                            }
-                        }
-
-                        Heading {
-                            text: "Handtest"
-                        }
-
-                        SetupDescription {
-                            text: "After finishing setup, you can turn on the Handtest mode and engage your board by hand to verify that it balances in the correct direction. Motor currents will be limited to a safe level."
-                        }
-
-                        Button {
-                            Layout.alignment: Qt.AlignHCenter
-
-                            // Only allow if no other mode is active
-                            enabled: [state.m_Normal, state.m_Handtest].includes(state.pkgMode)
-                            text: state.pkgMode === state.m_Handtest ? "Turn Handtest Off" : "Turn Handtest On"
-
-                            onClicked: {
-                                commands.sendHandtest(state.pkgMode === state.m_Normal);
-                            }
-                        }
-
-                        SetupDescription {
-                            visible: state.pkgMode === state.m_Handtest
-                            text: "If your board balances in reverse (shoots off), your Imu Rotation Yaw is off by 180°. If it moves erratically, your Imu Rotation Yaw is likely off by 90°.\nNote: When Handtest is on, any configuration writing is disabled."
-                        }
-
-                        Heading {
-                            text: "Backup / Restore"
-                        }
-
-                        property string backupDate: tuneManager.fullBackup ? Qt.formatDateTime(tuneManager.fullBackup.date) : ""
-                        property string backupPackage: tuneManager.fullBackup ? "%1-%2".arg(tuneManager.fullBackup.package.name).arg(tuneManager.fullBackup.package.version) : ""
-
-                        NText {
-                            font.pointSize: 11
-                            visible: !!tuneManager.fullBackup
-                            text: "Backup date: %1".arg(parent.backupDate);
-                        }
-
-                        NText {
-                            font.pointSize: 11
-                            visible: !!tuneManager.fullBackup
-                            text: "Saved by: %1".arg(parent.backupPackage);
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignHCenter
-
-                            Button {
-                                Layout.alignment: Qt.AlignHCenter
-
-                                text: "Backup"
-
-                                onClicked: {
-                                    tuneManager.fullBackup = tuneManager.createBackup();
-                                }
-                            }
-
-                            Button {
-                                Layout.alignment: Qt.AlignHCenter
-
-                                text: "Restore"
-
-                                onClicked: {
-                                    applyConfigDialog.show(tuneManager.fullBackup);
-                                }
-                            }
-                        }
-
-                        SetupDescription {
-                            text: "Backup is stored in VESC Tool's internal storage."
-                        }
-
-                        // Doesn't work on Android :(
-                        //LText {
-                        //    text: "JSON file:"
-                        //}
-
-                        //RowLayout {
-                        //    Layout.fillWidth: true
-                        //    Layout.alignment: Qt.AlignHCenter
-
-                        //    Button {
-                        //        Layout.alignment: Qt.AlignHCenter
-
-                        //        text: "Backup to file"
-
-                        //        onClicked: {
-                        //            jsonSaveDialog.show(tuneManager.createBackup());
-                        //        }
-                        //    }
-
-                        //    Button {
-                        //        Layout.alignment: Qt.AlignHCenter
-
-                        //        text: "Load from file"
-
-                        //        onClicked: {
-                        //            jsonLoadDialog.show();
-                        //        }
-                        //    }
-                        //}
                     }
                 }
             }
@@ -1621,8 +4038,7 @@ Item {
         standardButtons: Dialog.Save | Dialog.Cancel
 
         onAccepted: {
-            VescIf.storeBleName(VescIf.getLastBleAddr(), boardNameInput.text);
-            VescIf.storeSettings();
+            board.setName(boardNameInput.text);
             boardNameText.load();
         }
 
@@ -1631,16 +4047,15 @@ Item {
             width: editBoardNameDialog.availableWidth
 
             maximumLength: 30
-            text: boardNameText.bleName
+            text: boardNameText.name
         }
     }
 
     BaseDialog {
         id: editTuneDialog
 
-        title: "Edit Tune"
-        standardButtons: Dialog.Save | Dialog.Discard | Dialog.Cancel
-        placeAtTop: true
+        title: tune ? "Edit Tune" : "Save Tune"
+        standardButtons: !!tune ? Dialog.Save | Dialog.Discard | Dialog.Close : Dialog.Save | Dialog.Close
 
         property var tuneSlot
         property var tune: null
@@ -1648,6 +4063,14 @@ Item {
         function show(slot) {
             tuneSlot = slot;
             tune = tuneManager.loadTune(slot);
+            editTuneDiff.setModel(packageConfig.diffConfig(tune).differs);
+            editTuneDiff.reset();
+
+            standardButton(Dialog.Save).enabled = !!tune;
+            if (!!tune) {
+                standardButton(Dialog.Discard).text = "Erase"
+            }
+
             open();
         }
 
@@ -1660,7 +4083,10 @@ Item {
                 if (!tune) {
                     tune = tuneManager.createTune(saveTuneNameInput.text, saveTuneDescInput.text, packageConfig.fetchConfig(true));
                 } else {
-                    tuneManager.updateTune(tune, saveTuneNameInput.text, saveTuneDescInput.text, saveTuneOverwrite.checked ? packageConfig.fetchConfig(true) : null);
+                    var success = tuneManager.updateTune(tune, saveTuneNameInput.text, saveTuneDescInput.text, saveTuneOverwrite.checked ? packageConfig.fetchConfig(true) : null);
+                    if (!success) {
+                        return;
+                    }
                 }
                 tuneManager.saveTune(tuneSlot, tune);
                 VescIf.emitStatusMessage(saveTuneNameInput.text + " saved", true);
@@ -1673,15 +4099,6 @@ Item {
             close();
         }
 
-        onOpened: {
-            standardButton(Dialog.Save).enabled = !!tune;
-            standardButton(Dialog.Discard).enabled = !!tune;
-        }
-
-        Component.onCompleted: {
-            standardButton(Dialog.Discard).text = "Erase"
-        }
-
         ColumnLayout {
             width: editTuneDialog.availableWidth
 
@@ -1689,23 +4106,26 @@ Item {
                 Layout.fillWidth: true
 
                 visible: editTuneDialog.tune
-                text: "Tune date: %1".arg(Qt.formatDateTime(new Date(editTuneDialog.tuneAttr("date"))));
+                text: "Last saved: %1".arg(Qt.formatDateTime(new Date(editTuneDialog.tuneAttr("date"))));
             }
 
-            LText {
-                Layout.fillWidth: true
-                text: "Name:"
-            }
-
-            TextField {
-                id: saveTuneNameInput
+            RowLayout {
                 Layout.fillWidth: true
 
-                maximumLength: 30
-                text: editTuneDialog.tuneAttr("name")
+                LText {
+                    text: "Name:"
+                }
 
-                onTextEdited: {
-                    editTuneDialog.standardButton(Dialog.Save).enabled = !!text;
+                TextField {
+                    id: saveTuneNameInput
+                    Layout.fillWidth: true
+
+                    maximumLength: 30
+                    text: editTuneDialog.tuneAttr("name")
+
+                    onTextEdited: {
+                        editTuneDialog.standardButton(Dialog.Save).enabled = !!text;
+                    }
                 }
             }
 
@@ -1723,11 +4143,18 @@ Item {
                 text: editTuneDialog.tuneAttr("description") || ""
             }
 
+            ConfigDiff {
+                id: editTuneDiff
+                Layout.fillWidth: true
+                dialog: editTuneDialog
+                isTune: true
+            }
+
             CheckBox {
                 id: saveTuneOverwrite
 
-                checked: !editTuneDialog.tune
-                visible: editTuneDialog.tune
+                checked: true
+                visible: editTuneDialog.tune && !editTuneDiff.isEmpty
                 text: "Overwrite with current tune"
             }
         }
@@ -1833,22 +4260,263 @@ Item {
         }
     }
 
+    component ConfigDiff : ColumnLayout {
+        id: configDiff
+
+        property BaseDialog dialog
+        property bool isTune: false
+
+        property bool isEmpty: diffModel.count === 0
+
+        property real rowHeight: 30
+        property real valueColumnWidth: 60
+
+        property real animation: 0
+        property real contentHeight: Math.min(maxHeight, diffView.contentHeight + diffHeader.height + 5)
+        property real autoHeight: animation * contentHeight
+        property real maxHeight
+
+        Behavior on animation {
+            id: animBehavior
+            NumberAnimation {
+                easing.type: Easing.InOutExpo
+                duration: 400
+            }
+        }
+
+        function reset() {
+            animBehavior.enabled = false;
+            diffCheckbox.checked = false;
+            animation = 0;
+            animBehavior.enabled = true;
+        }
+
+        function showHideDiff(show) {
+            if (show) {
+                maxHeight = dialog.fullHeight - dialog.height;
+            }
+            animation = show ? 1 : 0;
+        }
+
+        function displayValue(item, value) {
+            if (item.type === "Double" || item.type === "Int") {
+                return value.toString();
+            } else if (item.type === "Bool") {
+                return value ? "On" : "Off";
+            } else if (item.type === "Enum") {
+                return packageConfig.getEnumNames(item.name)[value];
+            } else if (item.type === "String") {
+                return value;
+            } else if (item.type === "Bitfield") {
+                return "[option set]";
+            }
+
+            return "[unknown]";
+        }
+
+        function setModel(m) {
+            var model = diffModel;
+            model.clear();
+            var empty = true;
+            for (var item of m) {
+                item.value = displayValue(item, item.value);
+                item.otherValue = displayValue(item, item.otherValue);
+                model.append(item);
+                empty = false;
+            }
+            if (empty) {
+                diffCheckbox.checked = false;
+            }
+        }
+
+        CheckBox {
+            id: diffCheckbox
+            implicitHeight: indicator.height
+            Layout.leftMargin: -4
+            visible: !isEmpty
+
+            checked: false
+
+            onCheckedChanged: {
+                configDiff.showHideDiff(checked);
+            }
+
+            contentItem: Item {
+                implicitWidth: checkLabel.implicitWidth + 22
+                implicitHeight: checkLabel.implicitHeight
+
+                Label {
+                    id: checkLabel
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 22
+                    text: "Differences (%1)".arg(diffModel.count)
+                    color: Utility.getAppHexColor("lightText")
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: parent.checked = !parent.checked
+            }
+
+            indicator: Item {
+                width: 30
+                height: 30
+                Item {
+                    anchors.centerIn: parent
+                    height: 18
+                    width: height / 2
+                    clip: true
+                    rotation: 90 * animation
+
+                    Rectangle {
+                        height: parent.height
+                        width: height
+                        x: -parent.width
+                        rotation: 45
+                        scale: 0.707
+                        color: Utility.getAppHexColor("lightText")
+                    }
+                }
+            }
+        }
+
+        Item {
+            implicitHeight: configDiff.autoHeight
+            Layout.fillWidth: true
+            clip: true
+
+            Row {
+                id: diffHeader
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                NText {
+                    width: diffView.width - 2 * valueColumnWidth - 10
+                    horizontalAlignment: Text.AlignLeft
+                    verticalAlignment: Text.AlignVCenter
+                    text: "Option"
+                }
+
+                NText {
+                    width: valueColumnWidth
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    text: isTune ? "Tune" : "Current";
+                }
+
+                NText {
+                    width: valueColumnWidth
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                    text: isTune ? "Current" : "Backup";
+                }
+            }
+
+            TableView {
+                id: diffView
+                anchors.top: diffHeader.bottom
+                anchors.topMargin: 5
+                height: parent.height - diffHeader.height - 5
+                width: parent.width
+                clip: true
+
+                model: ListModel {
+                    id: diffModel
+                }
+
+                delegate: Rectangle {
+                    color: index % 2 === 0 ? Utility.getAppHexColor("lightBackground") : Utility.getAppHexColor("normalBackground")
+                    implicitWidth: diffView.width
+                    implicitHeight: rowHeight
+
+                    Row {
+                        id: diffRow
+                        anchors.centerIn: parent
+
+                        NText {
+                            width: diffView.width - 2 * valueColumnWidth - 10
+                            height: rowHeight
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            fontSizeMode: Text.Fit
+                            minimumPointSize: 4
+                            text: packageConfig.getDisplayName(name)
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        NText {
+                            width: valueColumnWidth
+                            height: rowHeight
+                            horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            fontSizeMode: Text.Fit
+                            minimumPointSize: 4
+                            text: isTune ? otherValue : value
+                        }
+
+                        NText {
+                            width: valueColumnWidth
+                            height: rowHeight
+                            horizontalAlignment: Text.AlignRight
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                            fontSizeMode: Text.Fit
+                            minimumPointSize: 4
+                            text: isTune ? value : otherValue
+                            color: Utility.getAppHexColor("lightAccent")
+                        }
+                    }
+                }
+            }
+        }
+
+        NText {
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            visible: isEmpty && !isTune
+            text: "Current config is the same as this backup."
+        }
+
+        Item {
+            Layout.fillWidth: true
+        }
+    }
+
     BaseDialog {
         id: applyConfigDialog
 
-        title: "Apply Config"
-        standardButtons: Dialog.Apply | Dialog.Cancel
+        title: "Restore Config"
 
         property var config
+        property bool automatic: false
 
-        property var name: config ? config.name : ""
+        property var name: config ? config.name : "(Unknown)"
         property var date: config && config.date ? Qt.formatDateTime(new Date(config.date)) : ""
-        property var pkg: config && config.package ? "%1-%2".arg(config.package.name).arg(config.package.version) : ""
+        property var pkg: config && config.package ? "%1 %2".arg(config.package.name).arg(config.package.version) : ""
         property var description: config && config.description ? config.description : ""
+        property var diff: config ? packageConfig.diffConfig(config).differs : []
 
-        function show(cfg) {
+        onDiffChanged: {
+            applyConfigDiff.setModel(diff);
+        }
+
+        function show(cfg, autoRestore) {
             config = cfg;
+            automatic = !!autoRestore;
+            applyConfigDiff.reset();
+            if (!applyConfigDiff.isEmpty) {
+                standardButton(Dialog.Apply).text = "Restore";
+            }
             open();
+        }
+
+        // workaround: the buttons sometimes wouldn't appear if declared via `standardButtons` only
+        footer: DialogButtonBox {
+            standardButtons: applyConfigDiff.isEmpty ? Dialog.Close : Dialog.Apply | Dialog.Close
         }
 
         function set(cfg) {
@@ -1862,25 +4530,40 @@ Item {
         }
 
         ColumnLayout {
-            width: editTuneDialog.availableWidth
+            width: applyConfigDialog.availableWidth
 
             LText {
                 Layout.fillWidth: true
-                text: "Name: %1".arg(applyConfigDialog.name);
+                Layout.bottomMargin: 16
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.WordWrap
+                visible: applyConfigDialog.automatic
+                text: "Your package config has been reset after installing a new version. Do you want to restore a backup?"
+            }
+
+            LText {
+                id: applyConfigName
+                Layout.fillWidth: true
+                font.pointSize: 14
+                horizontalAlignment: Text.AlignHCenter
+                text: applyConfigDialog.name;
             }
 
             NText {
                 Layout.fillWidth: true
                 font.pointSize: 11
+                horizontalAlignment: Text.AlignHCenter
                 visible: !!applyConfigDialog.date
-                text: "Backup date: %1".arg(applyConfigDialog.date)
+                text: applyConfigDialog.date
             }
 
             NText {
                 Layout.fillWidth: true
                 font.pointSize: 11
+                horizontalAlignment: Text.AlignHCenter
                 visible: !!applyConfigDialog.pkg
-                text: "Saved by: %1".arg(applyConfigDialog.pkg)
+                text: "Stored by: " + applyConfigDialog.pkg
             }
 
             LText {
@@ -1892,16 +4575,26 @@ Item {
             LText {
                 Layout.fillWidth: true
                 font.pointSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
                 visible: !!applyConfigDialog.description
                 text: applyConfigDialog.description
             }
 
+            ConfigDiff {
+                id: applyConfigDiff
+                Layout.fillWidth: true
+                dialog: applyConfigDialog
+            }
+
             LText {
                 Layout.fillWidth: true
+                Layout.topMargin: 16
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
-                text: "Applying this config will OVERWRITE your current one. Would you like to apply it?"
+                visible: !applyConfigDiff.isEmpty
+                text: "Restoring this backup will overwrite your current config."
             }
         }
     }
@@ -1971,6 +4664,135 @@ Item {
         }
     }
 
+// Color Preview dialog with an overview of the colors. Uncomment this and the
+// FloatingToolButton that shows it to enable it.
+//    Rectangle {
+//        id: colorPreview
+//        anchors.fill: parent
+//        z: 100
+//        visible: false
+//
+//        color: "#0b0b0b"
+//
+//        property var cData: []
+//
+//        Component.onCompleted: {
+//            for (var i of plotSeriesMetaData) {
+//                cData.push([i[0], i[1]["color"]]);
+//            }
+//            for (var i of plotSeriesExtraColors) {
+//                cData.push(["", i]);
+//            }
+//            cData = cData;
+//        }
+//
+//        function show() {
+//            visible = true;
+//        }
+//
+//        FloatingToolButton {
+//            anchors.bottom: parent.bottom
+//            anchors.right: parent.right
+//            width: 0.6 * unit
+//            height: 0.6 * unit
+//
+//            iconPath: Path {
+//                PathSvg {path: "M 15 15 L 35 35 M 15 35 L 35 15"}
+//            }
+//
+//            onClicked: {
+//                parent.visible = false;
+//            }
+//        }
+//
+//        Grid {
+//            id: cpGrid
+//            anchors.fill: parent
+//            anchors.margins: 10
+//            columns: 2
+//            spacing: 5
+//            flow: Grid.TopToBottom
+//
+//            Repeater {
+//                model: colorPreview.cData
+//
+//                Item {
+//                    width: (cpGrid.width - cpGrid.spacing) / 2
+//                    height: (cpGrid.height - 24 * cpGrid.spacing) / 25
+//
+//                    Rectangle {
+//                        id: colRect
+//                        anchors.left: parent.left
+//                        anchors.top: parent.top
+//                        width: parent.height
+//                        height: parent.height
+//                        color: modelData[1]
+//                    }
+//
+//                    Rectangle {
+//                        anchors.left: colRect.right
+//                        anchors.bottom: colRect.bottom
+//                        anchors.margins: 2
+//                        width: parent.width - parent.height - 2
+//                        height: 1
+//                        color: modelData[1]
+//                    }
+//
+//                    NText {
+//                        anchors.left: colRect.right
+//                        anchors.top: colRect.top
+//                        anchors.leftMargin: 4
+//                        anchors.topMargin: 2
+//                        text: modelData[1]
+//                        font.pixelSize: fontSizeSuperSmall
+//                    }
+//
+//                    NText {
+//                        anchors.right: parent.right
+//                        anchors.top: colRect.top
+//                        anchors.topMargin: 2
+//                        text: modelData[0]
+//                        font.pixelSize: fontSizeSuperSmall
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    OverlayPlot {
+        id: recordedPlot
+
+        maxWindowMinutes: preferences.plotMaxWindowMinutes
+
+        plotData: RecordedPlotData {
+            id: recordedPlotData
+            seriesMetaData: plotSeriesMetaData
+            seriesExtraColors: plotSeriesExtraColors
+        }
+
+        function show() {
+            init(state.ticksPerSecond);
+            plotData.fetch(state.ticksPerSecond);
+            visible = true;
+        }
+
+        function hide() {
+            visible = false;
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: !recordedPlotData.dataReady
+
+            property bool timeout: recordedPlotData.timeout
+
+            color: timeout ? Utility.getAppHexColor("red") : getDarkThemeColor("lightText")
+            font.pixelSize: fontSizeNormal
+            horizontalAlignment: Text.AlignHCenter
+            text: timeout ? "timeout" : recordedPlotData.noData ? "no plot data" : recordedPlotData.initialized ? "loading: %1".arg(recordedPlotData.sampleNr) : "loading..."
+        }
+    }
+
     ColumnLayout {
         id: root
         anchors.fill: parent
@@ -1989,7 +4811,7 @@ Item {
 
                 color: Utility.getAppHexColor("lightBackground")
 
-                property real voltage: 0
+                property real voltage: state.rtData["motor.batt_voltage"]
                 property int value: 0
 
                 Behavior on voltage {
@@ -2030,14 +4852,14 @@ Item {
                         var voltageString = "";
 
                         if (preferences.showBattVoltage) {
-                            voltageString = parent.voltage.toFixed(1) + "V";
+                            voltageString = "%1V".arg(toFixed1Zero(parent.voltage));
                         }
 
                         if (preferences.showBattVoltagePerCell) {
                             if (preferences.showBattVoltage) {
                                 voltageString += " / ";
                             }
-                            voltageString += (parent.voltage / motorConfig.batteryCells).toFixed(2) + "V";
+                            voltageString += "%1V".arg(toFixed2Zero(parent.voltage / motorConfig.batteryCells));
                         }
 
                         return voltageString;
@@ -2094,17 +4916,18 @@ Item {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
 
-                    property string bleName
                     property string name
+                    property string nameOrId
 
-                    color: bleName ? Utility.getAppHexColor("lightText") : Utility.getAppHexColor("normalText")
+                    color: name ? Utility.getAppHexColor("lightText") : Utility.getAppHexColor("normalText")
                     font.pixelSize: 0.45 * unit
                     clip: true
-                    text: name
+                    text: nameOrId
 
                     function load() {
-                        bleName = VescIf.getBleName(VescIf.getLastBleAddr());
-                        name = bleName ? bleName : VescIf.getLastBleAddr();
+                        var boardName = board.getName();
+                        name = boardName;
+                        nameOrId = boardName ?? board.getId();
                     }
 
                     Component.onCompleted: load();
@@ -2176,7 +4999,8 @@ Item {
                             valueFontSize: width * 0.18
                             lineWidth: 0.25 * unit
 
-                            property int erpm
+                            value: Math.abs(state.rtData["motor.speed"]) * vescConfig.imperialFactor
+                            property int erpm: Math.abs(state.rtData["motor.erpm"])
 
                             Behavior on erpm {
                                 NumberAnimation {
@@ -2264,11 +5088,12 @@ Item {
                         }
 
                         Dial {
-                            id: currentDial
                             anchors.bottom: currentDialLabel.top
                             anchors.bottomMargin: -0.15 * unit
                             width: parent.height
                             height: width
+
+                            value: state.rtData["motor.current"]
 
                             allowNegative: true
                             minValue: motorConfig.currentMin;
@@ -2288,12 +5113,13 @@ Item {
                         }
 
                         Dial {
-                            id: dutyDial
                             anchors.bottom: currentDialLabel.top
                             anchors.bottomMargin: -0.15 * unit
                             anchors.right: parent.right
                             width: parent.height
                             height: width
+
+                            value: state.rtData["motor.duty_cycle"] * 100
 
                             maxValue: 100
                             warnThresholdAbs: 80
@@ -2335,7 +5161,7 @@ Item {
                     Item {
                         id: batteryCurrent
 
-                        property var value: 0
+                        property var value: state.rtData["motor.batt_current"]
                         property var minValue: preferences.battCurrentLog ? -Math.log(-motorConfig.inCurrentMin + 1) : motorConfig.inCurrentMin
                         property var maxValue: preferences.battCurrentLog ? Math.log(motorConfig.inCurrentMax + 1) : motorConfig.inCurrentMax
 
@@ -2445,8 +5271,8 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real leftVoltage: preferences.swapAdcs ? state.adc2Voltage : state.adc1Voltage
-                            property real rightVoltage: preferences.swapAdcs ? state.adc1Voltage : state.adc2Voltage
+                            property real leftVoltage: preferences.swapAdcs ? state.rtData["footpad.adc2"] : state.rtData["footpad.adc1"]
+                            property real rightVoltage: preferences.swapAdcs ? state.rtData["footpad.adc1"] : state.rtData["footpad.adc2"]
 
                             property real canvasWidth: width * 0.85
                             property real scale: canvasWidth / footpadPath.width
@@ -2555,7 +5381,7 @@ Item {
                                 anchors.horizontalCenterOffset: -footpadCanvas.width / 4
 
                                 font.pixelSize: fontSizeSmall
-                                text: "%1V".arg(parent.leftVoltage.toFixed(1))
+                                text: "%1V".arg(toFixed1Zero(parent.leftVoltage))
                             }
 
                             NText {
@@ -2565,7 +5391,7 @@ Item {
                                 anchors.horizontalCenterOffset: footpadCanvas.width / 4
 
                                 font.pixelSize: fontSizeSmall
-                                text: "%1V".arg(parent.rightVoltage.toFixed(1))
+                                text: "%1V".arg(toFixed1Zero(parent.rightVoltage))
                             }
                         }
 
@@ -2576,7 +5402,7 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real value
+                            property real value: state.rtData["imu.roll"]
                             onValueChanged: rollCanvas.requestPaint();
 
                             Behavior on value {
@@ -2637,9 +5463,9 @@ Item {
 
                         property real textWidth: 1.4 * unit
 
-                        property real pitchValue
-                        property real balancePitchValue
-                        property real setpointValue
+                        property real pitchValue: state.rtData["imu.pitch"]
+                        property real balancePitchValue: state.rtData["imu.balance_pitch"]
+                        property real setpointValue: state.rtData["setpoint"]
 
                         property real runtimeOpacity: 0
 
@@ -2890,7 +5716,7 @@ Item {
                         color: !!warningThreshold && value > warningThreshold ? Utility.getAppHexColor("red") : Utility.getAppHexColor("lightText")
                         font.pixelSize: fontSizeNormal
                         horizontalAlignment: Text.AlignHCenter
-                        text: format.arg(value.toFixed(decimals))
+                        text: format.arg(toFixed1Zero(value))
                     }
                 }
 
@@ -2899,14 +5725,15 @@ Item {
                     labelText: "motor"
                     unit: "°C"
                     warningThreshold: motorConfig.tempMotorStart - preferences.tempWarningOffset
+                    value: state.rtData["motor.motor_temp"]
                 }
 
                 VerticalValue {
-                    id: controllerTemp
                     anchors.left: motorTemp.right
                     labelText: "controller"
                     unit: "°C"
                     warningThreshold: motorConfig.tempFetStart - preferences.tempWarningOffset
+                    value: state.rtData["motor.mosfet_temp"]
                 }
 
                 Item {
@@ -3090,7 +5917,8 @@ Item {
 
                             property int slot: index + 1
 
-                            property var tuneName: tuneManager.tuneNames[slot]
+                            property var tuneName: tuneManager.tunes[slot] ? tuneManager.tunes[slot].name : ""
+                            property var tuneDiff: tuneManager.tunes[slot] ? packageConfig.diffConfig(tuneManager.tunes[slot]).differs.length : -1
 
                             property real buttonItemHeight: unit
                             property real buttonItemMargin: 0.15 * unit
@@ -3107,7 +5935,8 @@ Item {
 
                             onClicked: {
                                 if (tuneName) {
-                                    packageConfig.applyConfig(tuneManager.loadTune(slot));
+                                    var tune = tuneManager.loadTune(slot);
+                                    packageConfig.applyConfig(tune);
                                 }
                             }
 
@@ -3115,6 +5944,7 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: parent.buttonItemMargin
                                 clip: true
+                                z: 2
 
                                 Item {
                                     anchors.centerIn: parent
@@ -3145,12 +5975,24 @@ Item {
                                         text: "press and hold to set"
                                     }
                                 }
+
+                                DText {
+                                    id: tuneButtonDiffCount
+                                    anchors.bottom: parent.bottom
+                                    anchors.right: parent.right
+
+                                    font.pixelSize: fontSizeSmall
+                                    visible: preferences.showTuneDiffCount && tuneDiff > 0
+                                    horizontalAlignment: Text.AlignHRight
+                                    text: tuneDiff
+                                }
                             }
 
                             background: Rectangle {
                                 id: buttonBg
+                                z: 1
 
-                                border.color: tuneName ? Utility.getAppHexColor("lightText") : Utility.getAppHexColor("disabledText")
+                                border.color: tuneDiff === 0 ? Utility.getAppHexColor("lightAccent") : tuneName ? Utility.getAppHexColor("lightText") : Utility.getAppHexColor("disabledText")
                                 border.width: 2
                                 radius: 3
 
@@ -3167,6 +6009,16 @@ Item {
                                 transitions: Transition {
                                     ColorAnimation {property: "color"; duration: 200; easing.type: Easing.InOutCirc;}
                                 }
+                            }
+
+                            Glow {
+                                anchors.fill: buttonBg
+                                radius: Math.round(0.25 * unit)
+                                samples: radius * 2 + 1
+                                opacity: 0.3
+                                color: Utility.getAppHexColor("lightAccent")
+                                visible: tuneDiff === 0
+                                source: buttonBg
                             }
                         }
                     }
@@ -3327,122 +6179,163 @@ Item {
                 }
             }
 
-            ScrollView {
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                contentWidth: availableWidth
-                clip: true
 
-                Column {
-                    id: debugColumn
+                ToggleFloatingToolButton {
+                    id: toggleDataPlotButton
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    width: 0.8 * unit
+                    height: 0.8 * unit
+                    z: 1
+
+                    trueIconPath: Path {
+                        PathSvg {path: "M 6 13 L 31 13 M 6 21 L 21 21 M 6 29 L 21 29 M 6 37 L 21 37 M 29 21 L 44 21 M 29 29 L 44 29 M 29 37 L 44 37"}
+                    }
+
+                    falseIconPath: Path {
+                        PathSvg {path: "M 10 12 L 10 38 L 42 38 M 10 30 L 22 22 L 32 28 L 39 18"}
+                    }
+
+                    Component.onCompleted: {
+                        value = preferences.showRTPlotByDefault;
+                    }
+                }
+
+                ScrollView {
                     anchors.fill: parent
-                    anchors.leftMargin: 0.15 * unit
-                    anchors.rightMargin: 0.15 * unit
-                    spacing: 5
+                    contentWidth: availableWidth
+                    clip: true
+                    visible: !toggleDataPlotButton.value
 
-                    property real itemWidth: width * 0.5
-                    property real labelWidth: itemWidth * 0.7
+                    Column {
+                        id: debugColumn
+                        anchors.fill: parent
+                        anchors.leftMargin: 0.15 * unit
+                        anchors.rightMargin: 0.15 * unit
+                        spacing: 5
 
-                    component Value : Item {
-                        implicitHeight: label.implicitHeight
-                        implicitWidth: debugColumn.itemWidth
+                        property real itemWidth: width * 0.5
+                        property real labelWidth: itemWidth * 0.7
 
-                        property string label
-                        property string value
-                        property string unit: ""
+                        component Value : Item {
+                            implicitHeight: label.implicitHeight
+                            implicitWidth: debugColumn.itemWidth
 
-                        LText {
-                            id: label
-                            width: debugColumn.labelWidth
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                            font.pixelSize: fontSizeNormal
-                            text: "%1:".arg(parent.label)
+                            property string label
+                            property string value
+                            property string unit: ""
+
+                            NText {
+                                id: label
+                                width: debugColumn.labelWidth
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                font.pixelSize: fontSizeNormal
+                                text: "%1:".arg(parent.label)
+                            }
+
+                            LText {
+                                anchors.left: label.right
+                                anchors.top: parent.top
+                                font.pixelSize: fontSizeNormal
+                                text: parent.value + parent.unit
+                            }
+                        }
+
+                        Item {
+                            width: parent.width
+                            height: 0.1 * unit
                         }
 
                         LText {
-                            anchors.left: label.right
-                            anchors.top: parent.top
+                            width: parent.width
+
+                            font.pixelSize: fontSizeBig
+                            horizontalAlignment: Text.AlignHCenter
+                            visible: state.isError
+                            text: "Error"
+                        }
+
+                        LText {
+                            width: parent.width
+
                             font.pixelSize: fontSizeNormal
-                            text: parent.value + parent.unit
-                        }
-                    }
-
-                    component RealValue : Value {
-                        property real rValue
-                        property int precision: 2
-
-                        value: rValue.toFixed(precision)
-
-                        onRValueChanged: {
-                            value = rValue.toFixed(precision);
-                        }
-                    }
-
-                    Item {
-                        width: parent.width
-                        height: 0.1 * unit
-                    }
-
-                    LText {
-                        width: parent.width
-
-                        font.pixelSize: fontSizeBig
-                        horizontalAlignment: Text.AlignHCenter
-                        visible: state.isError
-                        text: "Error"
-                    }
-
-                    LText {
-                        width: parent.width
-
-                        font.pixelSize: fontSizeNormal
-                        horizontalAlignment: Text.AlignHCenter
-                        visible: state.isError
-                        wrapMode: Text.WordWrap
-                        text: state.errorDescription
-                    }
-
-                    Value {id: debugStopReason; label: "Stop Condition"; value: state.stopConditionString}
-                    Value {id: debugLastBeepReason; label: "Last Beep Reason"; value: state.beepReasonString}
-
-                    Item {
-                        width: parent.width
-                        height: 0.1 * unit
-                    }
-
-                    Row {
-                        width: parent.width
-
-                        Column {
-                            width: parent.width / 2
-                            spacing: 5
-                            clip: true
-
-                            RealValue {id: debugRequestedCurrent; label: "Requested current"; unit: "A";}
-                            RealValue {id: debugFilteredCurrent; label: "Torque (filt. current)"; unit: "A";}
-                            RealValue {id: debugAtrAccDiff; label: "ATR Accel. diff.";}
-                            Value {id: debugAtrSpeedBoost; label: "ATR Speed Boost"; unit: "%"; value: "0"}
-                            RealValue {id: debugBoosterCurrent; label: "Booster current"; unit: "A";}
-                            Value {id: debugRemoteInput; label: "Remote input"; unit: "%";}
+                            horizontalAlignment: Text.AlignHCenter
+                            visible: state.isError
+                            wrapMode: Text.WordWrap
+                            text: state.errorDescription
                         }
 
-                        Column {
-                            width: parent.width / 2
-                            spacing: 5
-                            clip: true
+                        Value {id: debugStopReason; label: "Stop Condition"; value: state.stopConditionString}
+                        Value {id: debugLastBeepReason; label: "Last Beep Reason"; value: state.beepReasonString}
 
-                            RealValue {id: debugAtrSetpoint; label: "ATR setpoint"; unit: "°";}
-                            RealValue {id: debugBrakeTiltSetpoint; label: "Brake Tilt setpoint"; unit: "°";}
-                            RealValue {id: debugTorqueTiltSetpoint; label: "Torque Tilt setpoint"; unit: "°";}
-                            RealValue {id: debugTurnTiltSetpoint; label: "Turn Tilt setpoint"; unit: "°";}
-                            RealValue {id: debugRemoteTiltSetpoint; label: "Remote Tilt setpoint"; unit: "°";}
+                        Item {
+                            width: parent.width
+                            height: 0.1 * unit
+                        }
+
+                        Row {
+                            width: parent.width
+
+                            Column {
+                                width: parent.width / 2
+                                spacing: 5
+                                clip: true
+
+                                Value {label: "Requested current"; unit: "A"; value: toFixed2Zero(state.rtData["balance_current"]);}
+                                Value {label: "Filtered current"; unit: "A"; value: toFixed2Zero(state.rtData["motor.filt_current"]);}
+                                Value {label: "ATR Accel. diff."; value: toFixed2Zero(state.rtData["atr.accel_diff"]);}
+                                Value {label: "ATR Speed Boost"; unit: "%"; value: round(state.rtData["atr.speed_boost"] * 100);}
+                                Value {label: "Booster current"; unit: "A"; value: toFixed2Zero(state.rtData["booster.current"]);}
+                                Value {label: "Remote input"; unit: "%"; value: round(state.rtData["remote.input"] * 100);}
+                            }
+
+                            Column {
+                                width: parent.width / 2
+                                spacing: 5
+                                clip: true
+
+                                Value {label: "ATR setpoint"; unit: "°"; value: toFixed2Zero(state.rtData["atr.setpoint"]);}
+                                Value {label: "Brake Tilt setpoint"; unit: "°"; value: toFixed2Zero(state.rtData["brake_tilt.setpoint"]);}
+                                Value {label: "Torque Tilt setpoint"; unit: "°"; value: toFixed2Zero(state.rtData["torque_tilt.setpoint"]);}
+                                Value {label: "Turn Tilt setpoint"; unit: "°"; value: toFixed2Zero(state.rtData["turn_tilt.setpoint"]);}
+                                Value {label: "Remote Tilt setpoint"; unit: "°"; value: toFixed2Zero(state.rtData["remote.setpoint"]);}
+                            }
+                        }
+
+                        Item {
+                            width: parent.width
+                            height: 0.1 * unit
                         }
                     }
+                }
 
-                    Item {
-                        width: parent.width
-                        height: 0.1 * unit
+                Plot {
+                    id: rtPlot
+                    anchors.fill: parent
+                    visible: toggleDataPlotButton.value
+
+                    followEnd: true
+                    maxWindowMinutes: preferences.plotMaxWindowMinutes
+
+                    showRecordDownload: state.capDataRecord
+
+                    plotData: PlotData {
+                        id: rtPlotData
+                        seriesMetaData: plotSeriesMetaData
+                        seriesExtraColors: plotSeriesExtraColors
+                    }
+
+                    Connections {
+                        target: state
+
+                        function onCommsInitialized() {
+                            rtPlotData.init(state.rtDataAllItems, state.ticksPerSecond);
+                            rtPlot.init(state.ticksPerSecond);
+                        }
                     }
                 }
             }

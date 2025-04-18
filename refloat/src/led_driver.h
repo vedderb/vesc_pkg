@@ -19,22 +19,23 @@
 #pragma once
 
 #include "conf/datatypes.h"
+#include "led_strip.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef struct {
-    uint8_t bit_nr;  // 24 for RGB, 32 for RGBW
     uint16_t *bitbuffer;
     uint32_t bitbuffer_length;
     LedPin pin;
-    LedColorOrder color_order;
+    const LedStrip *strips[STRIP_COUNT];
+    uint16_t *strip_bitbuffs[STRIP_COUNT];
 } LedDriver;
 
-bool led_driver_init(
-    LedDriver *driver, LedPin pin, LedType type, LedColorOrder color_order, uint8_t led_nr
-);
+void led_driver_init(LedDriver *driver);
 
-void led_driver_paint(LedDriver *driver, uint32_t *data, uint32_t length);
+bool led_driver_setup(LedDriver *driver, LedPin pin, const LedStrip **led_strips);
+
+void led_driver_paint(LedDriver *driver);
 
 void led_driver_destroy(LedDriver *driver);
