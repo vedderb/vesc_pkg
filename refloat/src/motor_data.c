@@ -24,7 +24,8 @@
 #include <math.h>
 
 void motor_data_reset(MotorData *m) {
-    m->duty_smooth = 0;
+    m->abs_erpm_smooth = 0;
+    m->duty_raw = 0;
 
     m->acceleration = 0;
     m->accel_idx = 0;
@@ -32,28 +33,42 @@ void motor_data_reset(MotorData *m) {
         m->accel_history[i] = 0;
     }
 
-    biquad_reset(&m->atr_current_biquad);
+    biquad_reset(&m->current_biquad);
 }
 
 void motor_data_configure(MotorData *m, float frequency) {
     if (frequency > 0) {
-        biquad_configure(&m->atr_current_biquad, BQ_LOWPASS, frequency);
-        m->atr_filter_enabled = true;
+        biquad_configure(&m->current_biquad, BQ_LOWPASS, frequency);
+        m->current_filter_enabled = true;
     } else {
-        m->atr_filter_enabled = false;
+        m->current_filter_enabled = false;
     }
+
+    // min motor current is a positive value here!
+    m->current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
+    m->current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
+    m->battery_current_min = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_min);
+    m->battery_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_max);
 }
 
 void motor_data_update(MotorData *m) {
     m->erpm = VESC_IF->mc_get_rpm();
     m->abs_erpm = fabsf(m->erpm);
+    m->abs_erpm_smooth = m->abs_erpm_smooth * 0.9 + m->abs_erpm * 0.1;
     m->erpm_sign = sign(m->erpm);
 
-    m->current = VESC_IF->mc_get_tot_current_directional_filtered();
-    m->braking = m->abs_erpm > 250 && sign(m->current) != m->erpm_sign;
+    // TODO mc_get_speed() calculates speed from erpm using the full formula,
+    // including four divisions. In theory multiplying by a single constant is
+    // enough, we just need to calculate the constant (and keep it up to date
+    // when motor config changes, there's no way to know, we'll have to poll).
+    m->speed = VESC_IF->mc_get_speed() * 3.6;
 
-    m->duty_cycle = fabsf(VESC_IF->mc_get_duty_cycle_now());
-    m->duty_smooth = m->duty_smooth * 0.9f + m->duty_cycle * 0.1f;
+    m->current = VESC_IF->mc_get_tot_current_filtered();
+    m->dir_current = VESC_IF->mc_get_tot_current_directional_filtered();
+    m->braking = m->current < 0;
+
+    m->duty_raw = fabsf(VESC_IF->mc_get_duty_cycle_now());
+    m->duty_cycle += 0.01f * (m->duty_raw - m->duty_cycle);
 
     float current_acceleration = m->erpm - m->last_erpm;
     m->last_erpm = m->erpm;
@@ -62,9 +77,24 @@ void motor_data_update(MotorData *m) {
     m->accel_history[m->accel_idx] = current_acceleration;
     m->accel_idx = (m->accel_idx + 1) % ACCEL_ARRAY_SIZE;
 
-    if (m->atr_filter_enabled) {
-        m->atr_filtered_current = biquad_process(&m->atr_current_biquad, m->current);
+    if (m->current_filter_enabled) {
+        m->filt_current = biquad_process(&m->current_biquad, m->dir_current);
     } else {
-        m->atr_filtered_current = m->current;
+        m->filt_current = m->dir_current;
     }
+
+    m->batt_current += 0.01f * (VESC_IF->mc_get_tot_current_in_filtered() - m->batt_current);
+    m->batt_voltage = VESC_IF->mc_get_input_voltage_filtered();
+
+    m->mosfet_temp = VESC_IF->mc_temp_fet_filtered();
+    m->motor_temp = VESC_IF->mc_temp_motor_filtered();
+}
+
+float motor_data_get_current_saturation(const MotorData *m) {
+    float motor_saturation =
+        fabsf(m->filt_current) / (m->braking ? m->current_min : m->current_max);
+    float battery_saturation =
+        m->batt_current / (m->batt_current < 0 ? m->battery_current_min : m->battery_current_max);
+
+    return max(motor_saturation, battery_saturation);
 }

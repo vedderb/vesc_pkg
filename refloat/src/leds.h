@@ -20,32 +20,15 @@
 #include "conf/datatypes.h"
 #include "footpad_sensor.h"
 #include "led_driver.h"
+#include "led_strip.h"
 #include "state.h"
 
 #define LEDS_REFRESH_RATE 30
-
-#define LEDS_FRONT_AND_REAR_COUNT_MAX 60
-
-typedef struct {
-    uint8_t map[LEDS_FRONT_AND_REAR_COUNT_MAX];
-} CipherData;
-
-typedef union {
-    CipherData cipher;
-} TransitionData;
 
 typedef struct {
     LedTransition transition;
     float split;
 } TransitionState;
-
-typedef struct {
-    uint8_t start;
-    uint8_t length;
-    bool reverse;
-    float brightness;
-    TransitionData trans_data;
-} LedStrip;
 
 typedef struct {
     LedStrip status_strip;
@@ -80,6 +63,8 @@ typedef struct {
     float headlights_time;
     float animation_start;
 
+    float confirm_animation_start;
+
     TransitionState headlights_trans;
     TransitionState dir_trans;
 
@@ -92,14 +77,17 @@ typedef struct {
     const LedBar *rear_time_target;
 
     uint32_t *led_data;
-    uint8_t led_count;
     LedDriver led_driver;
 } Leds;
 
-bool leds_init(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorState fs_state);
+void leds_init(Leds *leds);
+
+void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorState fs_state);
 
 void leds_configure(Leds *leds, const CfgLeds *cfg);
 
 void leds_update(Leds *leds, const State *state, FootpadSensorState fs_state);
+
+void leds_status_confirm(Leds *leds);
 
 void leds_destroy(Leds *leds);

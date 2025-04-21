@@ -18,31 +18,33 @@
 #include "konami.h"
 
 void konami_init(Konami *konami, const FootpadSensorState *sequence, uint8_t sequence_size) {
-    konami->time = 0;
+    konami->timer = 0;
     konami->state = 0;
     konami->sequence = sequence;
     konami->sequence_size = sequence_size;
 }
 
 static void konami_reset(Konami *konami) {
-    konami->time = 0;
     konami->state = 0;
 }
 
-bool konami_check(Konami *konami, const FootpadSensor *fs, float current_time) {
-    if (konami->time > 0 && current_time - konami->time > 0.5) {
+bool konami_check(Konami *konami, Leds *leds, const FootpadSensor *fs, const Time *time) {
+    if (konami->state > 0 && timer_older(time, konami->timer, 0.5)) {
         konami_reset(konami);
         return false;
     }
 
     if (fs->state == konami->sequence[konami->state]) {
-        ++konami->state;
-        if (konami->state == konami->sequence_size) {
-            konami_reset(konami);
-            return true;
-        }
+        if (timer_older(time, konami->timer, 0.15)) {
+            ++konami->state;
+            if (konami->state == konami->sequence_size) {
+                konami_reset(konami);
+                leds_status_confirm(leds);
+                return true;
+            }
 
-        konami->time = current_time;
+            timer_refresh(time, &konami->timer);
+        }
     } else if (konami->state > 0 && fs->state != konami->sequence[konami->state - 1]) {
         konami_reset(konami);
     }
