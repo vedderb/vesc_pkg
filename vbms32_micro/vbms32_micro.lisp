@@ -13,7 +13,6 @@
 (def is-balancing false)
 (def is-charging false)
 (def charge-ok false)
-(def charge-dis-ts (systime))
 (def c-min 0.0)
 (def c-max 0.0)
 (def t-min 0.0)
@@ -44,9 +43,6 @@
 (def soc -1.0)
 (def i-zero-time 0.0)
 (def chg-allowed true)
-(def t-last (systime))
-(def charge-ts (systime))
-
 (def com-force-on false)
 (def com-mutex (mutex-create))
 
@@ -805,6 +801,10 @@
         })
 
         (set-fw-name "micro")
+
+        (def charge-dis-ts (systime))
+        (def t-last (systime))
+        (def charge-ts (systime))
 
         ; Buzzer
         (pwm-start 4000 0.0 0 3)
