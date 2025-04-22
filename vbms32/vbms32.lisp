@@ -67,7 +67,7 @@
         })
 })
 
-(def rtc-val-magic 114)
+(def rtc-val-magic 115)
 
 ; Short-circuit protection (SCD)
 ; - DDSGPinConfig (0x9302)
@@ -508,7 +508,7 @@
 ))
 
 ; Settings version
-(def settings-version 241i32)
+(def settings-version 242i32)
 
 (defun read-setting (name)
     (let (
