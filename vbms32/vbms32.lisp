@@ -448,8 +448,7 @@
 
         (var ichg 0.0)
         (if (and (test-chg 400) charge-ok charge-wakeup) {
-                (bms-set-chg 1)
-                (setq is-charging true)
+                (set-chg true)
 
                 (looprange i 0 (* charger-max-delay 10.0) {
                         (sleep 0.1)
@@ -560,6 +559,7 @@
 (defun set-chg (chg) {
         (if chg
             {
+                (gpio-write 9 0)
                 (bms-set-chg 1)
                 (setq is-charging true)
             }
