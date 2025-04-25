@@ -1000,6 +1000,12 @@
                 (sleep 0.2)
         })
 
+        ; Quick PSW is enabled and BTN is on. Give PSW some time start the precharge before starting the
+        ; slow init-function so that PSW gets the mutex first.
+        (if (and (= (bms-get-btn) 1) (= (bms-get-param 'psw_wait_init) 0) (= (bms-get-param 'psw_scd_en) 0)) {
+                (sleep 1.0)
+        })
+
         (def t-start-fun (secs-since 0))
 
         (loopwhile t {
