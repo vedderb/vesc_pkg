@@ -49,6 +49,7 @@
 
 (def com-force-on false)
 (def com-mutex (mutex-create))
+(def pchg-mutex (mutex-create))
 
 (def did-crash false)
 (def crash-cnt 0)
@@ -139,6 +140,10 @@
 ; (bms-subcmd-cmdonly 1 0x000e)
 
 (defun init-hw () {
+        ; These are blocking and potentially slow operations and we don't want to
+        ; run them at the same time as the PCHG buck runs
+        (mutex-lock pchg-mutex)
+
         (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) {
                 (bms-subcmd-cmdonly 1 0x000e)
                 (bms-subcmd-cmdonly 1 0x000e)
@@ -166,6 +171,8 @@
                         (sleep 1)
                 })
         })
+
+        (mutex-unlock pchg-mutex)
 
         (config-scd)
 })
@@ -295,6 +302,8 @@
 
         (setq psw-status "PSW_PCHG")
 
+        (mutex-lock pchg-mutex)
+
         (var t-start (systime))
         (var v-start (bms-get-vout))
         (bms-set-pchg 1)
@@ -322,6 +331,9 @@
 
         (bms-set-pchg 0)
         (setq psw-state true)
+
+        (mutex-unlock pchg-mutex)
+
         res
 })
 
