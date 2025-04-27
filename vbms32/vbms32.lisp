@@ -172,9 +172,9 @@
                 })
         })
 
-        (mutex-unlock pchg-mutex)
-
         (config-scd)
+
+        (mutex-unlock pchg-mutex)
 })
 
 (defun save-rtc-val () {
@@ -305,34 +305,29 @@
         (mutex-lock pchg-mutex)
 
         (var t-start (systime))
+        (var t-pchg 0)
         (var v-start (bms-get-vout))
         (bms-set-pchg 1)
 
         (loopwhile (< (secs-since t-start) (bms-get-param 'psw_t_pchg)) {
                 (if (< (- (assoc rtc-val 'v-tot) (bms-get-vout)) 10.0) {
+                        (bms-set-out 1)
+                        (setq t-pchg (secs-since t-start))
                         (setq res t)
-                        (print (str-from-n (* (secs-since t-start) 1000.0) "PCHG T: %.1f ms"))
                         (break)
                 })
                 (sleep 0.005)
         })
 
-        (if res
-            {
-                (bms-set-out 1)
-                (var diff (- (bms-get-vout) v-start))
-                (if (> diff 0.01) {
-                        (var cap-est (/ (* (secs-since t-start) 0.9) diff))
-                        (print (list "Cap est: " (* cap-est 1000.0) "mF"))
-                })
-            }
-            (print "PCHG timeout, make sure that there is a load on the output and no short!")
-        )
-
         (bms-set-pchg 0)
         (setq psw-state true)
 
         (mutex-unlock pchg-mutex)
+
+        (if res
+            (print (str-from-n (* t-pchg 1000.0) "PCHG Time: %.1f ms"))
+            (print "PCHG timeout, make sure that there is a load on the output and no short!")
+        )
 
         res
 })
