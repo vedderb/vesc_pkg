@@ -621,6 +621,7 @@
                     ; Reset coulomb counter when battery is full
                     (if (>= c-max (bms-get-param 'vc_charge_start)) {
                             (setq ah-cnt-soc (bms-get-param 'batt_ah))
+                            (setq trigger-bal-after-charge true)
                     })
                 }
             )
