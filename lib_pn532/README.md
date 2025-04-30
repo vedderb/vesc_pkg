@@ -11,15 +11,15 @@ The driver is tested with the Adafruit PN532-board which also has a good introdu
 ### pn532-init
 
 ```clj
-(pn532-init '(pins))
+(pn532-init optRate optPinSda optPinScl)
 ```
 
-Initialize and start the driver on the i2c-pins pins. If the pins are nil (an empty list) the default pins will be used. Example:
+Initialize and start the driver on i2c. If the pins and rate are left out the default pins and rate will be used. Example:
 
 ```clj
-(pn532-init nil) ; Initialize using default pins
-(pn532-init '(3 2)) ; Initialize using pin 3 for SDA and 2 for SCL on the express firmware
-(pn532-init '('pin-swdio 'pin-swclk)) ; Initialize using pin swdio for SDA and swclk for SCL on the ESC-firmware
+(pn532-init) ; Initialize using default pins and rate
+(pn532-init 'rate-400k 3 2) ; Initialize using pin 3 for SDA and 2 for SCL on the express firmware
+(pn532-init 'rate-400k 'pin-swdio 'pin-swclk) ; Initialize using pin swdio for SDA and swclk for SCL on the ESC-firmware
 ```
 
 The function return true if initialization was successful and false otherwise.
@@ -88,16 +88,14 @@ Write data to page. Data must be a list with 4 numbers where each number is 0 to
 
 (def is-esp false)
 
-(def pins nil)
 (if is-esp {
-        (def pins '(3 2))
         (rgbled-init 8 1)
 })
 
 (defun led-on () (if is-esp (rgbled-color 0 0x00ff00)))
 (defun led-off () (if is-esp (rgbled-color 0 0)))
 
-(if (pn532-init pins)
+(if (pn532-init 'rate-400k)
     (loopwhile t {
             (var res (pn532-read-target-id 2))
             (if res {

@@ -2,17 +2,15 @@
 (eval-program (read-program pn532))
 
 (def is-esp false)
-(def pins nil)
 
 (if is-esp {
-        (def pins '(3 2))
         (rgbled-init 8 1)
 })
 
 (defun led-on () (if is-esp (rgbled-color 0 0x00ff00)))
 (defun led-off () (if is-esp (rgbled-color 0 0)))
 
-(if (pn532-init pins)
+(if (pn532-init 'rate-400k)
     (loopwhile t {
             (var res (pn532-read-target-id 2))
             (if res {
