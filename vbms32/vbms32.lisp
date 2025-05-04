@@ -308,9 +308,11 @@
         (var t-pchg 0)
         (var v-start (bms-get-vout))
         (bms-set-pchg 1)
+        (gpio-write 9 0)
 
         (loopwhile (< (secs-since t-start) (bms-get-param 'psw_t_pchg)) {
                 (if (< (- (assoc rtc-val 'v-tot) (bms-get-vout)) 10.0) {
+                        (gpio-write 9 0)
                         (bms-set-out 1)
                         (setq t-pchg (secs-since t-start))
                         (setq res t)
