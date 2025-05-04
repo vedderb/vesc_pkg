@@ -998,9 +998,14 @@
                 (sleep 0.2)
         })
 
-        ; Quick PSW is enabled and BTN is on. Give PSW some time start the precharge before starting the
-        ; slow init-function so that PSW gets the mutex first.
+        ; Quick PSW is enabled and BTN is on.
         (if (and (= (bms-get-btn) 1) (= (bms-get-param 'psw_wait_init) 0) (= (bms-get-param 'psw_scd_en) 0)) {
+                ; Wake up lower BQ as it can hold the enable line low otherwise
+                (bms-subcmd-cmdonly 1 0x000e)
+                (bms-subcmd-cmdonly 1 0x000e)
+
+                ; Give PSW some time start the precharge before starting the
+                ; slow init-function so that PSW gets the mutex first.
                 (sleep 1.0)
         })
 
