@@ -51,6 +51,11 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.6
+* Surge max angle to 1.5 and margin to 2.5
+* traction contrl to 30, 25 Hz
+* added traction control erpm tracking
+* new trip data
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
