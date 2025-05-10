@@ -458,7 +458,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.efficiency, &ind); //efficiency
 	buffer_append_float32_auto(buffer, d->ridetrack.carve_chain, &ind); //speed avg convert m/s to mph
 	buffer_append_float32_auto(buffer, d->ridetrack.carves_total, &ind); //current avg
-	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile, &ind); //power avg
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile/100, &ind); //power avg
 
 	
 	// DEBUG
