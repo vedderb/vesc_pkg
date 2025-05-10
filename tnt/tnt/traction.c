@@ -211,5 +211,6 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 }
 
 void rate_limit_erpm(MotorData *m, TractionData *traction) {
-	rate_limitf(&traction->erpm_limited, m->erpm, traction->erpm_rate_limit); 
+	//ERPM limited attempts to better estimate longitudinal velocity by limiting the rate of change and not changing when acceleration is too high.
+	rate_limitf(&traction->erpm_limited, m->erpm, m->accel_avg > traction->erpm_exclusion_rate ? 0 : traction->erpm_rate_limit); 
 }
