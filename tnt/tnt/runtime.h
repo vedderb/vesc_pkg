@@ -98,4 +98,4 @@ void check_odometer(RuntimeData *rt);
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config);
 void reset_ride_tracking(RideTrackData *ridetrack);
 void ride_tracking(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
-void carve_tacking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
+void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
