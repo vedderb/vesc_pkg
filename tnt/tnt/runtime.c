@@ -140,7 +140,7 @@ void check_odometer(RuntimeData *rt) {
 	}
 }
 
-void configuire_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
+void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	ridetrack->min_yaw_change = 50 / config->hertz;
 	ridetrack->reset_mileage = 0;
 }
@@ -171,7 +171,7 @@ void ride_tracking(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
 }
 
 
-void carve_tacking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
+void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	//Apply a minimum yaw change and time the yaw change is applied to filter out noise
 	if (yaw->abs_change < ridetrack->min_yaw_change) 
 		ridetrack->yaw_timer = rt->current_time;
