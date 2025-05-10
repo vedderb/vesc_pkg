@@ -428,7 +428,6 @@ static void send_realtime_data(data *d){
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
 	buffer[ind++] = COMMAND_GET_RTDATA;
-	float corr_factor;
 
 	// Board State
 	buffer[ind++] = d->state.wheelslip ? 4 : d->state.state; 
