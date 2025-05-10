@@ -193,6 +193,7 @@ typedef struct {
 	bool is_beeper_enabled;
 	bool is_dutybeep_enabled;
 	bool is_footbeep_enabled;
+	bool is_resettripdata_enabled;
 	bool is_tunedebug_enabled;
 	bool is_surgedebug_enabled;
 	bool is_tcdebug_enabled;
