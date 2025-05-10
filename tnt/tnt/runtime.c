@@ -22,7 +22,7 @@
 #include "biquad.h"
 #include "kalman.h"
 
-void runtime_data_update(RuntimeData *rt) {
+void runtime_data_update(RuntimeData *rt, RideTrackData *ridetrack) {
 	// Update times
 	rt->current_time = VESC_IF->system_time();
 	if (rt->last_time == 0) {
@@ -39,6 +39,9 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	VESC_IF->imu_get_gyro(rt->gyro);
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
+
+	//Ride Tracking
+	ride_tracking(ridetrack, rt, yaw);
 }
 
 void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
@@ -99,22 +102,22 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	configure_kalman(config, &rt->pitch_kalman);
 }
 
-void ride_timer(RideTimeData *ridetimer, RuntimeData *rt){
+void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
 	rt->disengage_timer = rt->current_time;
 	
-	if(ridetimer->run_flag) { //First trigger run flag and reset last ride time
-		ridetimer->ride_time += rt->current_time - ridetimer->last_ride_time;
+	if(ridetrack->run_flag) { //First trigger run flag and reset last ride time
+		ridetrack->ride_time += rt->current_time - ridetrack->last_ride_time;
 	}
-	ridetimer->run_flag = true;
-	ridetimer->last_ride_time = rt->current_time;
+	ridetrack->run_flag = true;
+	ridetrack->last_ride_time = rt->current_time;
 }
 
-void rest_timer(RideTimeData *ridetimer, RuntimeData *rt){
-	if(!ridetimer->run_flag) { //First trigger run flag and reset last rest time
-		ridetimer->rest_time += rt->current_time - ridetimer->last_rest_time;
+void rest_timer(RideTrackData *ridetrack, RuntimeData *rt){
+	if(!ridetrack->run_flag) { //First trigger run flag and reset last rest time
+		ridetrack->rest_time += rt->current_time - ridetrack->last_rest_time;
 	}
-	ridetimer->run_flag = false;
-	ridetimer->last_rest_time = rt->current_time;
+	ridetrack->run_flag = false;
+	ridetrack->last_rest_time = rt->current_time;
 }
 
 void check_odometer(RuntimeData *rt) { 
@@ -135,4 +138,61 @@ void check_odometer(RuntimeData *rt) {
 			}
 		}
 	}
+}
+
+void configuire_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
+	ridetrack->min_yaw_change = 50 / config->hertz;
+	ridetrack->reset_mileage = 0;
+}
+
+void reset_ride_tracking(RideTrackData *ridetrack) {
+	ridetrack->carve_chain = 0;
+	ridetrack->yaw_sign = 0;
+	if (config->reset_ride_data) {
+		ridetrack->carves_total = 0;
+		ridetrack->ride_timer = 0;
+		ridetrack->rest_timer = 0;
+		//ridetrack->reset_mileage = VESC_IF->mc_get_distance_abs() * 0.000621 
+		VESC_IF->mc_stat_reset();
+	}
+}
+void ride_tracking(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
+	ride_timer(ridetrack, rt);
+	rest_timer(ridetrack, rt);
+	carve_tracking(rt, yaw, ridetrack);
+	if (ridetrack->ride_time > 0) {
+		corr_factor =  rt->current_time / ridetrack->ride_time;
+	} else {corr_factor = 1;}
+	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621; //- ridetrack->reset_mileage;
+	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
+	ridetrack->current_avg = VESC_IF->mc_stat_current_avg() * corr_factor;
+	ridetrack->power_avg = VESC_IF->mc_stat_power_avg() * corr_factor;
+	ridetrack->efficiency = (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (ridetrack->distance)
+}
+
+
+void carve_tacking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
+	//Apply a minimum yaw change and time the yaw change is applied to filter out noise
+	if (yaw->abs_change < ridetrack->min_yaw_change) 
+		ridetrack->yaw_timer = rt->current_time;
+	else if (rt->current_time - ridetrack->yaw_timer > .1) 
+		ridetrack->yaw_sign = sign(yaw->yaw_change);
+
+	// Track the change is yaw change sign to determine carves
+	if (ridetrack->last_yaw_sign != ridetrack->yaw_sign){ 
+		ridetrack->carve_timer = rt->current_time; //reset time out every yaw change
+		if (ridetack->last_yaw_sign != 0) //don't include the first turn
+			ridetrack->carve_chain++;
+		if (ridetrack->carve_chain > 1) //require 3 turns to be included in carve total
+			ridetrack->carves_total++;
+	}
+
+	//Time out of 3 seconds if a yaw change is not initiated
+	if (rt->current_time - ridetrack->carve_timer > 3) {
+		ridetrack->carve_chain = 0;
+		ridetrack->yaw_sign = 0;
+	}
+	
+	ridetrack->last_yaw_sign = ridetrack->yaw_sign;
+	ridetrack->carves_mile = ridetrack->carves_total / ridetrack->distance;
 }
