@@ -135,7 +135,8 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	traction->hold_accel = 1000.0 * config->wheelslip_accelhold / config->hertz;
 	traction_dbg->freq_factor = 1000.0 / config->hertz;
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
-	traction->erpm_rate_limit = 1000.0 * config->wheelslip_filter_period / 10 / config->hertz;
+	traction->erpm_rate_limit = 1000.0 * config->wheelslip_erpm_rate_limit / config->hertz;
+	traction->erpm_exclusion_rate = 1000.0 * config->wheelslip_erpm_exclusion_rate / config->hertz;
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
