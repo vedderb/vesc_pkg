@@ -35,6 +35,7 @@ typedef struct {
 	bool end_accel_hold;
 	float erpm_rate_limit;
 	float erpm_limited;
+	float erpm_exclusion_rate;
 } TractionData;
 
 typedef struct {
