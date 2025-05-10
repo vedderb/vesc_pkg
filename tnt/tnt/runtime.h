@@ -95,7 +95,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config);
 void rest_timer(RideTrackData *ridetrack, RuntimeData *rt);
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt);
 void check_odometer(RuntimeData *rt);
-void configuire_ride_tracking(RideTrackData *ridetrack, tnt_config *config);
+void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config);
 void reset_ride_tracking(RideTrackData *ridetrack);
 void ride_tracking(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
 void carve_tacking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
