@@ -118,10 +118,11 @@ Item {
 	
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
+	 	var distance = dv.getFloat32(ind); ind += 4; //distance
+	        var eff = dv.getFloat32(ind); ind += 4; //efficiency
 	        var speed = dv.getFloat32(ind); ind += 4; //speed avg
 	        var currentavg = dv.getFloat32(ind); ind += 4; //current avg
-	        var power = dv.getFloat32(ind); ind += 4; //power avg
-	        var eff = dv.getFloat32(ind); ind += 4; //efficiency
+	        var carves_mile = dv.getFloat32(ind); ind += 4; //carves per mile
 
                 var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
                 if (debug_state == 1) { 
@@ -306,10 +307,11 @@ Item {
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
 	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-	                    "Speed Avg          : " + speed.toFixed(1) + " mph\n" +
-	                    "Current Avg        : " + currentavg.toFixed(1) + " A\n" +
-	                    "Power Avg          : " + power.toFixed(1) + " W\n" +
+	                    "Distance           : " + distance.toFixed(0) + " mi" +
 			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" 
+		            "Carve Chain        : " + speed.toFixed(0) + " mph\n" +
+		     	    "Carves Total       : " + currentavg.toFixed(0) + " A\n" +
+	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi"
 	             
 			if (debug_state == 1) {
 				debug.text =
