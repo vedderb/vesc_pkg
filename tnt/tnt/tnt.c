@@ -423,7 +423,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 108;
+	static const int bufsize = 112;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -454,19 +454,21 @@ static void send_realtime_data(data *d){
 	// Trip
 	buffer_append_float32_auto(buffer, d->ridetrack.ride_time, &ind); //Ride Time
 	buffer_append_float32_auto(buffer, d->ridetrack.rest_time, &ind); //Rest time
-	buffer_append_float32_auto(buffer, d->ridetrack.speed_avg, &ind); //speed avg convert m/s to mph
-	buffer_append_float32_auto(buffer, d->ridetrack.current_avg, &ind); //current avg
-	buffer_append_float32_auto(buffer, d->ridetrack.power_avg, &ind); //power avg
+	buffer_append_float32_auto(buffer, d->ridetrack.distance, &ind); //distance
 	buffer_append_float32_auto(buffer, d->ridetrack.efficiency, &ind); //efficiency
+	buffer_append_float32_auto(buffer, d->ridetrack.carve_chain, &ind); //speed avg convert m/s to mph
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_total, &ind); //current avg
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile, &ind); //power avg
+
 	
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip debug3
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel d->traction_dbg.debug4
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //ERPM Limited
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //ERPM Limited at traction control start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //actual erpm before wheel slip 
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //actual erpm at wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition 
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count 
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
