@@ -80,6 +80,11 @@ typedef struct {
 	uint32_t carve_chain;
 	uint32_t carves_total;
 	float carves_mile;
+	float distance;
+	float efficiency;
+	float speed_avg;
+	float current_avg;
+	float power_avg;
 } RideTrackData;
 
 void runtime_data_update(RuntimeData *rt);
