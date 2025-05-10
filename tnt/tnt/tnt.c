@@ -86,7 +86,7 @@ typedef struct {
 	TractionDebug traction_dbg;		//traction control debug info
 	BrakingData braking;			//Traction control for braking
 	BrakingDebug braking_dbg;		//Braking debug info
-	RideTimeData ridetimer;			//Trip debug for ride vs rest time
+	RideTrackData ridetrack;		//Trip tracking data
 } data;
 
 static void configure(data *d) {
@@ -100,7 +100,8 @@ static void configure(data *d) {
 	configure_traction(&d->traction, &d->braking, &d->tnt_conf, 
 		&d->traction_dbg, &d->braking_dbg); 				//traction control and traction braking
 	tone_configure_all(&d->tone_config, &d->tnt_conf, &d->tone);		//FOC play tones
-
+	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
+		
 	//initialize pitch arrays for acceleration
 	angle_kp_reset(&d->accel_kp);
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
@@ -135,6 +136,7 @@ static void reset_vars(data *d) {
 		reset_surge(&d->surge);					//Surge
 		reset_traction(&d->traction, &d->state, &d->braking);	//Traction Control
 		tone_reset(&d->tone);					//FOC tones
+		reset_ride_tracking(&d->ridetrack);			//Ride tracking
 	}
 	state_engage(&d->state);
 }
@@ -201,9 +203,6 @@ static void tnt_thd(void *arg) {
 			play_footpad_beep(&d->tone, &d->motor, &d->footpad_sensor, &d->tone_config.continuousfootpad);
 			
 			d->rt.odometer_dirty = 1;
-			
-			//Ride Timer
-			ride_timer(&d->ridetimer, &d->rt);
 			
 			// Calculate setpoint and interpolation
 			calculate_setpoint_target(&d->spd, &d->state, &d->motor, &d->rt, &d->tnt_conf, d->pid.proportional);
@@ -274,7 +273,6 @@ static void tnt_thd(void *arg) {
 		case (STATE_READY):
 			idle_tone(&d->tone, &d->tone_config.slowdouble2, &d->rt, &d->motor);
 			check_odometer(&d->rt);
-			rest_timer(&d->ridetimer, &d->rt);
 
 			if ((d->rt.current_time - d->rt.fault_angle_pitch_timer) > 1) {
 				// 1 second after disengaging - set startup tolerance back to normal (aka tighter)
@@ -454,15 +452,12 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->braking.timeroff , &ind); //Time since last traction braking
 	
 	// Trip
-	if (d->ridetimer.ride_time > 0) {
-		corr_factor =  d->rt.current_time / d->ridetimer.ride_time;
-	} else {corr_factor = 1;}
-	buffer_append_float32_auto(buffer, d->ridetimer.ride_time, &ind); //Ride Time
-	buffer_append_float32_auto(buffer, d->ridetimer.rest_time, &ind); //Rest time
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //speed avg convert m/s to mph
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //current avg
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //power avg
-	buffer_append_float32_auto(buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //efficiency
+	buffer_append_float32_auto(buffer, d->ridetrack.ride_time, &ind); //Ride Time
+	buffer_append_float32_auto(buffer, d->ridetrack.rest_time, &ind); //Rest time
+	buffer_append_float32_auto(buffer, d->ridetrack.speed_avg, &ind); //speed avg convert m/s to mph
+	buffer_append_float32_auto(buffer, d->ridetrack.current_avg, &ind); //current avg
+	buffer_append_float32_auto(buffer, d->ridetrack.power_avg, &ind); //power avg
+	buffer_append_float32_auto(buffer, d->ridetrack.efficiency, &ind); //efficiency
 	
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
