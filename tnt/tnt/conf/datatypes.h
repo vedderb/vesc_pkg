@@ -121,7 +121,7 @@ typedef struct {
 	uint8_t wheelslip_resettime;
 	uint8_t wheelslip_erpm_rate_limit;
 	uint8_t wheelslip_erpm_exclusion_rate;
-	uint16_t wheelslip_erpm_marign;
+	uint16_t wheelslip_erpm_margin;
 	bool is_tc_braking_enabled;
 	int8_t tc_braking_angle;
 	uint16_t tc_braking_min_erpm;	
