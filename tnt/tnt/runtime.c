@@ -36,7 +36,7 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->abs_roll_angle = fabsf(rt->roll_angle);
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
-	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
+	rt->yaw_angle = rad2deg(VESC_IF->imu_get_yaw()); //rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	VESC_IF->imu_get_gyro(rt->gyro);
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 }
@@ -143,7 +143,7 @@ void check_odometer(RuntimeData *rt) {
 }
 
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 1000 / config->hertz;
+	ridetrack->min_yaw_change = 70.0f / config->hertz;
 }
 
 void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
