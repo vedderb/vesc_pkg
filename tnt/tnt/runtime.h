@@ -81,6 +81,7 @@ typedef struct {
 	float carve_timer;
 	uint32_t carve_chain;
 	uint32_t carves_total;
+	uint32_t max_carve_chain;
 	float carves_mile;
 	float distance;
 	float efficiency;
