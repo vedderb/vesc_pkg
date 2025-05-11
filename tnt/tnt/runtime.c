@@ -41,7 +41,7 @@ void runtime_data_update(RuntimeData *rt) {
 	
 	rt->imu_counter++;
 	if (rt->imu_counter >= rt->imu_rate_factor) {
-		d->rt.imu_counter = 0;
+		rt->imu_counter = 0;
 		rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	}
 }
