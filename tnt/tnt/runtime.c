@@ -62,6 +62,7 @@ void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg){
 	yaw->change = yaw->change * 0.8 + 0.2 * (new_change);
 	yaw->abs_change = fabsf(yaw->change);
 	yaw_dbg->debug1 = yaw->change;
+	yaw_dbg->debug3 = fmaxf(yaw->abs_change, yaw_dbg->debug3);
 }
 
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
@@ -78,6 +79,8 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	yaw->last_change = 0;
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
+	yaw_dbg->debug3 = 0;
+
 
 	rt->brake_timeout = 0;
 }
