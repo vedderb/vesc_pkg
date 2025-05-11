@@ -153,8 +153,6 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	}
 }
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
-	ride_timer(ridetrack, rt);
-	rest_timer(ridetrack, rt);
 	carve_tracking(rt, yaw, ridetrack);
 	float corr_factor;
 	if (ridetrack->ride_time > 0) {
