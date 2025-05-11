@@ -152,11 +152,11 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 		ridetrack->ride_time = 0;
 		ridetrack->rest_time = 0;
 		VESC_IF->mc_get_amp_hours(true);
-		VESC_IF->mc_get_amp_hours_charged)(true);
-		VESC_IF->mc_get_watt_hours)(true);
-		VESC_IF->mc_get_watt_hours_charged)(true);
-		VESC_IF->mc_get_tachometer_value)(true);
-		VESC_IF->mc_get_tachometer_abs_value)(true);
+		VESC_IF->mc_get_amp_hours_charged(true);
+		VESC_IF->mc_get_watt_hours(true);
+		VESC_IF->mc_get_watt_hours_charged(true);
+		VESC_IF->mc_get_tachometer_value(true);
+		VESC_IF->mc_get_tachometer_abs_value(true);
 		VESC_IF->mc_stat_reset();
 	}
 }
