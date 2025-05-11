@@ -307,11 +307,11 @@ Item {
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
 	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-	                    "Distance           : " + distance.toFixed(0) + " mi" +
-			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" 
+	                    "Distance           : " + distance.toFixed(0) + " mi\n" +
+			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" +
 		            "Carve Chain        : " + speed.toFixed(0) + " mph\n" +
 		     	    "Carves Total       : " + currentavg.toFixed(0) + " A\n" +
-	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi"
+	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi\n"
 	             
 			if (debug_state == 1) {
 				debug.text =
