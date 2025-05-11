@@ -166,6 +166,12 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 		VESC_IF->mc_get_watt_hours(true);
 		VESC_IF->mc_get_watt_hours_charged(true);
 		VESC_IF->mc_stat_reset();
+		ridetrack->max_roll_temp = 0;
+		ridetrack->max_roll = 0;
+		ridetrack->max_roll_avg = 0;
+		ridetrack->max_yaw_temp = 0;
+		ridetrack->max_yaw = 0;
+		ridetrack->max_yaw_avg = 0;
 	}
 }
 
