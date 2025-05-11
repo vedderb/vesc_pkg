@@ -57,7 +57,7 @@ void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg){
 	//    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
 	//	new_change = yaw->last_change;
 	//}
-	if (fabsf(new_change) > 100) // yaw flips signs at 180, ignore those changes
+	if (sign(yaw_angle) != sign(yaw->last_angle)) // yaw flips signs at 180, ignore those changes
 		new_change = yaw->last_change;
 	yaw->last_change = new_change;
 	yaw->last_angle = yaw_angle;
@@ -176,7 +176,7 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 }
 
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
-	//Apply a minimum yaw change and time the yaw change is applied to filter out noise
+	//Apply a minimum yaw change and time yaw change is applied to filter out noise
 	if (yaw->abs_change < ridetrack->min_yaw_change) {
 		ridetrack->yaw_timer = rt->current_time;
 	} else if (rt->current_time - ridetrack->yaw_timer > .2) {
