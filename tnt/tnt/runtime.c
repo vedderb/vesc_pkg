@@ -36,7 +36,7 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->abs_roll_angle = fabsf(rt->roll_angle);
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
-	rt->yaw_angle = rad2deg(VESC_IF->imu_get_yaw()); //rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
+	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	VESC_IF->imu_get_gyro(rt->gyro);
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 }
@@ -82,8 +82,8 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
 	yaw_dbg->debug3 = 0;
-
-
+	rt->imu_counter = 0;
+	
 	rt->brake_timeout = 0;
 }
 
@@ -102,6 +102,8 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
+
+	rt->imu_rate_factor = 1.0f * config->hertz / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 }
 
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
