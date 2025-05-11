@@ -428,7 +428,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 112;
+	static const int bufsize = 140;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -460,11 +460,17 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.rest_time, &ind); //Rest time
 	buffer_append_float32_auto(buffer, d->ridetrack.distance, &ind); //distance
 	buffer_append_float32_auto(buffer, d->ridetrack.efficiency, &ind); //efficiency
-	buffer_append_float32_auto(buffer, d->ridetrack.carve_chain, &ind); //speed avg convert m/s to mph
-	buffer_append_float32_auto(buffer, d->ridetrack.carves_total, &ind); //current avg
-	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile/100, &ind); //power avg
+	buffer_append_float32_auto(buffer, d->ridetrack.current_avg, &ind); //current avg
+	buffer_append_float32_auto(buffer, d->ridetrack.speed_avg, &ind); //speed avg mph
+	buffer_append_float32_auto(buffer, d->ridetrack.carve_chain, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_carve_chain, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_total, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile/100, &ind);
+	buffer_append_float32_auto(buffer, d->ridetrack.max_roll, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_roll_avg, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw * d->tnt_conf.hertz, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw_avg * d->tnt_conf.hertz, &ind); 
 
-	
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
