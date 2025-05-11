@@ -75,7 +75,7 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	rt->pitch_smooth_kalman = rt->pitch_angle;
 
 	//Yaw
-	yaw->last_angle = 0;
+	yaw->last_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	yaw->last_change = 0;
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
