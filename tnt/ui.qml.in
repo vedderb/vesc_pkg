@@ -120,9 +120,16 @@ Item {
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
 	 	var distance = dv.getFloat32(ind); ind += 4; //distance
 	        var eff = dv.getFloat32(ind); ind += 4; //efficiency
-	        var speed = dv.getFloat32(ind); ind += 4; //speed avg
-	        var currentavg = dv.getFloat32(ind); ind += 4; //current avg
+	        var current_avg = dv.getFloat32(ind); ind += 4; //current avg
+	        var speed_avg = dv.getFloat32(ind); ind += 4; //speed avg
+	        var carve_chain = dv.getFloat32(ind); ind += 4; 
+	        var max_carve_chain = dv.getFloat32(ind); ind += 4; 
+	        var carves_total = dv.getFloat32(ind); ind += 4; 
 	        var carves_mile = dv.getFloat32(ind); ind += 4; //carves per mile
+	 	var max_roll = dv.getFloat32(ind); ind += 4; 
+ 		var max_roll_avg = dv.getFloat32(ind); ind += 4;
+	        var max_yaw = dv.getFloat32(ind); ind += 4; 
+	        var max_yaw_avg = dv.getFloat32(ind); ind += 4; 
 
                 var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
                 if (debug_state == 1) { 
@@ -309,9 +316,16 @@ Item {
 	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
 	                    "Distance           : " + distance.toFixed(0) + " mi\n" +
 			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" +
-		            "Carve Chain        : " + speed.toFixed(0) + " mph\n" +
-		     	    "Carves Total       : " + currentavg.toFixed(0) + " A\n" +
-	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi\n"
+		            "Current Average    : " + current_avg.toFixed(1) + " A\n" +
+		     	    "Speed Average      : " + speed_avg.toFixed(1) + " mph\n" +
+		     	    "Carve Chain        : " + carve_chain.toFixed(0) + " \n" +
+		     	    "Max Carve Chain    : " + max_carve_chain.toFixed(0) + " \n" +
+		     	    "Carves Total       : " + carves_total.toFixed(0) + " \n" +
+	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi\n" +
+		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
+		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
+		            "Max Yaw            : " + maxxyaw.toFixed(0) + " °/s\n" +
+		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" 
 	             
 			if (debug_state == 1) {
 				debug.text =
