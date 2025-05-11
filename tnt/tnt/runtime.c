@@ -159,6 +159,7 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 		VESC_IF->mc_stat_reset();
 	}
 }
+
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
 	carve_tracking(rt, yaw, ridetrack);
 	float corr_factor;
@@ -169,9 +170,8 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
 	ridetrack->current_avg = VESC_IF->mc_stat_current_avg() * corr_factor;
 	ridetrack->power_avg = VESC_IF->mc_stat_power_avg() * corr_factor;
-	ridetrack->efficiency = (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (ridetrack->distance);
+	ridetrack->efficiency = ridetrack->distance < 0.001 ? 0 : (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (ridetrack->distance);
 }
-
 
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	//Apply a minimum yaw change and time the yaw change is applied to filter out noise
