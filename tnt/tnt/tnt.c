@@ -202,6 +202,9 @@ static void tnt_thd(void *arg) {
 			}
 
 			play_footpad_beep(&d->tone, &d->motor, &d->footpad_sensor, &d->tone_config.continuousfootpad);
+
+			//Ride Timer
+			ride_timer(&d->ridetrack, &d->rt);
 			
 			d->rt.odometer_dirty = 1;
 			
@@ -274,7 +277,8 @@ static void tnt_thd(void *arg) {
 		case (STATE_READY):
 			idle_tone(&d->tone, &d->tone_config.slowdouble2, &d->rt, &d->motor);
 			check_odometer(&d->rt);
-
+			rest_timer(&d->ridetrack, &d->rt);
+			
 			if ((d->rt.current_time - d->rt.fault_angle_pitch_timer) > 1) {
 				// 1 second after disengaging - set startup tolerance back to normal (aka tighter)
 				d->spd.startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
