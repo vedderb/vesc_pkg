@@ -88,6 +88,12 @@ typedef struct {
 	float current_avg;
 	float power_avg;
 	float reset_mileage;
+	float max_roll_temp;
+	float max_roll;
+	float max_roll_avg;
+	float max_yaw_temp;
+	float max_yaw;
+	float max_yaw_avg;
 } RideTrackData;
 
 void runtime_data_update(RuntimeData *rt);
