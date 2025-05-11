@@ -151,12 +151,8 @@ void apply_kp_modifiers(data *d) {
 	    &d->pid_dbg);
 
 	// Calculate yaw change
-	d->rt.imu_counter++;
-	if (d->rt.imu_counter >= d->rt.imu_rate_factor) {
-		d->rt.imu_counter = 0;
-		calc_yaw_change(&d->yaw, d->rt.yaw_angle, &d->yaw_dbg);
-	}
-	
+	calc_yaw_change(&d->yaw, d->rt.yaw_angle, &d->yaw_dbg);
+		
 	//Select and apply yaw kp
 	d->pid.pid_mod += apply_yaw_kp(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, d->motor.erpm_sign, d->yaw.abs_change, 
 	    yaw_erpm_scale(&d->pid,  &d->state, d->motor.abs_erpm, &d->tnt_conf), 
