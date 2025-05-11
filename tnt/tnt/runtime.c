@@ -151,12 +151,11 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 		ridetrack->carves_total = 0;
 		ridetrack->ride_time = 0;
 		ridetrack->rest_time = 0;
+		ridetrack->reset_mileage = VESC_IF->mc_get_distance_abs() * 0.000621;
 		VESC_IF->mc_get_amp_hours(true);
 		VESC_IF->mc_get_amp_hours_charged(true);
 		VESC_IF->mc_get_watt_hours(true);
 		VESC_IF->mc_get_watt_hours_charged(true);
-		VESC_IF->mc_get_tachometer_value(true);
-		VESC_IF->mc_get_tachometer_abs_value(true);
 		VESC_IF->mc_stat_reset();
 	}
 }
@@ -166,7 +165,7 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 	if (ridetrack->ride_time > 0) {
 		corr_factor =  rt->current_time / ridetrack->ride_time;
 	} else {corr_factor = 1;}
-	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621; //- ridetrack->reset_mileage;
+	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621 - ridetrack->reset_mileage;
 	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
 	ridetrack->current_avg = VESC_IF->mc_stat_current_avg() * corr_factor;
 	ridetrack->power_avg = VESC_IF->mc_stat_power_avg() * corr_factor;
