@@ -141,7 +141,7 @@ void check_odometer(RuntimeData *rt) {
 }
 
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 50 / config->hertz;
+	ridetrack->min_yaw_change = 100 / config->hertz;
 }
 
 void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
@@ -151,7 +151,12 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 		ridetrack->carves_total = 0;
 		ridetrack->ride_time = 0;
 		ridetrack->rest_time = 0;
-		//ridetrack->reset_mileage = VESC_IF->mc_get_distance_abs() * 0.000621 
+		VESC_IF->mc_get_amp_hours(true);
+		VESC_IF->mc_get_amp_hours_charged)(true);
+		VESC_IF->mc_get_watt_hours)(true);
+		VESC_IF->mc_get_watt_hours_charged)(true);
+		VESC_IF->mc_get_tachometer_value)(true);
+		VESC_IF->mc_get_tachometer_abs_value)(true);
 		VESC_IF->mc_stat_reset();
 	}
 }
@@ -171,20 +176,21 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	//Apply a minimum yaw change and time the yaw change is applied to filter out noise
-	if (yaw->abs_change < ridetrack->min_yaw_change) 
+	if (yaw->abs_change < ridetrack->min_yaw_change) {
 		ridetrack->yaw_timer = rt->current_time;
-	else if (rt->current_time - ridetrack->yaw_timer > .1) 
+	} else if (rt->current_time - ridetrack->yaw_timer > .1) {
 		ridetrack->yaw_sign = sign(yaw->change);
-
-	// Track the change is yaw change sign to determine carves
-	if (ridetrack->last_yaw_sign != ridetrack->yaw_sign){ 
-		ridetrack->carve_timer = rt->current_time; //reset time out every yaw change
-		if (ridetrack->last_yaw_sign != 0) //don't include the first turn
-			ridetrack->carve_chain++;
-		if (ridetrack->carve_chain > 1) //require 3 turns to be included in carve total
-			ridetrack->carves_total++;
+	
+		// Track the change in yaw change sign to determine carves
+		if (ridetrack->last_yaw_sign != ridetrack->yaw_sign){ 
+			ridetrack->carve_timer = rt->current_time; //reset time out every yaw change
+			if (ridetrack->last_yaw_sign != 0) //don't include the first turn
+				ridetrack->carve_chain++;
+			if (ridetrack->carve_chain > 1) //require 3 turns to be included in carve total
+				ridetrack->carves_total++;
+		}
 	}
-
+	
 	//Time out of 3 seconds if a yaw change is not initiated
 	if (rt->current_time - ridetrack->carve_timer > 3) {
 		ridetrack->carve_chain = 0;
