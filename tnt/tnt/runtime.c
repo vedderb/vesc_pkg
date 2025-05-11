@@ -188,14 +188,19 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 		ridetrack->yaw_timer = rt->current_time;
 	} else if (rt->current_time - ridetrack->yaw_timer > .2) {
 		ridetrack->yaw_sign = sign(yaw->change);
-	
+
 		// Track the change in yaw change sign to determine carves
 		if (ridetrack->last_yaw_sign != ridetrack->yaw_sign){ 
 			ridetrack->carve_timer = rt->current_time; //reset time out every yaw change
 			if (ridetrack->last_yaw_sign != 0) //don't include the first turn
 				ridetrack->carve_chain++;
-			if (ridetrack->carve_chain > 1) //require 3 turns to be included in carve total
+			if (ridetrack->carve_chain > 1) { //require 3 turns to be included in carve total
 				ridetrack->carves_total++;
+				ridetrack->max_roll_avg = (ridetrack->max_roll_avg * (ridetrack->carves_total -1) + ridetrack->max_roll_temp) / ridetrack->carves_total;
+				ridetrack->max_roll_temp = 0;
+				ridetrack->max_yaw_avg = (ridetrack->max_yaw_avg * (ridetrack->carves_total -1) + ridetrack->max_yaw_temp) / ridetrack->carves_total;
+				ridetrack->max_yaw_temp = 0;
+			}
 		}
 	}
 	
@@ -203,8 +208,12 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	if (rt->current_time - ridetrack->carve_timer > 3) {
 		ridetrack->carve_chain = 0;
 		ridetrack->yaw_sign = 0;
+	} else {
+		ridetrack->max_roll_temp = fmaxf( ridetrack->max_roll_temp, rt->abs_roll_angle);
+		ridetrack->max_roll = fmaxf( ridetrack->max_roll, rt->abs_roll_angle);
+		ridetrack->max_yaw_temp = fmaxf( ridetrack->max_yaw_temp, yaw->abs_change);
+		ridetrack->max_yaw = fmaxf( ridetrack->max_yaw, yaw->abs_change);	
 	}
-	
 	ridetrack->last_yaw_sign = ridetrack->yaw_sign;
 	ridetrack->carves_mile = ridetrack->carves_total / ridetrack->distance;
 }
