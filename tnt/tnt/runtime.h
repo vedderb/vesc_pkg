@@ -48,6 +48,8 @@ typedef struct { //Run time values used in various features
 	uint64_t odometer;
 	float brake_timeout;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
+	uint8_t imu_counter;
+	float imu_rate_factor;
 } RuntimeData;
 
 typedef struct {
