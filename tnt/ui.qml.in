@@ -324,7 +324,7 @@ Item {
 	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi\n" +
 		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
-		            "Max Yaw            : " + maxxyaw.toFixed(0) + " °/s\n" +
+		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
 		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" 
 	             
 			if (debug_state == 1) {
