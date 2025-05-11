@@ -85,6 +85,7 @@ typedef struct {
 	float speed_avg;
 	float current_avg;
 	float power_avg;
+	float reset_mileage;
 } RideTrackData;
 
 void runtime_data_update(RuntimeData *rt);
