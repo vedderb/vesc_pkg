@@ -218,7 +218,8 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 		ridetrack->max_roll_temp = fmaxf( ridetrack->max_roll_temp, rt->abs_roll_angle);
 		ridetrack->max_roll = fmaxf( ridetrack->max_roll, rt->abs_roll_angle);
 		ridetrack->max_yaw_temp = fmaxf( ridetrack->max_yaw_temp, yaw->abs_change);
-		ridetrack->max_yaw = fmaxf( ridetrack->max_yaw, yaw->abs_change);	
+		ridetrack->max_yaw = fmaxf( ridetrack->max_yaw, yaw->abs_change);
+		ridetrack->max_carve_chain = fmaxf(ridetrack->max_carve_chain, ridetrack->carve_chain);
 	}
 	ridetrack->last_yaw_sign = ridetrack->yaw_sign;
 	ridetrack->carves_mile = ridetrack->carves_total / ridetrack->distance;
