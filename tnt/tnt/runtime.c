@@ -38,12 +38,7 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 	VESC_IF->imu_get_gyro(rt->gyro);
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
-	
-	rt->imu_counter++;
-	if (rt->imu_counter >= rt->imu_rate_factor) {
-		rt->imu_counter = 0;
-		rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
-	}
+	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 }
 
 void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
@@ -57,13 +52,13 @@ void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 }
 
 void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg){ 
-	float new_change = yaw_angle - yaw->last_angle;
-	if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
-	    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
-		new_change = yaw->last_change;
-	}
-	//if (sign(yaw_angle) != sign(yaw->last_angle)) // yaw flips signs at 180, ignore those changes
+	float new_change = (yaw_angle - yaw->last_angle) / rt->imu_rate_factor;
+	//if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
+	//    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
 	//	new_change = yaw->last_change;
+	//}
+	if (sign(yaw_angle) != sign(yaw->last_angle)) // yaw flips signs at 180, ignore those changes
+		new_change = yaw->last_change;
 	yaw->last_change = new_change;
 	yaw->last_angle = yaw_angle;
 	yaw->change = yaw->change * 0.8 + 0.2 * (new_change);
