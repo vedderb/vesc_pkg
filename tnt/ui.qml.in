@@ -314,14 +314,14 @@ Item {
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
 	                    "Rest Time          : " + resttime1 + ":" + resttime2 + ":" + resttime3 + "\n" +
-	                    "Distance           : " + distance.toFixed(0) + " mi\n" +
+	                    "Distance           : " + distance.toFixed(2) + " mi\n" +
 			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" +
 		            "Current Average    : " + current_avg.toFixed(1) + " A\n" +
 		     	    "Speed Average      : " + speed_avg.toFixed(1) + " mph\n" +
 		     	    "Carve Chain        : " + carve_chain.toFixed(0) + " \n" +
 		     	    "Max Carve Chain    : " + max_carve_chain.toFixed(0) + " \n" +
 		     	    "Carves Total       : " + carves_total.toFixed(0) + " \n" +
-	                    "Carves per Mile    : " + carves_mile.toFixed(1) + " 100x/mi\n" +
+	                    "Carves per Mile    : " + carves_mile.toFixed(0) + " 100x/mi\n" +
 		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
 		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
