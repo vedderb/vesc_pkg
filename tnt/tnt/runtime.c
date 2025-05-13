@@ -148,7 +148,7 @@ void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	ridetrack->min_yaw_change = 70.0f / config->hertz;
 }
 
-void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
+void reset_ride_tracking(RideTrackData *ridetrack) {
 	ridetrack->carve_chain = 0;
 	ridetrack->yaw_sign = 0;
 }
