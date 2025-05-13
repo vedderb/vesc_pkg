@@ -321,7 +321,7 @@ Item {
 		     	    "Carve Chain        : " + carve_chain.toFixed(0) + " \n" +
 		     	    "Max Carve Chain    : " + max_carve_chain.toFixed(0) + " \n" +
 		     	    "Carves Total       : " + carves_total.toFixed(0) + " \n" +
-	                    "Carves per Mile    : " + carves_mile.toFixed(0) + " 100x/mi\n" +
+	                    "Carves per Mile    : " + carves_mile.toFixed(0) + " /mi\n" +
 		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
 		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
