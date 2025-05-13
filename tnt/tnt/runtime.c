@@ -151,8 +151,12 @@ void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	ridetrack->carve_chain = 0;
 	ridetrack->yaw_sign = 0;
+}
+
+void reset_ride_tracking_on_configuire(RideTrackData *ridetrack, tnt_config *config) {
 	if (config->is_resettripdata_enabled) {
 		ridetrack->carves_total = 0;
+		ridetrack->max_carve_chain = 0;
 		ridetrack->ride_time = 0;
 		ridetrack->rest_time = 0;
 		ridetrack->reset_mileage = VESC_IF->mc_get_distance_abs() * 0.000621;
@@ -174,7 +178,7 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 	carve_tracking(rt, yaw, ridetrack);
 	float corr_factor;
 	if (ridetrack->ride_time > 0) {
-		corr_factor =  rt->current_time / ridetrack->ride_time;
+		corr_factor =  ridetrack->ride_time / (ridetrack->rest_time + ridetrack->ride_time);
 	} else {corr_factor = 1;}
 	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621 - ridetrack->reset_mileage;
 	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
