@@ -101,7 +101,8 @@ static void configure(data *d) {
 		&d->traction_dbg, &d->braking_dbg); 				//traction control and traction braking
 	tone_configure_all(&d->tone_config, &d->tnt_conf, &d->tone);		//FOC play tones
 	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
-		
+	reset_ride_tracking_on_configure(&d->ridetrack, &d->tnt_conf);		//Reset current trip information
+	
 	//initialize pitch arrays for acceleration
 	angle_kp_reset(&d->accel_kp);
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
