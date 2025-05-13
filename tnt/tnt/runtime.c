@@ -153,7 +153,7 @@ void reset_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	ridetrack->yaw_sign = 0;
 }
 
-void reset_ride_tracking_on_configuire(RideTrackData *ridetrack, tnt_config *config) {
+void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config) {
 	if (config->is_resettripdata_enabled) {
 		ridetrack->carves_total = 0;
 		ridetrack->max_carve_chain = 0;
