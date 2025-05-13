@@ -52,7 +52,7 @@ void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 }
 
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg){ 
-	float new_change = (rt->yaw_angle - yaw->last_angle) / 12; //rt->imu_rate_factor;
+	float new_change = (rt->yaw_angle - yaw->last_angle) / rt->imu_rate_factor;
 	//if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
 	//    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
 	//	new_change = yaw->last_change;
@@ -102,7 +102,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
 
-	rt->imu_rate_factor = 1.0f * config->hertz / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
+	rt->imu_rate_factor = 1.0f * config->hertz / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate) / 4;
 }
 
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
