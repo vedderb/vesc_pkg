@@ -82,7 +82,6 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
 	yaw_dbg->debug3 = 0;
-	rt->imu_counter = 0;
 	
 	rt->brake_timeout = 0;
 }
