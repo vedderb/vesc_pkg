@@ -154,9 +154,9 @@ void roll_kp_configure(const tnt_config *config, KpArray *k, int mode){
 void yaw_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	float accel_yaw_kp[7][2] = { //Accel curve
 	{0, 0}, 
-	{config->yaw1 / config->hertz, config->yaw_kp1},
-	{config->yaw2 / config->hertz, config->yaw_kp2},
-	{config->yaw3 / config->hertz, config->yaw_kp3},
+	{config->yaw1 / config->hertz * 1e6, config->yaw_kp1},
+	{config->yaw2 / config->hertz * 1e6, config->yaw_kp2},
+	{config->yaw3 / config->hertz * 1e6, config->yaw_kp3},
 	{0, 0},
 	{0, 0},
 	{0, 0},
@@ -164,9 +164,9 @@ void yaw_kp_configure(const tnt_config *config, KpArray *k, int mode){
 	
 	float brake_yaw_kp[7][2] = { //Brake Curve
 	{0, 0}, 
-	{config->brkyaw1 / config->hertz, config->brkyaw_kp1},
-	{config->brkyaw2 / config->hertz, config->brkyaw_kp2},
-	{config->brkyaw3 / config->hertz, config->brkyaw_kp3},
+	{config->brkyaw1 / config->hertz * 1e6, config->brkyaw_kp1},
+	{config->brkyaw2 / config->hertz * 1e6, config->brkyaw_kp2},
+	{config->brkyaw3 / config->hertz * 1e6, config->brkyaw_kp3},
 	{0, 0},
 	{0, 0},
 	{0, 0},
