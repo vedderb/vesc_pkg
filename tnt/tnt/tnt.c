@@ -152,7 +152,7 @@ void apply_kp_modifiers(data *d) {
 	    &d->pid_dbg);
 
 	// Calculate yaw change
-	calc_yaw_change(&d->yaw, d->rt.yaw_angle, &d->yaw_dbg);
+	calc_yaw_change(&d->yaw, &d->rt, &d->yaw_dbg);
 		
 	//Select and apply yaw kp
 	d->pid.pid_mod += apply_yaw_kp(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, d->motor.erpm_sign, d->yaw.abs_change, 
