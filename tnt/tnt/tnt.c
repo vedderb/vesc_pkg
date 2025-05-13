@@ -466,7 +466,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.carve_chain, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_carve_chain, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.carves_total, &ind); 
-	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile/100, &ind);
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile, &ind);
 	buffer_append_float32_auto(buffer, d->ridetrack.max_roll, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_roll_avg, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw * d->tnt_conf.hertz, &ind); 
