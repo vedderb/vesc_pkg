@@ -144,7 +144,7 @@ void check_odometer(RuntimeData *rt) {
 }
 
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 70.0f / config->hertz;
+	ridetrack->min_yaw_change = 100.0f / config->hertz;
 }
 
 void reset_ride_tracking(RideTrackData *ridetrack) {
