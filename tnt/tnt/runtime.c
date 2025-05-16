@@ -102,7 +102,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
 
-	rt->imu_rate_factor = 1.0f * config->hertz / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate) / 4;
+	rt->imu_rate_factor = lerp(832, 10000, 1, 5, config->hertz);
 }
 
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
@@ -144,7 +144,7 @@ void check_odometer(RuntimeData *rt) {
 }
 
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 100.0f / config->hertz;
+	ridetrack->min_yaw_change = 70.0f / config->hertz;
 }
 
 void reset_ride_tracking(RideTrackData *ridetrack) {
@@ -190,7 +190,7 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	//Apply a minimum yaw change and time yaw change is applied to filter out noise
 	if (yaw->abs_change < ridetrack->min_yaw_change) {
 		ridetrack->yaw_timer = rt->current_time;
-	} else if (rt->current_time - ridetrack->yaw_timer > .2) {
+	} else if (rt->current_time - ridetrack->yaw_timer > .05) {
 		ridetrack->yaw_sign = sign(yaw->change);
 
 		// Track the change in yaw change sign to determine carves
