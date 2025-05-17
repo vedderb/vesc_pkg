@@ -129,7 +129,9 @@ Item {
 	 	var max_roll = dv.getFloat32(ind); ind += 4; 
  		var max_roll_avg = dv.getFloat32(ind); ind += 4;
 	        var max_yaw = dv.getFloat32(ind); ind += 4; 
-	        var max_yaw_avg = dv.getFloat32(ind); ind += 4; 
+	        var max_yaw_avg = dv.getFloat32(ind); ind += 4;
+	        var max_air = dv.getFloat32(ind); ind += 4;
+	 	var bonks_total = dv.getFloat32(ind); ind += 4;
 
                 var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
                 if (debug_state == 1) { 
@@ -325,7 +327,9 @@ Item {
 		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
 		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
-		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" 
+		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" +
+		     	    "Max Air Time       : " + max_air.toFixed(2) + " s\n" +
+		     	    "Bonks Total        : " + bonks_total.toFixed(0) + " n" 
 	             
 			if (debug_state == 1) {
 				debug.text =
