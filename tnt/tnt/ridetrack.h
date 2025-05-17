@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "runtime.h"
+#include "traction.h"
 
 typedef struct {
 	float rest_time;
@@ -56,6 +57,6 @@ void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config);
 void reset_ride_tracking(RideTrackData *ridetrack);
 void rest_timer(RideTrackData *ridetrack, RuntimeData *rt);
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt);
-void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config);
+void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config, TractionDebugData *traction_dbg);
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
