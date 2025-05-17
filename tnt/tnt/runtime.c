@@ -105,24 +105,6 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->imu_rate_factor = lerp(832, 10000, 1, config->pitch_filter, config->hertz);
 }
 
-void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
-	rt->disengage_timer = rt->current_time;
-	
-	if(ridetrack->run_flag) { //First trigger run flag and reset last ride time
-		ridetrack->ride_time += rt->current_time - ridetrack->last_ride_time;
-	}
-	ridetrack->run_flag = true;
-	ridetrack->last_ride_time = rt->current_time;
-}
-
-void rest_timer(RideTrackData *ridetrack, RuntimeData *rt){
-	if(!ridetrack->run_flag) { //First trigger run flag and reset last rest time
-		ridetrack->rest_time += rt->current_time - ridetrack->last_rest_time;
-	}
-	ridetrack->run_flag = false;
-	ridetrack->last_rest_time = rt->current_time;
-}
-
 void check_odometer(RuntimeData *rt) { 
 	//check_odometer: see if we need to write back the odometer during fault state
 	// Make odometer persistent if we've gone 200m or more
@@ -141,93 +123,4 @@ void check_odometer(RuntimeData *rt) {
 			}
 		}
 	}
-}
-
-void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 70.0f / config->hertz;
-}
-
-void reset_ride_tracking(RideTrackData *ridetrack) {
-	ridetrack->carve_chain = 0;
-	ridetrack->yaw_sign = 0;
-}
-
-void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config) {
-	if (config->is_resettripdata_enabled) {
-		ridetrack->carves_total = 0;
-		ridetrack->max_carve_chain = 0;
-		ridetrack->ride_time = 0;
-		ridetrack->rest_time = 0;
-		ridetrack->reset_mileage = VESC_IF->mc_get_distance_abs() * 0.000621;
-		VESC_IF->mc_get_amp_hours(true);
-		VESC_IF->mc_get_amp_hours_charged(true);
-		VESC_IF->mc_get_watt_hours(true);
-		VESC_IF->mc_get_watt_hours_charged(true);
-		VESC_IF->mc_stat_reset();
-		ridetrack->max_roll_temp = 0;
-		ridetrack->max_roll = 0;
-		ridetrack->max_roll_avg = 0;
-		ridetrack->max_yaw_temp = 0;
-		ridetrack->max_yaw = 0;
-		ridetrack->max_yaw_avg = 0;
-		ridetrack->max_time = 0;
-		ridetrack->bonks_total = 0;
-	}
-}
-
-void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
-	carve_tracking(rt, yaw, ridetrack);
-	float corr_factor;
-	if (ridetrack->ride_time > 0) {
-		corr_factor =  ridetrack->ride_time / (ridetrack->rest_time + ridetrack->ride_time);
-	} else {corr_factor = 1;}
-	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621 - ridetrack->reset_mileage;
-	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
-	ridetrack->current_avg = VESC_IF->mc_stat_current_avg() * corr_factor;
-	ridetrack->power_avg = VESC_IF->mc_stat_power_avg() * corr_factor;
-	ridetrack->efficiency = ridetrack->distance < 0.001 ? 0 : (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (ridetrack->distance);
-}
-
-void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
-	//Apply a minimum yaw change and time yaw change is applied to filter out noise
-	if (yaw->abs_change < ridetrack->min_yaw_change) {
-		ridetrack->yaw_timer = rt->current_time;
-	} else if (rt->current_time - ridetrack->yaw_timer > .05) {
-		ridetrack->yaw_sign = sign(yaw->change);
-
-		// Track the change in yaw change sign to determine carves
-		if (ridetrack->last_yaw_sign != ridetrack->yaw_sign){ 
-			ridetrack->carve_timer = rt->current_time; //reset time out every yaw change
-			if (ridetrack->last_yaw_sign != 0) //don't include the first turn
-				ridetrack->carve_chain++;
-			if (ridetrack->carve_chain > 1) { //require 3 turns to be included in carve total
-				ridetrack->carves_total++;
-				ridetrack->max_roll_avg = (ridetrack->max_roll_avg * (ridetrack->carves_total -1) + ridetrack->max_roll_temp) / ridetrack->carves_total;
-				ridetrack->max_roll_temp = 0;
-				ridetrack->max_yaw_avg = (ridetrack->max_yaw_avg * (ridetrack->carves_total -1) + ridetrack->max_yaw_temp) / ridetrack->carves_total;
-				ridetrack->max_yaw_temp = 0;
-			}
-		}
-	}
-	
-	//Time out of 3 seconds if a yaw change is not initiated
-	if (rt->current_time - ridetrack->carve_timer > 3) {
-		ridetrack->carve_chain = 0;
-		ridetrack->yaw_sign = 0;
-	} else {
-		ridetrack->max_roll_temp = fmaxf( ridetrack->max_roll_temp, rt->abs_roll_angle);
-		ridetrack->max_roll = fmaxf( ridetrack->max_roll, rt->abs_roll_angle);
-		ridetrack->max_yaw_temp = fmaxf( ridetrack->max_yaw_temp, yaw->abs_change);
-		ridetrack->max_yaw = fmaxf( ridetrack->max_yaw, yaw->abs_change);
-		ridetrack->max_carve_chain = fmaxf(ridetrack->max_carve_chain, ridetrack->carve_chain);
-	}
-	ridetrack->last_yaw_sign = ridetrack->yaw_sign;
-	ridetrack->carves_mile = ridetrack->carves_total / ridetrack->distance;
-}
-
-ridetrack_traction(float exit, float time, float abs_erpm) {
-	if (exit == 2 && time> 0.05)
-		ridetrack->bonks_total++;
-	if (exit > 0 && abs_erpm < 12000)	
-		ridetrack->max_time = max(ridetrack->max_time, time);
 }
