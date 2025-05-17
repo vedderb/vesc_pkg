@@ -222,3 +222,8 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	ridetrack->last_yaw_sign = ridetrack->yaw_sign;
 	ridetrack->carves_mile = ridetrack->carves_total / ridetrack->distance;
 }
+
+ridetrack_traction(float exit, float time) {
+	if (exit == 2)
+		ridetrack->max_time = max(ridetrack->max_time, time);
+}
