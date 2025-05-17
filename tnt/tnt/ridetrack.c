@@ -15,6 +15,10 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
+#include "ridetrack.h"
+#include "utils_tnt.h"
+#include <math.h>
+
 void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
 	ridetrack->min_yaw_change = 70.0f / config->hertz;
 }
