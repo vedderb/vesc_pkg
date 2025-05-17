@@ -59,4 +59,4 @@ void rest_timer(RideTrackData *ridetrack, RuntimeData *rt);
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt);
 void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config, TractionDebug *traction_dbg);
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
-void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
+void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack, tnt_config *config);
