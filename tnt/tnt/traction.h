@@ -50,6 +50,8 @@ typedef struct {
 	float debug9;
 	float aggregate_timer;
 	float freq_factor;
+	float max_time;
+	uint32_t bonks_total;
 } TractionDebug;
 
 typedef struct {
