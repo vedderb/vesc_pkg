@@ -226,7 +226,7 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 }
 
 ridetrack_traction(float exit, float time, MotorData *m) {
-	if (exit == 2)
+	if (exit == 2 && time> 0.05)
 		ridetrack->bonks_total++;
 	if (exit > 0 && m->abs_erpm < 12000)	
 		ridetrack->max_time = max(ridetrack->max_time, time);
