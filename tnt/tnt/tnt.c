@@ -180,7 +180,7 @@ static void tnt_thd(void *arg) {
 		temp_recovery_tone(&d->tone, &d->tone_config.fasttripleup, &d->motor);
 		tone_update(&d->tone, &d->rt, &d->state);
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
-		ride_tracking_update(&d->ridetrack, &d->rt, &d->yaw);
+		ride_tracking_update(&d->ridetrack, &d->rt, &d->yaw, &d->tnt_conf);
 	      	d->pid.new_pid_value = 0;		
 
 		// Control Loop State Logic
