@@ -32,6 +32,7 @@
 #include "utils_tnt.h"
 #include "remote_input.h"
 #include "foc_tone.h"
+#include "ridetrack.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
@@ -206,7 +207,7 @@ static void tnt_thd(void *arg) {
 
 			//Ride Timer
 			ride_timer(&d->ridetrack, &d->rt);
-			
+			rt->disengage_timer = rt->current_time;
 			d->rt.odometer_dirty = 1;
 			
 			// Calculate setpoint and interpolation
@@ -471,8 +472,8 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.max_roll_avg, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw * d->tnt_conf.hertz, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw_avg * d->tnt_conf.hertz, &ind); 
-	buffer_append_float32_auto(buffer, d->ridetrack.max_time, &ind); 
-	buffer_append_float32_auto(buffer, d->ridetrack.bonks_total, &ind); 
+	buffer_append_float32_auto(buffer, d->traction_dbg.max_time, &ind); 
+	buffer_append_float32_auto(buffer, d->traction_dbg.bonks_total, &ind); 
 
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
