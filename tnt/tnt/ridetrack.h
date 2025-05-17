@@ -20,7 +20,7 @@
 #include "vesc_c_if.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "runtimedata.h"
+#include "runtime.h"
 
 typedef struct {
 	float rest_time;
