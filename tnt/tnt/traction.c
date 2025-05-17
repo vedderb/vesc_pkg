@@ -18,6 +18,7 @@
 #include "traction.h"
 #include <math.h>
 #include "utils_tnt.h"
+#include "runtime.h"
 
 void check_traction(MotorData *m, TractionData *traction, State *state, tnt_config *config, PidData *p, TractionDebug *traction_dbg){
 	float erpmfactor = fmaxf(1, lerp(0, config->wheelslip_scaleerpm, config->wheelslip_scaleaccel, 1, m->abs_erpm));
@@ -126,6 +127,8 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 	if (traction_dbg->debug4 > 10000) 
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
 	traction_dbg->debug4 = traction_dbg->debug4 * 10 + exit; //aggregate the last traction deactivations
+	
+	ridetrack_traction(exit, traction_dbg->debug5);
 }
 
 void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg){
