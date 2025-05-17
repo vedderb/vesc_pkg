@@ -45,3 +45,7 @@ float clampf(float value, float min, float max) {
     const float m = value < min ? min : value;
     return m > max ? max : m;
 }
+
+void ema(float *value, float alpha, float new_value) {
+    *value = (1 - alpha) * *value + alpha * new_value;
+}
