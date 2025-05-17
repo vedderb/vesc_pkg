@@ -31,11 +31,11 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	// Conditions to end traction control
 	if (state->wheelslip) {
 		if (current_time - traction->timeron > 1) {		// Time out at 1s
-			deactivate_traction(traction, state, traction_dbg, 5);
+			deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 5);
 		} else if (fabsf(p->proportional) > config->wheelslip_max_angle) {
-			deactivate_traction(traction, state, traction_dbg, 4);
+			deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 4);
 		} else if (state->braking_active) {
-			deactivate_traction(traction, state, traction_dbg, 6);
+			deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 6);
 		} else {
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration direction change
 			if (traction->highaccelon1) { 
@@ -44,7 +44,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 					traction->highaccelon1 = false;				
 			} else if (sign(m->accel_filtered)!= sign(m->last_accel_filtered)) { 
 			// Next we check to see if accel direction changes again from outside forces 
-				deactivate_traction(traction, state, traction_dbg, 1);
+				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 1);
 			}
 			
 			//This section determines if the wheel is acted on by outside forces by detecting acceleration magnitude
@@ -53,13 +53,13 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 					traction->highaccelon2 = false;		// First we identify that the wheel has deccelerated
 			} else if (fabsf(m->accel_avg) > traction->end_accel) {
 			// Next we check to see if accel magnitude increases from outside forces 
-				deactivate_traction(traction, state, traction_dbg, 2);
+				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 2);
 			}
 
 			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
 			if (traction->reverse_wheelslip && 
 			    m->erpm_sign_check) {
-				deactivate_traction(traction, state, traction_dbg, 3);
+				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 3);
 			}
 		}
 	} else { //Start conditions and traciton control activation
@@ -117,7 +117,7 @@ void reset_traction(TractionData *traction, State *state, BrakingData *braking) 
 	braking->last_active = false;
 }
 
-void deactivate_traction(TractionData *traction, State *state, TractionDebug *traction_dbg, float exit) {
+void deactivate_traction(TractionData *traction, State *state, TractionDebug *traction_dbg, float abs_erpm, float exit) {
 	state->wheelslip = false;
 	traction->timeroff = VESC_IF->system_time();
 	traction->reverse_wheelslip = false;
@@ -128,7 +128,7 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
 	traction_dbg->debug4 = traction_dbg->debug4 * 10 + exit; //aggregate the last traction deactivations
 	
-	ridetrack_traction(exit, traction_dbg->debug5);
+	ridetrack_traction(exit, traction_dbg->debug5, abs_erpm);
 }
 
 void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg){
