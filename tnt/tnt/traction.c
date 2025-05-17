@@ -128,7 +128,10 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
 	traction_dbg->debug4 = traction_dbg->debug4 * 10 + exit; //aggregate the last traction deactivations
 	
-	ridetrack_traction(exit, traction_dbg->debug5, abs_erpm);
+	if (exit == 2 && traction_dbg->debug8 > 0.05)
+		traction_dbg->bonks_total++;
+	if (exit > 0 && abs_erpm < 12000)	
+		traction_dbg->max_time = max(traction_dbg->max_time, time);
 }
 
 void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg){
