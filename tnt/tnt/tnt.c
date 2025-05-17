@@ -471,7 +471,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.max_roll_avg, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw * d->tnt_conf.hertz, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw_avg * d->tnt_conf.hertz, &ind); 
-	buffer_append_float32_auto(buffer, d->ridetrack.max_air, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_time, &ind); 
 	buffer_append_float32_auto(buffer, d->ridetrack.bonks_total, &ind); 
 
 	// DEBUG
