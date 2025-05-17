@@ -329,7 +329,7 @@ Item {
 		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
 		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" +
 		     	    "Max Air Time       : " + max_air.toFixed(2) + " s\n" +
-		     	    "Bonks Total        : " + bonks_total.toFixed(0) + " n" 
+		     	    "Bonks Total        : " + bonks_total.toFixed(0) + " \n" 
 	             
 			if (debug_state == 1) {
 				debug.text =
