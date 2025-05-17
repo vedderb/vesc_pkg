@@ -71,7 +71,7 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 	carve_tracking(rt, yaw, ridetrack, config);
 	float corr_factor;
 	if (ridetrack->ride_time > 0) {
-		corr_factor =  ridetrack->ride_time / (ridetrack->rest_time + ridetrack->ride_time);
+		corr_factor =  (ridetrack->rest_time + ridetrack->ride_time) / ridetrack->ride_time ;
 	} else {corr_factor = 1;}
 	ridetrack->distance = VESC_IF->mc_get_distance_abs() * 0.000621 - ridetrack->reset_mileage;
 	ridetrack->speed_avg = VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor;
