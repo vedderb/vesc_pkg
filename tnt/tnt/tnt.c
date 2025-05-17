@@ -207,7 +207,7 @@ static void tnt_thd(void *arg) {
 
 			//Ride Timer
 			ride_timer(&d->ridetrack, &d->rt);
-			rt->disengage_timer = rt->current_time;
+			d->rt.disengage_timer = rt->current_time;
 			d->rt.odometer_dirty = 1;
 			
 			// Calculate setpoint and interpolation
