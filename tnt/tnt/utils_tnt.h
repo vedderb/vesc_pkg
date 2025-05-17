@@ -117,3 +117,5 @@ float clampf(float value, float min, float max);
  * @param step A maximum unit of change of @p value.
  */
 void rate_limitf(float *value, float target, float step);
+
+void ema(float *value, float alpha, float new_value);
