@@ -95,6 +95,7 @@ typedef struct {
 	float max_yaw;
 	float max_yaw_avg;
 	float max_time;
+	uint32_t bonks_total;
 } RideTrackData;
 
 void runtime_data_update(RuntimeData *rt);
@@ -110,4 +111,4 @@ void reset_ride_tracking(RideTrackData *ridetrack);
 void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config);
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
-void ridetrack_traction(float exit, float time);
+void ridetrack_traction(float exit, float time, MotorData *m);
