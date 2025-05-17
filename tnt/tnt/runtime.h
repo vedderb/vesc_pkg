@@ -111,4 +111,4 @@ void reset_ride_tracking(RideTrackData *ridetrack);
 void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config);
 void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw);
 void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack);
-void ridetrack_traction(float exit, float time, MotorData *m);
+void ridetrack_traction(float exit, float time, float abs_erpm);
