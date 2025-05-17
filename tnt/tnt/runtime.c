@@ -171,6 +171,7 @@ void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *conf
 		ridetrack->max_yaw = 0;
 		ridetrack->max_yaw_avg = 0;
 		ridetrack->max_time = 0;
+		ridetrack->bonks_total = 0;
 	}
 }
 
