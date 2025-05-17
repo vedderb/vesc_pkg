@@ -97,12 +97,12 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->motor_timeout_s = 20.0f / config->hertz;
 	
 	//Pitch Biquad Configure
-	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz);
+	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * 25 / config->hertz); //config->pitch_filter
 
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
 
-	rt->imu_rate_factor = lerp(832, 10000, 1, 5, config->hertz);
+	rt->imu_rate_factor = lerp(832, 10000, 1, config->pitch_filter, config->hertz);
 }
 
 void ride_timer(RideTrackData *ridetrack, RuntimeData *rt){
