@@ -67,8 +67,8 @@ void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *conf
 	}
 }
 
-void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
-	carve_tracking(rt, yaw, ridetrack);
+void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw, tnt_config *config) {
+	carve_tracking(rt, yaw, ridetrack, config);
 	float corr_factor;
 	if (ridetrack->ride_time > 0) {
 		corr_factor =  ridetrack->ride_time / (ridetrack->rest_time + ridetrack->ride_time);
