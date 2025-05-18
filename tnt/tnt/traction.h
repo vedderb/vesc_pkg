@@ -59,6 +59,7 @@ typedef struct {
 	float timeroff;      		
 	bool active;
 	bool last_active;
+	float off_timer;
 } BrakingData;
 
 typedef struct {
