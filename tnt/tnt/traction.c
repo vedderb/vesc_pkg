@@ -143,6 +143,7 @@ void configure_traction(TractionData *traction, BrakingData *braking, tnt_config
 	braking_dbg->freq_factor = traction_dbg->freq_factor;
 	traction->erpm_rate_limit = 1000.0 * config->wheelslip_erpm_rate_limit / config->hertz;
 	traction->erpm_exclusion_rate = 1000.0 * config->wheelslip_erpm_exclusion_rate / config->hertz;
+	braking->off_time_limit = 1.0 * config->tc_braking_off_time / 1000.0;
 }
 
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config,
@@ -181,7 +182,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 		braking_dbg->debug8 = current_time - braking->timeron + braking_dbg->debug1; //running on time tracker
 	}
 
-	if (current_time - braking->off_timer > config->tc_braking_off_timer) {
+	if (current_time - braking->off_timer > braking->off_time_limit) {
 		state->braking_active = false; 
 
 		//Debug Section
