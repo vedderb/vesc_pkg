@@ -128,7 +128,7 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
 	traction_dbg->debug4 = traction_dbg->debug4 * 10 + exit; //aggregate the last traction deactivations
 	
-	if (exit == 2 && traction_dbg->debug8 > 0.05)
+	if (exit == 2 && traction_dbg->debug8 > 0.1)
 		traction_dbg->bonks_total++;
 	if (exit > 0 && abs_erpm < 12000)	
 		traction_dbg->max_time = max(traction_dbg->max_time, traction_dbg->debug8);
@@ -160,6 +160,7 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 	    !(state->wheelslip && config->is_traction_enabled) &&			// not currently in traction control
 	    m->abs_erpm > config->tc_braking_min_erpm) {				// Minimum speed threshold
 		state->braking_active = true;
+		braking->off_timer = current_time;
 		
 		//Debug Section
 		if (current_time - braking_dbg->aggregate_timer > 5) { // Reset these values after we have not braked for a few seconds
@@ -178,7 +179,9 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 		braking_dbg->debug9 = max(braking_dbg->debug9, m->abs_erpm);
 		braking_dbg->debug3 = min(braking_dbg->debug3, m->abs_erpm);	
 		braking_dbg->debug8 = current_time - braking->timeron + braking_dbg->debug1; //running on time tracker
-	} else { 
+	}
+
+	if (current_time - braking->off_timer > config->tc_braking_off_timer) {
 		state->braking_active = false; 
 
 		//Debug Section
