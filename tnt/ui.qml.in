@@ -122,13 +122,9 @@ Item {
 	        var eff = dv.getFloat32(ind); ind += 4; //efficiency
 	        var current_avg = dv.getFloat32(ind); ind += 4; //current avg
 	        var speed_avg = dv.getFloat32(ind); ind += 4; //speed avg
-	        var carve_chain = dv.getFloat32(ind); ind += 4; 
 	        var max_carve_chain = dv.getFloat32(ind); ind += 4; 
-	        var carves_total = dv.getFloat32(ind); ind += 4; 
 	        var carves_mile = dv.getFloat32(ind); ind += 4; //carves per mile
-	 	var max_roll = dv.getFloat32(ind); ind += 4; 
  		var max_roll_avg = dv.getFloat32(ind); ind += 4;
-	        var max_yaw = dv.getFloat32(ind); ind += 4; 
 	        var max_yaw_avg = dv.getFloat32(ind); ind += 4;
 	        var max_air = dv.getFloat32(ind); ind += 4;
 	 	var bonks_total = dv.getFloat32(ind); ind += 4;
@@ -320,16 +316,12 @@ Item {
 			    "Efficiency         : " + eff.toFixed(1) + " Wh/mi\n" +
 		            "Current Average    : " + current_avg.toFixed(1) + " A\n" +
 		     	    "Speed Average      : " + speed_avg.toFixed(1) + " mph\n" +
-		     	    "Carve Chain        : " + carve_chain.toFixed(0) + " \n" +
 		     	    "Max Carve Chain    : " + max_carve_chain.toFixed(0) + " \n" +
-		     	    "Carves Total       : " + carves_total.toFixed(0) + " \n" +
 	                    "Carves per Mile    : " + carves_mile.toFixed(0) + " /mi\n" +
-		            "Max Roll           : " + max_roll.toFixed(1) + " °\n" +
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
-		            "Max Yaw            : " + max_yaw.toFixed(0) + " °/s\n" +
 		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" +
 		     	    "Max Air Time       : " + max_air.toFixed(2) + " s\n" +
-		     	    "Bonks Total        : " + bonks_total.toFixed(0) + " \n" 
+		     	    "Air Time Total     : " + bonks_total.toFixed(0) + " \n" 
 	             
 			if (debug_state == 1) {
 				debug.text =
