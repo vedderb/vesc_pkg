@@ -60,6 +60,7 @@ typedef struct {
 	bool active;
 	bool last_active;
 	float off_timer;
+	float off_time_limit;
 } BrakingData;
 
 typedef struct {
