@@ -99,6 +99,7 @@ typedef struct {
 	float brkyaw2;
 	float brkyaw3;
 	uint16_t yaw_minerpm;
+	float yaw_filter;
 	bool is_surge_enabled;
 	uint16_t surge_startcurrent;
 	uint16_t surge_start_hd_current;
