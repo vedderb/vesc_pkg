@@ -84,7 +84,7 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack, tnt
 	//Apply a minimum yaw change and time yaw change is applied to filter out noise
 	if (yaw->abs_change < ridetrack->min_yaw_change) {
 		ridetrack->yaw_timer = rt->current_time;
-	} else if (rt->current_time - ridetrack->yaw_timer > .010) {
+	} else if (rt->current_time - ridetrack->yaw_timer > .050) {
 		ridetrack->yaw_sign = sign(yaw->change);
 
 		// Track the change in yaw change sign to determine carves
