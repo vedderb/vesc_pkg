@@ -52,14 +52,14 @@ void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 }
 
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz){ 
-	float new_change = rt->yaw_angle - yaw->last_angle;
+	float new_change = rt->yaw_angle - yaw->last_angle / rt->imu_rate_factor;
 	//if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
 	//    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
 	//	new_change = yaw->last_change;
 	//}
 	if (sign(rt->yaw_angle) != sign(yaw->last_angle)) // yaw flips signs at 180, ignore those changes
 		new_change = yaw->last_change;
-	new_change = biquad_process(&rt->yaw_biquad, new_change);
+	//new_change = biquad_process(&rt->yaw_biquad, new_change);
 	yaw->last_change = new_change;
 	yaw->last_angle = rt->yaw_angle;
 	ema(&yaw->change, 0.2 * 832 / hertz, new_change); //originally configured for 0.2 at 832 Hz
@@ -103,8 +103,8 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
 
-	//Yaw change biquad configure
-	biquad_configure(&rt->yaw_biquad, BQ_LOWPASS, 1.0 * config->yaw_filter / config->hertz); 
+	//Yaw change correction factor
+	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
 }
 
 void check_odometer(RuntimeData *rt) { 
