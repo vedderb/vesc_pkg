@@ -23,7 +23,7 @@ typedef struct {
 	float ramped_step_size;
 	float step_size;
 	float throttle_val;
-	float inputtilt_interpolated;
+	float setpoint;
 	float smoothing_factor;
 } RemoteData;
 
