@@ -61,6 +61,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added Tracking ERPM Margin parameter defines the difference between actual ERPM and Tracking ERPM before traction control will engage
     * Default Start Acceleration changed to 35 ERPM/ms
     * Default ERPM Filter Frequency to 25 Hz
+    * Replaced Start Condition with Track ERPM in AppUI debug
   * Yaw
     * Added a hard coded correction fator to yaw change to account for higher yaw rates at higher package loop frequencies
   * New trip data on AppUI
