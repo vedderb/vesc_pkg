@@ -195,7 +195,7 @@ static void tnt_thd(void *arg) {
 		case (STATE_RUNNING):	
 			// Check for faults
 			if (check_faults(&d->motor, &d->footpad_sensor, &d->rt, &d->state, 
-			    d->remote.inputtilt_interpolated, &d->tnt_conf)) {
+			    d->remote.setpoint, &d->tnt_conf)) {
 				if (d->state.stop_condition == STOP_SWITCH_FULL) {
 					// dirty landings: add extra margin when rightside up
 					d->spd.startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance + d->spd.startup_pitch_trickmargin;
@@ -220,8 +220,8 @@ static void tnt_thd(void *arg) {
 			float input_tiltback_target = d->remote.throttle_val * d->tnt_conf.inputtilt_angle_limit;
 			if (d->tnt_conf.is_stickytilt_enabled)
 				apply_stickytilt(&d->remote, &d->st_tilt, d->motor.current_filtered, &input_tiltback_target);
-			apply_inputtilt(&d->remote, input_tiltback_target); 	//produces output d->remote.inputtilt_interpolated
-			d->spd.setpoint += d->tnt_conf.enable_throttle_stability ? 0 : d->remote.inputtilt_interpolated; //Don't apply if we are using the throttle for stability
+			apply_inputtilt(&d->remote, input_tiltback_target); 	//produces output d->remote.setpoint
+			d->spd.setpoint += d->tnt_conf.enable_throttle_stability ? 0 : d->remote.setpoint; //Don't apply if we are using the throttle for stability
 
 			//Adjust Setpoint as required
 			apply_noseangling(&d->spd, &d->motor, &d->tnt_conf);
@@ -229,7 +229,7 @@ static void tnt_thd(void *arg) {
 			//Apply Stability
 			if (d->tnt_conf.enable_speed_stability || 
 			    d->tnt_conf.enable_throttle_stability) 
-				apply_stability(&d->pid, d->motor.abs_erpm, d->remote.inputtilt_interpolated, &d->tnt_conf);
+				apply_stability(&d->pid, d->motor.abs_erpm, d->remote.setpoint, &d->tnt_conf);
 			
 			// Calculate proportional difference for raw and filtered pitch
 			calculate_proportional(&d->rt, &d->pid, d->spd.setpoint);
@@ -259,7 +259,7 @@ static void tnt_thd(void *arg) {
 				    d->spd.setpoint, &d->surge_dbg);
 			if (d->tnt_conf.is_tc_braking_enabled)
 				check_traction_braking(&d->braking, &d->motor, &d->state, &d->tnt_conf, 
-				    d->remote.inputtilt_interpolated, &d->pid, &d->braking_dbg);
+				    d->remote.setpoint, &d->pid, &d->braking_dbg);
 			check_traction(&d->motor, &d->traction, &d->state, &d->tnt_conf,
 			    &d->pid, &d->traction_dbg);
 			check_tone(&d->tone, &d->tone_config, &d->motor);
@@ -452,7 +452,7 @@ static void send_realtime_data(data *d){
 
 	//Tune Modifiers
 	buffer_append_float32_auto(buffer, d->spd.setpoint, &ind);
-	buffer_append_float32_auto(buffer, d->remote.inputtilt_interpolated, &ind);
+	buffer_append_float32_auto(buffer, d->remote.setpoint, &ind);
 	buffer_append_float32_auto(buffer, d->remote.throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
