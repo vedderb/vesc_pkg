@@ -52,11 +52,32 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 
 ## Change Log
 ### 1.6
-* Surge max angle to 1.5 and margin to 2.5
-* traction contrl to 35, 25 Hz
-* added traction control erpm tracking
-* new trip data
-* corrected yaw at higher loop rates
+* **This version requires 6.05+ firmware to fuction properly**
+* _Features_
+  * Traction Control
+    * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
+    * Added Tracking ERPM Rate Limit parameter limits the rate that Tracking ERPM can change
+    * Added Tracking ERPM Exclusion Rate parameter excludes high acceleration rates from Tracking ERPM
+    * Added Tracking ERPM Margin parameter defines the difference between actual ERPM and Tracking ERPM before traction control will engage
+    * Default Start Acceleration changed to 35 ERPM/ms
+    * Default ERPM Filter Frequency to 25 Hz
+  * Yaw
+    * Added a hard coded correction fator to yaw change to account for higher yaw rates at higher package loop frequencies
+  * New trip data on AppUI
+    * Removed power average
+    * Added distance in miles
+    * Added max carve chain (minimum yaw change 100 deg/s, every 3 seconds)
+    * Added carves per mile
+    * Added average yaw during carves
+    * Added average roll during carves
+    * Added air time counter
+    * Added max air time
+    * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when activated
+  * Surge
+    * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
+  * Traction Control Braking
+    * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
+
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
