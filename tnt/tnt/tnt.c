@@ -33,6 +33,7 @@
 #include "remote_input.h"
 #include "foc_tone.h"
 #include "ridetrack.h"
+#include "drop.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
@@ -88,6 +89,7 @@ typedef struct {
 	BrakingData braking;			//Traction control for braking
 	BrakingDebug braking_dbg;		//Braking debug info
 	RideTrackData ridetrack;		//Trip tracking data
+	DropData drop; 				//Drop tracking
 } data;
 
 static void configure(data *d) {
