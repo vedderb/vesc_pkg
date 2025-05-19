@@ -77,6 +77,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
   * Traction Control Braking
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
+* _Fixes/Improvements_
+  * Modified the pitch gyro calculation so it is more responsive at high roll angles.
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
