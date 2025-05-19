@@ -153,6 +153,7 @@ Item {
 		    var debug4 = dv.getFloat32(ind); ind += 4; //stablkprate
         	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
 		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
+		    var debug7 = dv.getFloat32(ind); ind += 4; //pitchrate
                 } else if (debug_state == 4) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //yaw angle
                     var debug2 = dv.getFloat32(ind); ind += 4; //erpm scaler
@@ -345,7 +346,8 @@ Item {
             			"End Conditions \n #.# - End Pitch Angle \n 111 - 500ms Timeout \n 222 - Wheelslip Detected \n"
 			} else if (debug_state == 3) {
 				debug.text =
-				"Smooth Pitch        : " + debug1.toFixed(2) + "°\n" +
+				"Smooth Pitch        : " + debug1.toFixed(2) + " °\n" +
+    				"Pitch Rate          : " + debug7.toFixed(2) + " °/s \n" +
 				"Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
 				"Stability Kp        : " + debug3.toFixed(0) + " \n" + 
 				"Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
