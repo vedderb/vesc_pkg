@@ -38,8 +38,7 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 	VESC_IF->imu_get_gyro(rt->gyro);
-	rt->gyro_y = gyro[1];
-    	rt->gyro_y = cosf(roll_rad) * gyro[1] + sinf(roll_rad) * gyro[2];
+    	rt->gyro_y = cosf(roll_rad) * cosf(roll_rad) * gyro[1] + cosf(roll_rad) * sinf(roll_rad) * gyro[2]; //rt->gyro_y = cosf(roll_rad) * gyro[1] + sinf(roll_rad) * gyro[2];
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 }
