@@ -78,7 +78,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * Traction Control Braking
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
 * _Fixes/Improvements_
-  * Modified the pitch gyro calculation so it is more responsive at high roll angles.
+  * Addd Pitch Rate to tune debug
+  * Renamed 'inputtilt_interpolated' to 'setpoint'
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
