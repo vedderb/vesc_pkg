@@ -498,6 +498,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug3, &ind); // added stability rate P
 		buffer_append_float32_auto(buffer, d->pid.stabl, &ind);
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //rollkp 
+		buffer_append_float32_auto(buffer, rad2deg(d->pid_dbg.debug4) * d->tnt_conf.hertz, &ind); //pitch rate 
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
