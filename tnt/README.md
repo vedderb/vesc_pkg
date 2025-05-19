@@ -53,9 +53,10 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ## Change Log
 ### 1.6
 * Surge max angle to 1.5 and margin to 2.5
-* traction contrl to 30, 25 Hz
+* traction contrl to 35, 25 Hz
 * added traction control erpm tracking
 * new trip data
+* corrected yaw at higher loop rates
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
 * _Fixes/Improvements_
