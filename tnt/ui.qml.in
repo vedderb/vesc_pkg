@@ -115,6 +115,7 @@ Item {
                 var lastwheelslip = dv.getFloat32(ind); ind += 4; 
                 var surge_lasttime = dv.getFloat32(ind); ind += 4; 
                 var brake_lasttime = dv.getFloat32(ind); ind += 4; 
+                var drop_lasttime = dv.getFloat32(ind); ind += 4; 
 	
 		var ridetime = dv.getFloat32(ind); ind += 4; //ride time
 	        var resttime = dv.getFloat32(ind); ind += 4; //rest time
@@ -128,7 +129,9 @@ Item {
 	        var max_yaw_avg = dv.getFloat32(ind); ind += 4;
 	        var max_air = dv.getFloat32(ind); ind += 4;
 	 	var bonks_total = dv.getFloat32(ind); ind += 4;
-
+	        var drop_max_air = dv.getFloat32(ind); ind += 4;
+	 	var last_drop_time = dv.getFloat32(ind); ind += 4;
+   
                 var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
                 if (debug_state == 1) { 
                     var debug1 = dv.getFloat32(ind); ind += 4; // erpmfactor
@@ -282,6 +285,9 @@ Item {
               	var braketime1 = ("0" + Math.trunc(brake_lasttime/3600)).slice(-2);
     		var braketime2 = ("0" + Math.trunc(brake_lasttime/60 - braketime1*60)).slice(-2);
     		var braketime3 = ("0" + Math.trunc(brake_lasttime - braketime1*3600 - braketime2*60)).slice(-2);
+               	var droptime1 = ("0" + Math.trunc(drop_lasttime/3600)).slice(-2);
+    		var droptime2 = ("0" + Math.trunc(drop_lasttime/60 - droptime1*60)).slice(-2);
+    		var droptime3 = ("0" + Math.trunc(drop_lasttime - droptime1*3600 - droptime2*60)).slice(-2);
       
                 if(state == 0){
                     stateString = "DISABLED"
@@ -309,6 +315,7 @@ Item {
 	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
 	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n" +
 	                    "Last Traction Brake : " + braketime1 + ":" + braketime2 + ":" + braketime3 + "\n"       
+	                    "Last Drop Time      : " + droptime1 + ":" + droptime2 + ":" + droptime3 + "\n"       
 		     
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
@@ -322,8 +329,10 @@ Item {
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
 		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" +
 		     	    "Max Air Time       : " + max_air.toFixed(2) + " s\n" +
-		     	    "Air Time Total     : " + bonks_total.toFixed(0) + " \n" 
-	             
+		     	    "Air Time Total     : " + bonks_total.toFixed(0) + " \n" +
+		     	    "Drop Max Air Time  : " + drop_max_air.toFixed(2) + " s\n" +
+		     	    "Last Drop Time     : " + last_drop_time.toFixed(2) + " s\n" 
+	    
 			if (debug_state == 1) {
 				debug.text =
 				"ERPM Average        : " + debug1.toFixed(0) + "\n" +  
