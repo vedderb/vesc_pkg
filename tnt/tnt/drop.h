@@ -35,7 +35,7 @@ typedef struct {
 	float tiltback_step_size;		//Return speed to original setpoint after drop
 	float high_accel_timer;			//Stores the last high accel time to prevent drop in pump track situations
 	float highcount;
-	float z_highlimit;
+	//float z_highlimit;
 	//float last_angle_factor;		//Stores pitch and roll effect on accel z
 	//float roll_delay;
 	//float pitch_delay;
@@ -51,6 +51,7 @@ typedef struct {
 	float debug7;		// drop duration
 	float setpoint;		// record setpoint to produce prop debug
 	float aggregate_timer;  // time 5 seconds to record number of drops
+	float max_time;
 } DropDebug;
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg);
