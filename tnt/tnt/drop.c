@@ -20,6 +20,7 @@
 #include "utils_tnt.h"
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
+	apply_angle_drop(&drop, &rt);
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    (rt->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping
@@ -55,11 +56,12 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 }
 
 void configure_drop(DropData *drop, const tnt_config *config){
-	drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
-	drop->z_limit = config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
-	drop->motor_limit = config->drop_motor_accel; //ends drop via motor acceleration
-	drop->count_limit = config->drop_count_limit;
-	drop->z_highlimit = config->drop_z_highaccel;
+	//drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
+	drop->z_limit = 0.95; // config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
+	drop->motor_limit = 1000.0 * 20.0 / config->hertz; //ends drop via motor acceleration config->drop_motor_accel
+	drop->count_limit = 10 * config->hertz / 832; //config->drop_count_limit;
+	//drop->z_highlimit = config->drop_z_highaccel;
+	drop->hertz = config->hertz;
 }
 
 void reset_drop(DropData *drop){
@@ -75,15 +77,16 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->count = 0;
 	drop_dbg->debug7 = drop->timeroff - drop->timeron;
 	drop_dbg->debug6 = drop_dbg->setpoint - rt->pitch_angle;
+	drop_dbg->max_time = max(drop_dbg->max_time, drop_dbg->debug7);
 }
 
-void apply_angle_drop(DropData *drop, RuntimeData *rt){
+void apply_angle_drop(DropData *drop, RuntimeData *rt, ){
 	rt->last_accel_z = drop->accel_z;
 	float angle_correction = max(.1, min(10, 1 / (cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle)))));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_correction = angle_correction ;							// Roll or pitch are increasing. Do not delay
 	} else {
-		drop->applied_correction = drop->applied_correction * (1 - .001) + angle_correction * .001;		// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
+		ema(&drop->applied_correction, .001 * 832 / drop->hertz, angle_correction);			// Roll or pitch decreasing. Delay to allow accelerometer to keep pace	
 	}
 	drop->accel_z = rt->accel[2] * drop->applied_correction;
 	/* TODO Another method that incorporates all accelerations but needs work on delay.
