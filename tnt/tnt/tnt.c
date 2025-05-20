@@ -105,6 +105,8 @@ static void configure(data *d) {
 	tone_configure_all(&d->tone_config, &d->tnt_conf, &d->tone);		//FOC play tones
 	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
 	reset_ride_tracking_on_configure(&d->ridetrack, &d->tnt_conf, &d->traction_dbg);	//Reset current trip information
+	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
+	configure_drop(&d->drop,&d->tnt_conf);					//Drop detection
 	
 	//initialize pitch arrays for acceleration
 	angle_kp_reset(&d->accel_kp);
@@ -141,6 +143,7 @@ static void reset_vars(data *d) {
 		reset_traction(&d->traction, &d->state, &d->braking);	//Traction Control
 		tone_reset(&d->tone);					//FOC tones
 		reset_ride_tracking(&d->ridetrack);	//Ride tracking
+		reset_drop(&d->drop);
 	}
 	state_engage(&d->state);
 }
@@ -184,6 +187,7 @@ static void tnt_thd(void *arg) {
 		tone_update(&d->tone, &d->rt, &d->state);
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
 		ride_tracking_update(&d->ridetrack, &d->rt, &d->yaw, &d->tnt_conf);
+		check_drop(&d->drop, &d->motor, &d->rt, &d->state, &d->drop_dbg);
 	      	d->pid.new_pid_value = 0;		
 
 		// Control Loop State Logic
@@ -433,7 +437,7 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 132;
+	static const int bufsize = 144;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
@@ -459,6 +463,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->braking.timeroff , &ind); //Time since last traction braking
+	buffer_append_float32_auto(buffer, d->rt.current_time - d->drop.timeroff , &ind); //Time since last drop
 	
 	// Trip
 	buffer_append_float32_auto(buffer, d->ridetrack.ride_time, &ind); //Ride Time
@@ -473,6 +478,8 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw_avg * d->tnt_conf.hertz, &ind); 
 	buffer_append_float32_auto(buffer, d->traction_dbg.max_time, &ind); 
 	buffer_append_float32_auto(buffer, d->traction_dbg.bonks_total, &ind); 
+	buffer_append_float32_auto(buffer, d->drop_dbg.max_time, &ind); 
+	buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); 
 
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
