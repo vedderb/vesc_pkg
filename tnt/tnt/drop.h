@@ -39,6 +39,7 @@ typedef struct {
 	//float last_angle_factor;		//Stores pitch and roll effect on accel z
 	//float roll_delay;
 	//float pitch_delay;
+	float hertz;
 } DropData;
 
 typedef struct {
