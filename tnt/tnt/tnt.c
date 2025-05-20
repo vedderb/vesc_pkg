@@ -90,6 +90,7 @@ typedef struct {
 	BrakingDebug braking_dbg;		//Braking debug info
 	RideTrackData ridetrack;		//Trip tracking data
 	DropData drop; 				//Drop tracking
+	DropDebug drop_dbg; 			//Drop debug 
 } data;
 
 static void configure(data *d) {
