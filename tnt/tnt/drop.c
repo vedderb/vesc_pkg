@@ -31,7 +31,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 			if (!drop->active) { 						// Set the on timer only once per drop
 				drop->timeron = rt->current_time; 	
 				drop_dbg->debug4 = drop->accel_z;
-				drop_dbg->setpoint = rt->setpoint;
+				//drop_dbg->setpoint = rt->setpoint;
 				if (rt->current_time - drop_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
 					drop_dbg->aggregate_timer = rt->current_time;
 					drop_dbg->debug5 = 0;
@@ -76,7 +76,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->timeroff = rt->current_time;
 	drop->count = 0;
 	drop_dbg->debug7 = drop->timeroff - drop->timeron;
-	drop_dbg->debug6 = drop_dbg->setpoint - rt->pitch_angle;
+	//drop_dbg->debug6 = drop_dbg->setpoint - rt->pitch_angle;
 	drop_dbg->max_time = max(drop_dbg->max_time, drop_dbg->debug7);
 }
 
