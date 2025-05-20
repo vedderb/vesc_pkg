@@ -480,7 +480,7 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(buffer, d->traction_dbg.max_time, &ind); 
 	buffer_append_float32_auto(buffer, d->traction_dbg.bonks_total, &ind); 
 	buffer_append_float32_auto(buffer, d->drop_dbg.max_time, &ind); 
-	buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); 
+	buffer_append_float32_auto(buffer, d->drop_dbg.debug7, &ind); 
 
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
