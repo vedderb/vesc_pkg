@@ -59,7 +59,7 @@ void configure_drop(DropData *drop, const tnt_config *config){
 	//drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
 	drop->z_limit = 0.95; // config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
 	drop->motor_limit = 1000.0 * 20.0 / config->hertz; //ends drop via motor acceleration config->drop_motor_accel
-	drop->count_limit = 10 * config->hertz / 832; //config->drop_count_limit;
+	drop->count_limit = 3 * config->hertz / 832; //config->drop_count_limit;
 	//drop->z_highlimit = config->drop_z_highaccel;
 	drop->hertz = config->hertz;
 }
