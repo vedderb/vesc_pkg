@@ -151,8 +151,8 @@ static void reset_vars(data *d) {
 
 void apply_kp_modifiers(data *d) {
 	//Select and Apply Pitch kp rate			
-	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro[1];
-	d->pid_dbg.debug4 = d->rt.gyro[1];
+	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro_y;
+	d->pid_dbg.debug4 = d->rt.gyro_y;
 	
 	//Select and apply roll kp
 	d->pid.pid_mod += apply_roll_kp(&d->roll_accel_kp, &d->roll_brake_kp, &d->pid, d->motor.erpm_sign, d->rt.abs_roll_angle, 
@@ -505,9 +505,9 @@ static void send_realtime_data(data *d){
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->rt.pitch_smooth_kalman, &ind); //smooth pitch	
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug3, &ind); // added stability rate P
-		buffer_append_float32_auto(buffer, d->pid.stabl, &ind);
+		buffer_append_float32_auto(buffer, cosf(deg2rad(d->rt.roll_angle)) * cosf(deg2rad(d->rt.roll_angle)) * d->rt.gyro[1], &ind); // added stiffnes pitch kp 	d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0
+		buffer_append_float32_auto(buffer, cosf(deg2rad(d->rt.roll_angle)) * sinf(deg2rad(d->rt.roll_angle)) * d->rt.gyro[2], &ind); // added stability rate P 		d->pid_dbg.debug3
+		buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind); //													d->pid.stabl
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //rollkp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //pitch rate 
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
