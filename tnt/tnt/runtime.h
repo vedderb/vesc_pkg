@@ -33,6 +33,7 @@ typedef struct { //Run time values used in various features
 	float abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
+	float gyro_y;
 	float pitch_smooth; // Low Pass Filter
 	Biquad pitch_biquad; // Low Pass Filter
 	KalmanFilter pitch_kalman; // Kalman Filter
