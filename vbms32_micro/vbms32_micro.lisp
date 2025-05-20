@@ -246,15 +246,15 @@
                 (setq do-sleep false)
         })
 
-        (if (or charge-wakeup (test-chg 5))
-            (if (not (assoc rtc-val 'charge-fault)) {
-                    (setq do-sleep false)
-                    (setq charge-wakeup true)
-            })
+        (if (or charge-wakeup (test-chg 5)) {
+                (if (not (assoc rtc-val 'charge-fault)) {
+                        (setq do-sleep false)
+                        (setq charge-wakeup true)
+                })
 
-            ; Reset charge fault when the charger is not connected at boot
-            (setassoc rtc-val 'charge-fault false)
-        )
+                ; Reset charge fault when the charger is not connected at boot
+                (setassoc rtc-val 'charge-fault false)
+        })
 
         (if (is-connected) (setq do-sleep false))
         (if (can-active) (setq do-sleep false))
