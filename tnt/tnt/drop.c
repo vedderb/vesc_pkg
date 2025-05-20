@@ -80,7 +80,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop_dbg->max_time = max(drop_dbg->max_time, drop_dbg->debug7);
 }
 
-void apply_angle_drop(DropData *drop, RuntimeData *rt, ){
+void apply_angle_drop(DropData *drop, RuntimeData *rt){
 	rt->last_accel_z = drop->accel_z;
 	float angle_correction = max(.1, min(10, 1 / (cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle)))));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
