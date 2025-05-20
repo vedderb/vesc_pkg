@@ -20,7 +20,7 @@
 #include "utils_tnt.h"
 
 void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, DropDebug *drop_dbg){
-	apply_angle_drop(&drop, &rt);
+	apply_angle_drop(drop, rt);
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    (rt->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping
