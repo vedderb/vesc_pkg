@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include "runtime.h"
 #include "traction.h"
+#include "drop.h"
 
 typedef struct {
 	float rest_time;
