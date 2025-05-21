@@ -357,10 +357,10 @@ Item {
 				debug.text =
 				"Smooth Pitch        : " + debug1.toFixed(2) + " °\n" +
     				"Pitch Rate          : " + debug7.toFixed(1) + " °/s \n" +
-				"Gyro 1 Contribution : " + debug3.toFixed(1) + " °/s \n" +
-				"Gyro 2 Contribution : " + debug4.toFixed(1) + " °/s \n" +
-    				"Roll Angle          : " + debug5.toFixed(1) + " °\n" +
     				"Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
+				"Stability Kp        : " + debug3.toFixed(0) + " \n" + 
+				"Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
+				"Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
 				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
 			} else if (debug_state == 4) {
 				debug.text =
