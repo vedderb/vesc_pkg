@@ -505,9 +505,9 @@ static void send_realtime_data(data *d){
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->rt.pitch_smooth_kalman, &ind); //smooth pitch	
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, cosf(deg2rad(d->rt.roll_angle)) * cosf(deg2rad(d->rt.roll_angle)) * d->rt.gyro[1], &ind); // added stiffnes pitch kp 	d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0
-		buffer_append_float32_auto(buffer, cosf(deg2rad(d->rt.roll_angle)) * sinf(deg2rad(d->rt.roll_angle)) * d->rt.gyro[2], &ind); // added stability rate P 		d->pid_dbg.debug3
-		buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind); //													d->pid.stabl
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp 
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug3, &ind); // added stability rate P 		
+		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //													
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //rollkp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //pitch rate 
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
@@ -528,7 +528,14 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug5, &ind); //count 
 	} else { 
-		buffer[ind++] = 0; 
+		buffer[ind++] = 0;
+		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
+		buffer_append_float32_auto(buffer, d->drop.applied_correction, &ind); //applied correction
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //number of drops
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //end condition
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug6, &ind); //ending prop
+		buffer_append_float32_auto(buffer, d->drop_dbg.debug7, &ind); //duration
 	}
 
 	SEND_APP_DATA(buffer, bufsize, ind);
