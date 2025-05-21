@@ -395,8 +395,7 @@ Item {
 				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
 				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
 				"Ending Pitch        : " + debug6.toFixed(1) + "°\n" +
-				"Drop Duration       : " + debug7.toFixed(3) + " s\n" +
-		  		"-- n/a --"       
+				"Drop Duration       : " + debug7.toFixed(3) + " s\n" 
 	  		}
                 }
             }
