@@ -174,7 +174,14 @@ Item {
                     var debug7 = dv.getFloat32(ind); ind += 4; // end condition 3 sec 
 		} else {
 		    //space for temporary debugs
-                }
+                    var debug1 = dv.getFloat32(ind); ind += 4; //drop duration 
+                    var debug2 = dv.getFloat32(ind); ind += 4; //applied reduction
+	            var debug5 = dv.getFloat32(ind); ind += 4; //drop count	    
+                    var debug3 = dv.getFloat32(ind); ind += 4; //end condition  
+                    var debug4 = dv.getFloat32(ind); ind += 4; //min accel z 
+                    var debug6 = dv.getFloat32(ind); ind += 4; //ending pitch 
+                    var debug7 = dv.getFloat32(ind); ind += 4; //duration
+		}
 		
                 var stateString
                 if(state == 0){
@@ -382,7 +389,14 @@ Item {
         			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
     			} else { 
 				debug.text = 
-				"-- n/a --"       
+				"Accel Z             : " + debug1.toFixed(2) + " g\n" +
+				"Pitch/Roll Factor   : " + debug2.toFixed(2) + " \n" +
+				"Drop Count          : " + debug5.toFixed(0) + " \n" +         
+				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
+				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
+				"Ending Pitch        : " + debug6.toFixed(1) + "°\n" +
+				"Drop Duration       : " + debug7.toFixed(3) + " s\n" +
+		  		"-- n/a --"       
 	  		}
                 }
             }
