@@ -151,20 +151,34 @@ Item {
 		    var debug2 = dv.getFloat32(ind); ind += 4; //ramp rate
                 } else if (debug_state == 3) {
 		    var debug1 = dv.getFloat32(ind); ind += 4; //smoothpitch
-		    var debug2 = dv.getFloat32(ind); ind += 4; //basekp
-		    var debug3 = dv.getFloat32(ind); ind += 4; //stablkp
-		    var debug4 = dv.getFloat32(ind); ind += 4; //stablkprate
-        	    var debug5 = dv.getFloat32(ind); ind += 4; //stabl
-		    var debug6 = dv.getFloat32(ind); ind += 4; //rollkp
-		    var debug7 = dv.getFloat32(ind); ind += 4; //pitchrate
+		    var debug2 = dv.getFloat32(ind); ind += 4; //pitch kp
+		    var debug3 = dv.getFloat32(ind); ind += 4; //pitch angle demand
+		    var debug4 = dv.getFloat32(ind); ind += 4; //pitch rate
+        	    var debug5 = dv.getFloat32(ind); ind += 4; //pitch kp rate
+		    var debug6 = dv.getFloat32(ind); ind += 4; //pitch rate demand
                 } else if (debug_state == 4) {
+                    var debug1 = dv.getFloat32(ind); ind += 4; //erpm
+                    var debug2 = dv.getFloat32(ind); ind += 4; //stablity 0-100%
+		    var debug3 = dv.getFloat32(ind); ind += 4; //added pitch kp 
+      		    var debug4 = dv.getFloat32(ind); ind += 4; //added stability rate P for pitch
+                    var debug5 = dv.getFloat32(ind); ind += 4; // added stability rate P for yaw		
+                    var debug6 = dv.getFloat32(ind); ind += 4; // added demand for pitch angle
+                    var debug7 = dv.getFloat32(ind); ind += 4; // added demand for pitch and yaw rate
+		} else if (debug_state == 5) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //yaw angle
-                    var debug2 = dv.getFloat32(ind); ind += 4; //erpm scaler
-		    var debug3 = dv.getFloat32(ind); ind += 4; //yaw change
-      		    var debug4 = dv.getFloat32(ind); ind += 4; //max yaw change
-                    var debug5 = dv.getFloat32(ind); ind += 4; // yaw kp 
-                    var debug6 = dv.getFloat32(ind); ind += 4; //max kp
-                } else if (debug_state == 5) {
+                    var debug2 = dv.getFloat32(ind); ind += 4; //yaw change
+		    var debug3 = dv.getFloat32(ind); ind += 4; //max yaw change
+      		    var debug4 = dv.getFloat32(ind); ind += 4; //yaw kp 
+                    var debug5 = dv.getFloat32(ind); ind += 4; //yaw kp current demand
+                    var debug6 = dv.getFloat32(ind); ind += 4; //yaw rate
+                    var debug7 = dv.getFloat32(ind); ind += 4; // yaw rate current demand	
+		} else if (debug_state == 6) {
+                    var debug1 = dv.getFloat32(ind); ind += 4; //roll angle
+                    var debug2 = dv.getFloat32(ind); ind += 4; //max roll
+		    var debug3 = dv.getFloat32(ind); ind += 4; // erpm scale
+      		    var debug4 = dv.getFloat32(ind); ind += 4; //roll kp
+                    var debug5 = dv.getFloat32(ind); ind += 4; //roll current demand
+		} else if (debug_state == 7) {
                     var debug1 = dv.getFloat32(ind); ind += 4; // duty
                     var debug2 = dv.getFloat32(ind); ind += 4; // accel
                     var debug3 = dv.getFloat32(ind); ind += 4; // min erpm 
@@ -362,22 +376,38 @@ Item {
             			"End Conditions \n #.# - End Pitch Angle \n 111 - 500ms Timeout \n 222 - Wheelslip Detected \n"
 			} else if (debug_state == 3) {
 				debug.text =
-				"Smooth Pitch        : " + debug1.toFixed(2) + " °\n" +
-    				"Pitch Rate          : " + debug7.toFixed(1) + " °/s \n" +
-    				"Base Pitch Kp       : " + debug2.toFixed(0) + " \n" +         
-				"Stability Kp        : " + debug3.toFixed(0) + " \n" + 
-				"Stability Rate Kp   : " + debug4.toFixed(2) + " \n" +
-				"Relative Stability  : " + (debug5 * 100).toFixed(0) + "%\n" +
-				"Roll Kp             : " + debug6.toFixed(2) + "\n" 
+				"Filtered Pitch Angle: " + debug1.toFixed(2) + " °\n" +
+    				"Pitch Angle Kp      : " + debug2.toFixed(2) + " \n" +
+    				"Pitch Angle Current : " + debug3.toFixed(1) + " A\n" +         
+				"Pitch Rate          : " + debug4.toFixed(0) + " °/s\n" + 
+				"Pitch Rate Kp       : " + debug5.toFixed(2) + " \n" +
+				"Pitch Rate Current  : " + debug6.toFixed(1) + " A\n" 
 			} else if (debug_state == 4) {
 				debug.text =
+				"Absolute ERPM       : " + debug1.toFixed(0) + " ERPM \n" +
+    				"Stability           : " + debug2 * 100.toFixed(0) + " % \n" +
+ 				"Pitch Angle Kp      : " + debug3.toFixed(2) + " \n" +
+				"Pitch Rate Kp       : " + debug4.toFixed(2) + " \n" +         
+     				"Yaw Rate Kp         : " + debug5.toFixed(2) + " \n" +
+     				"Pitch Angle Current : " + debug6.toFixed(1) + " A\n" +
+    				"Pitch/Yaw Rate Curre: " + debug7.toFixed(1) + " A\n" 
+			} else if (debug_state == 5) {
+				debug.text =
 				"Yaw Angle           : " + debug1.toFixed(1) + " ° \n" +
- 				"ERPM Scaler         : " + debug2.toFixed(1) + " \n" +
-				"Yaw Change          : " + debug3.toFixed(0) + " °/s \n" +         
-     				"Max Yaw Change      : " + debug4.toFixed(0) + " °/s \n" +
-     				"Yaw Kp              : " + debug5.toFixed(2) + " \n" +
-    				"Max Yaw Kp          : " + debug6.toFixed(2) + " \n" 
-    			} else if (debug_state == 5) {
+				"Yaw Change          : " + debug2.toFixed(0) + " °/s \n" +         
+     				"Max Yaw Change      : " + debug3.toFixed(0) + " °/s \n" +
+     				"Yaw Change Kp       : " + debug4.toFixed(2) + " \n" +
+    				"Yaw Change Current  : " + debug5.toFixed(1) + " A\n" +    
+				"Yaw Rate            : " + debug6.toFixed(0) + " °/s \n" +
+				"Yaw Rate Current    : " + debug7.toFixed(1) + " A\n" 
+			} else if (debug_state == 6) {
+				debug.text =
+				"Roll Angle          : " + debug1.toFixed(1) + " ° \n" +
+				"Max Roll Angle      : " + debug2.toFixed(0) + " °/s \n" +         
+     				"ERPM Scaler         : " + debug3.toFixed(0) + "  \n" +
+     				"Roll Angle Kp       : " + debug4.toFixed(2) + " \n" +
+    				"Roll Angle Current  : " + debug5.toFixed(1) + " A\n"  
+    			} else if (debug_state == 7) {
 				debug.text =
 				"Battery Current     : " + debug1.toFixed(0) + " A\n" +  
 				"Max Acceleration    : " + debug2.toFixed(1) + " ERPM/ms\n" +
@@ -387,6 +417,15 @@ Item {
 				"End Cond, 1 sec min : " + debug7.toFixed(0) + "\n" +
 				"Total Duration      : " + debug6.toFixed(1) + " s\n" +
         			"End Conditions \n 1 - Remote Pitch Angle \n 2 - Battery Current \n 3 - Minimum Duty \n 4 - Vq-Iq \n 5 - Minimum ERPM \n 6 - IMU Position \n 7 - Motor Current \n"
+			} else if (debug_state == 8) {
+				debug.text =
+     				"Pitch Angle Current : " + debug1.toFixed(1) + " A\n" +
+    				"Pitch Rate Current  : " + debug2.toFixed(1) + " A\n" +  
+    				"Yaw Change Current  : " + debug3.toFixed(1) + " A\n" +    
+				"Yaw Rate Current    : " + debug4.toFixed(1) + " A\n" +
+    				"Roll Angle Current  : " + debug5.toFixed(1) + " A\n" +    
+     				"Stability Angle Curr: " + debug6.toFixed(1) + " A\n" +
+    				"Stability Rate Curre: " + debug7.toFixed(1) + " A\n" 
     			} else { 
 				debug.text = 
 				"Accel Z             : " + debug1.toFixed(2) + " g\n" +
