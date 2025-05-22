@@ -520,7 +520,7 @@ static void send_realtime_data(data *d){
 	} else if (d->tnt_conf.is_stabilitydebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->mtor.abs_erpm, &ind); // erpm
-		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //stablity 0-100%
+		buffer_append_float32_auto(buffer, d->pid.stabl - 1, &ind); //stablity 0-100%
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug7, &ind); // added stability rate P for yaw								
