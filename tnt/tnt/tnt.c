@@ -150,9 +150,17 @@ static void reset_vars(data *d) {
 }
 
 void apply_kp_modifiers(data *d) {
-	//Select and Apply Pitch kp rate			
+	//Select and Apply Pitch kp rate
 	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro_y;
 	d->pid_dbg.debug4 = d->rt.gyro_y;
+	d->pid_dbg.debug6 = d->pid_dbg.debug3; //stability rate kp
+	d->pid_dbg.debug9 = d->pid_dbg.debug10 // pitch rate kp
+	
+	//Select and Apply Yaw kp rate			
+	d->pid.pid_mod = apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
+	d->pid_dbg.debug5 = d->rt.gyro_z;
+	d->pid_dbg.debug7 = d->pid_dbg.debug3; //stability rate kp
+	d->pid_dbg.debug11 = d->pid_dbg.debug10 //yaw rate kp
 	
 	//Select and apply roll kp
 	d->pid.pid_mod += apply_roll_kp(&d->roll_accel_kp, &d->roll_brake_kp, &d->pid, d->motor.erpm_sign, d->rt.abs_roll_angle, 
@@ -501,25 +509,41 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug7, &ind); //Duration last surge cycle time
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug2, &ind); //start current value
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug8, &ind); //ramp rate
-	} else if (d->tnt_conf.is_tunedebug_enabled) {
+	} else if (d->tnt_conf.is_pitchdebug_enabled) {   
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->rt.pitch_smooth_kalman, &ind); //smooth pitch	
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp 
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug3, &ind); // added stability rate P 		
-		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //													
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //rollkp 
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // pitch kp
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug12, &ind); // pitch angle demand
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //pitch rate 
-	} else if (d->tnt_conf.is_yawdebug_enabled) {
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug9, &ind); // pitch kp rate
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug4 * d->pid_dbg.debug9, &ind); //	pitch rate demand												
+	} else if (d->tnt_conf.is_stabilitydebug_enabled) {
 		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug5, &ind); //erpm scaler
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3 * d->tnt_conf.hertz, &ind); //max yaw change
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug4, &ind); //yaw kp 	
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug2, &ind); //max kp change
-	} else if (d->tnt_conf.is_brakingdebug_enabled) {
+		buffer_append_float32_auto(buffer, d->mtor.abs_erpm, &ind); // erpm
+		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //stablity 0-100%
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug7, &ind); // added stability rate P for yaw								
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug13, &ind); // added demand for pitch angle
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4 + d->pid_dbg.debug7 * d->pid_dbg.debug5, &ind); // added demand for pitch and yaw rate
+	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 5;
+		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3 * d->tnt_conf.hertz, &ind); //max yaw change		
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //yaw kp 	
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug15, &ind); //yaw kp current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5, &ind); //yaw rate
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5 * d->pid_dbg.debug11, &ind); //yaw gyro current demand		
+	} else if (d->tnt_conf.is_rolldebug_enabled) {
+		buffer[ind++] = 6;
+		buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind); //roll angle
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug16, &ind); //max roll	
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug17, &ind); // erpm scale
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug15, &ind); //roll kp
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug18, &ind); //roll current demand
+	} else if (d->tnt_conf.is_brakingdebug_enabled) {
+		buffer[ind++] = 7;
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug2, &ind); //current duty
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug6, &ind); //max accel
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug3, &ind); //Min ERPM
