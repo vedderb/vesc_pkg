@@ -232,10 +232,11 @@ float roll_erpm_scale(PidData *p, State *state, float abs_erpm, KpArray *roll_ac
 	} else if (roll_accel_kp->count!=0 && abs_erpm > config->roll_hs_lowerpm) { 
 		erpmscale = 1 + erpm_scale(config->roll_hs_lowerpm, config->roll_hs_higherpm, 0, config->roll_hs_maxscale / 100.0, abs_erpm);
 	}
+	pid_dbg->debug17 = erpmscale;
 	return erpmscale;
 }
 
-void reset_pid(PidData *p) {
+void reset_pid(PidData *p, PidDebug *pid_dbg) {
 	p->pid_value = 0;
 	p->pid_mod = 0;
 	p->roll_pid_mod = 0;
@@ -244,6 +245,7 @@ void reset_pid(PidData *p) {
 	p->prop_smooth = 0;
 	p->abs_prop_smooth = 0;
 	p->softstart_pid_limit = 0;
+	pid_dbg->debug16 = 0;
 }
 
 void apply_soft_start(PidData *p, float mc_current_max) {
@@ -269,6 +271,9 @@ float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug 
 	kp_mod = angle_kp_select(p->abs_prop_smooth, 
 		p->brake_pitch ? brake_kp : accel_kp);
 	pid_dbg->debug1 = p->brake_pitch ? -kp_mod : kp_mod;
+	pid_dbg->debug8 = (1 - p->stability_kp) * kp_mod  //stability contribution to pitch kp
+	pid_dbg->debug13 = pid_dbg->debug8 * p->proportional; // pitch demand from stability
+	pid_dbg->debug12 = kp_mod * p->proportional; // pitch demand without stability
 	kp_mod *= p->stability_kp;
 	new_pid_value = p->proportional * kp_mod;
 
@@ -277,7 +282,8 @@ float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug 
 
 float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg) {
 	float pid_mod = 0;
-	float kp_rate = p->brake_pitch ? brake_kp->kp_rate : accel_kp->kp_rate;		
+	float kp_rate = p->brake_pitch ? brake_kp->kp_rate : accel_kp->kp_rate;	
+	pid_dbg->debug10 = kp_rate;
 	pid_dbg->debug3 = kp_rate * (p->stability_kprate - 1);			// Calc the contribution of stability to kp_rate
 	pid_mod = kp_rate * p->stability_kprate;
 	return pid_mod;
@@ -289,6 +295,7 @@ float apply_roll_kp(KpArray *roll_accel_kp, KpArray *roll_brake_kp, PidData *p, 
 	float pid_mod = 0;
 	rollkp = angle_kp_select(abs_roll_angle, 
 		p->brake_roll ? roll_brake_kp : roll_accel_kp);
+	pid_dbg->debug16 = max(abs_roll_angle, pid_dbg->debug16);
 	
 	//ERPM Scale
 	rollkp *= roll_erpm_scale;
@@ -297,7 +304,7 @@ float apply_roll_kp(KpArray *roll_accel_kp, KpArray *roll_brake_kp, PidData *p, 
 	//Apply Roll Boost
 	p->roll_pid_mod = .99 * p->roll_pid_mod + .01 * rollkp * fabsf(p->new_pid_value) * erpm_sign; 	//always act in the direciton of travel
 	pid_mod += p->roll_pid_mod;
-
+	pid_dbg->debug18 =  p->roll_pid_mod;
 	return pid_mod;
 }
 
@@ -325,6 +332,7 @@ float apply_yaw_kp(KpArray *yaw_accel_kp, KpArray *yaw_brake_kp, PidData *p, flo
 	//Apply Yaw Boost
 	p->yaw_pid_mod = .99 * p->yaw_pid_mod + .01 * yawkp * fabsf(p->new_pid_value) * erpm_sign; 	//always act in the direciton of travel
 	pid_mod += p->yaw_pid_mod;
+	pid_dbg->debug15 = pid_mod;
 
 	return pid_mod;
 }
