@@ -56,6 +56,7 @@ typedef struct {
 	float debug2;
 	float debug3;
 	float debug4;
+	float debug5;
 } PidDebug;
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode);
