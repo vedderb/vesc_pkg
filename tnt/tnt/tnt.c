@@ -551,6 +551,15 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug4, &ind); //Debug condition 
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug5, &ind); //count 
+	} else if (d->tnt_conf.is_currentdebug_enabled) {
+		buffer[ind++] = 8;
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug12, &ind); // pitch angle demand
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug4 * d->pid_dbg.debug9, &ind); //	pitch rate demand												
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug15, &ind); //yaw kp current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5 * d->pid_dbg.debug11, &ind); //yaw gyro current demand		
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug18, &ind); //roll current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug13, &ind); // added stablity demand for pitch angle
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4 + d->pid_dbg.debug7 * d->pid_dbg.debug5, &ind); // added stability demand for pitch and yaw rate
 	} else { 
 		buffer[ind++] = 0;
 		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
