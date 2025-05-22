@@ -52,11 +52,24 @@ typedef struct {
 } PidData;
 
 typedef struct {
-	float debug1;
-	float debug2;
-	float debug3;
-	float debug4;
-	float debug5;
+	float debug1;	//pitch kp
+	float debug2;	// roll kp
+	float debug3;	// temp stability rate kp 
+	float debug4;	// pitch rate
+	float debug5;	// yaw rate
+	float debug6;	// stability pitch rate kp 
+	float debug7;	// stability yaw rate kp 
+	float debug8;	// stability pitch angle kp
+	float debug9;	// pitch rate kp
+	float debug10; 	// temp pitch/yaw rate kp
+	float debug11; 	// yaw rate kp
+	float debug12; 	// pitch angle demand
+	float debug13; 	// stability angle demand
+	float debug14;	// stability rate demand
+	float debug15; 	// yaw angle current demand
+	float debug16; 	// max roll angle
+	float debug17; // roll erpm scale
+	float debug18; // roll anngle demand
 } PidDebug;
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode);
