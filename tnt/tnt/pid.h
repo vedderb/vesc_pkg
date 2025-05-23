@@ -81,7 +81,7 @@ float erpm_scale(float lowvalue, float highvalue, float lowscale, float highscal
 void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, tnt_config *config);
 void check_brake_kp(PidData *p, State *state, tnt_config *config, KpArray *roll_brake_kp, KpArray *yaw_brake_kp);
 float roll_erpm_scale(PidData *p, State *state, float abs_erpm, KpArray *roll_accel_kp, tnt_config *config);
-void reset_pid(PidData *p);
+void reset_pid(PidData *p, PidDebug *pid_dbg);
 void apply_soft_start(PidData *p, float mc_current_max);
 void configure_pid(PidData *p, tnt_config *config);
 float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg);
