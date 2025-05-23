@@ -393,7 +393,7 @@ Item {
 			} else if (debug_state == 4) {
 				debug.text =
 				"Absolute ERPM       : " + debug1.toFixed(0) + " ERPM \n" +
-    				"Stability           : " + debug2 * 100.toFixed(0) + " % \n" +
+    				"Stability           : " + (debug2 * 100).toFixed(0) + " % \n" +
  				"Pitch Angle Kp      : " + debug3.toFixed(2) + " \n" +
 				"Pitch Rate Kp       : " + debug4.toFixed(2) + " \n" +         
      				"Yaw Rate Kp         : " + debug5.toFixed(2) + " \n" +
