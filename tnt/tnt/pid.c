@@ -177,7 +177,7 @@ void yaw_kp_configure(const tnt_config *config, KpArray *k, int mode){
 			k->angle_kp[x][y] = (mode==2) ? brake_yaw_kp[x][y] : accel_yaw_kp[x][y];
 		}
 	}
-	k->kp_rate = (mode==2) ? config->yaw_kp_rate : config->yaw_brakekp_rate;
+	k->kp_rate = (mode==2) ? config->yaw_rate_kp : config->yaw_brake_rate_kp;
 	
 	if (k->angle_kp[1][1]<k->angle_kp[2][1] && k->angle_kp[1][0]<k->angle_kp[2][0]) {
 		if (k->angle_kp[2][1]<k->angle_kp[3][1] && k->angle_kp[2][0]<k->angle_kp[3][0]) {
