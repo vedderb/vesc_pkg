@@ -411,8 +411,8 @@ Item {
 			} else if (debug_state == 6) {
 				debug.text =
 				"Roll Angle          : " + debug1.toFixed(1) + " ° \n" +
-				"Max Roll Angle      : " + debug2.toFixed(0) + " °/s \n" +         
-     				"ERPM Scaler         : " + debug3.toFixed(0) + "  \n" +
+				"Max Roll Angle      : " + debug2.toFixed(0) + " ° \n" +         
+     				"ERPM Scaler         : " + debug3.toFixed(1) + "  \n" +
      				"Roll Angle Kp       : " + debug4.toFixed(2) + " \n" +
     				"Roll Angle Current  : " + debug5.toFixed(1) + " A\n"  
     			} else if (debug_state == 7) {
