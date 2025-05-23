@@ -164,7 +164,7 @@ void apply_kp_modifiers(data *d) {
 	
 	//Select and apply roll kp
 	float roll_erpm_scaler = roll_erpm_scale(&d->pid,  &d->state, d->motor.abs_erpm, &d->roll_accel_kp, &d->tnt_conf);
-		pid_dbg->debug17 = roll_erpm_scaler;
+	d->pid_dbg.debug17 = roll_erpm_scaler;
 	d->pid.pid_mod += apply_roll_kp(&d->roll_accel_kp, &d->roll_brake_kp, &d->pid, d->motor.erpm_sign, d->rt.abs_roll_angle, 
 	    roll_erpm_scaler, &d->pid_dbg);
 
