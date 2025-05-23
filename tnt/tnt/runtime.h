@@ -67,6 +67,7 @@ typedef struct {
 	float debug3; //kp unscaled
 	float debug4; //kp scaled
 	float debug5; //erpm scaler
+	float debug6; // yaw angle current
 } YawDebugData;
 
 void runtime_data_update(RuntimeData *rt);
