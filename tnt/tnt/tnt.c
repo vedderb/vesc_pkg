@@ -138,7 +138,7 @@ static void reset_vars(data *d) {
 		motor_data_reset(&d->motor);				//Motor
 		setpoint_reset(&d->spd, &d->tnt_conf, &d->rt);		//Setpoint
 		reset_runtime(&d->rt, &d->yaw, &d->yaw_dbg);		//Runtime 
-		reset_pid(&d->pid);					//Control variables
+		reset_pid(&d->pid, &d->pid_dbg);			//Control variables
 		reset_remote(&d->remote, &d->st_tilt);			//Remote
 		reset_surge(&d->surge);					//Surge
 		reset_traction(&d->traction, &d->state, &d->braking);	//Traction Control
@@ -154,13 +154,13 @@ void apply_kp_modifiers(data *d) {
 	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro_y;
 	d->pid_dbg.debug4 = d->rt.gyro_y;
 	d->pid_dbg.debug6 = d->pid_dbg.debug3; //stability rate kp
-	d->pid_dbg.debug9 = d->pid_dbg.debug10 // pitch rate kp
+	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
 	//Select and Apply Yaw kp rate			
 	d->pid.pid_mod = apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
 	d->pid_dbg.debug5 = d->rt.gyro_z;
 	d->pid_dbg.debug7 = d->pid_dbg.debug3; //stability rate kp
-	d->pid_dbg.debug11 = d->pid_dbg.debug10 //yaw rate kp
+	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
 	
 	//Select and apply roll kp
 	d->pid.pid_mod += apply_roll_kp(&d->roll_accel_kp, &d->roll_brake_kp, &d->pid, d->motor.erpm_sign, d->rt.abs_roll_angle, 
@@ -519,7 +519,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, -d->pid_dbg.debug4 * d->pid_dbg.debug9, &ind); //	pitch rate demand												
 	} else if (d->tnt_conf.is_stabilitydebug_enabled) {
 		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->mtor.abs_erpm, &ind); // erpm
+		buffer_append_float32_auto(buffer, d->motor.abs_erpm, &ind); // erpm
 		buffer_append_float32_auto(buffer, d->pid.stabl - 1, &ind); //stablity 0-100%
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
@@ -540,7 +540,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind); //roll angle
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug16, &ind); //max roll	
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug17, &ind); // erpm scale
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug15, &ind); //roll kp
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug15, &ind); //roll kp
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug18, &ind); //roll current demand
 	} else if (d->tnt_conf.is_brakingdebug_enabled) {
 		buffer[ind++] = 7;
