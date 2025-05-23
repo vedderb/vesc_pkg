@@ -186,6 +186,14 @@ Item {
                     var debug5 = dv.getFloat32(ind); ind += 4; // debug 
                     var debug6 = dv.getFloat32(ind); ind += 4; // duration 
                     var debug7 = dv.getFloat32(ind); ind += 4; // end condition 3 sec 
+		} else if (debug_state == 8) {
+                    var debug1 = dv.getFloat32(ind); ind += 4; // Pitch Angle Current
+                    var debug2 = dv.getFloat32(ind); ind += 4; // itch Rate Current
+                    var debug3 = dv.getFloat32(ind); ind += 4; // Yaw Change Curren
+                    var debug4 = dv.getFloat32(ind); ind += 4; // Yaw Rate Current 
+                    var debug5 = dv.getFloat32(ind); ind += 4; // Roll Angle Current
+                    var debug6 = dv.getFloat32(ind); ind += 4; // Stability Angle Curr
+                    var debug7 = dv.getFloat32(ind); ind += 4; // stability Rate Curre
 		} else {
 		    //space for temporary debugs
                     var debug1 = dv.getFloat32(ind); ind += 4; //drop duration 
