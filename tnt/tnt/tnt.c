@@ -157,7 +157,7 @@ void apply_kp_modifiers(data *d) {
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
 	//Select and Apply Yaw kp rate			
-	d->pid.pid_mod = apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
+	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
 	d->pid_dbg.debug5 = d->rt.gyro_z;
 	d->pid_dbg.debug7 = d->pid_dbg.debug3; //stability rate kp
 	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
@@ -259,7 +259,7 @@ static void tnt_thd(void *arg) {
 			d->pid.new_pid_value = apply_pitch_kp(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg);
 			apply_kp_modifiers(d);			//Roll Yaw
 			apply_soft_start(&d->pid, d->motor.mc_current_max);	//Soft start
-			d->pid.new_pid_value += d->pid.pid_mod; 
+			d->pid.new_pid_value += d->pid.pid_mod;
 			
 			// Current Limiting
 			float current_limit = d->motor.braking ? d->motor.mc_current_min : d->motor.mc_current_max;
@@ -521,7 +521,7 @@ static void send_realtime_data(data *d){
 	} else if (d->tnt_conf.is_stabilitydebug_enabled) {
 		buffer[ind++] = 4;
 		buffer_append_float32_auto(buffer, d->motor.abs_erpm, &ind); // erpm
-		buffer_append_float32_auto(buffer, d->pid.stabl - 1, &ind); //stablity 0-100%
+		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //stablity 0-100%
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug7, &ind); // added stability rate P for yaw								
