@@ -54,6 +54,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.6
 * **This version requires 6.05+ firmware to fuction properly**
 * _Features_
+  * New Feature - Yaw Rate Kp
+    * Applies a proportional gain to the yaw gyro
   * Traction Control
     * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
     * Added Tracking ERPM Rate Limit parameter limits the rate that Tracking ERPM can change
