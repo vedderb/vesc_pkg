@@ -270,7 +270,7 @@ float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug 
 	kp_mod = angle_kp_select(p->abs_prop_smooth, 
 		p->brake_pitch ? brake_kp : accel_kp);
 	pid_dbg->debug1 = p->brake_pitch ? -kp_mod : kp_mod;
-	pid_dbg->debug8 = (1 - p->stability_kp) * kp_mod;  //stability contribution to pitch kp
+	pid_dbg->debug8 = (p->stability_kp - 1) * kp_mod;  //stability contribution to pitch kp
 	pid_dbg->debug13 = pid_dbg->debug8 * p->proportional; // pitch demand from stability
 	pid_dbg->debug12 = kp_mod * p->proportional; // pitch demand without stability
 	kp_mod *= p->stability_kp;
