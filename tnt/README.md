@@ -54,8 +54,11 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.6
 * **This version requires 6.05+ firmware to fuction properly**
 * _Features_
-  * New Feature - Yaw Rate Kp
-    * Applies a proportional gain to the yaw gyro
+  * New Feature - Yaw Rate Kp in the Yaw menu
+    * New math concerning the IMU gyro separates components pitch gyro and yaw gyro
+    * New parameter Yaw Rate Kp and Yaw Rate Braking Kp applies to the yaw gyro
+    * The existing Pitch Rate Kp applues to the pitch gyro
+    * Higher yaw rate kp will increase nose stiffness while carving.
   * Traction Control
     * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
     * Added Tracking ERPM Rate Limit parameter limits the rate that Tracking ERPM can change
@@ -65,24 +68,29 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Default ERPM Filter Frequency to 25 Hz
     * Replaced Start Condition with Track ERPM in AppUI debug
   * Yaw
-    * Added a hard coded correction fator to yaw change to account for higher yaw rates at higher package loop frequencies
-  * New trip data on AppUI
-    * Removed power average
-    * Added distance in miles
-    * Added max carve chain (minimum yaw change 100 deg/s, every 3 seconds)
-    * Added carves per mile
-    * Added average yaw during carves
-    * Added average roll during carves
-    * Added air time counter
-    * Added max air time
-    * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when activated
+    * Added a hard coded correction fator to yaw change to account for higher yaw change resulting at higher package loop frequencies
+  * AppUI Overhaul
+    * Removed tune debug
+    * Added pitch, roll. stability, and current debugs
+    * Added yaw rate and yaw rate current demand to yaw debug
+    * Added last drop time 
+    * New trip data
+      * Removed power average
+      * Added distance in miles
+      * Added max carve chain (minimum yaw change 100 deg/s, every 3 seconds)
+      * Added carves per mile
+      * Added average yaw during carves
+      * Added average roll during carves
+      * Added air time counter
+      * Added max air time
+      * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when activated
   * Surge
     * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
   * Traction Control Braking
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
+    * 0 by default, 10 ms recommended
 * _Fixes/Improvements_
-  * Addd Pitch Rate to tune debug
-  * Renamed 'inputtilt_interpolated' to 'setpoint'
+  * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
