@@ -532,7 +532,7 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
 		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
 		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3 * d->tnt_conf.hertz, &ind); //max yaw change		
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //yaw kp 	
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug4, &ind); //yaw kp 	
 		buffer_append_float32_auto(buffer, d->yaw_dbg.debug6, &ind); //yaw kp current demand
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug5, &ind); //yaw rate
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug5 * d->pid_dbg.debug11, &ind); //yaw gyro current demand		
