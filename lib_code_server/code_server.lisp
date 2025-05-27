@@ -1,3 +1,10 @@
+; Firmware 6.5 does not have mutexes
+(if (eq (take (sysinfo 'fw-ver) 2) '(6 5)) {
+        (defun mutex-create () nil)
+        (defun mutex-lock (mtx) nil)
+        (defun mutex-unlock (mtx) nil)
+})
+
 (def code-server-mutex (mutex-create))
 
 @const-start
