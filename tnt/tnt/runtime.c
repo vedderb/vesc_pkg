@@ -39,7 +39,7 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 	VESC_IF->imu_get_gyro(rt->gyro);
 	rt->gyro_y = cosf(roll_rad) * cosf(roll_rad) * rt->gyro[1] + cosf(roll_rad) * sinf(roll_rad) * rt->gyro[2];
-	rt->gyro_z = rt->gyro[2];
+	rt->gyro_z = cosf(roll_rad) * rt->gyro[2] + sinf(roll_rad) * rt->gyro[1];
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 }
