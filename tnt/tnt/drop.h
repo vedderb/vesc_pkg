@@ -40,6 +40,7 @@ typedef struct {
 	//float roll_delay;
 	//float pitch_delay;
 	float hertz;
+	float min_diff;
 } DropData;
 
 typedef struct {
