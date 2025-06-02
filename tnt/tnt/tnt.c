@@ -157,7 +157,7 @@ void apply_kp_modifiers(data *d) {
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
 	//Select and Apply Yaw kp rate			
-	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z * d->motor.erpm_sign;
+	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
 	d->pid_dbg.debug5 = d->rt.gyro_z;
 	d->pid_dbg.debug7 = d->pid_dbg.debug3; //stability rate kp
 	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
