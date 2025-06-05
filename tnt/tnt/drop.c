@@ -27,7 +27,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if ((drop->count > drop->count_limit) && 				// Counter used to reduce nuisance trips
-		    (rt->last_accel_z >= drop->accel_z - drop->min_diff)) {  		// check that we are constantly dropping
+		    (rt->last_accel_z - drop->accel_z >= - drop->min_diff)) {  		// check that we are constantly dropping but allow for some noise
 			if (!drop->active) { 						// Set the on timer only once per drop
 				drop->timeron = rt->current_time; 	
 				drop_dbg->debug4 = drop->accel_z;
@@ -48,7 +48,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 		if (fabsf(m->accel_avg) > drop->motor_limit) { 	//Fastest reaction is hall sensor
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = m->accel_avg;
-		} else if (rt->last_accel_z <= drop->accel_z - drop->min_diff) {		// for fastest landing reaction with accelerometer check that we are still dropping
+		} else if (rt->last_accel_z - drop->accel_z <  - drop->min_diff) {		// for fastest landing reaction with accelerometer check that we are still dropping
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = drop->accel_z;
 		}
@@ -58,11 +58,11 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 void configure_drop(DropData *drop, const tnt_config *config){
 	//drop->tiltback_step_size = config->tiltback_drop_speed / config->hertz;
 	drop->z_limit = 0.95; // config->drop_z_accel;	// Value of accel z to initiate drop. A drop of about 6" / .1s produces about 0.9 accel y (normally 1)
-	drop->motor_limit = 1000.0 * 20.0 / config->hertz; //ends drop via motor acceleration config->drop_motor_accel
+	drop->motor_limit = 1000.0 * 10.0 / config->hertz; //ends drop via motor acceleration config->drop_motor_accel
 	drop->count_limit = 1 * config->hertz / 832; //config->drop_count_limit;
 	//drop->z_highlimit = config->drop_z_highaccel;
 	drop->hertz = config->hertz;
-	drop->min_diff = .001 / config->hertz;
+	drop->min_diff = .01 / config->hertz;
 }
 
 void reset_drop(DropData *drop){
