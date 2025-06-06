@@ -52,7 +52,8 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = drop->accel_z;
 		}
-	}		
+	}
+	rt->last_accel_z = drop->accel_z;
 }
 
 void configure_drop(DropData *drop, const tnt_config *config){
@@ -62,7 +63,7 @@ void configure_drop(DropData *drop, const tnt_config *config){
 	drop->count_limit = 1 * config->hertz / 832; //config->drop_count_limit;
 	//drop->z_highlimit = config->drop_z_highaccel;
 	drop->hertz = config->hertz;
-	drop->min_diff = .01 / config->hertz;
+	drop->min_diff = .001 / config->hertz;
 }
 
 void reset_drop(DropData *drop){
@@ -82,7 +83,6 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 }
 
 void apply_angle_drop(DropData *drop, RuntimeData *rt){
-	rt->last_accel_z = drop->accel_z;
 	float angle_correction = max(.1, min(10, 1 / (cosf(deg2rad(rt->roll_angle)) * cosf(deg2rad(rt->pitch_angle)))));		// Accel z is naturally reduced by the pitch and roll angles, so use geometry to compensate
 	if (drop->applied_correction < angle_correction) {								// Accel z acts slower than pitch and roll so we need to delay accel z reduction as necessary
 		drop->applied_correction = angle_correction ;							// Roll or pitch are increasing. Do not delay
