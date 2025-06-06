@@ -143,8 +143,8 @@ static void reset_vars(data *d) {
 		reset_surge(&d->surge);					//Surge
 		reset_traction(&d->traction, &d->state, &d->braking);	//Traction Control
 		tone_reset(&d->tone);					//FOC tones
-		reset_ride_tracking(&d->ridetrack);	//Ride tracking
-		reset_drop(&d->drop);
+		reset_ride_tracking(&d->ridetrack);			//Ride tracking
+		reset_drop(&d->drop);					//Drop tracking
 	}
 	state_engage(&d->state);
 }
