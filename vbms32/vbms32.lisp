@@ -938,6 +938,8 @@
 }))
 
 (defun main () {
+        (set-fw-name "")
+
         ; Compatibility Check
         (loopwhile (!= (bms-fw-version) 6) {
                 (if (< (bms-fw-version) 6)
@@ -948,8 +950,6 @@
                 (gpio-write 9 0) ; Enable CAN
                 (sleep 5)
         })
-
-        (set-fw-name "")
 
         (def charge-dis-ts (systime))
         (def t-last (systime))

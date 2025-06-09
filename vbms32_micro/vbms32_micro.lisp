@@ -790,6 +790,8 @@
 }))
 
 (defun main () {
+        (set-fw-name "micro")
+
         ; Compatibility Check
         (loopwhile (!= (bms-fw-version) 6) {
                 (if (< (bms-fw-version) 6)
@@ -800,8 +802,6 @@
                 (gpio-write 9 0) ; Enable CAN
                 (sleep 5)
         })
-
-        (set-fw-name "micro")
 
         (def charge-dis-ts (systime))
         (def t-last (systime))
