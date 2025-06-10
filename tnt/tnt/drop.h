@@ -41,6 +41,7 @@ typedef struct {
 	//float pitch_delay;
 	float hertz;
 	float min_diff;
+	float last_accel_z;
 } DropData;
 
 typedef struct {
