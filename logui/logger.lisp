@@ -220,7 +220,7 @@
 (defun event-handler ()
     (loopwhile t
         (recv
-            ((event-data-rx ? data) (eval (read data)))
+            ((event-data-rx (? data)) (eval (read data)))
             (event-shutdown (stop-log last-can-id))
             (_ nil) ; Ignore other events
 )))
