@@ -1,4 +1,4 @@
-VESC_TOOL ?= ~/vesc_tool_test_linux
+VESC_TOOL ?= vesc_tool
 
 all: vbms32_micro.vescpkg
 
