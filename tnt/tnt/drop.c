@@ -85,7 +85,7 @@ void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
 	drop->timeroff = rt->current_time;
 	drop->count = 0;
 	drop_dbg->debug7 = drop->timeroff - drop->timeron;
-	drop_dbg->debug6 = rt->setpoint - rt->pitch_angle;
+	drop_dbg->debug6 = rt->pitch_angle;
 	drop_dbg->max_time = max(drop_dbg->max_time, drop_dbg->debug7);
 }
 
