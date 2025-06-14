@@ -76,7 +76,7 @@ void reset_drop(DropData *drop){
 	drop->accel_z = 1;
 	drop->last_accel_z = 1;
 	drop->applied_correction = 1;
-	drop->timeroff = rt->current_time;
+	drop->timeroff = 0;
 }
 
 void drop_deactivate(DropData *drop, DropDebug *drop_dbg, RuntimeData *rt){
