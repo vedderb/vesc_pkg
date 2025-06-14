@@ -26,7 +26,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	    (state->sat != SAT_CENTERING) && 						// Not during startup
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
-		if ((drop->count > drop->count_limit) { //&& 				// Counter used to reduce nuisance trips
+		if (drop->count > drop->count_limit) { //&& 				// Counter used to reduce nuisance trips
 		    //(drop->last_accel_z - drop->accel_z >= - drop->min_diff)) {  		// check that we are constantly dropping but allow for some noise
 			if (!drop->active) { 						// Set the on timer only once per drop
 				drop->timeron = rt->current_time; 	
