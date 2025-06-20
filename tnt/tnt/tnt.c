@@ -152,8 +152,8 @@ static void reset_vars(data *d) {
 void apply_kp_modifiers(data *d) {
 	//Select and Apply Pitch kp rate
 	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) 
-		* -d->rt.gyro_y * d->pid.stability_kprate;
-	d->pid_dbg.debug4 = d->rt.gyro_y;
+		* -d->rt.gyro_y_smooth * d->pid.stability_kprate;
+	d->pid_dbg.debug4 = d->rt.gyro_y_smooth;
 	d->pid_dbg.debug6 = d->pid_dbg.debug10 * (p->stability_kprate - 1); //stability rate kp
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
