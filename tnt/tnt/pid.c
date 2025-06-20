@@ -283,8 +283,7 @@ float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *
 	float pid_mod = 0;
 	float kp_rate = p->brake_pitch ? brake_kp->kp_rate : accel_kp->kp_rate;	
 	pid_dbg->debug10 = kp_rate;
-	pid_dbg->debug3 = kp_rate * (p->stability_kprate - 1);			// Calc the contribution of stability to kp_rate
-	pid_mod = kp_rate * p->stability_kprate;
+	pid_mod = kp_rate 
 	return pid_mod;
 }
 
