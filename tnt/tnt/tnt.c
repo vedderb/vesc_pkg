@@ -151,14 +151,14 @@ static void reset_vars(data *d) {
 
 void apply_kp_modifiers(data *d) {
 	//Select and Apply Pitch kp rate
-	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) 
+	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, d->pid.brake_pitch, &d->pid_dbg) 
 		* -d->rt.gyro_y_smooth * d->pid.stability_kprate;
 	d->pid_dbg.debug4 = d->rt.gyro_y_smooth;
 	d->pid_dbg.debug6 = d->pid_dbg.debug10 * (d->pid.stability_kprate - 1); //stability rate kp
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
 	//Select and Apply Yaw kp rate			
-	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
+	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, d->pid.brake_yaw, &d->pid_dbg) * d->rt.gyro_z;
 	d->pid_dbg.debug5 = d->rt.gyro_z;
 	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
 	
