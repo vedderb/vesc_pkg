@@ -161,9 +161,8 @@ Item {
                     var debug2 = dv.getFloat32(ind); ind += 4; //stablity 0-100%
 		    var debug3 = dv.getFloat32(ind); ind += 4; //added pitch kp 
       		    var debug4 = dv.getFloat32(ind); ind += 4; //added stability rate P for pitch
-                    var debug5 = dv.getFloat32(ind); ind += 4; // added stability rate P for yaw		
                     var debug6 = dv.getFloat32(ind); ind += 4; // added demand for pitch angle
-                    var debug7 = dv.getFloat32(ind); ind += 4; // added demand for pitch and yaw rate
+                    var debug7 = dv.getFloat32(ind); ind += 4; // added demand for pitch 
 		} else if (debug_state == 5) {
                     var debug1 = dv.getFloat32(ind); ind += 4; //yaw angle
                     var debug2 = dv.getFloat32(ind); ind += 4; //yaw change
@@ -396,9 +395,8 @@ Item {
     				"Stability           : " + (debug2 * 100).toFixed(0) + " % \n" +
  				"Pitch Angle Kp      : " + debug3.toFixed(2) + " \n" +
 				"Pitch Rate Kp       : " + debug4.toFixed(2) + " \n" +         
-     				"Yaw Rate Kp         : " + debug5.toFixed(2) + " \n" +
      				"Pitch Angle Current : " + debug6.toFixed(1) + " A\n" +
-    				"Pitch/Yaw Rate Curre: " + debug7.toFixed(1) + " A\n" 
+    				"Pitch Rate Current  : " + debug7.toFixed(1) + " A\n" 
 			} else if (debug_state == 5) {
 				debug.text =
 				"Yaw Angle           : " + debug1.toFixed(1) + " ° \n" +
