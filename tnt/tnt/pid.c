@@ -215,9 +215,9 @@ void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, t
 }
 
 void check_brake_kp(PidData *p, State *state, tnt_config *config, KpArray *roll_brake_kp, KpArray *yaw_brake_kp) {
-	p->brake_roll = roll_brake_kp->count!=0 && state->braking_pos;
+	p->brake_roll = state->braking_pos;
 	p->brake_pitch = config->brake_curve && state->braking_pos;
-	p->brake_yaw = yaw_brake_kp->count!=0 && state->braking_pos;
+	p->brake_yaw = state->braking_pos;
 }
 
 float roll_erpm_scale(PidData *p, State *state, float abs_erpm, KpArray *roll_accel_kp, tnt_config *config) {
@@ -279,11 +279,11 @@ float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug 
 	return new_pid_value;
 }
 
-float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg) {
+float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, bool braking, PidDebug *pid_dbg) {
 	float pid_mod = 0;
-	float kp_rate = p->brake_pitch ? brake_kp->kp_rate : accel_kp->kp_rate;	
+	float kp_rate = braking ? brake_kp->kp_rate : accel_kp->kp_rate;	
 	pid_dbg->debug10 = kp_rate;
-	pid_mod = kp_rate 
+	pid_mod = kp_rate;
 	return pid_mod;
 }
 
