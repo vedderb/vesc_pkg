@@ -50,7 +50,11 @@ void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 	//Apply low pass and Kalman filters to pitch
 	if (config->pitch_filter > 0) {
 		rt->pitch_smooth = biquad_process(&rt->pitch_biquad, rt->pitch_angle);
-	} else {rt->pitch_smooth = rt->pitch_angle;}
+		rt->gyro_y_smooth = biquad_process(&rt->gyro_y_biquad, rt->gyro_y);
+	} else {
+		rt->pitch_smooth = rt->pitch_angle;
+		rt->gyro_y_smooth = rt->gyro_y;
+	}
 	if (config->kalman_factor1 > 0) {
 		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
 	} else {rt->pitch_smooth_kalman = rt->pitch_smooth;}
@@ -76,6 +80,8 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	//Low pass pitch filter
 	rt->pitch_smooth = rt->pitch_angle;
 	biquad_reset(&rt->pitch_biquad);
+	rt->gyro_y_smooth = rt->gyro_y;
+	biquad_reset(&rt->gyro_y_biquad);
 	
 	//Kalman filter
 	reset_kalman(&rt->pitch_kalman);
@@ -102,7 +108,8 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->motor_timeout_s = 20.0f / config->hertz;
 	
 	//Pitch Biquad Configure
-	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
+	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * 25.0 / config->hertz); 
+	biquad_configure(&rt->gyro_y_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
 
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
