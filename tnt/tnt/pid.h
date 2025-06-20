@@ -85,7 +85,7 @@ void reset_pid(PidData *p, PidDebug *pid_dbg);
 void apply_soft_start(PidData *p, float mc_current_max);
 void configure_pid(PidData *p, tnt_config *config);
 float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg);
-float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg);
+float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, bool braking, PidDebug *pid_dbg);
 float apply_roll_kp(KpArray *roll_accel_kp, KpArray *roll_brake_kp, PidData *p, int erpm_sign, float abs_roll_angle, float roll_erpm_scale, PidDebug *pid_dbg);
 float yaw_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config);
 float apply_yaw_kp(KpArray *yaw_accel_kp, KpArray *yaw_brake_kp, PidData *p, float erpm_sign, float abs_change, float yaw_erpm_scale, YawDebugData *yaw_dbg);
