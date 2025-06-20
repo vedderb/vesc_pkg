@@ -151,15 +151,15 @@ static void reset_vars(data *d) {
 
 void apply_kp_modifiers(data *d) {
 	//Select and Apply Pitch kp rate
-	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro_y;
+	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) 
+		* -d->rt.gyro_y * d->pid.stability_kprate;
 	d->pid_dbg.debug4 = d->rt.gyro_y;
-	d->pid_dbg.debug6 = d->pid_dbg.debug3; //stability rate kp
+	d->pid_dbg.debug6 = d->pid_dbg.debug10 * (p->stability_kprate - 1); //stability rate kp
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
 	//Select and Apply Yaw kp rate			
 	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, &d->pid_dbg) * d->rt.gyro_z;
 	d->pid_dbg.debug5 = d->rt.gyro_z;
-	d->pid_dbg.debug7 = d->pid_dbg.debug3; //stability rate kp
 	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
 	
 	//Select and apply roll kp
@@ -524,9 +524,8 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //stablity 0-100%
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug7, &ind); // added stability rate P for yaw								
 		buffer_append_float32_auto(buffer, d->pid_dbg.debug13, &ind); // added demand for pitch angle
-		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4 + d->pid_dbg.debug7 * d->pid_dbg.debug5, &ind); // added demand for pitch and yaw rate
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4, &ind); // added demand for pitch rate
 	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 5;
 		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
