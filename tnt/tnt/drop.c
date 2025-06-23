@@ -24,10 +24,10 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    //(state->sat != SAT_CENTERING) && 						// Not during startup
+	    (drop->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping but allow for some noise
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if (drop->count > drop->count_limit) { //&& 						// Counter used to reduce nuisance trips 
-		    //(drop->last_accel_z - drop->accel_z >= - drop->min_diff)) {  	// check that we are constantly dropping but allow for some noise
 			if (!drop->active) { 						// Set the on timer only once per drop
 				drop->timeron = rt->current_time; 	
 				drop_dbg->debug4 = drop->accel_z;
@@ -66,7 +66,7 @@ void configure_drop(DropData *drop, const tnt_config *config){
 	drop->count_limit = 1.0 * config->hertz / 832; //config->drop_count_limit;
 	//drop->z_highlimit = config->drop_z_highaccel;
 	drop->hertz = config->hertz;
-	drop->min_diff = .01 / config->hertz;
+	drop->min_diff = .001 / config->hertz;
 }
 
 void reset_drop(DropData *drop){
