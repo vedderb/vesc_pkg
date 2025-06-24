@@ -1,5 +1,3 @@
-@const-symbol-strings
-
 (def init-complete nil)
 
 @const-start
@@ -16,9 +14,13 @@
 (import "pkg::disp-gauges@://vesc_packages/lib_disp_ui/disp_ui.vescpkg" 'disp-gauges)
 (read-eval-program disp-gauges)
 
+(import "config.lisp" 'code-config)
+(read-eval-program code-config)
+
 (import "fonts/font_12_15_aa.bin" 'font15)
 (import "fonts/font_15_18_aa.bin" 'font18)
 (import "fonts/font_22_24_aa.bin" 'font24)
+(import "fonts/font_21_32_aa_digits.bin" 'font32)
 (import "fonts/font_60_88_aa.bin" 'font88)
 (import "fonts/font_77_128_aa.bin" 'font128)
 
@@ -32,6 +34,35 @@
 (import "assets/battery-4c.bin" 'icon-battery)
 (import "assets/warning-4c.bin" 'icon-warning)
 (import "assets/bike-6c.bin" 'icon-bike)
+(import "assets/bms-cell-high-4c.bin" 'icon-bms-cell-high)
+(import "assets/bms-cell-low-4c.bin" 'icon-bms-cell-low)
+(import "assets/bms-temp-high-4c.bin" 'icon-bms-temp-high)
+(import "assets/bms-temp-low-4c.bin" 'icon-bms-temp-low)
+(import "assets/bms-chip-4c.bin" 'icon-bms-chip)
+(import "assets/bms-charge-4c.bin" 'icon-bms-charge)
+(import "assets/bms-discharge-4c.bin" 'icon-bms-discharge)
+
+(if config-homologation-enable {
+    ; Homologation Elements
+    (import "assets/blinker-left-4c.bin" 'icon-blinker-left)
+    (import "assets/blinker-right-4c.bin" 'icon-blinker-right)
+    (import "assets/cruise-control-4c.bin" 'icon-cruise-control)
+    (import "assets/light-4c.bin" 'icon-lights)
+    (import "assets/high-beam-4c.bin" 'icon-highbeam)
+    (import "assets/kickstand-4c.bin" 'icon-kickstand)
+    (import "assets/neutral-4c.bin" 'icon-neutral)
+    (import "assets/drive-4c.bin" 'icon-drive)
+    (import "assets/reverse-4c.bin" 'icon-reverse)
+    (import "assets/charge-bolt-4c.bin" 'icon-charge-bolt)
+    (import "assets/hot-battery-16c.bin" 'icon-hot-battery)
+    (import "assets/hot-motor-16c.bin" 'icon-hot-motor)
+    (import "assets/low-beam-4c.bin" 'icon-lowbeam)
+    (import "assets/press-to-start-4c.bin" 'icon-start-msg)
+    (import "assets/motor-start-4c.bin" 'icon-start-motor)
+})
+
+(import "lib/vehicle-state.lisp" 'code-vehicle-state)
+(read-eval-program code-vehicle-state)
 
 (import "lib/colors.lisp" 'code-colors)
 (read-eval-program code-colors)
@@ -45,20 +76,31 @@
 (import "lib/statistics.lisp" 'code-statistics)
 (read-eval-program code-statistics)
 
+(import "lib/draw-utils.lisp" 'code-draw-utils)
+(read-eval-program code-draw-utils)
+
 (import "views/components/view-startup.lisp" 'code-view-startup)
 (read-eval-program code-view-startup)
 
 (import "views/components/view-menu.lisp" 'code-view-menu)
 (read-eval-program code-view-menu)
 
-(import "views/view-main.lisp" 'code-view-main)
-(read-eval-program code-view-main)
+(if config-homologation-enable {
+    (import "views/view-homologation.lisp" 'code-view-homologation)
+    (read-eval-program code-view-homologation)
+} {
+    (import "views/view-main.lisp" 'code-view-main)
+    (read-eval-program code-view-main)
+})
 
 (import "views/view-speed-large.lisp" 'code-view-speed-large)
 (read-eval-program code-view-speed-large)
 
 (import "views/view-statistics.lisp" 'code-view-statistics)
 (read-eval-program code-view-statistics)
+
+(import "views/view-bms.lisp" 'code-view-bms)
+(read-eval-program code-view-bms)
 
 (import "views/view-live-chart.lisp" 'code-view-live-chart)
 (read-eval-program code-view-live-chart)
@@ -78,16 +120,25 @@
 (import "lib/display-utils.lisp" 'code-display-utils)
 (read-eval-program code-display-utils)
 
-(import "lib/draw-utils.lisp" 'code-draw-utils)
-(read-eval-program code-draw-utils)
-
 (import "lib/communication.lisp" 'code-communication)
 (read-eval-program code-communication)
 
 @const-end
 
+(if config-metric-speeds
+    (def settings-units-speeds '(kmh . "km/h"))
+    (def settings-units-speeds '(mph . "MPH"))
+)
+
+(if config-metric-temps
+    (def settings-units-temps '(celsius . "C"))
+    (def settings-units-temps '(fahrenheit . "F"))
+)
+
+(if config-code-server (start-code-server)) ; Enable remote code execution
+
 (display-init)
 
-(start-boot-animation)
+(if config-boot-animation-enable (start-boot-animation))
 
 (def init-complete true)

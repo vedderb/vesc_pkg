@@ -1,10 +1,26 @@
+(def dm-pool (dm-create 25600))
+
 @const-start
+
+(def pi 3.141592)
 
 (defun ease-in-out-quint (x)
     (if (< x 0.5)
         (* 16 x x x x x)
         (- 1 (/ (pow (+ (* -2.0 x) 2.0) 5) 2.0))
     )
+)
+
+(defun ease-in-sine (x)
+    (/ (- 1 (cos (* x pi))) 2)
+)
+
+(defun ease-out-sine (x)
+    (sin (/ (* x pi) 2))
+)
+
+(defun ease-in-out-sine (x)
+    (/ (- (cos (* x pi)) -1) 2)
 )
 
 ; Rotates a point around the origin in the clockwise direction. (note that the
@@ -75,36 +91,75 @@
     })
 })
 
-(defun draw-battery-soc (img w h soc) {
+(defun txt-block-v (img col tc x y w h font txt) {
+    (var buf-temp (img-buffer dm-pool 'indexed4 h w)) ; Create rotated buffer for img-blit
+    (img-clear buf-temp (first col))
+
+    (txt-block-c buf-temp col (/ h 2) 0 font txt)
+
+    (img-blit img buf-temp (+ w x) y tc '(rotate 0 0 -90))
+})
+
+(defun draw-battery-horizontal (img x y w h soc line-w color-bg color-fg) {
     (if (< soc 0.0) (setq soc 0.0))
     (if (> soc 1.0) (setq soc 1.0))
 
-    ;(img-rectangle img x y width height color opt-attr1
-
-    (var bat-left 4)
-    (var bat-top 4)
+    (var nub-width (- w (* w 0.93)))
+    (var nub-indent (/ h 6))
     ; Outline
-    (img-rectangle img bat-left (+ bat-top 5) (- w 8) (- h 16) 1 '(thickness 3)) ; TODO: thickness 2 is coming out 1 with rounded
+    (img-rectangle img x y (- w line-w nub-width) (- h line-w) color-bg `(thickness ,line-w))
     ; Nub
-    (img-rectangle img (+ bat-left 3) bat-top (- w 16) 7 1 '(thickness 2))
+    (img-rectangle img (+ x (- w line-w nub-width)) (+ y nub-indent) nub-width (- h (* nub-indent 2)) color-bg `(thickness ,line-w))
 
     ; Fill
-    (def fill-h (* (- h 16 bat-top 2) soc))
+    (var fill-w (* (- w nub-width (* line-w 2)) soc))
+    (if (< fill-w 1) (setq fill-w 1))
+    (img-rectangle
+        img
+        (+ x line-w)
+        (+ y line-w)
+        fill-w
+        (- h (* line-w 2))
+        color-fg '(filled))
+})
+
+(defun draw-battery-vertical (img w h soc line-w) {
+    (if (< soc 0.0) (setq soc 0.0))
+    (if (> soc 1.0) (setq soc 1.0))
+
+    (var nub-bottom (- h (* h 0.93)))
+    (var nub-indent (/ w 6))
+    ; Outline
+    (img-rectangle img 0 nub-bottom (- w line-w) (- h nub-bottom line-w) 1 `(thickness ,line-w))
+    ; Nub
+    (img-rectangle img nub-indent 0 (- w (* nub-indent 2)) nub-bottom 1 `(thickness ,line-w))
+
+    ; Fill
+    (var fill-h (* (- h nub-bottom (* line-w 2)) soc))
     (if (< fill-h 1) (setq fill-h 1))
-    (img-rectangle img 7 (+ (+ bat-top 5 2) (- h fill-h bat-top 16)) (- w 8 5) fill-h 2 '(filled))
+    (img-rectangle
+        img
+        line-w
+        (+ nub-bottom (- h fill-h nub-bottom line-w))
+        (- w (* line-w 2)) 
+        fill-h
+        2 '(filled))
 })
 
 (defun draw-vertical-bar (img x y w h colors pct) {
+    (var rounding (if (ix (rest-args) 0) (ix (rest-args) 0) 0))
+    (var with-outline (ix (rest-args) 1))
+    (var invert-direction (ix (rest-args) 2))
     (if (< pct 0.0) (setq pct 0.0))
     (if (> pct 1.0) (setq pct 1.0))
 
     ; Fill
     (def fill-h (floor (* (- h 2) pct)))
     (if (< fill-h 25) (setq fill-h 25))
-    (img-rectangle img (+ x 1) (+ y (- h fill-h) -1) (- w 2) fill-h (second colors) '(filled) '(rounded 10))
+    (img-rectangle img (+ x 1) (+ y (if invert-direction 0 (- h fill-h)) -1) (- w 2) fill-h (second colors) '(filled) `(rounded ,rounding))
 
     ; Outline
-    (img-rectangle img x y w h (first colors) '(thickness 4) '(rounded 10))
+    (if with-outline (img-rectangle img x y w h (first colors) '(thickness 4) `(rounded ,rounding)))
 })
 
 (defun draw-units (img x y color font) {
@@ -214,6 +269,27 @@
     (img-line img x3 y3 x4 y4 color '(thickness 1))
     
     (img-line img x1 y1 x3 y3 color '(thickness 1))
+})
+
+(defun draw-turn-animation (img left-right pct) {
+    (var dots 9)
+    (var dot-spacing 2)
+    (var dot-w 5)
+    (var dot-h 17)
+    (var dots-illuminated (to-i (* dots pct)))
+    (looprange i 0 dots {
+        (img-rectangle img
+            (* i (+ dot-w dot-spacing))
+            0
+            dot-w
+            dot-h
+            (if (eq left-right 'left)
+                (if (< (- 7 i) dots-illuminated) 2 3) ; TODO: improve readability/logic
+                (if (< (- i 1) dots-illuminated) 2 3) ; TODO: improve readability/logic
+            )
+            '(filled)
+            '(rounded 2))
+    })
 })
 
 ; img = image buffer
