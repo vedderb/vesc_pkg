@@ -1,40 +1,44 @@
 @const-start
 
 (defun view-init-main  () {
-    (def buf-stripe-bg (img-buffer-from-bin icon-stripe))
-    (def buf-stripe-fg (img-buffer 'indexed16 141 19))
-    (def buf-stripe-top (img-buffer-from-bin icon-stripe-top))
-    (def buf-arrow-l (img-buffer-from-bin icon-arrow-l))
-    (def buf-arrow-r (img-buffer-from-bin icon-arrow-r))
+    (def buf-stripe-bg icon-stripe)
+    (def buf-stripe-fg (img-buffer dm-pool 'indexed16 141 19))
+    (def buf-stripe-top icon-stripe-top)
+    (def buf-arrow-l icon-arrow-l)
+    (def buf-arrow-r icon-arrow-r)
     (img-blit buf-stripe-fg buf-stripe-top 0 0 -1)
 
-    (def buf-motor-icon (img-buffer-from-bin icon-motor))
-    (def buf-esc-icon (img-buffer-from-bin icon-esc))
-    (def buf-battery-icon (img-buffer-from-bin icon-battery))
-    (def buf-warning-icon (img-buffer-from-bin icon-warning))
+    (def buf-motor-icon icon-motor)
+    (def buf-esc-icon icon-esc)
+    (def buf-battery-icon icon-battery)
+    (def buf-warning-icon icon-warning)
 
-    (def buf-motor-val (img-buffer 'indexed4 59 20))
-    (def buf-esc-val (img-buffer 'indexed4 59 20))
-    (def buf-battery-val (img-buffer 'indexed4 59 20))
+    (def buf-motor-val (img-buffer dm-pool 'indexed4 59 20))
+    (def buf-esc-val (img-buffer dm-pool 'indexed4 59 20))
+    (def buf-battery-val (img-buffer dm-pool 'indexed4 59 20))
 
-    (def buf-incline (img-buffer 'indexed4 120 35))
-    (def buf-battery (img-buffer 'indexed4 42 120))
-    (def buf-battery-soc (img-buffer 'indexed4 50 20))
+    (def buf-incline (img-buffer dm-pool 'indexed4 120 35))
+    (def buf-battery (img-buffer dm-pool 'indexed4 42 120))
+    (def buf-battery-soc (img-buffer dm-pool 'indexed4 50 20))
     
-    (def buf-speed (img-buffer 'indexed4 179 90))
-    (def buf-units (img-buffer 'indexed4 50 15))
+    (def buf-speed (img-buffer dm-pool 'indexed4 179 90))
+    (def buf-units (img-buffer dm-pool 'indexed4 50 15))
+
+    (def buf-odom (img-buffer dm-pool 'indexed4 140 15))
 
     (view-init-menu)
     (defun on-btn-0-long-pressed () {
         (hw-sleep)
     })
-    (defun on-btn-2-pressed () {
+    (defun on-btn-2-pressed () (if (not config-units-switching-enable) nil
+    {
         (setting-units-cycle)
         (setix view-previous-stats 0 'stats-kmh) ; Re-draw units
         (setix view-previous-stats 2 'stats-temp-battery)
         (setix view-previous-stats 3 'stats-temp-esc)
         (setix view-previous-stats 4 'stats-temp-motor)
-    })
+        (setix view-previous-stats 6 'stats-odom)
+    }))
     (defun on-btn-2-long-pressed () {
         (setting-units-cycle-temps)
         (setix view-previous-stats 2 'stats-temp-battery)
@@ -43,9 +47,9 @@
     })
     (defun on-btn-3-pressed () (def state-view-next (next-view)))
 
-    (def view-previous-stats (list 'stats-kmh 'stats-battery-soc 'stats-temp-battery 'stats-temp-esc 'stats-temp-motor 'stats-angle-pitch))
+    (def view-previous-stats (list 'stats-kmh 'stats-battery-soc 'stats-temp-battery 'stats-temp-esc 'stats-temp-motor 'stats-angle-pitch 'stats-odom))
 
-    (view-draw-menu "PWR" nil "UNITS" 'arrow-right)
+    (view-draw-menu "PWR" nil (if (not config-units-switching-enable) nil "UNITS") 'arrow-right)
     (view-render-menu)
     (disp-render buf-stripe-bg 5 68
         '(
@@ -105,7 +109,7 @@
         (img-clear buf-battery)
         (var displayed-soc (* 100 stats-battery-soc))
         (if (< displayed-soc 0) (setq displayed-soc 0))
-        (draw-battery-soc buf-battery 38 (second (img-dims buf-battery)) stats-battery-soc)
+        (draw-battery-vertical buf-battery 38 (second (img-dims buf-battery)) stats-battery-soc 2)
 
         (img-clear buf-battery-soc)
         (txt-block-c buf-battery-soc (list 0 1 2 3) (/ (first (img-dims buf-battery-soc)) 2) 0 font15 (str-merge (str-from-n displayed-soc "%0.0f") "%"))
@@ -170,6 +174,16 @@
         (img-rectangle buf-incline (- half-width (/ txt-w 2)) (- half-height (/ font-h 2)) txt-w font-h 0 '(filled))
         (txt-block-c buf-incline (list 0 1 2 3) (/ (first (img-dims buf-incline)) 2) 13 font18 out-str)
     })
+
+    ; Draw odometer
+    (if (not-eq (to-i (* stats-odom 10)) (ix view-previous-stats 6)) {
+        (img-clear buf-odom)
+        (var odom (match (car settings-units-speeds)
+            (kmh (str-merge (str-from-n stats-odom "%0.1f") "km"))
+            (mph (str-merge (str-from-n (* stats-odom km-to-mi) "%0.1f") "mi"))
+        ))
+        (txt-block-c buf-odom (list 0 1 2 3) (/ (first (img-dims buf-odom)) 2) 0 font15 odom)
+    })
 })
 
 (defun view-render-main () {
@@ -221,7 +235,12 @@
         (disp-render buf-incline 188 4 colors-text-aa)
     })
 
-    (def view-previous-stats (list stats-kmh (to-i (* 100 stats-battery-soc)) stats-temp-battery stats-temp-esc stats-temp-motor stats-angle-pitch))
+    ; Render Odometer
+    (if (not-eq (to-i (* stats-odom 10)) (ix view-previous-stats 6))
+        (disp-render buf-odom 20 197 colors-white-icon)
+    )
+
+    (def view-previous-stats (list stats-kmh (to-i (* 100 stats-battery-soc)) stats-temp-battery stats-temp-esc stats-temp-motor stats-angle-pitch (to-i (* stats-odom 10))))
 
     (if (> (length stats-fault-codes-observed) 0) {
         (disp-render buf-warning-icon 206 46 '(0x000000 0xff0000 0x929491 0xfbfcfc))
@@ -245,4 +264,5 @@
     (def buf-battery-val nil)
     (def buf-speed nil)
     (def buf-units nil)
+    (def buf-odom nil)
 })

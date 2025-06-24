@@ -1,5 +1,5 @@
 (defun view-init-menu () {
-    (def buf-menu (img-buffer 'indexed4 320 25))
+    (def buf-menu (img-buffer dm-pool 'indexed4 320 25))
 })
 
 (defun view-draw-menu (button-0 button-1 button-2 button-3) {

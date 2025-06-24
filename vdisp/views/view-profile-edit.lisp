@@ -90,11 +90,11 @@
 (defun view-init-profile-edit () {
     (def profile-active (+ (read-setting 'pf-active) 1))
 
-    (def buf-profile-opt0 (img-buffer 'indexed4 305 30))
-    (def buf-profile-opt1 (img-buffer 'indexed4 220 30))
-    (def buf-profile-opt2 (img-buffer 'indexed4 220 30))
+    (def buf-profile-opt0 (img-buffer dm-pool 'indexed4 305 30))
+    (def buf-profile-opt1 (img-buffer dm-pool 'indexed4 220 30))
+    (def buf-profile-opt2 (img-buffer dm-pool 'indexed4 220 30))
 
-    (var buf-title (img-buffer 'indexed4 220 25))
+    (var buf-title (img-buffer dm-pool 'indexed4 220 25))
     (txt-block-r buf-title (list 0 1 2 3) 220 0 font18
         (str-from-n profile-active "Edit Profile %d")
     )

@@ -1,7 +1,7 @@
 @const-start
 
 (defun view-init-minigame () {
-    (def buf-game-over (img-buffer 'indexed4 196 60))
+    (def buf-game-over (img-buffer dm-pool 'indexed4 196 60))
     (def game-score 0)
     (def game-seconds 0)
     (def game-start-time (systime))
@@ -9,11 +9,11 @@
     (def bricks-row (range 0 10))
     (def bricks-row-y 42)
     (def bricks-height 8)
-    (def buf-bricks (img-buffer 'indexed2 320 10))
+    (def buf-bricks (img-buffer dm-pool 'indexed2 320 10))
 
     (def game-over nil)
     (def ball-size 9)
-    (def buf-ball (img-buffer 'indexed2 (+ ball-size 1) (+ ball-size 1)))
+    (def buf-ball (img-buffer dm-pool 'indexed2 (+ ball-size 1) (+ ball-size 1)))
     (def ball-x (mod (rand) 319))
     (def ball-x-rate 0.8)
     (def ball-y (+ bricks-row-y ball-size (mod (rand) 20)))
@@ -21,7 +21,7 @@
     
     (img-rectangle buf-ball 0 0 ball-size ball-size 1 `(rounded ,(- (/ ball-size 2) 1)) '(filled))
 
-    (def buf-paddle (img-buffer 'indexed2 320 10))
+    (def buf-paddle (img-buffer dm-pool 'indexed2 320 10))
     (def paddle-x 0)
     (def paddle-y 200)
     (def paddle-width 40)

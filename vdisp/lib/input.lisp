@@ -130,11 +130,15 @@
     })
 })
 
-(spawn (fn () (loopwhile t {
-    (spawn-trap input-thread)
-    (recv   ((exit-error (? tid) (? e))
-                (print (str-merge "input-thread error: " (to-str e)))
-            )
-            ((exit-ok (? tid) (? v)) 'ok))
-    (sleep 1.0)
-})))
+(if config-error-recovery
+    (spawn (fn () (loopwhile t {
+        (print "Starting input-thread")
+        (spawn-trap input-thread)
+        (recv   ((exit-error (? tid) (? e))
+                    (print (str-merge "input-thread error: " (to-str e)))
+                )
+                ((exit-ok (? tid) (? v)) 'ok))
+        (sleep 1.0)
+    })))
+    (spawn input-thread)
+)
