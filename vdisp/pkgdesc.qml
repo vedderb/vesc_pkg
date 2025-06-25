@@ -4,7 +4,7 @@ Item {
     property string pkgName: "VDisp"
     property string pkgDescriptionMd: "README_Disp-gen.md"
     property string pkgLisp: "main.lisp"
-    property string pkgQml: ""
+    property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vdisp.vescpkg"
 
