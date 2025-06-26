@@ -152,8 +152,8 @@ static void reset_vars(data *d) {
 void apply_kp_modifiers(data *d) {
 	//Select and Apply Pitch kp rate
 	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, d->pid.brake_pitch, &d->pid_dbg) 
-		* -d->rt.gyro_y_smooth * d->pid.stability_kprate;
-	d->pid_dbg.debug4 = d->rt.gyro_y_smooth;
+		* -d->rt.gyro_y * d->pid.stability_kprate;
+	d->pid_dbg.debug4 = d->rt.gyro_y;
 	d->pid_dbg.debug6 = d->pid_dbg.debug10 * (d->pid.stability_kprate - 1); //stability rate kp
 	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
 	
@@ -191,6 +191,7 @@ static void tnt_thd(void *arg) {
 	while (!VESC_IF->should_terminate()) {
 		runtime_data_update(&d->rt);
 		apply_pitch_filters(&d->rt, &d->tnt_conf);
+		calc_gyros(&d->rt);
 		motor_data_update(&d->motor, &d->tnt_conf);
 		update_remote(&d->tnt_conf, &d->remote);
 		temp_recovery_tone(&d->tone, &d->tone_config.fasttripleup, &d->motor);
