@@ -38,24 +38,26 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 	VESC_IF->imu_get_gyro(rt->gyro);
-	//rt->gyro_y = cosf(roll_rad) * cosf(roll_rad) * rt->gyro[1] + cosf(roll_rad) * sinf(roll_rad) * rt->gyro[2];
-	//rt->gyro_z = fabsf(cosf(roll_rad) * rt->gyro[2] + sinf(roll_rad) * rt->gyro[1]);
-	rt->gyro_y = rt->gyro[1];
-	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro[1] - cosf(roll_rad) * sinf(roll_rad) * rt->gyro[2];
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
+}
+
+void calc_gyros(RuntimeData *rt){
+	float roll_rad = VESC_IF->imu_get_roll();
+	rt->gyro_y = rt->gyro_1_smooth;
+	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro_1_smooth - cosf(roll_rad) * sinf(roll_rad) * rt->gyro_2_smooth;
 }
 
 void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 	//Apply low pass and Kalman filters to pitch
 	if (config->pitch_filter > 0) {
 		rt->pitch_smooth = biquad_process(&rt->pitch_biquad, rt->pitch_angle);
-		rt->gyro_y_smooth = biquad_process(&rt->gyro_y_biquad, rt->gyro_y);
-		rt->gyro_z_smooth = biquad_process(&rt->gyro_z_biquad, rt->gyro_z);
+		rt->gyro_1_smooth = biquad_process(&rt->gyro_1_biquad, rt->gyro[1]);
+		rt->gyro_2_smooth = biquad_process(&rt->gyro_2_biquad, rt->gyro[2]);
 	} else {
 		rt->pitch_smooth = rt->pitch_angle;
-		rt->gyro_y_smooth = rt->gyro_y;
-		rt->gyro_z_smooth = rt->gyro_z;
+		rt->gyro_1_smooth = rt->gyro[1];
+		rt->gyro_2_smooth = rt->gyro[2];
 	}
 	if (config->kalman_factor1 > 0) {
 		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
@@ -82,10 +84,10 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	//Low pass pitch filter
 	rt->pitch_smooth = rt->pitch_angle;
 	biquad_reset(&rt->pitch_biquad);
-	rt->gyro_y_smooth = rt->gyro_y;
-	biquad_reset(&rt->gyro_y_biquad);
-	rt->gyro_z_smooth = rt->gyro_z;
-	biquad_reset(&rt->gyro_z_biquad);
+	rt->gyro_1_smooth = rt->gyro[1];
+	biquad_reset(&rt->gyro_1_biquad);
+	rt->gyro_2_smooth = rt->gyro[2];
+	biquad_reset(&rt->gyro_2_biquad);
 	
 	//Kalman filter
 	reset_kalman(&rt->pitch_kalman);
@@ -113,8 +115,8 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	
 	//Pitch Biquad Configure
 	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * 25.0 / config->hertz); 
-	biquad_configure(&rt->gyro_y_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
-	biquad_configure(&rt->gyro_z_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
+	biquad_configure(&rt->gyro_1_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
+	biquad_configure(&rt->gyro_2_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
 
 
 	//Pitch Kalman Configure
