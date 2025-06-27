@@ -55,10 +55,12 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * **This version requires 6.05+ firmware to fuction properly**
 * _Features_
   * New Feature - Yaw Rate Kp in the Yaw menu
-    * New math concerning the IMU gyro separates components pitch gyro and yaw gyro
-    * New parameter Yaw Rate Kp and Yaw Rate Braking Kp applies to the yaw gyro
-    * The existing Pitch Rate Kp applues to the pitch gyro
-    * Higher yaw rate kp will increase nose stiffness while carving.
+    * New math separating the components of IMU gyro into pitch and yaw changes, the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
+    * New parameters Yaw Rate Kp and Yaw Rate Braking Kp
+    * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
+    * Higher Yaw Rate Kp will add nose stiffness while applying yaw (i.e. carving)
+    * Yaw Rate Kp of 1 produces the pre-1.6 gyro behaviour.
+    * Yaw Rate Kp of 0 removes yaw stiffness.
   * Traction Control
     * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
     * Added Tracking ERPM Rate Limit parameter limits the rate that Tracking ERPM can change
@@ -67,8 +69,6 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Default Start Acceleration changed to 35 ERPM/ms
     * Default ERPM Filter Frequency to 25 Hz
     * Replaced Start Condition with Track ERPM in AppUI debug
-  * Yaw
-    * Added a hard coded correction fator to yaw change to account for higher yaw change resulting at higher package loop frequencies
   * AppUI Overhaul
     * Removed tune debug
     * Added pitch, roll. stability, and current debugs
@@ -84,13 +84,15 @@ For more instructions on setting up your board please refer to the [Set Up Guide
       * Added air time counter
       * Added max air time
       * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when activated
-  * Surge
-    * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
   * Traction Control Braking
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
-    * 0 by default, 10 ms recommended
+    * 0 by default, 5 ms recommended
 * _Fixes/Improvements_
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
+  * Yaw
+    * Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
+  * Surge
+    * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
