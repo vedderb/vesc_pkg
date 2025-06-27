@@ -55,10 +55,10 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * **This version requires 6.05+ firmware to fuction properly**
 * _Features_
   * New Feature - Yaw Rate Kp in the Yaw menu
-    * New math separating the components of IMU gyro into pitch and yaw changes, the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
-    * New parameters Yaw Rate Kp and Yaw Rate Braking Kp
+    * New math handling the IMU gyro changes the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
+    * Added New parameters Yaw Rate Kp and Yaw Rate Braking Kp
     * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
-    * Higher Yaw Rate Kp will add nose stiffness while applying yaw (i.e. carving)
+    * Higher Yaw Rate Kp will increase nose stiffness while applying yaw (i.e. carving)
     * Yaw Rate Kp of 1 produces the pre-1.6 gyro behaviour.
     * Yaw Rate Kp of 0 removes yaw stiffness.
   * Traction Control
