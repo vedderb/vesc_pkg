@@ -23,7 +23,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	apply_angle_drop(drop, rt);
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
-	    (state->sat != SAT_CENTERING) && 						// Not during startup
+	 //   (state->sat != SAT_CENTERING) && 						// Not during startup
 	    drop->last_accel_z - drop->accel_z >  - drop->min_diff &&  					// check that we are constantly dropping but allow for some noise
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
