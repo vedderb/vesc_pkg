@@ -66,7 +66,7 @@ void configure_drop(DropData *drop, const tnt_config *config){
 	drop->count_limit = 1.0 * config->hertz / 832; //config->drop_count_limit;
 	//drop->z_highlimit = config->drop_z_highaccel;
 	drop->hertz = config->hertz;
-	drop->min_diff = .001 / config->hertz;
+	drop->min_diff = .01 / config->hertz;
 }
 
 void reset_drop(DropData *drop){
