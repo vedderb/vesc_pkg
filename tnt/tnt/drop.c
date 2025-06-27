@@ -24,7 +24,7 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 	//Conditions to engage drop
 	if ((drop->accel_z < drop->z_limit) && 						// Compare accel z to drop limit with reduction for pitch and roll.
 	    (state->sat != SAT_CENTERING) && 						// Not during startup
-	    //(drop->last_accel_z >= drop->accel_z) &&  					// check that we are constantly dropping but allow for some noise
+	    drop->last_accel_z - drop->accel_z >  - drop->min_diff &&  					// check that we are constantly dropping but allow for some noise
 	    (rt->current_time - drop->timeroff > 0.02)) {				// Don't re-enter drop state for duration 	
 		drop->count += 1;
 		if (drop->count > drop->count_limit) { //&& 						// Counter used to reduce nuisance trips 
@@ -48,9 +48,9 @@ void check_drop(DropData *drop, MotorData *m, RuntimeData *rt, State *state, Dro
 		if (fabsf(m->accel_avg) > drop->motor_limit) { 	//Fastest reaction is hall sensor
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = m->accel_avg * drop->hertz / 1000;
-		//} else if (drop->last_accel_z - drop->accel_z <  - drop->min_diff) {		// for fastest landing reaction with accelerometer check that we are still dropping
-		//	drop_deactivate(drop, drop_dbg, rt);
-		//	drop_dbg->debug3 = drop->accel_z;
+		} else if (drop->last_accel_z - drop->accel_z =<  - drop->min_diff) {		// for fastest landing reaction with accelerometer check that we are still dropping
+			drop_deactivate(drop, drop_dbg, rt);
+			drop_dbg->debug3 = drop->accel_z;
 		} else if (drop->accel_z > drop->z_limit) {
 			drop_deactivate(drop, drop_dbg, rt);
 			drop_dbg->debug3 = drop->accel_z;
