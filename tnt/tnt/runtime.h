@@ -38,6 +38,7 @@ typedef struct { //Run time values used in various features
 	Biquad pitch_biquad; // Low Pass Filter
 	float gyro_1_smooth; // Low Pass Filter
 	Biquad gyro_1_biquad; // Low Pass Filter
+	float gyro_1_last; // Kalman Filter
 	float gyro_2_smooth; // Low Pass Filter
 	Biquad gyro_2_biquad; // Low Pass Filter
 	KalmanFilter pitch_kalman; // Kalman Filter
