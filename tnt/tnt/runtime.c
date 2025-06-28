@@ -44,8 +44,8 @@ void runtime_data_update(RuntimeData *rt) {
 
 void calc_gyros(RuntimeData *rt){
 	float roll_rad = VESC_IF->imu_get_roll();
-	rt->gyro_y = rt->gyro_1_smooth;
-	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro_1_smooth - cosf(roll_rad) * sinf(roll_rad) * rt->gyro_2_smooth;
+	rt->gyro_y = rt->gyro_1_kalman;
+	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro_1_kalman - cosf(roll_rad) * sinf(roll_rad) * rt->gyro_2_smooth;
 }
 
 void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
@@ -61,7 +61,12 @@ void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
 	}
 	if (config->kalman_factor1 > 0) {
 		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
-	} else {rt->pitch_smooth_kalman = rt->pitch_smooth;}
+		 apply_kalman(rt->gyro_1_smooth, rt->gyro_1_smooth - rt->gyro_1_last, &rt->gyro_1_kalman, rt->diff_time, &rt->pitch_kalman);
+	} else {
+		rt->pitch_smooth_kalman = rt->pitch_smooth;
+		rt->gyro_1_kalman = rt->gyro_1_smooth;
+	}
+	rt->gyro_1_last = rt->gyro_1_smooth;
 }
 
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz){ 
