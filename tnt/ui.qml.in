@@ -435,7 +435,7 @@ Item {
     			} else { 
 				debug.text = 
 				"Accel Z             : " + debug1.toFixed(2) + " g\n" +
-				"Pitch/Roll Factor   : " + debug2.toFixed(2) + " \n" +
+				"Pitch/Roll Factor   : " + debug2.toFixed(5) + " \n" +
 				"Drop Count          : " + debug5.toFixed(0) + " \n" +         
 				"Drop End Condition  : " + debug3.toFixed(2) + " \n" +         
 				"Min Accel Z         : " + debug4.toFixed(2) + " \n" + 
