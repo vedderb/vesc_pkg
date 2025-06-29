@@ -133,7 +133,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 
 	// EMA Filter Factor
 	float ema_factor_temp = - 1.0f * config->pitch_ema_factor;
-	rt->ema_factor = (10.0f ^ ema_factor_temp) * 832.0f / config->hertz;
+	rt->ema_factor = pow(10.0f, ema_factor_temp) * 832.0f / config->hertz;
 }
 
 void check_odometer(RuntimeData *rt) { 
