@@ -79,7 +79,7 @@ typedef struct {
 
 void runtime_data_update(RuntimeData *rt);
 void calc_gyros(RuntimeData *rt);
-void apply_pitch_filters(RuntimeData *rt, tnt_config *config);
+void apply_filters(RuntimeData *rt, tnt_config *config);
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz);
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg);
 void configure_runtime(RuntimeData *rt, tnt_config *config);
