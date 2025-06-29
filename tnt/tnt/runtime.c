@@ -48,22 +48,25 @@ void calc_gyros(RuntimeData *rt){
 	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro_1_smooth_kalman - cosf(roll_rad) * sinf(roll_rad) * rt->gyro_2_smooth;
 }
 
-void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
+void apply_filters(RuntimeData *rt, tnt_config *config){
 	//Apply low pass and Kalman filters to pitch
-	if (config->pitch_filter > 0) {
+	if (config->pitch_filter > 0) 
 		rt->pitch_smooth = biquad_process(&rt->pitch_biquad, rt->pitch_angle);
-		rt->gyro_1_smooth = biquad_process(&rt->gyro_1_biquad, rt->gyro[1]);
-		rt->gyro_2_smooth = biquad_process(&rt->gyro_2_biquad, rt->gyro[2]);
-	} else {
+	else
 		rt->pitch_smooth = rt->pitch_angle;
+
+	if (config->kalman_factor1 > 0) 
+		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
+	else 
+		rt->pitch_smooth_kalman = rt->pitch_smooth;
+
+	if (config->pitch_gyro_filter > 0) {
+		rt->gyro_1_smooth = biquad_process(&rt->gyro_1_biquad, rt->gyro[1]);
+		rt->gyro_2_smooth = biquad_process(&rt->gyro_2_biquad, rt->gyro[2]); 
+		apply_kalman(rt->gyro_1_smooth, rt->gyro_1_smooth - rt->gyro_1_last, &rt->gyro_1_smooth_kalman, rt->diff_time, &rt->gyro_1_kalman);
+	} else { //biquad filter freq=0 also removes kalman filter for gyro
 		rt->gyro_1_smooth = rt->gyro[1];
 		rt->gyro_2_smooth = rt->gyro[2];
-	}
-	if (config->kalman_factor1 > 0) {
-		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
-		 apply_kalman(rt->gyro_1_smooth, rt->gyro_1_smooth - rt->gyro_1_last, &rt->gyro_1_smooth_kalman, rt->diff_time, &rt->gyro_1_kalman);
-	} else {
-		rt->pitch_smooth_kalman = rt->pitch_smooth;
 		rt->gyro_1_smooth_kalman = rt->gyro_1_smooth;
 	}
 	rt->gyro_1_last = rt->gyro_1_smooth;
