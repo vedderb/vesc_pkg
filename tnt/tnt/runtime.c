@@ -133,11 +133,6 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 
 	//Yaw change correction factor
 	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
-
-	// EMA Filter Factor
-	float ema_factor_temp = - 1.0f * config->pitch_ema_factor;
-	float freq_factor = 832.0f / config->hertz;
-	rt->ema_factor = pow(10.0f, ema_factor_temp) * freq_factor;
 }
 
 void check_odometer(RuntimeData *rt) { 
