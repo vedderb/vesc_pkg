@@ -282,9 +282,10 @@ static void tnt_thd(void *arg) {
 			check_tone(&d->tone, &d->tone_config, &d->motor);
 			
 			// PID value application
-			If (d->state.wheelslip && d->tnt_conf.is_traction_enabled) {
+			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) 
 				d->pid.pid_value = 0;
-			else { ema(&d->pid.pid_value, d->rt.ema_factor, d->pid.new_pid_value);
+			else 
+				ema(&d->pid.pid_value, d->rt.ema_factor, d->pid.new_pid_value); 
 
 			// Output to motor
 			if (d->state.surge_active)
