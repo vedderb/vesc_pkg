@@ -43,7 +43,7 @@ typedef struct { //Run time values used in various features
 	KalmanFilter pitch_kalman; // Kalman Filter
 	float pitch_smooth_kalman; // Kalman Filter
 	KalmanFilter gyro_1_kalman; // Kalman Filter
-	float gyro_1_kalman; // Kalman Filter
+	float gyro_1_smooth_kalman; // Kalman Filter
 	float gyro_1_last; // Kalman Filter
 	float diff_time, last_time;
 	ATTITUDE_INFO m_att_ref; // Feature: True Pitch / Yaw
