@@ -282,10 +282,7 @@ static void tnt_thd(void *arg) {
 			check_tone(&d->tone, &d->tone_config, &d->motor);
 			
 			// PID value application
-			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) 
-				d->pid.pid_value = 0;
-			else 
-				ema(&d->pid.pid_value, d->rt.ema_factor, d->pid.new_pid_value); 
+			d->pid.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : d->pid.new_pid_value; 
 
 			// Output to motor
 			if (d->state.surge_active)
@@ -567,7 +564,7 @@ static void send_realtime_data(data *d){
 	} else { 
 		buffer[ind++] = 0;
 		buffer_append_float32_auto(buffer, d->drop.accel_z, &ind); //accel_z
-		buffer_append_float32_auto(buffer, d->rt.ema_factor, &ind); //applied correction
+		buffer_append_float32_auto(buffer, d->drop.applied_correction, &ind); //applied correction
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug5, &ind); //number of drops
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug3, &ind); //end condition
 		buffer_append_float32_auto(buffer, d->drop_dbg.debug4, &ind); //min accel z
