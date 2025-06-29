@@ -132,7 +132,8 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
 
 	// EMA Filter Factor
-	rt->ema_factor = (10.0f ^ (- 1.0f * config->pitch_ema_factor)) * 832.0f / config->hertz;
+	float ema_factor_temp = - 1.0f * config->pitch_ema_factor;
+	rt->ema_factor = (10.0f ^ ema_factor_temp) * 832.0f / config->hertz;
 }
 
 void check_odometer(RuntimeData *rt) { 
