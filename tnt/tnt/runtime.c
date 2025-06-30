@@ -136,7 +136,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	
 	// EMA Filter Factor
 	float imu_sample_rate = VESC_IF->get_cfg_float(CFG_PARAM_IMU_sample_rate);
-	rt->ema_factor = 100.0 * imu_sample_rate; // config->hertz;
+	rt->ema_factor = 100.0 * 1 / imu_sample_rate; // config->hertz;
 }
 
 void check_odometer(RuntimeData *rt) { 
