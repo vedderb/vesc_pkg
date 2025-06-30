@@ -135,7 +135,7 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
 	
 	// EMA Filter Factor
-	float imu_sample_rate = VESC_IF->get_cfg_float(CFG_PARAM_IMU_sample_rate)
+	float imu_sample_rate = VESC_IF->get_cfg_float(CFG_PARAM_IMU_sample_rate);
 	rt->ema_factor = imu_sample_rate / config->hertz;
 }
 
