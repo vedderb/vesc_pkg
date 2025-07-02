@@ -68,7 +68,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added Tracking ERPM Margin parameter defines the difference between actual ERPM and Tracking ERPM before traction control will engage
     * Default Start Acceleration changed to 35 ERPM/ms
     * Default ERPM Filter Frequency to 25 Hz
-    * Replaced Start Condition with Track ERPM in AppUI debug
+    * Replaced Start Condition with Tracking ERPM in AppUI debug
   * AppUI Overhaul
     * Removed tune debug
     * Added pitch, roll. stability, and current debugs
@@ -88,11 +88,13 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
     * 0 by default, 5 ms recommended
 * _Fixes/Improvements_
+  * Changed the default tune to work with a lower Mahoney kp
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
   * Yaw
     * Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
   * Surge
     * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
+  * Added an exponetial moving average filter to current output normalized to the IMU sample rate
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
