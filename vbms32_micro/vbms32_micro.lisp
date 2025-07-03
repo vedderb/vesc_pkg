@@ -4,6 +4,7 @@
 
 ; Wait this long for charger to start charging
 (def charger-max-delay 3.0)
+(def sleep-unblock-en true) ; Enable automatic sleep unblocking
 
 ;;;;;;;;; End User Settings ;;;;;;;;;
 
@@ -45,6 +46,7 @@
 (def chg-allowed true)
 (def com-force-on false)
 (def com-mutex (mutex-create))
+(def buz-mutex (mutex-create))
 
 (def did-crash false)
 (def crash-cnt 0)
@@ -56,6 +58,8 @@
 (defun bms-current () (* (bms-get-current) -0.2))
 
 (defun beep (times dt) {
+        (mutex-lock buz-mutex)
+
         (loopwhile (> times 0) {
                 (pwm-set-duty 0.5 0)
                 (sleep dt)
@@ -63,6 +67,8 @@
                 (sleep dt)
                 (setq times (- times 1))
         })
+
+        (mutex-unlock buz-mutex)
 })
 
 (def rtc-val-magic 115)
@@ -876,6 +882,32 @@
                 })
 
                 (sleep 0.1)
+        })
+
+        (loopwhile-thd ("sleep-unblock" 100) t {
+                (var sleep-unblock-ok (fn () (and
+                            (= (bms-get-param 'block_sleep) 1)
+                            (< (- c-max c-min) 0.05)
+                            (> c-min 2.4)
+                            (> (secs-since 0) 3600)
+                            sleep-unblock-en
+                )))
+
+                (var should-unblock true)
+                (looprange i 0 60 {
+                        (if (not (sleep-unblock-ok)) {
+                                (setq should-unblock false)
+                        })
+                        (sleep 1.0)
+                })
+
+                (if should-unblock {
+                        (bms-set-param 'block_sleep 0)
+                        (bms-store-cfg)
+                        (print "Block sleep disabled")
+                        (beep 4 0.2)
+
+                })
         })
 
         (start-hum-thd)
