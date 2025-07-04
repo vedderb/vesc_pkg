@@ -70,7 +70,7 @@ Item {
                     Layout.margins: 0
                     Layout.leftMargin: 0
                     Layout.fillWidth: true
-                    text: "Notes:\nRequires matching VDisp package on ESC!\nWiFi and Bluetooth may not be enabled concurrently!"
+                    text: "Notes:\nRequires matching VDisp package on ESC!\nWiFi and Bluetooth may not be enabled concurrently!\nOnly works with v6.06 firmware!"
                     font.pointSize: 10
                 }
 
