@@ -87,6 +87,7 @@ static void cmd_flywheel_toggle(Data *d, unsigned char *cfg, int len);
 
 const VESC_PIN beeper_pin = VESC_PIN_PPM;
 
+#define REVSTOP_ERPM_INCR 0.00008
 #define EXT_BEEPER_ON() VESC_IF->io_write(beeper_pin, 1)
 #define EXT_BEEPER_OFF() VESC_IF->io_write(beeper_pin, 0)
 
@@ -228,6 +229,7 @@ static void reset_runtime_vars(Data *d) {
     brake_tilt_reset(&d->brake_tilt);
     torque_tilt_reset(&d->torque_tilt);
     turn_tilt_reset(&d->turn_tilt);
+    remote_reset(&d->remote);
     booster_reset(&d->booster);
 
     pid_init(&d->pid);
@@ -238,7 +240,6 @@ static void reset_runtime_vars(Data *d) {
     d->setpoint_target_interpolated = d->imu.balance_pitch;
     d->setpoint_target = 0;
     d->noseangling_interpolated = 0;
-    d->inputtilt_interpolated = 0;
     d->traction_control = false;
     d->softstart_pid_limit = 0;
     d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance;
@@ -402,7 +403,7 @@ static bool check_faults(Data *d) {
             }
 
             if (d->motor.abs_erpm < 200 && fabsf(d->imu.pitch) > 14 &&
-                fabsf(d->inputtilt_interpolated) < 30 && sign(d->imu.pitch) == d->motor.erpm_sign) {
+                fabsf(d->remote.setpoint) < 30 && sign(d->imu.pitch) == d->motor.erpm_sign) {
                 state_stop(&d->state, STOP_QUICKSTOP);
                 return true;
             }
@@ -481,7 +482,7 @@ static bool check_faults(Data *d) {
     }
 
     // Check pitch angle
-    if (fabsf(d->imu.pitch) > d->float_conf.fault_pitch && fabsf(d->inputtilt_interpolated) < 30) {
+    if (fabsf(d->imu.pitch) > d->float_conf.fault_pitch && fabsf(d->remote.setpoint) < 30) {
         if (timer_older_ms(&d->time, d->fault_angle_pitch_timer, d->float_conf.fault_delay_pitch)) {
             state_stop(&d->state, STOP_PITCH);
             return true;
@@ -508,7 +509,7 @@ static void calculate_setpoint_target(Data *d) {
         if (fabsf(d->reverse_total_erpm) > d->reverse_tolerance) {
             // tilt down by 10 degrees after exceeding aggregate erpm
             d->setpoint_target =
-                10 * (fabsf(d->reverse_total_erpm) - d->reverse_tolerance) * 0.000008;
+                (fabsf(d->reverse_total_erpm) - d->reverse_tolerance) * REVSTOP_ERPM_INCR;
         } else {
             if (fabsf(d->reverse_total_erpm) <= d->reverse_tolerance * 0.5) {
                 if (d->motor.erpm >= 0) {
@@ -519,6 +520,19 @@ static void calculate_setpoint_target(Data *d) {
                 }
             }
         }
+    } else if (d->float_conf.fault_reversestop_enabled && d->motor.erpm < -200 &&
+               !d->state.darkride) {
+        // Detecting reverse stop takes priority over any error condition SAT
+        if (d->state.sat >= SAT_PB_HIGH_VOLTAGE) {
+            // If this happens while in Error-Tiltback (LV/HV/TEMP) then we need to
+            // take the already existing setpoint into account
+            d->reverse_total_erpm =
+                -(d->reverse_tolerance + d->setpoint_target_interpolated / REVSTOP_ERPM_INCR);
+        } else {
+            d->reverse_total_erpm = 0;
+        }
+        d->state.sat = SAT_REVERSESTOP;
+        timer_refresh(&d->time, &d->reverse_timer);
     } else if (d->state.mode != MODE_FLYWHEEL &&
                // not normal, either wheelslip or wheel getting stuck
                fabsf(d->motor.acceleration) > 15 &&
@@ -544,12 +558,6 @@ static void calculate_setpoint_target(Data *d) {
                 d->traction_control = false;
                 d->state.wheelslip = false;
             }
-        }
-        if (d->float_conf.fault_reversestop_enabled && (d->motor.erpm < 0)) {
-            // the lingering wheelslip timer can cause us to blow past the reverse stop condition!
-            d->state.sat = SAT_REVERSESTOP;
-            timer_refresh(&d->time, &d->reverse_timer);
-            d->reverse_total_erpm = 0;
         }
     } else if (d->motor.duty_cycle > d->float_conf.tiltback_duty) {
         if (d->motor.erpm > 0) {
@@ -638,13 +646,7 @@ static void calculate_setpoint_target(Data *d) {
         }
     } else {
         // Normal running
-        if (d->float_conf.fault_reversestop_enabled && d->motor.erpm < -200 && !d->state.darkride) {
-            d->state.sat = SAT_REVERSESTOP;
-            timer_refresh(&d->time, &d->reverse_timer);
-            d->reverse_total_erpm = 0;
-        } else {
-            d->state.sat = SAT_NONE;
-        }
+        d->state.sat = SAT_NONE;
         d->setpoint_target = 0;
     }
 
@@ -1175,7 +1177,7 @@ static void send_realtime_data(Data *d) {
     buffer_append_float32_auto(buffer, d->brake_tilt.setpoint, &ind);
     buffer_append_float32_auto(buffer, d->torque_tilt.setpoint, &ind);
     buffer_append_float32_auto(buffer, d->turn_tilt.setpoint, &ind);
-    buffer_append_float32_auto(buffer, d->inputtilt_interpolated, &ind);
+    buffer_append_float32_auto(buffer, d->remote.setpoint, &ind);
 
     // DEBUG
     buffer_append_float32_auto(buffer, d->imu.pitch, &ind);
@@ -1233,7 +1235,7 @@ static void cmd_send_all_data(Data *d, unsigned char mode) {
         buffer[ind++] = d->brake_tilt.setpoint * 5 + 128;
         buffer[ind++] = d->torque_tilt.setpoint * 5 + 128;
         buffer[ind++] = d->turn_tilt.setpoint * 5 + 128;
-        buffer[ind++] = d->inputtilt_interpolated * 5 + 128;
+        buffer[ind++] = d->remote.setpoint * 5 + 128;
 
         buffer_append_float16(buffer, d->imu.pitch, 10, &ind);
         buffer[ind++] = d->booster.current + 128;
@@ -1735,12 +1737,8 @@ static void cmd_flywheel_toggle(Data *d, unsigned char *cfg, int len) {
         d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
         d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
 
-        // Limit speed of wheel and limit amps
-        VESC_IF->set_cfg_float(CFG_PARAM_l_min_erpm + 100, -6000);
-        VESC_IF->set_cfg_float(CFG_PARAM_l_max_erpm + 100, 6000);
+        // Limit amps
         d->motor.current_max = d->motor.current_min = 40;
-
-        // d->flywheel_allow_abort = cfg[5];
 
         // Disable I-term and all tune modifiers and tilts
         d->float_conf.ki = 0;
