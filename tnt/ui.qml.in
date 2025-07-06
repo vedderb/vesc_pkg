@@ -128,8 +128,6 @@ Item {
 	        var max_yaw_avg = dv.getFloat32(ind); ind += 4;
 	        var max_air = dv.getFloat32(ind); ind += 4;
 	 	var bonks_total = dv.getFloat32(ind); ind += 4;
-	        var drop_max_air = dv.getFloat32(ind); ind += 4;
-	 	var last_drop_time = dv.getFloat32(ind); ind += 4;
    
                 var debug_state = dv.getInt8(ind); ind += 1; // 1 is traction control, 2 is surge
                 if (debug_state == 1) { 
