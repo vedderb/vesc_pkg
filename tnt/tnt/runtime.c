@@ -38,14 +38,10 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
 	VESC_IF->imu_get_gyro(rt->gyro);
+	rt->gyro_y = rt->gyro[1];
+	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro[1] - cosf(roll_rad) * sinf(roll_rad) * rt->gyro[2];
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
 	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
-}
-
-void calc_gyros(RuntimeData *rt){
-	float roll_rad = VESC_IF->imu_get_roll();
-	rt->gyro_y = rt->gyro_1_smooth_kalman;
-	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro_1_smooth_kalman - cosf(roll_rad) * sinf(roll_rad) * rt->gyro_2_smooth;
 }
 
 void apply_filters(RuntimeData *rt, tnt_config *config){
@@ -59,17 +55,6 @@ void apply_filters(RuntimeData *rt, tnt_config *config){
 		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
 	else 
 		rt->pitch_smooth_kalman = rt->pitch_smooth;
-
-	if (config->pitch_gyro_filter > 0) {
-		rt->gyro_1_smooth = biquad_process(&rt->gyro_1_biquad, rt->gyro[1]);
-		rt->gyro_2_smooth = biquad_process(&rt->gyro_2_biquad, rt->gyro[2]); 
-		apply_kalman(rt->gyro_1_smooth, rt->gyro_1_smooth - rt->gyro_1_last, &rt->gyro_1_smooth_kalman, rt->diff_time, &rt->gyro_1_kalman);
-	} else { //biquad filter freq=0 also removes kalman filter for gyro
-		rt->gyro_1_smooth = rt->gyro[1];
-		rt->gyro_2_smooth = rt->gyro[2];
-		rt->gyro_1_smooth_kalman = rt->gyro_1_smooth;
-	}
-	rt->gyro_1_last = rt->gyro_1_smooth;
 }
 
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz){ 
