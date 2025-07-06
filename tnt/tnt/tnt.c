@@ -186,7 +186,6 @@ static void tnt_thd(void *arg) {
 	while (!VESC_IF->should_terminate()) {
 		runtime_data_update(&d->rt);
 		apply_filters(&d->rt, &d->tnt_conf);
-		calc_gyros(&d->rt);
 		motor_data_update(&d->motor, &d->tnt_conf);
 		update_remote(&d->tnt_conf, &d->remote);
 		temp_recovery_tone(&d->tone, &d->tone_config.fasttripleup, &d->motor);
