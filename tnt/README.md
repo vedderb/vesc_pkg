@@ -23,8 +23,10 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. Here are more details on the default settings:
 
-* Pitch Tune - The default pitch tune is a simple beginner tune using only TNT Cfg->Acceleration kp0, kp rate, current 1 and pitch 1.
-  * For a trick or trail tune you will want a lower kp0 and gradually increasing pitch angles and currents.
+* Pitch Tune - The default pitch tune is what I have been riding
+  * Increase and decrease Mahoney kp from 1 to 1.5 to find your preference
+  * Increase or decrease currents 2 and 3 to tighten and loosen the tune
+  * Increase or decrease Pitch Rate Kp to adjust nose stiffness
   * See TNT Cfg->Braking for an example trail riding tune.
 * Roll Tune - The default roll tune is very loose and moderate for easy, deep carving.
   * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
@@ -55,6 +57,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * **This version requires 6.05+ firmware to fuction properly**
 * _Features_
   * New Feature - Yaw Rate Kp in the Yaw menu
+    * New gyro behavior thanks to work from Nico Aleman and @michalmo
     * New math handling the IMU gyro changes the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
     * Added New parameters Yaw Rate Kp and Yaw Rate Braking Kp
     * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
@@ -88,13 +91,17 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
     * 0 by default, 5 ms recommended
 * _Fixes/Improvements_
-  * Changed the default tune to work with a lower Mahoney kp
+  * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
   * Yaw
     * Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
   * Surge
     * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
   * Added an exponetial moving average filter to current output normalized to the IMU sample rate
+  * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
+  * Changed the default low pass and Kalman filter for pitch to 0
+  * Reduced default pitch angle stability to 20% from 50%
+  * Reduced default high current foc tone volume to 5 V
 
 ### 1.5
 * **This version requires 6.05 firmware to fuction properly**
