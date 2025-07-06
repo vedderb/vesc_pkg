@@ -346,7 +346,7 @@ Item {
 		     	    "Roll Average       : " + max_roll_avg.toFixed(1) + " °\n" +
 		     	    "Yaw Average        : " + max_yaw_avg.toFixed(0) + " °/s\n" +
 		     	    "Max Air Time       : " + max_air.toFixed(2) + " s\n" +
-		     	    "Air Time Total     : " + bonks_total.toFixed(0) + " \n" +
+		     	    "Air Time Total     : " + bonks_total.toFixed(0) + " \n" 
 	    
 			if (debug_state == 1) {
 				debug.text =
