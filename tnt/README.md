@@ -59,7 +59,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * New Feature - Yaw Rate Kp in the Yaw menu
     * New gyro behavior thanks to work from Nico Aleman and @michalmo
     * New math handling the IMU gyro changes the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
-    * Added New parameters Yaw Rate Kp and Yaw Rate Braking Kp
+    * Added new parameters Yaw Rate Kp and Yaw Rate Braking Kp
     * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
     * Higher Yaw Rate Kp will increase nose stiffness while applying yaw (i.e. carving)
     * Yaw Rate Kp of 1 produces the pre-1.6 gyro behaviour.
