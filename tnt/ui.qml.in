@@ -329,8 +329,7 @@ Item {
 	                    "RemoteTilt Setpoint : " + float_inputtilt.toFixed(2) + "°\n" +
 	                    "Last Wheelslip Time : " + wheelsliptime1 + ":" + wheelsliptime2 + ":" + wheelsliptime3 + "\n" +                
 	                    "Last Surge Time     : " + surgetime1 + ":" + surgetime2 + ":" + surgetime3 + "\n" +
-	                    "Last Traction Brake : " + braketime1 + ":" + braketime2 + ":" + braketime3 + "\n" + 
-	                    "Last Drop Time      : " + droptime1 + ":" + droptime2 + ":" + droptime3 + "\n"       
+	                    "Last Traction Brake : " + braketime1 + ":" + braketime2 + ":" + braketime3 + "\n" 
 		     
 	                trip.text =
 	                    "Ride Time          : " + ridetime1 + ":" + ridetime2 + ":" + ridetime3 + "\n" +
