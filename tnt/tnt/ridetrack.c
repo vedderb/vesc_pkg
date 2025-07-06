@@ -44,8 +44,7 @@ void rest_timer(RideTrackData *ridetrack, RuntimeData *rt){
 	ridetrack->last_rest_time = rt->current_time;
 }
 
-void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config, TractionDebug *traction_dbg,
-    DropDebug *drop_dbg) {
+void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *config, TractionDebug *traction_dbg) {
 	if (config->is_resettripdata_enabled) {
 		ridetrack->carves_total = 0;
 		ridetrack->max_carve_chain = 0;
@@ -65,7 +64,6 @@ void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *conf
 		ridetrack->max_yaw_avg = 0;
 		traction_dbg->max_time = 0;
 		traction_dbg->bonks_total = 0;
-		drop_dbg->max_time = 0;
 	}
 }
 
