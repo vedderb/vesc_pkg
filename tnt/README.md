@@ -93,10 +93,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 * _Fixes/Improvements_
   * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
-  * Yaw
-    * Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
-  * Surge
-    * Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
+  * Yaw - Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
+  * Surge - Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
   * Added an exponetial moving average filter to current output normalized to the IMU sample rate
   * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
   * Changed the default low pass and Kalman filter for pitch to 0
