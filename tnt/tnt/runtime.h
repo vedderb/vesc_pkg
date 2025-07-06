@@ -36,15 +36,8 @@ typedef struct { //Run time values used in various features
 	float gyro_z;
 	float pitch_smooth; // Low Pass Filter
 	Biquad pitch_biquad; // Low Pass Filter
-	float gyro_1_smooth; // Low Pass Filter
-	Biquad gyro_1_biquad; // Low Pass Filter
-	float gyro_2_smooth; // Low Pass Filter
-	Biquad gyro_2_biquad; // Low Pass Filter
 	KalmanFilter pitch_kalman; // Kalman Filter
 	float pitch_smooth_kalman; // Kalman Filter
-	KalmanFilter gyro_1_kalman; // Kalman Filter
-	float gyro_1_smooth_kalman; // Kalman Filter
-	float gyro_1_last; // Kalman Filter
 	float diff_time, last_time;
 	ATTITUDE_INFO m_att_ref; // Feature: True Pitch / Yaw
 	bool brake_pitch, brake_roll, brake_yaw;
@@ -78,7 +71,6 @@ typedef struct {
 } YawDebugData;
 
 void runtime_data_update(RuntimeData *rt);
-void calc_gyros(RuntimeData *rt);
 void apply_filters(RuntimeData *rt, tnt_config *config);
 void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz);
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg);
