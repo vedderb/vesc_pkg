@@ -77,14 +77,9 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	//Low pass pitch filter
 	rt->pitch_smooth = rt->pitch_angle;
 	biquad_reset(&rt->pitch_biquad);
-	rt->gyro_1_smooth = rt->gyro[1];
-	biquad_reset(&rt->gyro_1_biquad);
-	rt->gyro_2_smooth = rt->gyro[2];
-	biquad_reset(&rt->gyro_2_biquad);
 	
 	//Kalman filter
 	reset_kalman(&rt->pitch_kalman);
-	reset_kalman(&rt->gyro_1_kalman);
 	rt->pitch_smooth_kalman = rt->pitch_angle;
 
 	//Yaw
@@ -109,12 +104,9 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	
 	//Pitch Biquad Configure
 	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
-	biquad_configure(&rt->gyro_1_biquad, BQ_LOWPASS, 1.0 * config->pitch_gyro_filter / config->hertz); 
-	biquad_configure(&rt->gyro_2_biquad, BQ_LOWPASS, 1.0 * config->pitch_gyro_filter / config->hertz); 
 
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
-	configure_kalman(config, &rt->gyro_1_kalman);
 
 	//Yaw change correction factor
 	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
