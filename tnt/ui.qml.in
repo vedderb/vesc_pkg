@@ -347,10 +347,10 @@ Item {
 	    
 			if (debug_state == 1) {
 				debug.text =
-				"ERPM Average        : " + debug1.toFixed(0) + "\n" +  
-				"ERPM Average        : " + debug2.toFixed(0) + " ERPM/ms\n" +
-				"Start ERPM          : " + debug4.toFixed(0) + " ERPM\n" +
-				"Last ERPM           : " + debug3.toFixed(0) + " ERPM\n" +
+				"ERPM Average        : " + debug1.toFixed(0) + " ERPM\n" +  
+				"ERPM Average Start  : " + debug2.toFixed(0) + " ERPM\n" +
+				"Actual ERPM Start   : " + debug4.toFixed(0) + " ERPM\n" +
+				"Actual ERPM Last    : " + debug3.toFixed(0) + " ERPM\n" +
 				"End Condition       : " + debug5.toFixed(0) + "\n" +
 				"Last Duration       : " + debug6.toFixed(3) + " s\n" +
 				"Wheelslip Count     : " + debug7.toFixed(0) + "\n" +
