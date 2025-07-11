@@ -44,7 +44,6 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Set your high current section first.
 * Traction Control
   * Decrease Transition Condition and increase End Condition for looser landings and less wheel spin.
-  * Increase ERPM filter frequnecy for a faster response, decrease to control wheel spin for longer air time.
   * Traction Braking disabled by default.
 * FOC Play Tones
   * Disabled by default because of potential issues with Absolute Max Motor Current. See warning in the help text.
@@ -54,7 +53,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 
 ## Change Log
 ### 1.6
-* **This version requires 6.05+ firmware to fuction properly**
+* **This version requires 6.05+ firmware to function properly**
 * _Features_
   * New Feature - Yaw Rate Kp in the Yaw menu
     * New gyro behavior thanks to work from Nico Aleman and @michalmo
@@ -62,7 +61,7 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added new parameters Yaw Rate Kp and Yaw Rate Braking Kp
     * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
     * Higher Yaw Rate Kp will increase nose stiffness while applying yaw (i.e. carving)
-    * Yaw Rate Kp of 1 produces the pre-1.6 gyro behaviour.
+    * Yaw Rate Kp of 1 produces the pre-1.6 gyro behavior.
     * Yaw Rate Kp of 0 removes yaw stiffness.
   * Traction Control
     * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
@@ -84,9 +83,9 @@ For more instructions on setting up your board please refer to the [Set Up Guide
       * Added carves per mile
       * Added average yaw during carves
       * Added average roll during carves
-      * Added air time counter
-      * Added max air time
-      * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when activated
+      * Added air time counter (as determined by traction control with minimum air time of 100 ms)
+      * Added max air time (as determined by traction control with minimum air time of 100 ms)
+      * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when toggled
   * Traction Control Braking
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
     * 0 by default, 5 ms recommended
@@ -95,14 +94,15 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
   * Yaw - Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
   * Surge - Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
-  * Added an exponetial moving average filter to current output normalized to the IMU sample rate
+  * Added an exponential moving average filter to current output normalized to the IMU sample rate
   * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
   * Changed the default low pass and Kalman filter for pitch to 0
   * Reduced default pitch angle stability to 20% from 50%
   * Reduced default high current foc tone volume to 5 V
+  * Increased default stability ramp rate up to 100 %/s from 25 %/s
 
 ### 1.5
-* **This version requires 6.05 firmware to fuction properly**
+* **This version requires 6.05 firmware to function properly**
 * _Fixes/Improvements_
   * Testing and support for higher package loop frequencies.
     * Traction Control Start Acceleration help text updated.
