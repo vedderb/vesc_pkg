@@ -6,8 +6,7 @@ This is a driver for the TCA9535 i2c IO-expander. You can use the following line
 (import "pkg@://vesc_packages/lib_tca9535/tca9535.vescpkg" 'tca9535)
 (read-eval-program tca9535)
 
-; Note double quotes are needed for the rate
-(tca9535-init 0x20 ''rate-100k 10 9)
+(tca9535-init 0x20 'rate-100k 10 9)
 ```
 
 ## Example
@@ -15,7 +14,7 @@ This is a driver for the TCA9535 i2c IO-expander. You can use the following line
 ```clj
 (import "pkg@://vesc_packages/lib_tca9535/tca9535.vescpkg" 'tca9535)
 (read-eval-program tca9535)
-(tca9535-init 0x20 ''rate-100k 10 9)
+(tca9535-init 0x20 'rate-100k 10 9)
 
 ; Set pit 1 and 2 to outputs and pin 10 and 11 to inputs. This function
 ; takes an arbitrary number of arguments.

@@ -12,7 +12,7 @@
     (if (not (esc-request `(conf-set 'l-current-min-scale ,val-brake))) (setq apply-success nil))
     (if (not (esc-request `(conf-set 'l-current-max-scale ,val-accel))) (setq apply-success nil))
 
-    (var buf-result (img-buffer 'indexed4 100 25))
+    (var buf-result (img-buffer dm-pool 'indexed4 100 25))
     (txt-block-l buf-result
         '(0 1 2 3)
         0
@@ -27,10 +27,10 @@
     (def profile-active (read-setting 'pf-active))
     (apply-profile-params (+ profile-active 1))
 
-    (def buf-profile-speed (img-buffer 'indexed4 81 179))
-    (def buf-profile-brake (img-buffer 'indexed4 81 179))
-    (def buf-profile-accel (img-buffer 'indexed4 81 179))
-    (def buf-title (img-buffer 'indexed4 150 25))
+    (def buf-profile-speed (img-buffer dm-pool 'indexed4 81 179))
+    (def buf-profile-brake (img-buffer dm-pool 'indexed4 81 179))
+    (def buf-profile-accel (img-buffer dm-pool 'indexed4 81 179))
+    (def buf-title (img-buffer dm-pool 'indexed4 150 25))
 
     (def profile-previous nil) ; Track last selection
 
@@ -81,7 +81,7 @@
             (1i32 (read-setting 'pf2-speed))
             (_ (read-setting 'pf3-speed))
         ))
-        (draw-vertical-bar buf-profile-speed 20 15 44 120 '(1 3) (map-range-01 speeds-active 0.0 speeds-max))
+        (draw-vertical-bar buf-profile-speed 20 15 44 120 '(1 3) (map-range-01 speeds-active 0.0 speeds-max) 10 true)
 
         (txt-block-l buf-profile-speed
             '(0 1 2 3)
@@ -107,7 +107,7 @@
             (0i32 (read-setting 'pf1-brake))
             (1i32 (read-setting 'pf2-brake))
             (_ (read-setting 'pf3-brake))
-        ))
+        ) 10 true)
 
         (txt-block-c buf-profile-brake
             '(0 1 2 3)
@@ -121,7 +121,7 @@
             (0i32 (read-setting 'pf1-accel))
             (1i32 (read-setting 'pf2-accel))
             (_ (read-setting 'pf3-accel))
-        ))
+        ) 10 true)
 
         (txt-block-r buf-profile-accel
             '(0 1 2 3)

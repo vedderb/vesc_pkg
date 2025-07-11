@@ -6,12 +6,12 @@
     (def view-settings-index-editing nil)
     (def view-settings-index-value 0)
 
-    (def buf-bike (img-buffer 'indexed16 161 97))
-    (def buf-settings-opt0 (img-buffer 'indexed4 290 25))
-    (def buf-settings-opt1 (img-buffer 'indexed4 290 25))
-    (def buf-settings-opt2 (img-buffer 'indexed4 290 25))
-    (def buf-settings-opt3 (img-buffer 'indexed4 290 25))
-    (def buf-settings-submenu (img-buffer 'indexed4 130 25))
+    (def buf-bike (img-buffer dm-pool 'indexed16 161 97))
+    (def buf-settings-opt0 (img-buffer dm-pool 'indexed4 290 25))
+    (def buf-settings-opt1 (img-buffer dm-pool 'indexed4 290 25))
+    (def buf-settings-opt2 (img-buffer dm-pool 'indexed4 290 25))
+    (def buf-settings-opt3 (img-buffer dm-pool 'indexed4 290 25))
+    (def buf-settings-submenu (img-buffer dm-pool 'indexed4 130 25))
     (txt-block-l buf-settings-submenu (list 0 1 2 3) 0 0 font24 (to-str "Save"))
 
     ; Get latest settings from ESC
@@ -150,7 +150,7 @@
             (to-str "Motor: Stock"))
 
         ; Update Bike Overlay
-        (img-blit buf-bike (img-buffer-from-bin icon-bike) 0 0 -1)
+        (img-blit buf-bike icon-bike 0 0 -1)
         (var color-ix 6)
         (match view-settings-index-next
             (0 (img-circle buf-bike 134 69 25 color-ix '(thickness 3)))

@@ -4,7 +4,7 @@ Item {
     property string pkgName: "VBMS32 Micro"
     property string pkgDescriptionMd: "README.md"
     property string pkgLisp: "vbms32_micro.lisp"
-    property string pkgQml: ""
+    property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vbms32_micro.vescpkg"
 

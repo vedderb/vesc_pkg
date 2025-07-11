@@ -16,7 +16,11 @@
 })
 
 (defunret tca9535-init (addr) {
-        (apply i2c-start (rest-args))
+        ; For compatibility with old apply
+        (match (trap (apply i2c-start (rest-args)))
+            ((exit-ok (? a)) nil)
+            (_ (apply i2c-start (map eval (rest-args))))
+        )
 
         (if (not (i2c-detect-addr addr)) {
                 (print (str-from-n addr "No response from 0x%X"))
@@ -53,7 +57,7 @@
                         (tca9535-set-reg-bit 'conf1 (- pin 10) (if (eq dir 'out) 0 1))
                 })
         })
-        
+
         (tca9535-write-regs
             (list 6 (assoc tca9535-regs 'conf0))
             (list 7 (assoc tca9535-regs 'conf1))
@@ -73,7 +77,7 @@
                         (tca9535-set-reg-bit 'out1 (- pin 10) state)
                 })
         })
-        
+
         (tca9535-write-regs
             (list 2 (assoc tca9535-regs 'out0))
             (list 3 (assoc tca9535-regs 'out1))
@@ -82,10 +86,10 @@
 
 (defun tca9535-read-pins () {
         (var res (map (fn (x) nil) (rest-args)))
-        
+
         (var reg0 (bufcreate 1))
         (var reg1 (bufcreate 1))
-        
+
         (i2c-tx-rx (assoc tca9535-regs 'addr) '(0) reg0)
         (i2c-tx-rx (assoc tca9535-regs 'addr) '(1) reg1)
 
@@ -100,7 +104,7 @@
                         (setix res i (bits-dec-int (bufget-u8 reg1 0) (- pin 10) 1))
                 })
         })
-        
+
         (free reg0)
         (free reg1)
 

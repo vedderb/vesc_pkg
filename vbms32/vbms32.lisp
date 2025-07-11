@@ -1,20 +1,10 @@
-; Compatibility Check
-(loopwhile (!= (bms-fw-version) 5) {
-        (print "Incompatible firmware, please update")
-        (sleep 5)
-})
-
-(set-fw-name "")
-
 ;;;;;;;;; User Settings ;;;;;;;;;
 
 ; TODO: Move into config?
 
 ; Wait this long for charger to start charging
 (def charger-max-delay 10.0)
-
-; Swap current polarity
-(def invert-current true)
+(def sleep-unblock-en true) ; Enable automatic sleep unblocking
 
 ;;;;;;;;; End User Settings ;;;;;;;;;
 
@@ -24,7 +14,6 @@
 (def is-balancing false)
 (def is-charging false)
 (def charge-ok false)
-(def charge-dis-ts (systime))
 (def c-min 0.0)
 (def c-max 0.0)
 (def t-min 0.0)
@@ -40,10 +29,40 @@
 (def chg-status "")
 (def bal-status "")
 
-; Buzzer
-(pwm-start 4000 0.0 0 3)
+(def rtc-val '(
+        (wakeup-cnt . 0)
+        (c-min . 3.5)
+        (c-max . 3.5)
+        (v-tot . 50.0)
+        (soc . 0.5)
+        (charge-fault . false)
+        (updated . false)
+))
+
+(def is-bal false)
+(def vtot 0.0)
+(def vout 0.0)
+(def vt-vchg 0.0)
+(def iout 0.0)
+(def soc -1.0)
+(def i-zero-time 0.0)
+(def chg-allowed true)
+
+(def com-force-on false)
+(def com-mutex (mutex-create))
+(def pchg-mutex (mutex-create))
+(def buz-mutex (mutex-create))
+
+(def did-crash false)
+(def crash-cnt 0)
+
+@const-start
+
+(defun bms-current () (- (bms-get-current)))
 
 (defun beep (times dt) {
+        (mutex-lock buz-mutex)
+
         (loopwhile (> times 0) {
                 (pwm-set-duty 0.5 0)
                 (sleep dt)
@@ -51,11 +70,11 @@
                 (sleep dt)
                 (setq times (- times 1))
         })
+
+        (mutex-unlock buz-mutex)
 })
 
-(def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
-
-(def rtc-val-magic 114)
+(def rtc-val-magic 115)
 
 ; Short-circuit protection (SCD)
 ; - DDSGPinConfig (0x9302)
@@ -127,6 +146,10 @@
 ; (bms-subcmd-cmdonly 1 0x000e)
 
 (defun init-hw () {
+        ; These are blocking and potentially slow operations and we don't want to
+        ; run them at the same time as the PCHG buck runs
+        (mutex-lock pchg-mutex)
+
         (loopwhile (not (bms-init (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2))) {
                 (bms-subcmd-cmdonly 1 0x000e)
                 (bms-subcmd-cmdonly 1 0x000e)
@@ -156,21 +179,8 @@
         })
 
         (config-scd)
-})
 
-(def rtc-val '(
-        (wakeup-cnt . 0)
-        (c-min . 3.5)
-        (c-max . 3.5)
-        (v-tot . 50.0)
-        (soc . 0.5)
-        (charge-fault . false)
-        (updated . false)
-))
-
-(if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
-      (var tmp (unflatten (rtc-data)))
-      (if tmp (setq rtc-val tmp))
+        (mutex-unlock pchg-mutex)
 })
 
 (defun save-rtc-val () {
@@ -178,8 +188,6 @@
         (bufcpy (rtc-data) 0 tmp 0 (buflen tmp))
         (bufset-u8 (rtc-data) 900 rtc-val-magic)
 })
-
-(defun bms-current () (if invert-current (- (bms-get-current)) (bms-get-current)))
 
 (defun test-chg (samples) {
         ; Many chargers "pulse" before starting, try to catch a pulse
@@ -222,9 +230,6 @@
 
         false
 })
-
-(def com-force-on false)
-(def com-mutex (mutex-create))
 
 ; Run expression with communication enabled. Use up to 4 attempts in case of
 ; glithces from transients. Disable communication again when it is not needed
@@ -279,7 +284,7 @@
         (loopwhile (not (assoc rtc-val 'updated)) (sleep 0.1))
 
         (if (or (= (bms-get-param 'psw_wait_init) 1) (= (bms-get-param 'psw_scd_en) 1)) {
-            (loopwhile (not init-done) (sleep 0.1))
+                (loopwhile (not init-done) (sleep 0.1))
         })
 
         (bms-set-pchg 0)
@@ -303,33 +308,35 @@
 
         (setq psw-status "PSW_PCHG")
 
+        (mutex-lock pchg-mutex)
+
         (var t-start (systime))
+        (var t-pchg 0)
         (var v-start (bms-get-vout))
         (bms-set-pchg 1)
+        (gpio-write 9 0)
 
         (loopwhile (< (secs-since t-start) (bms-get-param 'psw_t_pchg)) {
                 (if (< (- (assoc rtc-val 'v-tot) (bms-get-vout)) 10.0) {
+                        (gpio-write 9 0)
+                        (bms-set-out 1)
+                        (setq t-pchg (secs-since t-start))
                         (setq res t)
-                        (print (str-from-n (* (secs-since t-start) 1000.0) "PCHG T: %.1f ms"))
                         (break)
                 })
                 (sleep 0.005)
         })
 
+        (bms-set-pchg 0)
+        (setq psw-state true)
+
+        (mutex-unlock pchg-mutex)
+
         (if res
-            {
-                (bms-set-out 1)
-                (var diff (- (bms-get-vout) v-start))
-                (if (> diff 0.01) {
-                        (var cap-est (/ (* (secs-since t-start) 0.9) diff))
-                        (print (list "Cap est: " (* cap-est 1000.0) "mF"))
-                })
-            }
+            (print (str-from-n (* t-pchg 1000.0) "PCHG Time: %.1f ms"))
             (print "PCHG timeout, make sure that there is a load on the output and no short!")
         )
 
-        (bms-set-pchg 0)
-        (setq psw-state true)
         res
 })
 
@@ -337,39 +344,6 @@
         (bms-set-pchg 0)
         (bms-set-out 0)
         (setq psw-state false)
-})
-
-; Wait here on the first boot so that the upper BQ does not shut down its regulator
-; when communicating with it before all connectors are plugged in.
-(if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
-
-; Power switch
-(loopwhile-thd ("PSW" 100) t {
-        (loopwhile (not (main-init-done)) (sleep 0.1))
-
-        (if (and
-                psw-state
-                (or
-                    (and (= (bms-get-param 't_psw_en) 1) (> t-mos (bms-get-param 't_psw_max_mos)))
-                    scd-latched
-                ))
-            {
-                (bms-set-pchg 0)
-                (bms-set-out 0)
-
-                (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
-        })
-
-        (if (and (= (bms-get-btn) 0) psw-state) {
-                (psw-off)
-                (setq psw-status "PSW_OFF")
-        })
-
-        (if (and (= (bms-get-btn) 1) (not psw-state)) {
-                (setq psw-status (if (psw-on) "PSW_ON" "FLT_PCHG"))
-        })
-
-        (sleep 0.2)
 })
 
 (defun update-temps () {
@@ -411,15 +385,15 @@
                 (setq do-sleep false)
         })
 
-        (if (or charge-wakeup (test-chg 5))
-            (if (not (assoc rtc-val 'charge-fault)) {
-                    (setq do-sleep false)
-                    (setq charge-wakeup true)
-            })
+        (if (or charge-wakeup (test-chg 5)) {
+                (if (not (assoc rtc-val 'charge-fault)) {
+                        (setq do-sleep false)
+                        (setq charge-wakeup true)
+                })
 
-            ; Reset charge fault when the charger is not connected at boot
-            (setassoc rtc-val 'charge-fault false)
-        )
+                ; Reset charge fault when the charger is not connected at boot
+                (setassoc rtc-val 'charge-fault false)
+        })
 
         (if (is-connected) (setq do-sleep false))
         (if (can-active) (setq do-sleep false))
@@ -489,8 +463,7 @@
 
         (var ichg 0.0)
         (if (and (test-chg 400) charge-ok charge-wakeup) {
-                (bms-set-chg 1)
-                (setq is-charging true)
+                (set-chg true)
 
                 (looprange i 0 (* charger-max-delay 10.0) {
                         (sleep 0.1)
@@ -530,36 +503,10 @@
         })
 })
 
-(loopwhile t {
-        (match (trap (start-fun))
-            ((exit-ok (? a)) (break))
-            (_ nil)
-        )
-        (sleep 1.0)
-})
-
-; Save heap space by getting rid of start-fun
-(undefine 'start-fun)
-
-(def is-bal false)
-(def vtot 0.0)
-(def vout 0.0)
-(def vt-vchg 0.0)
-(def iout 0.0)
-(def soc -1.0)
-(def i-zero-time 0.0)
-(def chg-allowed true)
-(def t-last (systime))
-(def charge-ts (systime))
-
 ; === TODO===
 ;
 ; = Sleep =
 ;  - Go to sleep when key is left on
-
-; Note that const starts here and not in the beginning as we want the fastest possible
-; boot from sleep to conserve power.
-@const-start
 
 ; Persistent settings
 ; Format: (label . (offset type))
@@ -575,7 +522,7 @@
 ))
 
 ; Settings version
-(def settings-version 241i32)
+(def settings-version 242i32)
 
 (defun read-setting (name)
     (let (
@@ -627,6 +574,7 @@
 (defun set-chg (chg) {
         (if chg
             {
+                (gpio-write 9 0)
                 (bms-set-chg 1)
                 (setq is-charging true)
             }
@@ -662,9 +610,6 @@
 
         (send-bms-can)
 })
-
-(def tres-scd-before (bms-get-param 'psw_scd_tres))
-(def scd-before false)
 
 (defun main-ctrl () (loopwhile t {
             ; Exit if any of the BQs has fallen asleep
@@ -830,6 +775,7 @@
                     ; Reset coulomb counter when battery is full
                     (if (>= c-max (bms-get-param 'vc_charge_start)) {
                             (setq ah-cnt-soc (bms-get-param 'batt_ah))
+                            (setq trigger-bal-after-charge true)
                     })
                 }
             )
@@ -978,8 +924,6 @@
             ;((? a) (print a))
 )))
 
-@const-end
-
 (defun start-hum-thd ()
     ; Use humidity sensor if it is detected on the i2c-bus
     (if (i2c-detect-addr 0x40) {
@@ -999,54 +943,168 @@
             })
 }))
 
-; Restore settings if version number does not match
-; as that probably means something else is in eeprom
-(if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+(defun main () {
+        (set-fw-name "")
 
-(def ah-cnt (read-setting 'ah-cnt))
-(def wh-cnt (read-setting 'wh-cnt))
-(def ah-chg-tot (read-setting 'ah-chg-tot))
-(def wh-chg-tot (read-setting 'wh-chg-tot))
-(def ah-dis-tot (read-setting 'ah-dis-tot))
-(def wh-dis-tot (read-setting 'wh-dis-tot))
-(def ah-cnt-soc (read-setting 'ah-cnt-soc))
+        ; Compatibility Check
+        (loopwhile (!= (bms-fw-version) 6) {
+                (if (< (bms-fw-version) 6)
+                    (print "Firmware too old, please update")
+                    (print "Package too old, please update")
+                )
 
-(event-register-handler (spawn event-handler))
-(event-enable 'event-bms-chg-allow)
-(event-enable 'event-bms-bal-ovr)
-(event-enable 'event-bms-reset-cnt)
-(event-enable 'event-bms-force-bal)
-(event-enable 'event-bms-zero-ofs)
-
-(set-bms-val 'bms-cell-num cell-num)
-(set-bms-val 'bms-can-id (can-local-id))
-
-(def did-crash false)
-(def crash-cnt 0)
-
-(loopwhile-thd ("main-ctrl" 200) t {
-        (trap (main-ctrl))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("balance" 200) t {
-        (trap (balance))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("re-init" 200) t {
-        (if did-crash {
-                (com-force true)
-                (init-hw)
-                (com-force false)
-                (bms-set-chg 0)
-                (setq did-crash false)
-                (setq crash-cnt (+ crash-cnt 1))
+                (gpio-write 9 0) ; Enable CAN
+                (sleep 5)
         })
 
-        (sleep 0.1)
+        (def charge-dis-ts (systime))
+        (def t-last (systime))
+        (def charge-ts (systime))
+
+        ; Buzzer
+        (pwm-start 4000 0.0 0 3)
+
+        (if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
+                (var tmp (unflatten (rtc-data)))
+                (if tmp (setq rtc-val tmp))
+        })
+
+        (def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
+
+        ; Wait here on the first boot so that the upper BQ does not shut down its regulator
+        ; when communicating with it before all connectors are plugged in.
+        (if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+
+        ; Power switch
+        (loopwhile-thd ("PSW" 100) t {
+                (loopwhile (not (main-init-done)) (sleep 0.1))
+
+                (if (and
+                        psw-state
+                        (or
+                            (and (= (bms-get-param 't_psw_en) 1) (> t-mos (bms-get-param 't_psw_max_mos)))
+                            scd-latched
+                    ))
+                    {
+                        (bms-set-pchg 0)
+                        (bms-set-out 0)
+
+                        (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
+                })
+
+                (if (and (= (bms-get-btn) 0) psw-state) {
+                        (psw-off)
+                        (setq psw-status "PSW_OFF")
+                })
+
+                (if (and (= (bms-get-btn) 1) (not psw-state)) {
+                        (setq psw-status (if (psw-on) "PSW_ON" "FLT_PCHG"))
+                })
+
+                (sleep 0.2)
+        })
+
+        ; Quick PSW is enabled and BTN is on.
+        (if (and (= (bms-get-btn) 1) (= (bms-get-param 'psw_wait_init) 0) (= (bms-get-param 'psw_scd_en) 0)) {
+                ; Wake up lower BQ as it can hold the enable line low otherwise
+                (bms-subcmd-cmdonly 1 0x000e)
+                (bms-subcmd-cmdonly 1 0x000e)
+
+                ; Give PSW some time start the precharge before starting the
+                ; slow init-function so that PSW gets the mutex first.
+                (sleep 1.0)
+        })
+
+        (def t-start-fun (secs-since 0))
+
+        (loopwhile t {
+                (match (trap (start-fun))
+                    ((exit-ok (? a)) (break))
+                    (_ nil)
+                )
+                (sleep 1.0)
+        })
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        (def ah-cnt (read-setting 'ah-cnt))
+        (def wh-cnt (read-setting 'wh-cnt))
+        (def ah-chg-tot (read-setting 'ah-chg-tot))
+        (def wh-chg-tot (read-setting 'wh-chg-tot))
+        (def ah-dis-tot (read-setting 'ah-dis-tot))
+        (def wh-dis-tot (read-setting 'wh-dis-tot))
+        (def ah-cnt-soc (read-setting 'ah-cnt-soc))
+
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-bms-chg-allow)
+        (event-enable 'event-bms-bal-ovr)
+        (event-enable 'event-bms-reset-cnt)
+        (event-enable 'event-bms-force-bal)
+        (event-enable 'event-bms-zero-ofs)
+
+        (set-bms-val 'bms-cell-num cell-num)
+        (set-bms-val 'bms-can-id (can-local-id))
+
+        (def tres-scd-before (bms-get-param 'psw_scd_tres))
+        (def scd-before false)
+
+        (loopwhile-thd ("main-ctrl" 200) t {
+                (trap (main-ctrl))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("balance" 200) t {
+                (trap (balance))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("re-init" 200) t {
+                (if did-crash {
+                        (com-force true)
+                        (init-hw)
+                        (com-force false)
+                        (bms-set-chg 0)
+                        (setq did-crash false)
+                        (setq crash-cnt (+ crash-cnt 1))
+                })
+
+                (sleep 0.1)
+        })
+
+        (loopwhile-thd ("sleep-unblock" 100) t {
+                (var sleep-unblock-ok (fn () (and
+                            (= (bms-get-param 'block_sleep) 1)
+                            (< (- c-max c-min) 0.05)
+                            (> c-min 2.4)
+                            (> (secs-since 0) 3600)
+                            sleep-unblock-en
+                )))
+
+                (var should-unblock true)
+                (looprange i 0 60 {
+                        (if (not (sleep-unblock-ok)) {
+                                (setq should-unblock false)
+                        })
+                        (sleep 1.0)
+                })
+
+                (if should-unblock {
+                        (bms-set-param 'block_sleep 0)
+                        (bms-store-cfg)
+                        (print "Block sleep disabled")
+                        (beep 4 0.2)
+
+                })
+        })
+
+        (start-hum-thd)
 })
 
-(start-hum-thd)
+@const-end
+
+(image-save)
+(main)

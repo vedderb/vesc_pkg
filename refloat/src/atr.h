@@ -21,30 +21,24 @@
 #include "conf/datatypes.h"
 #include "motor_data.h"
 
-// includes braketilt as well, at least for now
 typedef struct {
     float on_step_size;
     float off_step_size;
+    float ramped_step_size;
 
     float accel_diff;
     float speed_boost;
 
-    float target_offset;  // setpoint target offset
-    float offset;  // rate-limited setpoint offset
+    float target;
+    float setpoint;
 
     float speed_boost_mult;
-
-    float braketilt_factor;
-    float braketilt_target_offset;  // braketilt setpoint target offset
-    float braketilt_offset;  // rate-limited braketilt setpoint offset
 } ATR;
 
 void atr_reset(ATR *atr);
 
 void atr_configure(ATR *atr, const RefloatConfig *config);
 
-void atr_and_braketilt_update(
-    ATR *atr, const MotorData *motor, const RefloatConfig *config, float proportional
-);
+void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config);
 
-void atr_and_braketilt_winddown(ATR *atr);
+void atr_winddown(ATR *atr);

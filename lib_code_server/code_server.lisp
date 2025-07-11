@@ -1,4 +1,12 @@
-;@const-symbol-strings
+; Firmware 6.5 does not have mutexes
+(if (eq (take (sysinfo 'fw-ver) 2) '(6 5)) {
+        (defun mutex-create () nil)
+        (defun mutex-lock (mtx) nil)
+        (defun mutex-unlock (mtx) nil)
+})
+
+(def code-server-mutex (mutex-create))
+
 @const-start
 
 (defun code-server-worker (parent)
@@ -41,15 +49,21 @@
 })))
 
 (defun rcode-run (id tout code) {
+        (mutex-lock code-server-mutex)
         (canmsg-send id 0 (flatten (list (can-local-id) code)))
-        (match (canmsg-recv 1 tout)
-            (timeout timeout)
-            ((? a) (unflatten a))
-        )
+        (var res (match (canmsg-recv 1 tout)
+                (timeout timeout)
+                ((? a) (unflatten a))
+        ))
+        (mutex-unlock code-server-mutex)
+        res
 })
 
 (defun rcode-run-noret (id code) {
-        (canmsg-send id 0 (flatten (list -1 code)))
+        (mutex-lock code-server-mutex)
+        (var res (canmsg-send id 0 (flatten (list -1 code))))
+        (mutex-unlock code-server-mutex)
+        res
 })
 
 @const-end

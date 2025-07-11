@@ -1,26 +1,27 @@
 @const-start
 
 (defun view-init-speed-large  () {
-    (def buf-units (img-buffer 'indexed4 50 25))
-    (def buf-top-speed (img-buffer 'indexed4 50 25))
-    (def buf-arcs (img-buffer 'indexed4 320 58))
-    (def buf-speed-large (img-buffer 'indexed4 240 128))
+    (def buf-units (img-buffer dm-pool 'indexed4 50 25))
+    (def buf-top-speed (img-buffer dm-pool 'indexed4 50 25))
+    (def buf-arcs (img-buffer dm-pool 'indexed4 320 58))
+    (def buf-speed-large (img-buffer dm-pool 'indexed4 240 128))
 
     (view-init-menu)
     (defun on-btn-0-pressed () (def state-view-next (previous-view)))
     (defun on-btn-1-pressed () {
         (stats-reset-max)
     })
-    (defun on-btn-2-pressed () {
+    (defun on-btn-2-pressed () (if (not config-units-switching-enable) nil
+    {
         (setting-units-cycle)
         (def view-previous-stats (list 'stats-kmh 'stats-kmh-max))
-    })
+    }))
     (defun on-btn-3-pressed () (def state-view-next (next-view)))
 
     (def view-changed nil)
     (def view-previous-stats (list 'stats-kmh 'stats-kmh-max))
 
-    (view-draw-menu 'arrow-left "RESET" "UNITS" 'arrow-right)
+    (view-draw-menu 'arrow-left "RESET" (if (not config-units-switching-enable) nil "UNITS") 'arrow-right)
     (view-render-menu)
 })
 

@@ -1,17 +1,10 @@
-; Compatibility Check
-(loopwhile (!= (bms-fw-version) 5) {
-        (print "Incompatible firmware, please update")
-        (sleep 5)
-})
-
-(set-fw-name "micro")
-
 ;;;;;;;;; User Settings ;;;;;;;;;
 
 ; TODO: Move into config?
 
 ; Wait this long for charger to start charging
 (def charger-max-delay 3.0)
+(def sleep-unblock-en true) ; Enable automatic sleep unblocking
 
 ;;;;;;;;; End User Settings ;;;;;;;;;
 
@@ -21,7 +14,6 @@
 (def is-balancing false)
 (def is-charging false)
 (def charge-ok false)
-(def charge-dis-ts (systime))
 (def c-min 0.0)
 (def c-max 0.0)
 (def t-min 0.0)
@@ -29,14 +21,45 @@
 (def t-mos 0.0)
 (def t-ic 0.0)
 (def charge-wakeup false)
+(def init-done false)
 
 (def chg-status "")
 (def bal-status "")
 
-; Buzzer
-(pwm-start 4000 0.0 0 3)
+(def rtc-val '(
+        (wakeup-cnt . 0)
+        (c-min . 3.5)
+        (c-max . 3.5)
+        (v-tot . 50.0)
+        (soc . 0.5)
+        (charge-fault . false)
+        (updated . false)
+))
+
+(def is-bal false)
+(def vtot 0.0)
+(def vout 0.0)
+(def vt-vchg 0.0)
+(def iout 0.0)
+(def soc -1.0)
+(def i-zero-time 0.0)
+(def chg-allowed true)
+(def com-force-on false)
+(def com-mutex (mutex-create))
+(def buz-mutex (mutex-create))
+
+(def did-crash false)
+(def crash-cnt 0)
+
+@const-start
+
+; Current inverted and different shunt compared to stock FW
+; TODO: The hardware should provide a unitless raw value...
+(defun bms-current () (* (bms-get-current) -0.2))
 
 (defun beep (times dt) {
+        (mutex-lock buz-mutex)
+
         (loopwhile (> times 0) {
                 (pwm-set-duty 0.5 0)
                 (sleep dt)
@@ -44,11 +67,11 @@
                 (sleep dt)
                 (setq times (- times 1))
         })
+
+        (mutex-unlock buz-mutex)
 })
 
-(def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
-
-(def rtc-val-magic 114)
+(def rtc-val-magic 115)
 
 ; If in deepsleep, this will return 4
 ; (bms-direct-cmd 1 0x00)
@@ -86,30 +109,11 @@
         })
 })
 
-(def rtc-val '(
-        (wakeup-cnt . 0)
-        (c-min . 3.5)
-        (c-max . 3.5)
-        (v-tot . 50.0)
-        (soc . 0.5)
-        (charge-fault . false)
-        (updated . false)
-))
-
-(if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
-      (var tmp (unflatten (rtc-data)))
-      (if tmp (setq rtc-val tmp))
-})
-
 (defun save-rtc-val () {
         (var tmp (flatten rtc-val))
         (bufcpy (rtc-data) 0 tmp 0 (buflen tmp))
         (bufset-u8 (rtc-data) 900 rtc-val-magic)
 })
-
-; Current inverted and different shunt compared to stock FW
-; TODO: The hardware should provide a unitless raw value...
-(defun bms-current () (* (bms-get-current) -0.2))
 
 (defun test-chg (samples) {
         ; Many chargers "pulse" before starting, try to catch a pulse
@@ -153,8 +157,17 @@
         false
 })
 
-(def com-force-on false)
-(def com-mutex (mutex-create))
+(defun can-sum-current () {
+        (var devs (can-list-devs))
+        (var i-sum 0.0)
+
+        (loopforeach d devs {
+                (var res (can-msg-age d 4))
+                (if (and res (< res 0.1)) (setq i-sum (+ i-sum (canget-current-in d))))
+        })
+
+        i-sum
+})
 
 ; Run expression with communication enabled. Use up to 4 attempts in case of
 ; glithces from transients. Disable communication again when it is not needed
@@ -229,16 +242,6 @@
         bms-temps
 })
 
-; Wait here on the first boot so that the upper BQ does not shut down its regulator
-; when communicating with it before all connectors are plugged in.
-(if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
-
-; Make sure that we receive messages on CAN
-(gpio-configure 9 'pin-mode-out)
-(gpio-write 9 0)
-(loopwhile (not (main-init-done)) (sleep 0.01))
-(gpio-write 9 0)
-
 (defun start-fun () {
         (setassoc rtc-val 'wakeup-cnt (+ (assoc rtc-val 'wakeup-cnt) 1))
 
@@ -249,15 +252,15 @@
                 (setq do-sleep false)
         })
 
-        (if (or charge-wakeup (test-chg 5))
-            (if (not (assoc rtc-val 'charge-fault)) {
-                    (setq do-sleep false)
-                    (setq charge-wakeup true)
-            })
+        (if (or charge-wakeup (test-chg 5)) {
+                (if (not (assoc rtc-val 'charge-fault)) {
+                        (setq do-sleep false)
+                        (setq charge-wakeup true)
+                })
 
-            ; Reset charge fault when the charger is not connected at boot
-            (setassoc rtc-val 'charge-fault false)
-        )
+                ; Reset charge fault when the charger is not connected at boot
+                (setassoc rtc-val 'charge-fault false)
+        })
 
         (if (is-connected) (setq do-sleep false))
         (if (can-active) (setq do-sleep false))
@@ -314,6 +317,8 @@
 
         (update-temps)
 
+        (setq init-done true)
+
         (setq charge-ok (and
                 (< c-max (bms-get-param 'vc_charge_end))
                 (> c-min (bms-get-param 'vc_charge_min))
@@ -325,8 +330,7 @@
 
         (var ichg 0.0)
         (if (and (test-chg 400) charge-ok charge-wakeup) {
-                (bms-set-chg 1)
-                (setq is-charging true)
+                (set-chg true)
 
                 (looprange i 0 (* charger-max-delay 10.0) {
                         (sleep 0.1)
@@ -366,43 +370,10 @@
         })
 })
 
-(loopwhile t {
-        (match (trap (start-fun))
-            ((exit-ok (? a)) (break))
-            (_ nil)
-        )
-        (sleep 1.0)
-})
-
-; Save heap space by getting rid of start-fun
-(undefine 'start-fun)
-
-(def is-bal false)
-(def vtot 0.0)
-(def vout 0.0)
-(def vt-vchg 0.0)
-(def iout 0.0)
-(def soc -1.0)
-(def i-zero-time 0.0)
-(def chg-allowed true)
-(def t-last (systime))
-(def charge-ts (systime))
-
-; Note that const starts here and not in the beginning as we want the fastest possible
-; boot from sleep to conserve power.
-@const-start
-
-(defun can-sum-current () {
-        (var devs (can-list-devs))
-        (var i-sum 0.0)
-
-        (loopforeach d devs {
-                (var res (can-msg-age d 4))
-                (if (and res (< res 0.1)) (setq i-sum (+ i-sum (canget-current-in d))))
-        })
-
-        i-sum
-})
+; === TODO===
+;
+; = Sleep =
+;  - Go to sleep when key is left on
 
 ; Persistent settings
 ; Format: (label . (offset type))
@@ -418,7 +389,7 @@
 ))
 
 ; Settings version
-(def settings-version 241i32)
+(def settings-version 242i32)
 
 (defun read-setting (name)
     (let (
@@ -470,6 +441,7 @@
 (defun set-chg (chg) {
         (if chg
             {
+                (gpio-write 9 0)
                 (bms-set-chg 1)
                 (setq is-charging true)
             }
@@ -534,7 +506,7 @@
             })
 
             (set-bms-val 'bms-temp-adc-num (+ 5 temp-ext-num))
-            (set-bms-val 'bms-temps-adc 0 (ix bms-temps 0)) ; IC
+            (set-bms-val 'bms-temps-adc 0 t-ic) ; IC
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
             (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
@@ -655,6 +627,7 @@
                     ; Reset coulomb counter when battery is full
                     (if (>= c-max (bms-get-param 'vc_charge_start)) {
                             (setq ah-cnt-soc (bms-get-param 'batt_ah))
+                            (setq trigger-bal-after-charge true)
                     })
                 }
             )
@@ -803,8 +776,6 @@
             ;((? a) (print a))
 )))
 
-@const-end
-
 (defun start-hum-thd ()
     ; Use humidity sensor if it is detected on the i2c-bus
     (if (i2c-detect-addr 0x40) {
@@ -824,54 +795,125 @@
             })
 }))
 
-; Restore settings if version number does not match
-; as that probably means something else is in eeprom
-(if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+(defun main () {
+        (set-fw-name "micro")
 
-(def ah-cnt (read-setting 'ah-cnt))
-(def wh-cnt (read-setting 'wh-cnt))
-(def ah-chg-tot (read-setting 'ah-chg-tot))
-(def wh-chg-tot (read-setting 'wh-chg-tot))
-(def ah-dis-tot (read-setting 'ah-dis-tot))
-(def wh-dis-tot (read-setting 'wh-dis-tot))
-(def ah-cnt-soc (read-setting 'ah-cnt-soc))
+        ; Compatibility Check
+        (loopwhile (!= (bms-fw-version) 6) {
+                (if (< (bms-fw-version) 6)
+                    (print "Firmware too old, please update")
+                    (print "Package too old, please update")
+                )
 
-(event-register-handler (spawn event-handler))
-(event-enable 'event-bms-chg-allow)
-(event-enable 'event-bms-bal-ovr)
-(event-enable 'event-bms-reset-cnt)
-(event-enable 'event-bms-force-bal)
-(event-enable 'event-bms-zero-ofs)
-
-(set-bms-val 'bms-cell-num cell-num)
-(set-bms-val 'bms-can-id (can-local-id))
-
-(def did-crash false)
-(def crash-cnt 0)
-
-(loopwhile-thd ("main-ctrl" 200) t {
-        (trap (main-ctrl))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("balance" 200) t {
-        (trap (balance))
-        (setq did-crash true)
-        (loopwhile did-crash (sleep 1.0))
-})
-
-(loopwhile-thd ("re-init" 200) t {
-        (if did-crash {
-                (com-force true)
-                (init-hw)
-                (com-force false)
-                (bms-set-chg 0)
-                (setq did-crash false)
-                (setq crash-cnt (+ crash-cnt 1))
+                (gpio-write 9 0) ; Enable CAN
+                (sleep 5)
         })
 
-        (sleep 0.1)
+        (def charge-dis-ts (systime))
+        (def t-last (systime))
+        (def charge-ts (systime))
+
+        ; Buzzer
+        (pwm-start 4000 0.0 0 3)
+
+        (if (= (bufget-u8 (rtc-data) 900) rtc-val-magic) {
+                (var tmp (unflatten (rtc-data)))
+                (if tmp (setq rtc-val tmp))
+        })
+
+        (def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
+
+        ; Wait here on the first boot so that the upper BQ does not shut down its regulator
+        ; when communicating with it before all connectors are plugged in.
+        (if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+
+        (def t-start-fun (secs-since 0))
+
+        (loopwhile t {
+                (match (trap (start-fun))
+                    ((exit-ok (? a)) (break))
+                    (_ nil)
+                )
+                (sleep 1.0)
+        })
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        (def ah-cnt (read-setting 'ah-cnt))
+        (def wh-cnt (read-setting 'wh-cnt))
+        (def ah-chg-tot (read-setting 'ah-chg-tot))
+        (def wh-chg-tot (read-setting 'wh-chg-tot))
+        (def ah-dis-tot (read-setting 'ah-dis-tot))
+        (def wh-dis-tot (read-setting 'wh-dis-tot))
+        (def ah-cnt-soc (read-setting 'ah-cnt-soc))
+
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-bms-chg-allow)
+        (event-enable 'event-bms-bal-ovr)
+        (event-enable 'event-bms-reset-cnt)
+        (event-enable 'event-bms-force-bal)
+        (event-enable 'event-bms-zero-ofs)
+
+        (set-bms-val 'bms-cell-num cell-num)
+        (set-bms-val 'bms-can-id (can-local-id))
+
+        (loopwhile-thd ("main-ctrl" 200) t {
+                (trap (main-ctrl))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("balance" 200) t {
+                (trap (balance))
+                (setq did-crash true)
+                (loopwhile did-crash (sleep 1.0))
+        })
+
+        (loopwhile-thd ("re-init" 200) t {
+                (if did-crash {
+                        (com-force true)
+                        (init-hw)
+                        (com-force false)
+                        (bms-set-chg 0)
+                        (setq did-crash false)
+                        (setq crash-cnt (+ crash-cnt 1))
+                })
+
+                (sleep 0.1)
+        })
+
+        (loopwhile-thd ("sleep-unblock" 100) t {
+                (var sleep-unblock-ok (fn () (and
+                            (= (bms-get-param 'block_sleep) 1)
+                            (< (- c-max c-min) 0.05)
+                            (> c-min 2.4)
+                            (> (secs-since 0) 3600)
+                            sleep-unblock-en
+                )))
+
+                (var should-unblock true)
+                (looprange i 0 60 {
+                        (if (not (sleep-unblock-ok)) {
+                                (setq should-unblock false)
+                        })
+                        (sleep 1.0)
+                })
+
+                (if should-unblock {
+                        (bms-set-param 'block_sleep 0)
+                        (bms-store-cfg)
+                        (print "Block sleep disabled")
+                        (beep 4 0.2)
+
+                })
+        })
+
+        (start-hum-thd)
 })
 
-(start-hum-thd)
+@const-end
+
+(image-save)
+(main)
