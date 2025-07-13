@@ -137,6 +137,7 @@ typedef struct {
 	uint16_t stabl_ramp;
 	uint16_t stabl_ramp_down;
 	uint16_t hertz;
+	float ema_factor;
 	uint16_t fault_pitch;
 	uint16_t fault_roll;
 	float fault_adc1;
