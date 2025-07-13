@@ -1,4 +1,4 @@
-// Copyright 2024 Lukas Hrazky
+// Copyright 2024 Michael Silberstein
 //
 // This file is part of the Refloat VESC package.
 //
