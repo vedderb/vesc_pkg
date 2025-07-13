@@ -90,11 +90,13 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
     * 0 by default, 5 ms recommended
 * _Fixes/Improvements_
-  * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
+  * Added an exponential moving average (EMA) filter to current output normalized to the IMU sample rate
+  * Added new parameter EMA Filter Adjustment Factor to adjust the new EMA filter
+  * Changed default package frequency to 10,000Hz
   * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
   * Yaw - Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
   * Surge - Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
-  * Added an exponential moving average filter to current output normalized to the IMU sample rate
+  * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
   * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
   * Changed the default low pass and Kalman filter for pitch to 0
   * Reduced default pitch angle stability to 20% from 50%
