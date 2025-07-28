@@ -25,7 +25,6 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 	bool start_condition1 = false;
 	bool start_condition2 = false;
 	float current_time = VESC_IF->system_time();
-	rate_limit_erpm(m, traction);
 	traction_dbg->debug2 = traction->erpm_limited;
 	
 	// Conditions to end traction control
@@ -59,10 +58,14 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
 			if (traction->reverse_wheelslip && 
 			    m->erpm_sign_check) {
+				if (traction->reverse_wheelslip && fabsf(traction->erpm_limited) < 2000)
+					traction->erpm_limited = 2000 * m->erpm_sign_soft;
 				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 3);
 			}
 		}
-	} else { //Start conditions and traciton control activation
+	} else { 
+		rate_limit_erpm(m, traction);	// only update tracking erpm if we are not in traction control
+		//Start conditions and traciton control activation
 		if (traction->end_accel_hold) { //Do not allow start conditions if we are in hold
 			traction->end_accel_hold = fabsf(m->accel_avg) > traction->hold_accel; //deactivate hold when below the threshold acceleration
 		} else { //Start conditions
@@ -222,5 +225,5 @@ void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tn
 
 void rate_limit_erpm(MotorData *m, TractionData *traction) {
 	//ERPM limited attempts to better estimate longitudinal velocity by limiting the rate of change and not changing when acceleration is too high.
-	rate_limitf(&traction->erpm_limited, m->erpm, m->accel_avg > traction->erpm_exclusion_rate ? 0 : traction->erpm_rate_limit); 
+	rate_limitf(&traction->erpm_limited, m->erpm, fabsf(m->accel_avg) > traction->erpm_exclusion_rate ? 0 : traction->erpm_rate_limit); 
 }
