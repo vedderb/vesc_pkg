@@ -59,7 +59,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			if (traction->reverse_wheelslip && 
 			    m->erpm_sign_check) {
 				if (traction->reverse_wheelslip && fabsf(traction->erpm_limited) < 2000)
-					traction->erpm_limited = 2000 * m->erpm_sign_soft;
+					traction->erpm_limited = 2000 * sign(traction->erpm_limited);
 				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 3);
 			}
 		}
@@ -78,7 +78,7 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 					start_condition1 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			  		    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 								
 				} 
-			} else if (sign(m->erpm_sign_soft) != sign(m->accel_avg)) {						// If the motor is back spinning engage but don't allow wheelslip on landing
+			} else if (sign(traction->erpm_limited) != sign(m->accel_avg)) {						// If the motor is back spinning engage but don't allow wheelslip on landing
 				start_condition2 = sign(m->current) * m->accel_avg > traction->start_accel * erpmfactor &&	// The wheel has broken free indicated by abnormally high acceleration in the direction of motor current
 			   	    !state->braking_pos_smooth && !state->braking_active;					// Do not apply for braking 
 			}
