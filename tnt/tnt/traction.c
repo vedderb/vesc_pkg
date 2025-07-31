@@ -57,9 +57,9 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 
 			//If we wheelslipped backwards we just need to know the wheel is travelling forwards again
 			if (traction->reverse_wheelslip && 
-			    m->erpm_sign_check) {
-				if (traction->reverse_wheelslip && fabsf(traction->erpm_limited) < 2000)
-					traction->erpm_limited = 2000 * sign(traction->erpm_limited);
+			    m->erpm_sign == sign(traction->erpm_limited)) {
+				if (traction->reverse_wheelslip && fabsf(traction->erpm_limited) < 3000)
+					traction->erpm_limited = 3000 * sign(traction->erpm_limited);
 				deactivate_traction(traction, state, traction_dbg, m->abs_erpm, 3);
 			}
 		}
@@ -99,14 +99,14 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			if (current_time - traction_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
 				traction_dbg->aggregate_timer = current_time;
 				traction_dbg->debug5 = 0;
-				//traction_dbg->debug2 = erpmfactor;		//only record the first traction loss for some debug variables
-				traction_dbg->debug6 = traction->erpm_limited;		//m->accel_avg / traction_dbg->freq_factor; 
+
+			}
+				traction_dbg->debug6 = traction->erpm_limited;		//m->accel_avg / traction_dbg->freq_factor;  ********************************************
 				traction_dbg->debug9 = m->erpm;
 				traction_dbg->debug3 = m->erpm_at_accel_start;
 				traction_dbg->debug4 = 0;
 				traction_dbg->debug8 = 0;
-			}
-
+			
 			traction_dbg->debug5 += 1; // count number of traction losses
 		}
 	}
@@ -125,7 +125,7 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 	traction->timeroff = VESC_IF->system_time();
 	traction->reverse_wheelslip = false;
 	traction->end_accel_hold = true; //activate high accel hold to prevent traction control
-	if (traction_dbg->debug5 == 1) //only save the first activation duration
+	//if (traction_dbg->debug5 == 1) //only save the first activation duration**************************************************************************
 		traction_dbg->debug8 = traction->timeroff - traction->timeron;
 	if (traction_dbg->debug4 > 10000) 
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
