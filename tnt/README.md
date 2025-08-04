@@ -23,24 +23,23 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. Here are more details on the default settings:
 
-* Pitch Tune - The default pitch tune is what I have been riding
-  * Increase and decrease Mahoney kp to find your preference, recommended 1 to 1.5
-  * Current 2 (default pitch angle 1 deg) can be increased or decreased to affect nose height in light demand (i.e. cruising flat ground)
-  * Current 3 (default pitch angle 1.5 deg) can be increased or decreased to affect nose height in medium demand (i.e. slight uphills/downhills)
-  * Current 4 (default pitch angle 2 deg) can be increased or decreased to affect nose height in high demand (i.e. steep uphills/downhills)
-  * Angle 5 (default current 150A) can be decreased to make the board more aggressive and surge more readily or increased to make board response softer at high pitch angles
+* Pitch Tune - The default pitch tune is a balance for street and trails
+  * Increase and decrease Mahoney kp to find your preference, recommended 1 to 1.5, with 1.5 having a softer more delayed feel
+  * Current 2 (default pitch angle 1 deg) will affect nose height in light demand (i.e. cruising flat ground)
+  * Current 3 (default pitch angle 1.5 deg) will affect nose height in medium demand (i.e. slight uphills/downhills)
+  * Current 4 (default pitch angle 2 deg) will affect nose height in high demand (i.e. steep uphills/downhills)
+  * Angle 5 (default current 150A) can be decreased to make the board more aggressive and surge more readily (better for bonks). Higher values will make the high current response softer which can be smoother for rough trails.
   * Current 1 (default pitch angle 0.5 deg) and Kp0 can be increaced to make the board tighter around the setpoint
   * Increase or decrease Pitch Rate Kp to adjust nose stiffness
 * Roll Tune - The default roll tune is very loose and moderate for easy, deep carving.
-  * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
-  * To make the tune less aggressive decrease Roll Kp.
-  * To make the tune less agile at low speed reduce the low speed maximum scaler.
-  * To adjust the agility at high speed change the high speed maximum scaler.
-* Yaw Tune - The default yaw tune is toned way down because minor offsets in the yaw gyro can cause very high yaw to be measured. Check you gyro offsets first to confirm they are zeroed.
-  * Increase Yaw Kp Level 2 to make the board more "skatey" or "icey" for more rapid carving.
+  * To make the roll tighter and more race-like, decrease Level 2 and Level 3 Roll Angle.
+  * To make the roll response less aggressive decrease Roll Kp.
+  * To make the roll response less agile at low speed reduce the Roll Maximum Scaler.
+* Yaw Tune - The default yaw tune is reduced because minor offsets in the yaw gyro can cause very high yaw to be measured. Check you gyro offsets first to confirm they are zeroed.
+  * Increase Yaw Kp Level 2 to make the board more "skatey" or "icey" for more rapid carving (high agility). A little goes a long way. Start with 0.1.
 * High Current
   * High current conditions are based on 150 peak amps, 40 battery amps, and hypercore motor.
-  * Adjustments must be made based on your motor configuration.
+  * Adjustments must be made based on your motor configuration. See the wiki for more details. Linked above.
 * Surge 
   * Disabled by default for safety.
   * Set your high current section first.
@@ -49,7 +48,7 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Traction Braking disabled by default.
 * FOC Play Tones
   * Disabled by default because of potential issues with Absolute Max Motor Current. See warning in the help text.
-  * Riders with cannoncore or superflux motors should set high current conditions before using high current FOC tones.
+  * Riders should set high current conditions before using high current FOC tones.
 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
@@ -101,7 +100,8 @@ For more instructions on setting up your board please refer to the [Set Up Guide
   * Changed the default high current setting to 40 battery amps from 30.
   * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
   * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
-  * Changed the default low pass and Kalman filter for pitch to 35
+  * Changed the default low pass filter for pitch to 35
+  * Disabled the kalman filter for pitch by default
   * Reduced default high current foc tone volume to 5 V
   * Increased default stability ramp rate up to 100 %/s from 25 %/s
 
