@@ -99,13 +99,12 @@ void check_traction(MotorData *m, TractionData *traction, State *state, tnt_conf
 			if (current_time - traction_dbg->aggregate_timer > 5) { // Aggregate the number of drop activations in 5 seconds
 				traction_dbg->aggregate_timer = current_time;
 				traction_dbg->debug5 = 0;
-
-			}
-				traction_dbg->debug6 = traction->erpm_limited;		//m->accel_avg / traction_dbg->freq_factor;  ********************************************
+				traction_dbg->debug6 = traction->erpm_limited;
 				traction_dbg->debug9 = m->erpm;
 				traction_dbg->debug3 = m->erpm_at_accel_start;
 				traction_dbg->debug4 = 0;
 				traction_dbg->debug8 = 0;
+			}
 			
 			traction_dbg->debug5 += 1; // count number of traction losses
 		}
@@ -125,7 +124,7 @@ void deactivate_traction(TractionData *traction, State *state, TractionDebug *tr
 	traction->timeroff = VESC_IF->system_time();
 	traction->reverse_wheelslip = false;
 	traction->end_accel_hold = true; //activate high accel hold to prevent traction control
-	//if (traction_dbg->debug5 == 1) //only save the first activation duration**************************************************************************
+	if (traction_dbg->debug5 == 1) //only save the first activation duration
 		traction_dbg->debug8 = traction->timeroff - traction->timeron;
 	if (traction_dbg->debug4 > 10000) 
 		traction_dbg->debug4 = traction_dbg->debug4 % 10000;
@@ -227,3 +226,4 @@ void rate_limit_erpm(MotorData *m, TractionData *traction) {
 	//ERPM limited attempts to better estimate longitudinal velocity by limiting the rate of change and not changing when acceleration is too high.
 	rate_limitf(&traction->erpm_limited, m->erpm, fabsf(m->accel_avg) > traction->erpm_exclusion_rate ? 0 : traction->erpm_rate_limit); 
 }
+
