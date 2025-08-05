@@ -48,6 +48,7 @@
         ("V%d Temp Motor" "degC" 1      (canget-temp-motor id))
         ("V%d ADC1" "V"                 (canget-adc id 0))
         ("V%d ADC2" "V"                 (canget-adc id 1))
+        ("V%d Input Voltage" "V"        (canget-vin id))
 ))
 
 (defun merge-lists (list-with-lists) (foldl append () list-with-lists))
