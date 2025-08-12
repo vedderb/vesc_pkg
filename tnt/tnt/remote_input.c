@@ -48,7 +48,7 @@ void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_filtered, 
 	
 	if (s->active) { 	//Apply sticky tilt. Check for exit condition
 		//Apply sticky tilt value or throttle values higher than sticky tilt value
-		if ((sign(r->inputtilt_interpolated) == sign(*input_tiltback_target)) || (r->throttle_val == 0)) { 	// If the throttle is at zero or pushed to the direction of the sticky tilt value. 
+		if ((sign(r->setpoint) == sign(*input_tiltback_target)) || (r->throttle_val == 0)) { 	// If the throttle is at zero or pushed to the direction of the sticky tilt value. 
 			if (fabsf(s->value) >= fabsf(*input_tiltback_target)) { 						// If sticky tilt value greater than throttle value keep at sticky value
 				*input_tiltback_target = s->value; // apply our sticky tilt value
 			} 
@@ -61,7 +61,7 @@ void apply_stickytilt(RemoteData *r, StickyTiltData *s, float current_filtered, 
 }
 
 void apply_inputtilt(RemoteData *r, float input_tiltback_target){ 
-	float input_tiltback_target_diff = input_tiltback_target - r->inputtilt_interpolated;
+	float input_tiltback_target_diff = input_tiltback_target - r->setpoint;
 
 	if (r->smoothing_factor > 0) { // Smoothen changes in tilt angle by ramping the step size
 		float smoothing_factor = 0.02;
@@ -74,19 +74,19 @@ void apply_inputtilt(RemoteData *r, float input_tiltback_target){
 			r->ramped_step_size = (smoothing_factor * r->step_size * (input_tiltback_target_diff / 2)) + ((1 - smoothing_factor) * r->ramped_step_size); // Target step size is reduced the closer to center you are (needed for smoothly transitioning away from center)
 			float centering_step_size = fminf(fabsf(r->ramped_step_size), fabsf(input_tiltback_target_diff / 2) * r->step_size) * sign(input_tiltback_target_diff); // Linearly ramped down step size is provided as minimum to prevent overshoot
 			if (fabsf(input_tiltback_target_diff) < fabsf(centering_step_size)) {
-				r->inputtilt_interpolated = input_tiltback_target;
+				r->setpoint = input_tiltback_target;
 			} else {
-				r->inputtilt_interpolated += centering_step_size;
+				r->setpoint += centering_step_size;
 			}
 		} else { // Ramp up step size until the configured tilt speed is reached
 			r->ramped_step_size = (smoothing_factor * r->step_size * sign(input_tiltback_target_diff)) + ((1 - smoothing_factor) * r->ramped_step_size);
-			r->inputtilt_interpolated += r->ramped_step_size;
+			r->setpoint += r->ramped_step_size;
 		}
 	} else { // Constant step size; no smoothing
 		if (fabsf(input_tiltback_target_diff) < r->step_size){
-			r->inputtilt_interpolated = input_tiltback_target;
+			r->setpoint = input_tiltback_target;
 		} else {
-			r->inputtilt_interpolated += r->step_size * sign(input_tiltback_target_diff);
+			r->setpoint += r->step_size * sign(input_tiltback_target_diff);
 		}
 	}
 }
@@ -136,5 +136,5 @@ void configure_remote_features(tnt_config *config, RemoteData *r, StickyTiltData
 
 void reset_remote(RemoteData *r, StickyTiltData *s){
 	s->active = false;
-	r->inputtilt_interpolated = 0;
+	r->setpoint = 0;
 }

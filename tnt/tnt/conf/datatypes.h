@@ -86,12 +86,14 @@ typedef struct {
 	uint16_t roll_hs_lowerpm;
 	uint16_t rollkp_maxscale;
 	int8_t roll_hs_maxscale;
+	float yaw_rate_kp;
 	float yaw_kp1;
 	float yaw_kp2;
 	float yaw_kp3;
 	float yaw1;
 	float yaw2;
 	float yaw3;
+	float yaw_rate_brake_kp;
 	float brkyaw_kp1;
 	float brkyaw_kp2;
 	float brkyaw_kp3;
@@ -119,9 +121,13 @@ typedef struct {
 	uint8_t wheelslip_max_angle;
 	uint8_t wheelslip_accelhold;
 	uint8_t wheelslip_resettime;
+	uint8_t wheelslip_erpm_rate_limit;
+	uint8_t wheelslip_erpm_exclusion_rate;
+	uint16_t wheelslip_erpm_margin;
 	bool is_tc_braking_enabled;
 	int8_t tc_braking_angle;
-	uint16_t tc_braking_min_erpm;	
+	uint16_t tc_braking_min_erpm;
+	uint8_t tc_braking_off_time;
 	bool enable_speed_stability;
 	bool enable_throttle_stability;
 	uint16_t stabl_pitch_max_scale;
@@ -131,6 +137,7 @@ typedef struct {
 	uint16_t stabl_ramp;
 	uint16_t stabl_ramp_down;
 	uint16_t hertz;
+	float ema_factor;
 	uint16_t fault_pitch;
 	uint16_t fault_roll;
 	float fault_adc1;
@@ -190,10 +197,14 @@ typedef struct {
 	bool is_beeper_enabled;
 	bool is_dutybeep_enabled;
 	bool is_footbeep_enabled;
-	bool is_tunedebug_enabled;
+	bool is_resettripdata_enabled;
+	bool is_pitchdebug_enabled;
+	bool is_rolldebug_enabled;
+	bool is_yawdebug_enabled;
+	bool is_stabilitydebug_enabled;
+	bool is_currentdebug_enabled;
 	bool is_surgedebug_enabled;
 	bool is_tcdebug_enabled;
-	bool is_yawdebug_enabled;
 	bool is_brakingdebug_enabled;
 } tnt_config;
 

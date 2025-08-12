@@ -52,10 +52,24 @@ typedef struct {
 } PidData;
 
 typedef struct {
-	float debug1;
-	float debug2;
-	float debug3;
-	float debug4;
+	float debug1;	//pitch kp
+	float debug2;	// roll kp
+	float debug3;	// temp stability rate kp 
+	float debug4;	// pitch rate
+	float debug5;	// yaw rate
+	float debug6;	// stability pitch rate kp 
+	float debug7;	// stability yaw rate kp 
+	float debug8;	// stability pitch angle kp
+	float debug9;	// pitch rate kp
+	float debug10; 	// temp pitch/yaw rate kp
+	float debug11; 	// yaw rate kp
+	float debug12; 	// pitch angle demand
+	float debug13; 	// stability angle demand
+	float debug14;	// stability rate demand
+	float debug15; 	// yaw angle current demand
+	float debug16; 	// max roll angle
+	float debug17; // roll erpm scale
+	float debug18; // roll anngle demand
 } PidDebug;
 
 void pitch_kp_configure(const tnt_config *config, KpArray *k, int mode);
@@ -67,11 +81,11 @@ float erpm_scale(float lowvalue, float highvalue, float lowscale, float highscal
 void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, tnt_config *config);
 void check_brake_kp(PidData *p, State *state, tnt_config *config, KpArray *roll_brake_kp, KpArray *yaw_brake_kp);
 float roll_erpm_scale(PidData *p, State *state, float abs_erpm, KpArray *roll_accel_kp, tnt_config *config);
-void reset_pid(PidData *p);
+void reset_pid(PidData *p, PidDebug *pid_dbg);
 void apply_soft_start(PidData *p, float mc_current_max);
 void configure_pid(PidData *p, tnt_config *config);
 float apply_pitch_kp(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg);
-float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, PidData *p, PidDebug *pid_dbg);
+float apply_kp_rate(KpArray *accel_kp, KpArray *brake_kp, bool braking, PidDebug *pid_dbg);
 float apply_roll_kp(KpArray *roll_accel_kp, KpArray *roll_brake_kp, PidData *p, int erpm_sign, float abs_roll_angle, float roll_erpm_scale, PidDebug *pid_dbg);
 float yaw_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config);
 float apply_yaw_kp(KpArray *yaw_accel_kp, KpArray *yaw_brake_kp, PidData *p, float erpm_sign, float abs_change, float yaw_erpm_scale, YawDebugData *yaw_dbg);

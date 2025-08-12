@@ -23,36 +23,90 @@ This package has been improved thanks to the contributions of Lukas Hrazky with 
 ### Default Settings
 Default settings are based on 20s battery, Hypercore (Future Motion motor), and Little Focer v3.1 set up. Here are more details on the default settings:
 
-* Pitch Tune - The default pitch tune is a simple beginner tune using only TNT Cfg->Acceleration kp0, kp rate, current 1 and pitch 1.
-  * For a trick or trail tune you will want a lower kp0 and gradually increasing pitch angles and currents.
-  * See TNT Cfg->Braking for an example trail riding tune.
+* Pitch Tune - The default pitch tune is a balance for street and trails
+  * Increase and decrease Mahoney kp to find your preference, recommended 1 to 1.5, with 1.5 having a softer more delayed feel
+  * Current 2 (default pitch angle 1 deg) will affect nose height in light demand (i.e. cruising flat ground)
+  * Current 3 (default pitch angle 1.5 deg) will affect nose height in medium demand (i.e. slight uphills/downhills)
+  * Current 4 (default pitch angle 2 deg) will affect nose height in high demand (i.e. steep uphills/downhills)
+  * Angle 5 (default current 150A) can be decreased to make the board more aggressive and surge more readily (better for bonks). Higher values will make the high current response softer which can be smoother for rough trails.
+  * Current 1 (default pitch angle 0.5 deg) and Kp0 can be increaced to make the board tighter around the setpoint
+  * Increase or decrease Pitch Rate Kp to adjust nose stiffness
 * Roll Tune - The default roll tune is very loose and moderate for easy, deep carving.
-  * To make the roll tighter and more race-like, decrease Level 2 Roll Angle.
-  * To make the tune less aggressive decrease Roll Kp.
-  * To make the tune less agile at low speed reduce the low speed maximum scaler.
-  * To adjust the agility at high speed change the high speed maximum scaler.
-* Yaw Tune - The default yaw tune is loose and moderately aggressive
-  * To make the yaw tighter and more race-like, decrease Level 1 and Level 2 Yaw Angles.
-  * To make the tune less aggressive decrease Yaw Kp.
+  * To make the roll tighter and more race-like, decrease Level 2 and Level 3 Roll Angle.
+  * To make the roll response less aggressive decrease Roll Kp.
+  * To make the roll response less agile at low speed reduce the Roll Maximum Scaler.
+* Yaw Tune - The default yaw tune is reduced because minor offsets in the yaw gyro can cause very high yaw to be measured. Check you gyro offsets first to confirm they are zeroed.
+  * Increase Yaw Kp Level 2 to make the board more "skatey" or "icey" for more rapid carving (high agility). A little goes a long way. Start with 0.1.
 * High Current
-  * High current conditions are based on 150 peak amps, 30 battery amps, and hypercore motor.
-  * Changes must be made for higher current motors like the cannoncore and superflux.
+  * High current conditions are based on 150 peak amps, 40 battery amps, and hypercore motor.
+  * Adjustments must be made based on your motor configuration. See the wiki for more details. Linked above.
 * Surge 
   * Disabled by default for safety.
   * Set your high current section first.
 * Traction Control
   * Decrease Transition Condition and increase End Condition for looser landings and less wheel spin.
-  * Increase ERPM filter frequnecy for a faster response, decrease to control wheel spin for longer air time.
   * Traction Braking disabled by default.
 * FOC Play Tones
   * Disabled by default because of potential issues with Absolute Max Motor Current. See warning in the help text.
-  * Riders with cannoncore or superflux motors should set high current conditions before using high current FOC tones.
+  * Riders should set high current conditions before using high current FOC tones.
 
 For more instructions on setting up your board please refer to the [Set Up Guide.](https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide) https://github.com/Izzygit/TrickandTrailReleases/wiki/Set-Up-Guide
 
 ## Change Log
+### 1.6
+* **This version requires 6.05+ firmware to function properly**
+* _Features_
+  * New Feature - Yaw Rate Kp in the Yaw menu
+    * New gyro behavior thanks to work from Nico Aleman and @michalmo
+    * New math handling the IMU gyro changes the nose stiffness behavior of Pitch Rate Kp and new feature Yaw Rate Kp
+    * Added new parameters Yaw Rate Kp and Yaw Rate Braking Kp
+    * Higher Pitch Rate Kp increases the stiffness of the nose under all conditions
+    * Higher Yaw Rate Kp will increase nose stiffness while applying yaw (i.e. carving)
+    * Yaw Rate Kp of 1 produces the pre-1.6 gyro behavior.
+    * Yaw Rate Kp of 0 removes yaw stiffness.
+  * Traction Control
+    * Added feature Tracking ERPM to better differentiate rider speed from motor ERPM
+    * Added Tracking ERPM Rate Limit parameter limits the rate that Tracking ERPM can change
+    * Added Tracking ERPM Exclusion Rate parameter excludes high acceleration rates from Tracking ERPM
+    * Added Tracking ERPM Margin parameter defines the difference between actual ERPM and Tracking ERPM before traction control will engage
+    * Default Start Acceleration changed to 35 ERPM/ms
+    * Default ERPM Filter Frequency to 25 Hz
+    * Replaced Start Condition with Tracking ERPM in AppUI debug
+  * AppUI Overhaul
+    * Debug information overhaul
+      * Removed tune debug
+      * Added pitch, roll. stability, and current debugs
+      * Added yaw rate and yaw rate current demand to yaw debug
+    * New trip data
+      * Removed power average
+      * Added distance in miles
+      * Added max carve chain (minimum yaw change 100 deg/s, every 3 seconds)
+      * Added carves per mile
+      * Added average yaw during carves
+      * Added average roll during carves
+      * Added air time counter (as determined by traction control with minimum air time of 100 ms)
+      * Added max air time (as determined by traction control with minimum air time of 100 ms)
+      * Added toggle to TNT Cfg->Specs, Reset Trip Data on Write, to do so when toggled
+  * Traction Control Braking
+    * Added parameter Off Delay, which keeps traction braking active after the off signal has been receive for smoother downhill traction control
+    * 0 by default, 5 ms recommended
+* _Fixes/Improvements_
+  * Added an exponential moving average (EMA) filter to current output normalized to the IMU sample rate
+  * Added new parameter EMA Filter Adjustment Factor to adjust the new EMA filter
+  * Changed default package frequency to 10,000Hz
+  * Renamed 'inputtilt_interpolated' to 'setpoint' in the remote variables
+  * Yaw - Added a hard coded correction factor to yaw change to account for higher yaw change that resulted at higher package loop frequencies
+  * Surge - Reduced default max angle to 1.5 and setpoint margin to 2.5 to produce a nose lift that is easier to handle
+  * Changed the default high current setting to 40 battery amps from 30.
+  * Changed the default pitch tune to work with a lower Mahoney kp (recommended 1 to 1.5)
+  * Changed the step size for pitch current and angle parameters to be smaller for easier tuning adjustment
+  * Changed the default low pass filter for pitch to 35
+  * Disabled the kalman filter for pitch by default
+  * Reduced default high current foc tone volume to 5 V
+  * Increased default stability ramp rate up to 100 %/s from 25 %/s
+
 ### 1.5
-* **This version requires 6.05 firmware to fuction properly**
+* **This version requires 6.05 firmware to function properly**
 * _Fixes/Improvements_
   * Testing and support for higher package loop frequencies.
     * Traction Control Start Acceleration help text updated.

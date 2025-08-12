@@ -1,4 +1,4 @@
-// Copyright 2024 Lukas Hrazky
+// Copyright 2024 Michael Silberstein
 //
 // This file is part of the Refloat VESC package.
 //
@@ -32,36 +32,45 @@ void runtime_data_update(RuntimeData *rt) {
 	rt->last_time = rt->current_time;
 	
 	// Get the IMU Values
-	rt->roll_angle = rad2deg(VESC_IF->imu_get_roll());
+	float roll_rad = VESC_IF->imu_get_roll();
+	rt->roll_angle = rad2deg(roll_rad);
 	rt->abs_roll_angle = fabsf(rt->roll_angle);
 	rt->true_pitch_angle = rad2deg(VESC_IF->ahrs_get_pitch(&rt->m_att_ref)); // True pitch is derived from the secondary IMU filter running with kp=0.2
 	rt->pitch_angle = rad2deg(VESC_IF->imu_get_pitch());
-	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	VESC_IF->imu_get_gyro(rt->gyro);
+	rt->gyro_y = rt->gyro[1];
+	rt->gyro_z = sinf(roll_rad) * sinf(roll_rad) * rt->gyro[1] - cosf(roll_rad) * sinf(roll_rad) * rt->gyro[2];
 	VESC_IF->imu_get_accel(rt->accel); //Used for drop detection
+	rt->yaw_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 }
 
-void apply_pitch_filters(RuntimeData *rt, tnt_config *config){
+void apply_filters(RuntimeData *rt, tnt_config *config){
 	//Apply low pass and Kalman filters to pitch
-	if (config->pitch_filter > 0) {
+	if (config->pitch_filter > 0) 
 		rt->pitch_smooth = biquad_process(&rt->pitch_biquad, rt->pitch_angle);
-	} else {rt->pitch_smooth = rt->pitch_angle;}
-	if (config->kalman_factor1 > 0) {
+	else
+		rt->pitch_smooth = rt->pitch_angle;
+
+	if (config->kalman_factor1 > 0) 
 		 apply_kalman(rt->pitch_smooth, rt->gyro[1], &rt->pitch_smooth_kalman, rt->diff_time, &rt->pitch_kalman);
-	} else {rt->pitch_smooth_kalman = rt->pitch_smooth;}
+	else 
+		rt->pitch_smooth_kalman = rt->pitch_smooth;
 }
 
-void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg){ 
-	float new_change = yaw_angle - yaw->last_angle;
-	if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
-	    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
+void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz){ 
+	float new_change = (rt->yaw_angle - yaw->last_angle) / rt->imu_rate_factor;
+	//if ((new_change == 0) || // Exact 0's only happen when the IMU is not updating between loops
+	//    (fabsf(new_change) > 100)) { // yaw flips signs at 180, ignore those changes
+	//	new_change = yaw->last_change;
+	//}
+	if (sign(rt->yaw_angle) != sign(yaw->last_angle)) // yaw flips signs at 180, ignore those changes
 		new_change = yaw->last_change;
-	}
 	yaw->last_change = new_change;
-	yaw->last_angle = yaw_angle;
-	yaw->change = yaw->change * 0.8 + 0.2 * (new_change);
+	yaw->last_angle = rt->yaw_angle;
+	ema(&yaw->change, 0.2 * 832 / hertz, new_change); //originally configured for 0.2 at 832 Hz
 	yaw->abs_change = fabsf(yaw->change);
 	yaw_dbg->debug1 = yaw->change;
+	yaw_dbg->debug3 = fmaxf(yaw->abs_change, yaw_dbg->debug3);
 }
 
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
@@ -74,11 +83,12 @@ void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg) {
 	rt->pitch_smooth_kalman = rt->pitch_angle;
 
 	//Yaw
-	yaw->last_angle = 0;
+	yaw->last_angle = rad2deg(VESC_IF->ahrs_get_yaw(&rt->m_att_ref));
 	yaw->last_change = 0;
 	yaw->abs_change = 0;
 	yaw_dbg->debug2 = 0;
-
+	yaw_dbg->debug3 = 0;
+	
 	rt->brake_timeout = 0;
 }
 
@@ -93,28 +103,17 @@ void configure_runtime(RuntimeData *rt, tnt_config *config) {
 	rt->motor_timeout_s = 20.0f / config->hertz;
 	
 	//Pitch Biquad Configure
-	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz);
+	biquad_configure(&rt->pitch_biquad, BQ_LOWPASS, 1.0 * config->pitch_filter / config->hertz); 
 
 	//Pitch Kalman Configure
 	configure_kalman(config, &rt->pitch_kalman);
-}
 
-void ride_timer(RideTimeData *ridetimer, RuntimeData *rt){
-	rt->disengage_timer = rt->current_time;
+	//Yaw change correction factor
+	rt->imu_rate_factor = lerp(832, 10000, 1, 2, config->hertz);
 	
-	if(ridetimer->run_flag) { //First trigger run flag and reset last ride time
-		ridetimer->ride_time += rt->current_time - ridetimer->last_ride_time;
-	}
-	ridetimer->run_flag = true;
-	ridetimer->last_ride_time = rt->current_time;
-}
-
-void rest_timer(RideTimeData *ridetimer, RuntimeData *rt){
-	if(!ridetimer->run_flag) { //First trigger run flag and reset last rest time
-		ridetimer->rest_time += rt->current_time - ridetimer->last_rest_time;
-	}
-	ridetimer->run_flag = false;
-	ridetimer->last_rest_time = rt->current_time;
+	// EMA Filter Factor
+	float imu_sample_rate = VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
+	rt->ema_factor = min(1 , config->ema_factor * imu_sample_rate / config->hertz);
 }
 
 void check_odometer(RuntimeData *rt) { 

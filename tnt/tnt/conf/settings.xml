@@ -41,8 +41,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>100</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>20</valDouble>
+            <stepDouble>1</stepDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -65,8 +65,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>100</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -89,8 +89,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>1</stepDouble>
-            <valDouble>5</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>12</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -113,8 +113,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>140</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>25</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -137,8 +137,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>45</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -161,8 +161,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>150</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -185,7 +185,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
+            <stepDouble>0.5</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
@@ -208,7 +208,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>0.5</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -230,7 +230,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.7</valDouble>
+            <valDouble>1</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -252,7 +252,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>1.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -273,8 +273,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>4</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -295,8 +295,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>4.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -317,8 +317,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>25</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>6</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -343,14 +343,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;KP value for Mahony IMU Filter&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Decides how heavily the accelerometer is used in &amp;quot;estimating&amp;quot; IMU data. For our purpose, this filter is a bit abused in order to achieve desirable ride behavior.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;In practice, increasing this value will loosen up the board, specifically in the center of the board and in how quickly it rebounds to level. If you want a snappier board, drop this down a bit. If you want things a bit looser, with increased board angle control, bump it up a notch or two.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Recommended Values: 1.5 - 2.5 (Caution with higher values!!)&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*Note: If your set Mahony KP in &amp;quot;App CFG -&amp;gt; IMU&amp;quot; does not match this value, this value will take priority and writing the Float Config will overwrite this value into your App CFG.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The Mahoney filter is the primary filter used by the VESC to turn accelerometer and gyroscope data into pitch, roll and yaw. Higher values of Mahoney KP will cause more delay between the actual angle of the board and the angle detected by the VESC. This can be valuable in providing a looser feel to the board but values too high will cause a noticeable delay. Lower values will track closer to the pitch throttle curve but values too low will cause the board to be too reactive.  &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_MAHONY_KP</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -358,8 +351,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>3</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
-            <valDouble>2</valDouble>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>1.3</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -372,7 +365,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The proportional gain multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This proportional gain is multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_KP_RATE</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -394,7 +387,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This factor affects the biquad low pass filter applied to the pitch. Lower values will reduce board vibration but also reduce responsiveness. Higher values will more closely match the IMU pitch but more aggressive tunes will experience vibration. A value of zero will disable the filter.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This factor affects the biquad low pass filter applied to the pitch. Lower values will reduce board vibrations that are due to a steep throttle curve. Higher values will more closely match the raw IMU pitch but more aggressive throttle curves can experience vibration. A value of zero will disable the filter. Recommended values to reduce board vibration 20- 35 Hz.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_PITCH_FILTER</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -403,7 +396,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>25</valDouble>
+            <valDouble>35</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> Hz</suffix>
             <vTx>7</vTx>
@@ -416,7 +409,9 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_KALMAN1</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -425,7 +420,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>10</valDouble>
+            <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -438,7 +433,9 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_KALMAN2</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -460,7 +457,9 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_KALMAN3</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -503,7 +502,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -516,7 +515,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The proportional gain multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This proportional gain is multiplied by the negative pitch gyro to modify the current output of the board. Higher values produce a more stable and race-like feel, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_BRAKEKP_RATE</cDefine>
             <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -525,7 +524,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.45</valDouble>
+            <valDouble>0.6</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -548,8 +547,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>1</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>3</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -572,8 +571,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>1</stepDouble>
-            <valDouble>5</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>12</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -596,8 +595,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>140</valDouble>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>25</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -618,8 +617,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>45</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -640,8 +639,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>0</valDouble>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>150</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
             <vTx>7</vTx>
@@ -664,7 +663,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>500</maxDouble>
             <minDouble>-500</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
+            <stepDouble>0.5</stepDouble>
             <valDouble>0</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix>A</suffix>
@@ -687,7 +686,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.3</valDouble>
+            <valDouble>0.5</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -709,7 +708,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>0.7</valDouble>
+            <valDouble>1</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -731,7 +730,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>1.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -753,7 +752,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>4</valDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -775,7 +774,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>5</valDouble>
+            <valDouble>4.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1176,7 +1175,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>50</stepInt>
-            <valInt>500</valInt>
+            <valInt>200</valInt>
             <suffix> %</suffix>
             <vTx>3</vTx>
         </rollkp_maxscale>
@@ -1202,6 +1201,28 @@ p, li { white-space: pre-wrap; }
             <suffix> %</suffix>
             <vTx>2</vTx>
         </roll_hs_maxscale>
+        <yaw_rate_kp>
+            <longName>Yaw Rate Kp</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This proportional gain is multiplied by the yaw gyro to modify the current output of the board. Higher values produce a more stable and race-like feel while carving and maneuvering, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_YAW_RATE_KP</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>2</maxDouble>
+            <minDouble>-1</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.01</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </yaw_rate_kp>
         <yaw_kp1>
             <longName>Level 1 Yaw Kp</longName>
             <type>1</type>
@@ -1241,7 +1262,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.1</valDouble>
+            <valDouble>0.02</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1285,7 +1306,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>10</stepDouble>
-            <valDouble>120</valDouble>
+            <valDouble>60</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1334,6 +1355,28 @@ p, li { white-space: pre-wrap; }
             <suffix> °/s</suffix>
             <vTx>7</vTx>
         </yaw3>
+        <yaw_rate_brake_kp>
+            <longName>Yaw Rate Brake Kp</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This proportional gain is multiplied by the yaw gyro to modify the current output of the board. Higher values produce a more stable and race-like feel while carving and maneuvering, while lower values are looser and more playful.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_YAW_RATE_BRAKE_KP</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>2</maxDouble>
+            <minDouble>-1</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.01</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </yaw_rate_brake_kp>
         <brkyaw_kp1>
             <longName>Level 1 Yaw Kp Braking</longName>
             <type>1</type>
@@ -1373,7 +1416,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.08</valDouble>
+            <valDouble>0.02</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1417,7 +1460,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>10</stepDouble>
-            <valDouble>120</valDouble>
+            <valDouble>60</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1534,7 +1577,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>30</valInt>
+            <valInt>40</valInt>
             <suffix> A</suffix>
             <vTx>3</vTx>
         </surge_start_hd_current>
@@ -1575,7 +1618,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.2</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>2.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1597,7 +1640,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>-3</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>2</valDouble>
+            <valDouble>1.5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1659,7 +1702,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>1</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.1</stepDouble>
-            <valDouble>5</valDouble>
+            <valDouble>6</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> Hz</suffix>
             <vTx>7</vTx>
@@ -1714,7 +1757,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>50</valInt>
+            <valInt>35</valInt>
             <suffix> ERPM/ms</suffix>
             <vTx>3</vTx>
         </wheelslip_accelstart>
@@ -1816,7 +1859,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>50</valInt>
+            <valInt>25</valInt>
             <suffix> Hz</suffix>
             <vTx>1</vTx>
         </wheelslip_filter_freq>
@@ -1876,10 +1919,70 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>5</stepInt>
-            <valInt>20</valInt>
+            <valInt>50</valInt>
             <suffix> ms</suffix>
             <vTx>1</vTx>
         </wheelslip_resettime>
+        <wheelslip_erpm_rate_limit>
+            <longName>Tracking ERPM Rate Limit</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Tracking ERPM is used to estimate the actual velocity of the rider because the motor erpm can differ quite a bit from the rider speed when traction is lost. The rate limit is the maximum acceleration the rider will experience.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ERPM_RATE_LIMIT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>5000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>8</valInt>
+            <suffix> ERPM/ms</suffix>
+            <vTx>3</vTx>
+        </wheelslip_erpm_rate_limit>
+        <wheelslip_erpm_exclusion_rate>
+            <longName>Tracking ERPM Exclusion Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Tracking ERPM is used to estimate the actual velocity of the rider because the motor erpm can differ quite a bit from the rider speed when traction is lost. The exclusion rate is an acceleration that is so high we know traction is lost and it can be excluded from the tracking ERPM calcluation.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ERPM_EXCLUSION_RATE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>5000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix> ERPM/ms</suffix>
+            <vTx>3</vTx>
+        </wheelslip_erpm_exclusion_rate>
+        <wheelslip_erpm_margin>
+            <longName>Tracking ERPM Margin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The current ERPM must be greater than the tracking ERPM plus the ERPM margin in order for traction control to activate.Larger margin values will reduce nuisance activations but necessary activations may occur late in some situations.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_WHEELSLIP_ERPM_MARGIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>100</stepInt>
+            <valInt>1000</valInt>
+            <suffix> ERPM</suffix>
+            <vTx>3</vTx>
+        </wheelslip_erpm_margin>
         <is_tc_braking_enabled>
             <longName>Enable Traction Control Braking</longName>
             <type>5</type>
@@ -1932,6 +2035,26 @@ p, li { white-space: pre-wrap; }
             <suffix>  ERPM</suffix>
             <vTx>3</vTx>
         </tc_braking_min_erpm>
+        <tc_braking_off_time>
+            <longName>Off Delay</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The amount of time that must pass after receiving a signal for traction braking to deactivate. This is to ignore nuisance off signals at high package loop frequencies. I can create minor motor crunch in some situations. Recommended 5ms.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_TC_BRAKING_OFF_TIME</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>50</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix>  ms</suffix>
+            <vTx>1</vTx>
+        </tc_braking_off_time>
         <enable_speed_stability>
             <longName>Enable Speed Stability</longName>
             <type>5</type>
@@ -1971,8 +2094,8 @@ p, li { white-space: pre-wrap; }
             <maxInt>5000</maxInt>
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
-            <stepInt>10</stepInt>
-            <valInt>50</valInt>
+            <stepInt>5</stepInt>
+            <valInt>0</valInt>
             <suffix> %</suffix>
             <vTx>3</vTx>
         </stabl_pitch_max_scale>
@@ -2052,7 +2175,7 @@ p, li { white-space: pre-wrap; }
             <minInt>1</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>5</stepInt>
-            <valInt>25</valInt>
+            <valInt>50</valInt>
             <suffix> %/s</suffix>
             <vTx>1</vTx>
         </stabl_ramp>
@@ -2086,16 +2209,7 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the code cycle that runs the package. Generally the minimum frequencies should be the IMU sample rate or one half the sample rate. &lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Higher frequencies are advantageous for traction control and high current. Frequencies as high as 15kHz have been trail tested and 20kHz has been bench tested. 10kHz recommended.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The following parameters may need to be adjusted at higher frequencies:&lt;/p&gt;
-&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:normal;&quot;&gt;Traction control start acceleration&lt;/span&gt;&lt;/li&gt;
-&lt;li style=&quot;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Traction control low ERPM scaler&lt;/li&gt;
-&lt;li style=&quot;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;High Current Filter Frequency&lt;/li&gt;&lt;/ul&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;IMU Sample Rates:&lt;/span&gt;&lt;/p&gt;
-&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3.1 (LSM6DS3): 832Hz&lt;/li&gt;
-&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3 (BMI160): 800Hz&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Higher frequencies are advantageous for board vibration reduction, traction control, and high current. Frequencies as high as 15kHz have been trail tested and 20kHz has been bench tested. 10kHz recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HERTZ</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
@@ -2103,10 +2217,36 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>500</stepInt>
-            <valInt>832</valInt>
+            <valInt>10000</valInt>
             <suffix> Hz</suffix>
             <vTx>3</vTx>
         </hertz>
+        <ema_factor>
+            <longName>EMA Filter Adjustment Factor</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The exponential moving average (EMA) filter is applied to the current demand that the package sends to the motor. The EMA filter works by adding the new current demand to the previous current with a factor that softens the change, i.e. current demand = new current*factor + old current*(1- factor), where factor is: imu sample rate / package fequency * EMA Filter Adjustment Factor. The imu sample rate is in App Cfg-&amp;gt;IMU and the package frequency is found in TNT Cfg-&amp;gt;Specs.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Larger values of EMA Filter Adjustment Factor allow the current demand to change faster, but could induce board vibration. Lower EMA Filter Adjustment Factors will reduce vibration better but react slower. Using a larger package fequency compared to the IMU sample rate will allow a larger range of EMA Filter Adjustment Factor. Recommended 1.0 for 10,000Hz.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The largest EMA Filter Adjustment Factor that can be applied is package frequency / imu sample frequency.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_EMA_FACTOR</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>100</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>1</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>7</vTx>
+        </ema_factor>
         <fault_pitch>
             <longName>Pitch Axis Fault Cutoff</longName>
             <type>2</type>
@@ -2780,7 +2920,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>10</valDouble>
+            <valDouble>5</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> V</suffix>
             <vTx>7</vTx>
@@ -3256,6 +3396,18 @@ p, li { white-space: pre-wrap; }
             <suffix> s</suffix>
             <vTx>7</vTx>
         </overcurrent_period>
+        <is_resettripdata_enabled>
+            <longName>Reset Trip Data On Write</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rest the trip data on the Appui screen and RT data stats on write if this is enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_RESETTRIPDATA_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_resettripdata_enabled>
         <is_beeper_enabled>
             <longName>Enable FOC Beeps</longName>
             <type>5</type>
@@ -3270,6 +3422,66 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_IS_BEEPER_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_beeper_enabled>
+        <is_pitchdebug_enabled>
+            <longName>Enable Pitch Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable pitch debug information on the AppUI screen. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_PITCHDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_pitchdebug_enabled>
+        <is_rolldebug_enabled>
+            <longName>Enable Roll Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable roll debug information on the AppUI screen. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_ROLLDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_rolldebug_enabled>
+        <is_yawdebug_enabled>
+            <longName>Enable Yaw Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable pitch debug information on the AppUI screen. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_PITCHDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_yawdebug_enabled>
+        <is_stabilitydebug_enabled>
+            <longName>Enable Stability Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable dynamic stability debug information on the AppUI screen. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_STABILITYDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_stabilitydebug_enabled>
+        <is_currentdebug_enabled>
+            <longName>Enable Current Debug Info</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable current demand debug information on the AppUI screen. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_IS_CURRENTDEBUG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </is_currentdebug_enabled>
         <is_surgedebug_enabled>
             <longName>Enable Surge Debug Info</longName>
             <type>5</type>
@@ -3294,30 +3506,6 @@ p, li { white-space: pre-wrap; }
             <cDefine>APPCONF_TNT_IS_TCDEBUG_ENABLED</cDefine>
             <valInt>0</valInt>
         </is_tcdebug_enabled>
-        <is_tunedebug_enabled>
-            <longName>Enable Tune Debug Info</longName>
-            <type>5</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable tune debug information on the AppUI screen for more metrics on your pitch tune, roll tune, and stability modifiers. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_IS_TRIPDEBUG_ENABLED</cDefine>
-            <valInt>1</valInt>
-        </is_tunedebug_enabled>
-        <is_yawdebug_enabled>
-            <longName>Enable Yaw Debug Info</longName>
-            <type>5</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Enable/disable yaw debug information on the AppUI screen for more metrics on your yaw tune. Only one feature debug available at a time.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_IS_YAWDEBUG_ENABLED</cDefine>
-            <valInt>0</valInt>
-        </is_yawdebug_enabled>
         <is_brakingdebug_enabled>
             <longName>Enable Traction Braking Debug Info</longName>
             <type>5</type>
@@ -3360,7 +3548,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.5</valDouble>
+            <valDouble>1.6</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -3421,12 +3609,14 @@ p, li { white-space: pre-wrap; }
         <ser>roll_hs_lowerpm</ser>
         <ser>rollkp_maxscale</ser>
         <ser>roll_hs_maxscale</ser>
+        <ser>yaw_rate_kp</ser>
         <ser>yaw_kp1</ser>
         <ser>yaw_kp2</ser>
         <ser>yaw_kp3</ser>
         <ser>yaw1</ser>
         <ser>yaw2</ser>
         <ser>yaw3</ser>
+        <ser>yaw_rate_brake_kp</ser>
         <ser>brkyaw_kp1</ser>
         <ser>brkyaw_kp2</ser>
         <ser>brkyaw_kp3</ser>
@@ -3454,9 +3644,13 @@ p, li { white-space: pre-wrap; }
         <ser>wheelslip_max_angle</ser>
         <ser>wheelslip_accelhold</ser>
         <ser>wheelslip_resettime</ser>
+        <ser>wheelslip_erpm_rate_limit</ser>
+        <ser>wheelslip_erpm_exclusion_rate</ser>
+        <ser>wheelslip_erpm_margin</ser>
         <ser>is_tc_braking_enabled</ser>
         <ser>tc_braking_angle</ser>
         <ser>tc_braking_min_erpm</ser>
+        <ser>tc_braking_off_time</ser>
         <ser>enable_speed_stability</ser>
         <ser>enable_throttle_stability</ser>
         <ser>stabl_pitch_max_scale</ser>
@@ -3466,6 +3660,7 @@ p, li { white-space: pre-wrap; }
         <ser>stabl_ramp</ser>
         <ser>stabl_ramp_down</ser>
         <ser>hertz</ser>
+        <ser>ema_factor</ser>
         <ser>fault_pitch</ser>
         <ser>fault_roll</ser>
         <ser>fault_adc1</ser>
@@ -3524,11 +3719,15 @@ p, li { white-space: pre-wrap; }
         <ser>brake_current</ser>
         <ser>overcurrent_margin</ser>
         <ser>overcurrent_period</ser>
+        <ser>is_resettripdata_enabled</ser>
         <ser>is_beeper_enabled</ser>
+        <ser>is_pitchdebug_enabled</ser>
+        <ser>is_rolldebug_enabled</ser>
+        <ser>is_yawdebug_enabled</ser>
+        <ser>is_stabilitydebug_enabled</ser>
+        <ser>is_currentdebug_enabled</ser>
         <ser>is_surgedebug_enabled</ser>
         <ser>is_tcdebug_enabled</ser>
-        <ser>is_tunedebug_enabled</ser>
-        <ser>is_yawdebug_enabled</ser>
         <ser>is_brakingdebug_enabled</ser>
         <ser>disable_pkg</ser>
         <ser>version</ser>
@@ -3616,6 +3815,7 @@ p, li { white-space: pre-wrap; }
                 <subgroupName>Yaw</subgroupName>
                 <subgroupParams>
                     <param>::sep:: Acceleration</param>
+                    <param>yaw_rate_kp</param>
                     <param>yaw_kp1</param>
                     <param>yaw1</param>
                     <param>yaw_kp2</param>
@@ -3623,6 +3823,7 @@ p, li { white-space: pre-wrap; }
                     <param>yaw_kp3</param>
                     <param>yaw3</param>
                     <param>::sep:: Braking</param>
+                    <param>yaw_rate_brake_kp</param>
                     <param>brkyaw_kp1</param>
                     <param>brkyaw1</param>
                     <param>brkyaw_kp2</param>
@@ -3668,16 +3869,20 @@ p, li { white-space: pre-wrap; }
                     <param>wheelslip_filter_freq</param>
                     <param>wheelslip_scaleaccel</param>
                     <param>wheelslip_scaleerpm</param>
+                    <param>wheelslip_erpm_rate_limit</param>
+                    <param>wheelslip_erpm_exclusion_rate</param>
+                    <param>wheelslip_erpm_margin</param>
                     <param>::sep:: End Conditions</param>
                     <param>wheelslip_accelslowed</param>
                     <param>wheelslip_accelend</param>
                     <param>wheelslip_accelhold</param>
                     <param>wheelslip_max_angle</param>
                     <param>wheelslip_resettime</param>
-                    <param>::sep:: Traction Braking (beta)</param>
+                    <param>::sep:: Traction Braking</param>
                     <param>is_tc_braking_enabled</param>
                     <param>tc_braking_angle</param>
                     <param>tc_braking_min_erpm</param>
+                    <param>tc_braking_off_time</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>
@@ -3786,11 +3991,16 @@ p, li { white-space: pre-wrap; }
                     <param>disable_pkg</param>
                     <param>::sep::Package Loop</param>
                     <param>hertz</param>
-                    <param>::sep::AppUI Debug Information</param>
-                    <param>is_tunedebug_enabled</param>
+                    <param>ema_factor</param>
+                    <param>::sep::AppUI</param>
+                    <param>is_resettripdata_enabled</param>
+                    <param>is_pitchdebug_enabled</param>
+                    <param>is_rolldebug_enabled</param>
+                    <param>is_yawdebug_enabled</param>
+                    <param>is_stabilitydebug_enabled</param>
+                    <param>is_currentdebug_enabled</param>
                     <param>is_surgedebug_enabled</param>
                     <param>is_tcdebug_enabled</param>
-                    <param>is_yawdebug_enabled</param>
                     <param>is_brakingdebug_enabled</param>
                 </subgroupParams>
             </subgroup>

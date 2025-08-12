@@ -50,8 +50,9 @@ typedef struct {
     float last_accel_filtered;
 
     float erpm_history[ERPM_ARRAY_SIZE];
-    int erpm_idx;
-    int last_erpm_idx;
+    uint16_t erpm_idx;
+    int start_accel_idx;
+    float erpm_at_accel_start;
 
     float mc_max_temp_fet;
     float mc_max_temp_mot;

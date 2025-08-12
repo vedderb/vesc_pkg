@@ -28,11 +28,12 @@ typedef struct { //Run time values used in various features
 	float roll_angle;
 	float yaw_angle;
 	float current_time;
-	float last_accel_z;
 	float accel[3];
 	float abs_roll_angle;
  	float true_pitch_angle;
 	float gyro[3];
+	float gyro_y;
+	float gyro_z;
 	float pitch_smooth; // Low Pass Filter
 	Biquad pitch_biquad; // Low Pass Filter
 	KalmanFilter pitch_kalman; // Kalman Filter
@@ -48,6 +49,8 @@ typedef struct { //Run time values used in various features
 	uint64_t odometer;
 	float brake_timeout;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
+	float imu_rate_factor;
+	float ema_factor;
 } RuntimeData;
 
 typedef struct {
@@ -64,21 +67,12 @@ typedef struct {
 	float debug3; //kp unscaled
 	float debug4; //kp scaled
 	float debug5; //erpm scaler
+	float debug6; // yaw angle current
 } YawDebugData;
 
-typedef struct {
-	float rest_time;
-	float last_rest_time;
-	float ride_time;
-	float last_ride_time;
-	bool run_flag;
-} RideTimeData;
-
 void runtime_data_update(RuntimeData *rt);
-void apply_pitch_filters(RuntimeData *rt, tnt_config *config);
-void calc_yaw_change(YawData *yaw, float yaw_angle, YawDebugData *yaw_dbg);
+void apply_filters(RuntimeData *rt, tnt_config *config);
+void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz);
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg);
 void configure_runtime(RuntimeData *rt, tnt_config *config);
-void rest_timer(RideTimeData *ridetimer, RuntimeData *rt);
-void ride_timer(RideTimeData *ridetimer, RuntimeData *rt);
 void check_odometer(RuntimeData *rt);

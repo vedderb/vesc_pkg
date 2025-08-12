@@ -32,6 +32,7 @@
 #include "utils_tnt.h"
 #include "remote_input.h"
 #include "foc_tone.h"
+#include "ridetrack.h"
 
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
@@ -86,7 +87,7 @@ typedef struct {
 	TractionDebug traction_dbg;		//traction control debug info
 	BrakingData braking;			//Traction control for braking
 	BrakingDebug braking_dbg;		//Braking debug info
-	RideTimeData ridetimer;			//Trip debug for ride vs rest time
+	RideTrackData ridetrack;		//Trip tracking data
 } data;
 
 static void configure(data *d) {
@@ -100,7 +101,10 @@ static void configure(data *d) {
 	configure_traction(&d->traction, &d->braking, &d->tnt_conf, 
 		&d->traction_dbg, &d->braking_dbg); 				//traction control and traction braking
 	tone_configure_all(&d->tone_config, &d->tnt_conf, &d->tone);		//FOC play tones
-
+	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
+	reset_ride_tracking_on_configure(&d->ridetrack, &d->tnt_conf, &d->traction_dbg);	//Reset current trip information
+	configure_ride_tracking(&d->ridetrack, &d->tnt_conf);			//Ride tracking
+	
 	//initialize pitch arrays for acceleration
 	angle_kp_reset(&d->accel_kp);
 	pitch_kp_configure(&d->tnt_conf, &d->accel_kp, 1);
@@ -130,27 +134,38 @@ static void reset_vars(data *d) {
 		motor_data_reset(&d->motor);				//Motor
 		setpoint_reset(&d->spd, &d->tnt_conf, &d->rt);		//Setpoint
 		reset_runtime(&d->rt, &d->yaw, &d->yaw_dbg);		//Runtime 
-		reset_pid(&d->pid);					//Control variables
+		reset_pid(&d->pid, &d->pid_dbg);			//Control variables
 		reset_remote(&d->remote, &d->st_tilt);			//Remote
 		reset_surge(&d->surge);					//Surge
 		reset_traction(&d->traction, &d->state, &d->braking);	//Traction Control
 		tone_reset(&d->tone);					//FOC tones
+		reset_ride_tracking(&d->ridetrack);			//Ride tracking
 	}
 	state_engage(&d->state);
 }
 
 void apply_kp_modifiers(data *d) {
-	//Select and Apply Pitch kp rate			
-	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg) * -d->rt.gyro[1];
-
+	//Select and Apply Pitch kp rate
+	d->pid.pid_mod = apply_kp_rate(&d->accel_kp, &d->brake_kp, d->pid.brake_pitch, &d->pid_dbg) 
+		* -d->rt.gyro_y * d->pid.stability_kprate;
+	d->pid_dbg.debug4 = d->rt.gyro_y;
+	d->pid_dbg.debug6 = d->pid_dbg.debug10 * (d->pid.stability_kprate - 1); //stability rate kp
+	d->pid_dbg.debug9 = d->pid_dbg.debug10; // pitch rate kp
+	
+	//Select and Apply Yaw kp rate			
+	d->pid.pid_mod += apply_kp_rate(&d->yaw_accel_kp, &d->yaw_brake_kp, d->pid.brake_yaw, &d->pid_dbg) * d->rt.gyro_z;
+	d->pid_dbg.debug5 = d->rt.gyro_z;
+	d->pid_dbg.debug11 = d->pid_dbg.debug10; //yaw rate kp
+	
 	//Select and apply roll kp
+	float roll_erpm_scaler = roll_erpm_scale(&d->pid,  &d->state, d->motor.abs_erpm, &d->roll_accel_kp, &d->tnt_conf);
+	d->pid_dbg.debug17 = roll_erpm_scaler;
 	d->pid.pid_mod += apply_roll_kp(&d->roll_accel_kp, &d->roll_brake_kp, &d->pid, d->motor.erpm_sign, d->rt.abs_roll_angle, 
-	    roll_erpm_scale(&d->pid,  &d->state, d->motor.abs_erpm, &d->roll_accel_kp, &d->tnt_conf), 
-	    &d->pid_dbg);
+	    roll_erpm_scaler, &d->pid_dbg);
 
 	// Calculate yaw change
-	calc_yaw_change(&d->yaw, d->rt.yaw_angle, &d->yaw_dbg);
-	
+	calc_yaw_change(&d->yaw, &d->rt, &d->yaw_dbg, d->tnt_conf.hertz);
+		
 	//Select and apply yaw kp
 	d->pid.pid_mod += apply_yaw_kp(&d->yaw_accel_kp, &d->yaw_brake_kp, &d->pid, d->motor.erpm_sign, d->yaw.abs_change, 
 	    yaw_erpm_scale(&d->pid,  &d->state, d->motor.abs_erpm, &d->tnt_conf), 
@@ -170,12 +185,13 @@ static void tnt_thd(void *arg) {
 
 	while (!VESC_IF->should_terminate()) {
 		runtime_data_update(&d->rt);
-		apply_pitch_filters(&d->rt, &d->tnt_conf);
+		apply_filters(&d->rt, &d->tnt_conf);
 		motor_data_update(&d->motor, &d->tnt_conf);
 		update_remote(&d->tnt_conf, &d->remote);
 		temp_recovery_tone(&d->tone, &d->tone_config.fasttripleup, &d->motor);
 		tone_update(&d->tone, &d->rt, &d->state);
 	        footpad_sensor_update(&d->footpad_sensor, &d->tnt_conf);
+		ride_tracking_update(&d->ridetrack, &d->rt, &d->yaw, &d->tnt_conf);
 	      	d->pid.new_pid_value = 0;		
 
 		// Control Loop State Logic
@@ -189,7 +205,7 @@ static void tnt_thd(void *arg) {
 		case (STATE_RUNNING):	
 			// Check for faults
 			if (check_faults(&d->motor, &d->footpad_sensor, &d->rt, &d->state, 
-			    d->remote.inputtilt_interpolated, &d->tnt_conf)) {
+			    d->remote.setpoint, &d->tnt_conf)) {
 				if (d->state.stop_condition == STOP_SWITCH_FULL) {
 					// dirty landings: add extra margin when rightside up
 					d->spd.startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance + d->spd.startup_pitch_trickmargin;
@@ -199,11 +215,11 @@ static void tnt_thd(void *arg) {
 			}
 
 			play_footpad_beep(&d->tone, &d->motor, &d->footpad_sensor, &d->tone_config.continuousfootpad);
-			
-			d->rt.odometer_dirty = 1;
-			
+
 			//Ride Timer
-			ride_timer(&d->ridetimer, &d->rt);
+			ride_timer(&d->ridetrack, &d->rt);
+			d->rt.disengage_timer = d->rt.current_time;
+			d->rt.odometer_dirty = 1;
 			
 			// Calculate setpoint and interpolation
 			calculate_setpoint_target(&d->spd, &d->state, &d->motor, &d->rt, &d->tnt_conf, d->pid.proportional);
@@ -214,8 +230,8 @@ static void tnt_thd(void *arg) {
 			float input_tiltback_target = d->remote.throttle_val * d->tnt_conf.inputtilt_angle_limit;
 			if (d->tnt_conf.is_stickytilt_enabled)
 				apply_stickytilt(&d->remote, &d->st_tilt, d->motor.current_filtered, &input_tiltback_target);
-			apply_inputtilt(&d->remote, input_tiltback_target); 	//produces output d->remote.inputtilt_interpolated
-			d->spd.setpoint += d->tnt_conf.enable_throttle_stability ? 0 : d->remote.inputtilt_interpolated; //Don't apply if we are using the throttle for stability
+			apply_inputtilt(&d->remote, input_tiltback_target); 	//produces output d->remote.setpoint
+			d->spd.setpoint += d->tnt_conf.enable_throttle_stability ? 0 : d->remote.setpoint; //Don't apply if we are using the throttle for stability
 
 			//Adjust Setpoint as required
 			apply_noseangling(&d->spd, &d->motor, &d->tnt_conf);
@@ -223,7 +239,7 @@ static void tnt_thd(void *arg) {
 			//Apply Stability
 			if (d->tnt_conf.enable_speed_stability || 
 			    d->tnt_conf.enable_throttle_stability) 
-				apply_stability(&d->pid, d->motor.abs_erpm, d->remote.inputtilt_interpolated, &d->tnt_conf);
+				apply_stability(&d->pid, d->motor.abs_erpm, d->remote.setpoint, &d->tnt_conf);
 			
 			// Calculate proportional difference for raw and filtered pitch
 			calculate_proportional(&d->rt, &d->pid, d->spd.setpoint);
@@ -237,7 +253,7 @@ static void tnt_thd(void *arg) {
 			d->pid.new_pid_value = apply_pitch_kp(&d->accel_kp, &d->brake_kp, &d->pid, &d->pid_dbg);
 			apply_kp_modifiers(d);			//Roll Yaw
 			apply_soft_start(&d->pid, d->motor.mc_current_max);	//Soft start
-			d->pid.new_pid_value += d->pid.pid_mod; 
+			d->pid.new_pid_value += d->pid.pid_mod;
 			
 			// Current Limiting
 			float current_limit = d->motor.braking ? d->motor.mc_current_min : d->motor.mc_current_max;
@@ -253,14 +269,18 @@ static void tnt_thd(void *arg) {
 				    d->spd.setpoint, &d->surge_dbg);
 			if (d->tnt_conf.is_tc_braking_enabled)
 				check_traction_braking(&d->braking, &d->motor, &d->state, &d->tnt_conf, 
-				    d->remote.inputtilt_interpolated, &d->pid, &d->braking_dbg);
+				    d->remote.setpoint, &d->pid, &d->braking_dbg);
 			check_traction(&d->motor, &d->traction, &d->state, &d->tnt_conf,
 			    &d->pid, &d->traction_dbg);
 			check_tone(&d->tone, &d->tone_config, &d->motor);
 			
 			// PID value application
-			d->pid.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : d->pid.new_pid_value;
-
+			//d->pid.pid_value = (d->state.wheelslip && d->tnt_conf.is_traction_enabled) ? 0 : d->pid.new_pid_value; 
+			if (d->state.wheelslip && d->tnt_conf.is_traction_enabled) 
+				d->pid.pid_value = 0;
+			else 
+				ema(&d->pid.pid_value, d->rt.ema_factor, d->pid.new_pid_value); 
+			
 			// Output to motor
 			if (d->state.surge_active)
 				set_dutycycle(d->surge.new_duty_cycle, &d->rt); 	// Set the duty to surge
@@ -274,8 +294,8 @@ static void tnt_thd(void *arg) {
 		case (STATE_READY):
 			idle_tone(&d->tone, &d->tone_config.slowdouble2, &d->rt, &d->motor);
 			check_odometer(&d->rt);
-			rest_timer(&d->ridetimer, &d->rt);
-
+			rest_timer(&d->ridetrack, &d->rt);
+			
 			if ((d->rt.current_time - d->rt.fault_angle_pitch_timer) > 1) {
 				// 1 second after disengaging - set startup tolerance back to normal (aka tighter)
 				d->spd.startup_pitch_tolerance = d->tnt_conf.startup_pitch_tolerance;
@@ -425,12 +445,11 @@ enum {
 } Commands;
 
 static void send_realtime_data(data *d){
-	static const int bufsize = 108;
+	static const int bufsize = 132;
 	uint8_t buffer[bufsize];
 	int32_t ind = 0;
 	buffer[ind++] = 111;//Magic Number
 	buffer[ind++] = COMMAND_GET_RTDATA;
-	float corr_factor;
 
 	// Board State
 	buffer[ind++] = d->state.wheelslip ? 4 : d->state.state; 
@@ -447,31 +466,34 @@ static void send_realtime_data(data *d){
 
 	//Tune Modifiers
 	buffer_append_float32_auto(buffer, d->spd.setpoint, &ind);
-	buffer_append_float32_auto(buffer, d->remote.inputtilt_interpolated, &ind);
+	buffer_append_float32_auto(buffer, d->remote.setpoint, &ind);
 	buffer_append_float32_auto(buffer, d->remote.throttle_val, &ind);
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->traction.timeron , &ind); //Time since last wheelslip
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->surge.timer , &ind); //Time since last surge
 	buffer_append_float32_auto(buffer, d->rt.current_time - d->braking.timeroff , &ind); //Time since last traction braking
 	
 	// Trip
-	if (d->ridetimer.ride_time > 0) {
-		corr_factor =  d->rt.current_time / d->ridetimer.ride_time;
-	} else {corr_factor = 1;}
-	buffer_append_float32_auto(buffer, d->ridetimer.ride_time, &ind); //Ride Time
-	buffer_append_float32_auto(buffer, d->ridetimer.rest_time, &ind); //Rest time
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_speed_avg() * 3.6 * .621 * corr_factor, &ind); //speed avg convert m/s to mph
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_current_avg() * corr_factor, &ind); //current avg
-	buffer_append_float32_auto(buffer, VESC_IF->mc_stat_power_avg() * corr_factor, &ind); //power avg
-	buffer_append_float32_auto(buffer, (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (VESC_IF->mc_get_distance_abs() * 0.000621), &ind); //efficiency
-	
+	buffer_append_float32_auto(buffer, d->ridetrack.ride_time, &ind); //Ride Time
+	buffer_append_float32_auto(buffer, d->ridetrack.rest_time, &ind); //Rest time
+	buffer_append_float32_auto(buffer, d->ridetrack.distance, &ind); //distance
+	buffer_append_float32_auto(buffer, d->ridetrack.efficiency, &ind); //efficiency
+	buffer_append_float32_auto(buffer, d->ridetrack.current_avg, &ind); //current avg
+	buffer_append_float32_auto(buffer, d->ridetrack.speed_avg, &ind); //speed avg mph
+	buffer_append_float32_auto(buffer, d->ridetrack.max_carve_chain, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.carves_mile, &ind);
+	buffer_append_float32_auto(buffer, d->ridetrack.max_roll_avg, &ind); 
+	buffer_append_float32_auto(buffer, d->ridetrack.max_yaw_avg * d->tnt_conf.hertz, &ind); 
+	buffer_append_float32_auto(buffer, d->traction_dbg.max_time, &ind); 
+	buffer_append_float32_auto(buffer, d->traction_dbg.bonks_total, &ind); 
+
 	// DEBUG
 	if (d->tnt_conf.is_tcdebug_enabled) {
 		buffer[ind++] = 1;
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //wheelslip erpm factor
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //accel at wheelslip start
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //erpm before wheel slip debug3
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //erpm at wheel slip
-		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition or last accel d->traction_dbg.debug4
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug2, &ind); //ERPM Limited
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug6, &ind); //ERPM Limited at traction control start
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug3, &ind); //actual erpm before wheel slip 
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug9, &ind); //actual erpm at wheel slip
+		buffer_append_float32_auto(buffer, d->traction_dbg.debug4, &ind); //Debug condition 
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->traction_dbg.debug5, &ind); //count 
 	} else if (d->tnt_conf.is_surgedebug_enabled) {
@@ -483,24 +505,40 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug7, &ind); //Duration last surge cycle time
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug2, &ind); //start current value
 		buffer_append_float32_auto(buffer, d->surge_dbg.debug8, &ind); //ramp rate
-	} else if (d->tnt_conf.is_tunedebug_enabled) {
+	} else if (d->tnt_conf.is_pitchdebug_enabled) {   
 		buffer[ind++] = 3;
 		buffer_append_float32_auto(buffer, d->rt.pitch_smooth_kalman, &ind); //smooth pitch	
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // scaled angle P
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug1*d->pid.stabl*d->tnt_conf.stabl_pitch_max_scale/100.0, &ind); // added stiffnes pitch kp
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug3, &ind); // added stability rate P
-		buffer_append_float32_auto(buffer, d->pid.stabl, &ind);
-		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //rollkp 
-	} else if (d->tnt_conf.is_yawdebug_enabled) {
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug1, &ind); // pitch kp
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug12, &ind); // pitch angle demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug4, &ind); //pitch rate 
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug9, &ind); // pitch kp rate
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug4 * d->pid_dbg.debug9, &ind); //	pitch rate demand												
+	} else if (d->tnt_conf.is_stabilitydebug_enabled) {
 		buffer[ind++] = 4;
-		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug5, &ind); //erpm scaler
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3, &ind); //max yaw change
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug4, &ind); //yaw kp 	
-		buffer_append_float32_auto(buffer, d->yaw_dbg.debug2, &ind); //max kp change
-	} else if (d->tnt_conf.is_brakingdebug_enabled) {
+		buffer_append_float32_auto(buffer, d->motor.abs_erpm, &ind); // erpm
+		buffer_append_float32_auto(buffer, d->pid.stabl, &ind); //stablity 0-100%
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug8, &ind); // added pitch kp 
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug6, &ind); // added stability rate P for pitch
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug13, &ind); // added demand for pitch angle
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4, &ind); // added demand for pitch rate
+	} else if (d->tnt_conf.is_yawdebug_enabled) {
 		buffer[ind++] = 5;
+		buffer_append_float32_auto(buffer, d->rt.yaw_angle, &ind); //yaw angle
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug1 * d->tnt_conf.hertz, &ind); //yaw change
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug3 * d->tnt_conf.hertz, &ind); //max yaw change		
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug4, &ind); //yaw kp 	
+		buffer_append_float32_auto(buffer, d->yaw_dbg.debug6, &ind); //yaw kp current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5, &ind); //yaw rate
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5 * d->pid_dbg.debug11, &ind); //yaw gyro current demand		
+	} else if (d->tnt_conf.is_rolldebug_enabled) {
+		buffer[ind++] = 6;
+		buffer_append_float32_auto(buffer, d->rt.roll_angle, &ind); //roll angle
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug16, &ind); //max roll	
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug17, &ind); // erpm scale
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug2, &ind); //roll kp
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug18, &ind); //roll current demand
+	} else if (d->tnt_conf.is_brakingdebug_enabled) {
+		buffer[ind++] = 7;
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug2, &ind); //current duty
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug6, &ind); //max accel
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug3, &ind); //Min ERPM
@@ -508,8 +546,17 @@ static void send_realtime_data(data *d){
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug4, &ind); //Debug condition 
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug8, &ind); //duration
 		buffer_append_float32_auto(buffer, d->braking_dbg.debug5, &ind); //count 
+	} else if (d->tnt_conf.is_currentdebug_enabled) {
+		buffer[ind++] = 8;
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug12, &ind); // pitch angle demand
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug4 * d->pid_dbg.debug9, &ind); //	pitch rate demand												
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug15, &ind); //yaw kp current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug5 * d->pid_dbg.debug11, &ind); //yaw gyro current demand		
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug18, &ind); //roll current demand
+		buffer_append_float32_auto(buffer, d->pid_dbg.debug13, &ind); // added stablity demand for pitch angle
+		buffer_append_float32_auto(buffer, -d->pid_dbg.debug6 * d->pid_dbg.debug4 + d->pid_dbg.debug7 * d->pid_dbg.debug5, &ind); // added stability demand for pitch and yaw rate
 	} else { 
-		buffer[ind++] = 0; 
+		buffer[ind++] = 0;
 	}
 
 	SEND_APP_DATA(buffer, bufsize, ind);
