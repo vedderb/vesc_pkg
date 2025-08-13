@@ -299,7 +299,7 @@
 
         ; It takes a few reads to get valid voltages the first time
         (loopwhile (< soc -1.5) {
-                (setq v-cells (bms-get-vcells))
+                (setq v-cells (with-com '(bms-get-vcells)))
                 (var v-sorted (sort < v-cells))
                 (setq c-min (ix v-sorted 0))
                 (setq c-max (ix v-sorted -1))
@@ -353,7 +353,7 @@
         ;(print tries)
 
         (if do-sleep {
-                (bms-sleep)
+                (with-com '(bms-sleep))
                 (save-rtc-val)
 
                 (if (< (assoc rtc-val 'soc) 0.05)
