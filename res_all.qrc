@@ -19,6 +19,7 @@
         <file>lib_tca9535/tca9535.vescpkg</file>
         <file>vdisp/vdisp.vescpkg</file>
         <file>vdisp/vdisp_esc.vescpkg</file>
+        <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
    </qresource>
 </RCC>
 

@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "VBMS32 Micro"
+    property string pkgName: "VBMS Harmony32"
     property string pkgDescriptionMd: "README.md"
-    property string pkgLisp: "vbms32_micro.lisp"
-    property string pkgQml: "ui.qml"
+    property string pkgLisp: "harmony32.lisp"
+    property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "vbms32_micro.vescpkg"
+    property string pkgOutput: "vbms_harmony32.vescpkg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device
@@ -33,7 +33,7 @@ Item {
         }
 
         var res = false
-        if (hwName == "vbms32" && fwName == "micro") {
+        if (hwName == "vbms32" && fwName == "harmony32") {
             res = true
         }
 

@@ -31,14 +31,9 @@ Item {
         if (hwType != "custom module") {
             return false
         }
-        
-        // This should not be installed on the micro
-        if (fwName == "micro") {
-            return false
-        }
 
         var res = false
-        if (hwName == "vbms32") {
+        if (hwName == "vbms32" && fwName == "v0") {
             res = true
         }
 
