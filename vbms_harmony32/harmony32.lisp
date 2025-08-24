@@ -957,14 +957,21 @@
 
         (def cell-num (+ (bms-get-param 'cells_ic1) (bms-get-param 'cells_ic2)))
 
-        ; Wait here on the first boot so that the upper BQ does not shut down its regulator
-        ; when communicating with it before all connectors are plugged in.
-        (if (= (assoc rtc-val 'wakeup-cnt) 0)
-            (looprange i 0 120 {
-                    (set-bms-val 'bms-status (str-from-n (- 120 i) "Waiting %d"))
-                    (sleep 1.0)
-            })
-        )
+        ; First boot
+        (if (= (assoc rtc-val 'wakeup-cnt) 0) {
+                ; Increase charger detection voltage if it is set too low
+                (if (< (bms-get-param 'v_charge_detect) 15) {
+                        (bms-set-param 'v_charge_detect 30.0)
+                        (bms-store-cfg)
+                })
+
+                ; Wait here on the first boot so that the upper BQ does not shut down its regulator
+                ; when communicating with it before all connectors are plugged in.
+                (looprange i 0 120 {
+                        (set-bms-val 'bms-status (str-from-n (- 120 i) "Waiting %d"))
+                        (sleep 1.0)
+                })
+        })
         (set-bms-val 'bms-status "Initializing...")
 
         ; Power switch
