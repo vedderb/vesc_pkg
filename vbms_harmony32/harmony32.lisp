@@ -959,7 +959,13 @@
 
         ; Wait here on the first boot so that the upper BQ does not shut down its regulator
         ; when communicating with it before all connectors are plugged in.
-        (if (= (assoc rtc-val 'wakeup-cnt) 0) (sleep 30.0))
+        (if (= (assoc rtc-val 'wakeup-cnt) 0)
+            (looprange i 0 120 {
+                    (set-bms-val 'bms-status (str-from-n (- 120 i) "Waiting %d"))
+                    (sleep 1.0)
+            })
+        )
+        (set-bms-val 'bms-status "Initializing...")
 
         ; Power switch
         (loopwhile-thd ("PSW" 100) t {
