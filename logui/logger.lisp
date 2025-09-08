@@ -358,22 +358,19 @@
         ; as that probably means something else is in eeprom
         (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
 
-        ; Avoid delay in case this script is imported and executed.
-        (loopwhile-thd 200 t {
-                ; Wait for things to start up
-                (sleep 10)
+        ; Wait for things to start up
+        (sleep 10)
 
-                ; Start logging at boot if configured
-                (if (read-setting 'log-at-boot)
-                    (start-log
-                        (read-setting 'can-id)
-                        (read-setting 'append-gnss)
-                        (read-setting 'log-local)
-                        (read-setting 'log-can)
-                        (read-setting 'log-bms)
-                        (read-setting 'log-rate)
-                ))
-        })
+        ; Start logging at boot if configured
+        (if (read-setting 'log-at-boot)
+            (start-log
+                (read-setting 'can-id)
+                (read-setting 'append-gnss)
+                (read-setting 'log-local)
+                (read-setting 'log-can)
+                (read-setting 'log-bms)
+                (read-setting 'log-rate)
+        ))
 })
 
 @const-end
