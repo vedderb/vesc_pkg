@@ -1,4 +1,4 @@
-; Fixed configuration: dead simple safety
+; Remote timeout safety feature
 @const-start
 (def remote_drop_s 1.00)   ; fixed timeout (s)
 (def loop_dt_s     0.02)   ; loop cadence (s)
