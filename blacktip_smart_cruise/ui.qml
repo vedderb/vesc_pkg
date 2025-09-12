@@ -119,7 +119,7 @@ Item {
                             Image {
                                 anchors.centerIn: parent
                                 antialiasing: true
-                                height: big.width*0.13
+                                height: big.width * 0.2
                                 fillMode: Image.PreserveAspectFit
                                 source : "https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_smart_cruise/shark_with_laser.png"
                                 
