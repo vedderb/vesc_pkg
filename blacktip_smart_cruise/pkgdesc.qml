@@ -16,7 +16,7 @@ Item {
 
         // vesc, vesc bms or custom module
         // Note that VBMS32 is a custom module
-        var hwType = fwRxParams.hwTypeStr().toLowerCase();		
+        var hwType = fwRxParams.hwTypeStr().toLowerCase();
 
         console.log("HW Name: " + hwName)
         console.log("FW Name: " + fwName)
@@ -26,7 +26,11 @@ Item {
         if (hwType != "vesc") {
             return false
         }
-		
+
+        if (hwName != "410" && hwName != "60" && hwName != "60_mk5") {
+            return false
+        }
+
         return true
     }
 }
