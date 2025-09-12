@@ -130,7 +130,7 @@
             (setvar 'SW_PRESSED 1)
              ;else 
             (setvar 'SW_PRESSED 0)
-   ) End of If trigger pressed statment
+   ) ;End of If trigger pressed statment
    (sleep 0.04)
 )))
 
@@ -227,7 +227,7 @@
             ;else
             (progn
             (setvar 'Click_Beep 2)    
-            (if (< Speed Max_Speed_No)
+            (if (< SPEED Max_Speed_No)
                 (if (> SPEED 1)
                     (setvar 'SPEED (+ SPEED 1)); increase one speed
                 ;else

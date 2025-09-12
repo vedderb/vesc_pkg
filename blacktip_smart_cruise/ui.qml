@@ -23,11 +23,13 @@ Item {
     property ConfigParams mAppConf: VescIf.appConfig()
 
     property bool readSettingsDone: false
-   // property bool isHorizontal: dxrtData.width > dxrtData.height
+    // property bool isHorizontal: dxrtData.width > dxrtData.height
 
+    // Callback holder for delay timer
+    property var _delayCb: null
 
-     property int gaugeSize: big.width * 0.8
-     property int gaugeSize2: big.width * 0.45
+    property int gaugeSize: big.width * 0.8
+    property int gaugeSize2: big.width * 0.45
 
  
 
@@ -119,7 +121,7 @@ Item {
                                 antialiasing: true
                                 height: big.width*0.13
                                 fillMode: Image.PreserveAspectFit
-                                source : "https://raw.githubusercontent.com/claroworks-product-development/Assets/d6113f78789d60cbb13cfeab672024ffd83b155b/Dive-Xtras-Logo-White-Red-1218x615.png"
+                                source : "https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_smart_cruise/shark_with_laser.png"
                                 
                                 anchors.horizontalCenterOffset: -(big.width)/3.7
                                 anchors.verticalCenterOffset: -(big.width)/1.9
@@ -127,8 +129,8 @@ Item {
                             
                             Text {
                                 id: name
-                                color: {color = Utility.getAppHexColor("lightText")}
-                                text: "Dive Xtras\nPoseidon\nVersion 1.5"
+                                color: Utility.getAppHexColor("lightText")
+                                text: "Blacktip\nSmart Cruise\nVersion 0.1"
                                 font.pixelSize: big.width/22.0
                                 verticalAlignment: Text.AlignVCenter
                                 anchors.centerIn: parent
@@ -151,14 +153,14 @@ Item {
                                 maximumValue: 100
                                 value: 0
                                 centerTextVisible: false
-                                property color greenColor: {greenColor = "green"}
-                                property color orangeColor: {orangeColor = Utility.getAppHexColor("orange")}
-                                property color redColor: {redColor = "red"}
+                                property color greenColor: "green"
+                                property color orangeColor: Utility.getAppHexColor("orange")
+                                property color redColor: "red"
                                 nibColor: value > 50 ? greenColor : value > 20 ? orangeColor : redColor
                                 
                                 Text {
                                     id: batteryLabel
-                                    color: {color = Utility.getAppHexColor("lightText")}
+                                    color: Utility.getAppHexColor("lightText")
                                     text: "BATTERY"
                                     font.pixelSize: gaugeSize2/18.0
                                     verticalAlignment: Text.AlignVCenter
@@ -170,7 +172,7 @@ Item {
                                 
                                 Text {
                                     id: battValLabel
-                                    color: {color = Utility.getAppHexColor("lightText")}
+                                    color: Utility.getAppHexColor("lightText")
                                     text: parseFloat(batteryGauge.value).toFixed(0) +"%"
                                     font.pixelSize: gaugeSize2/6.0
                                     verticalAlignment: Text.AlignVCenter
@@ -205,9 +207,9 @@ Item {
                             value: 0
                             labelStep: 20
                             property real throttleStartValue: 70
-                            property color blueColor: {blueColor = Utility.getAppHexColor("tertiary2")}
-                            property color orangeColor: {orangeColor = Utility.getAppHexColor("orange")}
-                            property color redColor: {redColor = "red"}
+                            property color blueColor: Utility.getAppHexColor("tertiary2")
+                            property color orangeColor: Utility.getAppHexColor("orange")
+                            property color redColor: "red"
                             nibColor: value > throttleStartValue ? redColor : (value > 40 ? orangeColor: blueColor)
                             Behavior on nibColor {
                                 ColorAnimation {
@@ -240,9 +242,9 @@ Item {
                             unitText: "°C"
                             typeText: "TEMP\nMOTOR"
                             property real throttleStartValue: 70
-                            property color blueColor: {blueColor = Utility.getAppHexColor("tertiary2")}
-                            property color orangeColor: {orangeColor = Utility.getAppHexColor("orange")}
-                            property color redColor: {redColor = "red"}
+                            property color blueColor: Utility.getAppHexColor("tertiary2")
+                            property color orangeColor: Utility.getAppHexColor("orange")
+                            property color redColor: "red"
                             nibColor: value > throttleStartValue ? redColor : (value > 40 ? orangeColor: blueColor)
                             Behavior on nibColor {
                                 ColorAnimation {
@@ -499,7 +501,7 @@ Item {
                     
                     Button {
                         Layout.fillWidth: true
-                        visible:false //Change to true to enable Custom Controls
+                        visible: true //Change to true to enable Custom Controls
                         text: "Enable Custom Control (5 clicks)"
                         onClicked: { customDialog.open()}
                     }
@@ -599,22 +601,21 @@ Item {
                         id: text1
                         topPadding:5
                         font.pixelSize: Qt.application.font.pixelSize * 0.8
-                        color: {color = Utility.getAppHexColor("lightText")}
+                        color: Utility.getAppHexColor("lightText")
                         text: "*Restart Required"
                         
                     }
                    
                              
                                
-                                   Rectangle {
+                 Item {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
-                        color : "transparent"
                     }
                     
                         
                           
-                            Button {
+                 Button {
                         Layout.fillWidth: true
                         text: "Change Scooter Hardware Type"
                         visible: true
@@ -690,16 +691,22 @@ Item {
     // delay timer
     Timer {
         id: timer
+        onTriggered: {
+            if (_delayCb) {
+                var callback = _delayCb
+                _delayCb = null
+                callback()
+            }
+        }
     }
     
     function delay(delayTime, cb) {
-        timer.interval = delayTime;
+        timer.stop();
+        timer.interval = Math.max(0, Math.floor(delayTime));
         timer.repeat = false;
-        timer.triggered.connect(cb);
+        dxrtData._delayCb = (typeof cb === "function") ? cb : null;
         timer.start();
     }
-    
-
 
     // write settings
     
@@ -726,18 +733,18 @@ Item {
         da.setUint8(10, no_speeds.realValue + 1) // "+ 1" convert user speed values to actuall speed values
         da.setUint8(11, start_speed.realValue + 1)
         da.setUint8(12, jump_speed.realValue + 1)
-        da.setUint8(13, safe_start.checked ? 1 : 0  )
-        da.setUint8(14, enable_reverse.checked ? 1 : 0  )
-        da.setUint8(15, enable_custom.checked ? 1 : 0  )
+        da.setUint8(13, safe_start.checked ? 1 : 0)
+        da.setUint8(14, enable_reverse.checked ? 1 : 0)
+        da.setUint8(15, enable_custom.checked ? 1 : 0)
         da.setUint8(16, custom_timeout.realValue)
-        da.setUint8(17, (display_rotation.realValue == 0) ? 0 : display_rotation.realValue / 90 )
-        da.setUint8(18, (display_brightness.realValue == 0) ? 0 : display_brightness.realValue / 20 )
+        da.setUint8(17, (display_rotation.realValue == 0) ? 0 : Math.round(display_rotation.realValue / 90))
+        da.setUint8(18, (display_brightness.realValue == 0) ? 0 : Math.round(display_brightness.realValue / 20))
         da.setUint8(19, enable_bluetooth.currentIndex) 
-        da.setUint8(20, enable_beeps.checked ? 1 : 0  )
+        da.setUint8(20, enable_beeps.checked ? 1 : 0)
         da.setUint8(21, beeps_volume.realValue)
-        da.setUint8(22, cudaX_Flip.checked ? 1 : 0  )
-        da.setUint8(23, (display_rotation2.realValue == 0) ? 0 : display_rotation2.realValue / 90 )
-        da.setUint8(24, enable_tbeeps.checked ? 1 : 0  )
+        da.setUint8(22, cudaX_Flip.checked ? 1 : 0)
+        da.setUint8(23, (display_rotation2.realValue == 0) ? 0 : Math.round(display_rotation2.realValue / 90))
+        da.setUint8(24, enable_tbeeps.checked ? 1 : 0)
         mCommands.sendCustomAppData(buffer)
         ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
         console.log("Sent? " )
@@ -997,7 +1004,7 @@ Item {
             enable_beeps.checked =  (dv.getUint8(20) == 1 )? true : false
             beeps_volume.realValue = dv.getUint8(21)
             cudaX_Flip.checked =  (dv.getUint8(22) == 1 )? true : false
-            display_rotation2.realValue = (dv.getUint8(23) == 0) ? 0 : dv.getUint8(17) * 90
+            display_rotation2.realValue = (dv.getUint8(23) == 0) ? 0 : dv.getUint8(23) * 90
             enable_tbeeps.checked =  (dv.getUint8(24) == 1 )? true : false
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             readSettingsDone = true
@@ -1014,9 +1021,16 @@ Item {
         property string lastFault: ""
         
         function onValuesSetupReceived(values, mask) {
-            
-           batteryGauge.value =  100*((4.3867*values.battery_level**4) - (6.7072*values.battery_level**3)+(2.4021*values.battery_level**2)+(1.3619*values.battery_level))
-            
+
+           var soc = Math.max(0, Math.min(1, values.battery_level))
+           var pct = 100 * (
+              4.3867 * Math.pow(soc, 4)
+              - 6.7072 * Math.pow(soc, 3)
+              + 2.4021 * Math.pow(soc, 2)
+              + 1.3619 * soc
+           )
+           batteryGauge.value = Math.max(0, Math.min(100, pct))
+
           //  batteryGauge.value = values.battery_level * 125.0  //125 to correct for fact that a fully charged dewalt only registers about 80%
             speedGauge.value = values.rpm / mMcConf.getParamInt("si_motor_poles")
             escTempGauge.value = values.temp_mos
@@ -1185,7 +1199,7 @@ Dialog {
                         id: text3
                         topPadding:5
                         font.pixelSize: Qt.application.font.pixelSize * 0.8
-                        color: {color = Utility.getAppHexColor("lightText")}
+                        color: Utility.getAppHexColor("lightText")
                         text: "*Restart Required"
                         
                     }
