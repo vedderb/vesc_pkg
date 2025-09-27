@@ -21,7 +21,7 @@
 (eeprom-store-i 13 1) ; Turn safe start on or off 1=On 0=Off
 (eeprom-store-i 14 0) ; Enable Reverse speed. 1=On 0=Off 
 (eeprom-store-i 15 0) ; Enable 5 click Custom Control. 1=On 0=Off
-(eeprom-store-i 16 1) ; How long before custom control times out and requires reactivation in min.
+(eeprom-store-i 16 60) ; How long before custom control times out and requires reactivation in sec.
 (eeprom-store-i 17 0) ; Rotation of Display, 0-3 . Each number rotates display 90 deg.
 (eeprom-store-i 18 5) ; Display Brighness 0-5
 (eeprom-store-i 19 0) ; Bluetooth Wiring, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
@@ -398,7 +398,7 @@
                    
          
             (if (= Custom_Control 1); Require custom control to be re-enabled after a fixed duration 
-                (if (> (secs-since Timer_Start) (* Custom_Control_Timeout 60)); 
+                (if (> (secs-since Timer_Start) Custom_Control_Timeout); 
                     (progn
                     (setvar 'Custom_Control 0.5)
                     (setvar 'Timer_Start (systime))

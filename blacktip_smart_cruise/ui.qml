@@ -770,7 +770,7 @@ Item {
         da1.setUint8(13, 1)
         da1.setUint8(14, 0)
         da1.setUint8(15, 0)
-        da1.setUint8(16, 1)
+        da1.setUint8(16, 60)
         da1.setUint8(17, 0)
         da1.setUint8(18, 5)
         da1.setUint8(19, 0)
@@ -1280,11 +1280,11 @@ Dialog {
                         visible : true
                         decimals: 0
                         prefix: "Custom Timout: "
-                        suffix: " min."
-                        realFrom: 1
-                        realTo: 15
-                        realValue: 1
-                        realStepSize: 1.0
+                        suffix: " sec."
+                        realFrom: 10
+                        realTo: 240
+                        realValue: 60
+                        realStepSize: 10.0
                         onRealValueChanged: { write_settings()}
                     }
             }}
