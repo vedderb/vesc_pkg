@@ -16,7 +16,7 @@ Quadruple Click Reverse Gears
 A quadruple click gets you into reverse. There are two reverse speeds "Untangle" and "Reverse". Untangle is slow and useful for untangling line, whilst Reverse is a bit faster for backing out of that wreck corridor. Reverse can be enabled or disabled in the app. It is accessible via a quadruple click and then normal shifting switches between the two speeds. Release to stop and then restart with a double click to resume forward speeds as normal.
 
 Quintuple "5" Click ....
-For you hackers, the software is setup for Smart Cruise on a quintuple click but will require coding to activate with whatever feature you can think of.
+The software is set up for Smart Cruise on a quintuple click.
 
 Slow Speed Restart
 Have you ever been cruising around in speeds 1 or 2, maybe in a sensitive enviroment, stoped and then restarted only to find your in speed 3 again and going too fast? Now if you stop the scooter in any speed less than the start speed, when you restart it will do so in the speed you stopped at. Shifting speeds to above the start speed clears this setting and you will restart in the normal start speed.

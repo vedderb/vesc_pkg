@@ -517,9 +517,9 @@ Item {
 
                     Button {
                         Layout.fillWidth: true
-                        visible: true //Change to true to enable Smart Cruise
+                        visible: true
                         text: "Enable Smart Cruise (5 clicks)"
-                        onClicked: { customDialog.open()}
+                        onClicked: { smartCruiseDialog.open()}
                     }
 
                     CheckBox {
@@ -733,7 +733,7 @@ Item {
         }
 
 
-        var buffer = new ArrayBuffer(25)
+        var buffer = new ArrayBuffer(27)
         var da = new DataView(buffer)
 
         da.setUint8(0, reverse_speed.realValue)
@@ -751,8 +751,8 @@ Item {
         da.setUint8(12, jump_speed.realValue + 1)
         da.setUint8(13, safe_start.checked ? 1 : 0)
         da.setUint8(14, enable_reverse.checked ? 1 : 0)
-        da.setUint8(15, enable_custom.checked ? 1 : 0)
-        da.setUint8(16, custom_timeout.realValue)
+        da.setUint8(15, enable_smart_cruise.checked ? 1 : 0)
+        da.setUint8(16, smart_cruise_timeout.realValue)
         da.setUint8(17, (display_rotation.realValue == 0) ? 0 : Math.round(display_rotation.realValue / 90))
         da.setUint8(18, (display_brightness.realValue == 0) ? 0 : Math.round(display_brightness.realValue / 20))
         da.setUint8(19, enable_bluetooth.currentIndex)
@@ -761,6 +761,8 @@ Item {
         da.setUint8(22, cudaX_Flip.checked ? 1 : 0)
         da.setUint8(23, (display_rotation2.realValue == 0) ? 0 : Math.round(display_rotation2.realValue / 90))
         da.setUint8(24, enable_tbeeps.checked ? 1 : 0)
+        da.setUint8(25, enable_smart_cruise_auto_engage.checked ? 1 : 0)
+        da.setUint8(26, smart_cruise_auto_engage_delay.realValue)
         mCommands.sendCustomAppData(buffer)
 
         ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
@@ -770,8 +772,7 @@ Item {
     }
 
     function reset_defaults_blacktip () {
-
-        var buffer1 = new ArrayBuffer(25)
+        var buffer1 = new ArrayBuffer(27)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
         da1.setUint8(1, 20)
@@ -798,10 +799,11 @@ Item {
         da1.setUint8(22, 0)
         da1.setUint8(23, 0)
         da1.setUint8(24, 0)
+        da1.setUint8(25, 0) // Enable Auto-Engage default: off
+        da1.setUint8(26, 10) // Auto-Engage Delay default: 10 seconds
         mCommands.sendCustomAppData(buffer1)
 
-
-        // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
+        // All available settings here https://github.com/vedderb/bldc/blob/master/datatypes.h
 
         mMcConf.updateParamInt("si_motor_poles", 5, null)
         mMcConf.updateParamDouble("l_erpm_start", 0.9, null)
@@ -809,7 +811,6 @@ Item {
         mMcConf.updateParamDouble("l_in_current_map_filter", 0.005, null) //6.05 only
         mMcConf.updateParamDouble("l_min_erpm", -6000, null)
         mMcConf.updateParamDouble("l_max_erpm", 6000, null)
-
 
         //Motor Temp Settings
         mMcConf.updateParamInt("l_temp_motor_start", 160, null)
@@ -862,24 +863,23 @@ Item {
         mAppConf.updateParamInt("app_uart_baudrate", 115200)
         mAppConf.updateParamEnum("shutdown_mode", 9)
 
-
-         mCommands.setMcconf(false) // Write Motor settings immediatly
-
+        mCommands.setMcconf(false) // Write Motor settings immediatly
 
         delay(2000, function() {
             mCommands.setAppConf()  // Write App settings 2 seconds later
-        })
 
+            delay(2000, function() {
+                mCommands.reboot()
+            })
+        })
 
         readSettingsDone = false
 
         console.log("Defaults Reset" )
-
     }
 
     function reset_defaults_cudax () {
-
-        var buffer1 = new ArrayBuffer(25)
+        var buffer1 = new ArrayBuffer(27)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
         da1.setUint8(1, 10)
@@ -906,8 +906,9 @@ Item {
         da1.setUint8(22, 0)
         da1.setUint8(23, 2)
         da1.setUint8(24, 0)
+        da1.setUint8(25, 0) // Enable Auto-Engage default: off
+        da1.setUint8(26, 10) // Auto-Engage Delay default: 10 seconds
         mCommands.sendCustomAppData(buffer1)
-
 
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
 
@@ -972,20 +973,19 @@ Item {
         mAppConf.updateParamInt("app_uart_baudrate", 115200)
         mAppConf.updateParamEnum("shutdown_mode", 9)
 
-
         mCommands.setMcconf(false) // Write Motor settings immediatly
-
 
         delay(2000, function() {
             mCommands.setAppConf()  // Write App settings 2 seconds later
+
+            delay(2000, function() {
+                mCommands.reboot()
+            })
         })
-
-
 
         readSettingsDone = false
 
         console.log("Defaults Reset" )
-
     }
 
 
@@ -1015,8 +1015,8 @@ Item {
             jump_speed.realValue = dv.getUint8(12) -1
             safe_start.checked =  (dv.getUint8(13) == 1 )? true : false
             enable_reverse.checked =  (dv.getUint8(14) == 1 )? true : false
-            enable_custom.checked =  (dv.getUint8(15) == 1 )? true : false
-            custom_timeout.realValue = dv.getUint8(16)
+            enable_smart_cruise.checked =  (dv.getUint8(15) == 1 )? true : false
+            smart_cruise_timeout.realValue = dv.getUint8(16)
             display_rotation.realValue = (dv.getUint8(17) == 0) ? 0 : dv.getUint8(17) * 90
             display_brightness.realValue = (dv.getUint8(18) == 0) ? 0 : dv.getUint8(18) * 20
             //enable_bluetooth.currentIndex =  dv.getUint8(19)
@@ -1025,6 +1025,8 @@ Item {
             cudaX_Flip.checked =  (dv.getUint8(22) == 1 )? true : false
             display_rotation2.realValue = (dv.getUint8(23) == 0) ? 0 : dv.getUint8(23) * 90
             enable_tbeeps.checked =  (dv.getUint8(24) == 1 )? true : false
+            enable_smart_cruise_auto_engage.checked =  (dv.getUint8(25) == 1 )? true : false
+            smart_cruise_auto_engage_delay.realValue = dv.getUint8(26)
 
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
@@ -1129,6 +1131,22 @@ Dialog {
         closePolicy: Popup.CloseOnEscape
         title: "Scooter Hardware"
 
+        property int original_enable_bluetooth
+
+        onOpened: {
+            original_enable_bluetooth = enable_bluetooth.currentIndex
+        }
+
+        onAccepted: {
+            if (original_enable_bluetooth != enable_bluetooth.currentIndex) {
+                write_settings()
+
+                delay(2000, function () {
+                    mCommands.reboot()
+                })
+            }
+        }
+
         ScrollView {
                     id: hardwareScroll
                     anchors.fill: parent
@@ -1174,7 +1192,7 @@ Dialog {
             id: versionText
             topPadding:15
             color: Utility.getAppHexColor("lightText")
-            text: "Your Scooter Electronics Hardware (HW) Version is   : "
+            text: "Your Scooter Electronics Hardware (HW) Version is: "
                     }
 
 
@@ -1184,7 +1202,6 @@ Dialog {
                         Layout.fillWidth: true
                         currentIndex: 0
                         model:  ["Blacktip HW:60_MK5 with Bluetooth (Latest)*","Blacktip HW:60, No Bluetooth*","Blacktip HW:410, No Bluetooth*", "Cuda-X HW:60_MK5, With Bluetooth (Latest)*" , "Cuda-X HW:60, No Bluetooth*"]
-                        onCurrentIndexChanged: { write_settings()}
 
                     }
 
@@ -1222,7 +1239,7 @@ Dialog {
                         topPadding:5
                         font.pixelSize: Qt.application.font.pixelSize * 0.8
                         color: Utility.getAppHexColor("lightText")
-                        text: "*Restart Required"
+                        text: "* Will cause a scooter reboot"
 
                     }
                }
@@ -1231,7 +1248,7 @@ Dialog {
         }
 
     Dialog {
-        id: customDialog
+        id: smartCruiseDialog
         standardButtons: Dialog.Ok
         modal: true
         focus: true
@@ -1256,7 +1273,7 @@ Dialog {
             wrapMode: Text.WordWrap
 
             text:
-                "This gives you the option of Smart Cruise if you have changed the software code to do so.  If when running you do a quintuple (5) click the display will show "C ?" another quintuple click this will confirm and Smart Cruise will be engaged. The display will show "C""
+                "This gives you the option of Smart Cruise.  If when running you do a quintuple (5) click the display will show \"C ?\" another quintuple click this will confirm and Smart Cruise will be engaged. The display will show \"C\"."
             }
 
         Text {
@@ -1274,7 +1291,7 @@ Dialog {
             wrapMode: Text.WordWrap
            topPadding:10
             text:
-                "Custom also times out after the duration set below. At the set time the display will show “C?” and reduce your rpm’s slightly. A quintuple click will reengage custom otherwise the scooter will stop."
+                "Smart Cruise also times out after the duration set below. At the set time the display will show “C?” and reduce your rpm’s slightly. A quintuple click will reengage Smart Cruise otherwise the scooter will stop."
             }
 
         Text {
@@ -1283,30 +1300,53 @@ Dialog {
             wrapMode: Text.WordWrap
             topPadding:15
             text:
-                "<b> Changing the software and coding new features can be dangerous.  By changing the software code and enabling this feature you acknowledge you fully understand how to use it safely. <b>"
+                "<b> By enabling this feature you acknowledge you fully understand how to use it safely.<b>"
             }
 
         CheckBox {
-                        id: enable_custom
+                        id: enable_smart_cruise
                         visible : true
                         Layout.fillWidth: true
                         text: "Enable Smart Cruise"
-                        checked: true
+                        checked: false
                         onClicked: { write_settings()}
 
                     }
 
                     DoubleSpinBox {
-                        id: custom_timeout
+                        id: smart_cruise_timeout
                         Layout.fillWidth: true
-                        visible : true
+                        visible : enable_smart_cruise.checked
                         decimals: 0
-                        prefix: "Custom Timout: "
+                        prefix: "Smart Cruise Timeout: "
                         suffix: " sec."
                         realFrom: 10
                         realTo: 240
                         realValue: 60
                         realStepSize: 10.0
+                        onRealValueChanged: { write_settings()}
+                    }
+
+                    CheckBox {
+                        id: enable_smart_cruise_auto_engage
+                        visible : enable_smart_cruise.checked
+                        Layout.fillWidth: true
+                        text: "Enable Auto-Engage Smart Cruise"
+                        checked: false
+                        onClicked: { write_settings()}
+                    }
+
+                    DoubleSpinBox {
+                        id: smart_cruise_auto_engage_delay
+                        Layout.fillWidth: true
+                        visible : enable_smart_cruise_auto_engage.checked
+                        decimals: 0
+                        prefix: "Auto-Engage Delay: "
+                        suffix: " sec."
+                        realFrom: 5
+                        realTo: 30
+                        realValue: 10
+                        realStepSize: 1.0
                         onRealValueChanged: { write_settings()}
                     }
             }}

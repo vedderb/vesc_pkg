@@ -30,6 +30,8 @@
 (eeprom-store-i 22 0) ; CudaX Flip Screens
 (eeprom-store-i 23 0) ; 2nd Screen Rotation of Display, 0-3 . Each number rotates display 90 deg.
 (eeprom-store-i 24 0) ; Trigger Click Beeps
+(eeprom-store-i 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
+(eeprom-store-i 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
 (eeprom-store-i 127 150); writes 150 to eeprom to stop settings being loaded again
 ))
 
@@ -53,6 +55,8 @@
 (define CudaX_Flip (eeprom-read-i 22))
 (define Rotation2 (eeprom-read-i 23))
 (define Enable_Trigger_Beeps (eeprom-read-i 24))
+(define Enable_Smart_Cruise_Auto_Engage (eeprom-read-i 25))
+(define Smart_Cruise_Auto_Engage_Time (eeprom-read-i 26))
 
 (define Speed_Set (list
 (eeprom-read-i 0); Reverse Speed 2 %
@@ -84,16 +88,16 @@
     (if (= (bufget-u8 data 0) 255 );Handshake to trigger data send if not yet recieved.
     (progn
 
-    (define setbuf (array-create 25))  ;create a temp array to store setinsg
+    (define setbuf (array-create 27))  ;create a temp array to store setting
     (bufclear setbuf) ;clear the buffer
-    (looprange i 0 25
-    (bufset-i8 setbuf i (eeprom-read-i i)))
+    (looprange i 0 27
+    (bufset-i8 setbuf i (or (eeprom-read-i i) 0)))
     (send-data setbuf)
     (free setbuf)
     )
 
     (progn
-    (looprange i 0 25
+    (looprange i 0 27
     (eeprom-store-i i (bufget-u8 data i))); writes settings to eeprom
     (Update_Settings); updates actuall settings in lisp
 
@@ -126,12 +130,49 @@
 
 (spawn 25 (fn ()
 (loopwhile t
-   (if (= 1 (gpio-read 'pin-ppm))
+    (progn
+        (sleep 0.04)
+        (if (= 1 (gpio-read 'pin-ppm))
             (setvar 'SW_PRESSED 1)
              ;else
             (setvar 'SW_PRESSED 0)
-   ) ;End of If trigger pressed statment
-   (sleep 0.04)
+        ) ;End of If trigger pressed statment
+    )
+)))
+
+;**** Auto-Engage Smart Cruise Monitoring ****
+(spawn 30 (fn ()
+(loopwhile t
+    (progn
+        (sleep 0.5)
+        (if (and (> Enable_Smart_Cruise 0) (> Enable_Smart_Cruise_Auto_Engage 0) (= SW_STATE 2) (= Smart_Cruise 0) (!= SPEED 99) (>= SPEED 2))
+            (progn
+                ; Check if speed setting has changed
+                (if (!= SPEED Last_Speed_Setting)
+                    (progn
+                        (setvar 'Last_Speed_Setting SPEED)
+                        (setvar 'Speed_Setting_Timer (systime))
+                    )
+                    ; Speed setting hasn't changed, check if timer expired
+                    (if (> (secs-since Speed_Setting_Timer) Smart_Cruise_Auto_Engage_Time)
+                        (progn
+                            (setvar 'Smart_Cruise 3)
+                            (setvar 'Timer_Start (systime))
+                            (setvar 'Disp-Num 17)
+			    (setvar 'Click_Beep 5)
+                            (if (< SPEED 2) ; re command actuall speed as reverification sets it to 0.8x
+                                (set-rpm (- 0 (* (/ (ix Max_ERPM Scooter_Type) 100)(ix Speed_Set SPEED))))
+                                ;else
+                                (set-rpm (* (/ (ix Max_ERPM Scooter_Type) 100)(ix Speed_Set SPEED)))
+                            )
+                        )
+                    )
+                )
+            )
+            ; Not in the right state for auto-engage, reset timer
+            (setvar 'Speed_Setting_Timer (systime))
+        )
+    )
 )))
 
 ;**** End of Trigger Program  ****
@@ -145,6 +186,8 @@
 (define Timer_Duration 0)
 (define New_Start_Speed Start_Speed)
 (define Smart_Cruise 0); variable to control Smart Cruise on 5 clicks
+(define Speed_Setting_Timer 0); Timer for auto-engage functionality
+(define Last_Speed_Setting 99); Track last speed setting for auto-engage
 (define Clicks 0)
 (define Thirds-Total 0)
 (define Warning-Counter 0); Count how many times the 3rds warnings have been triggered.
@@ -255,17 +298,17 @@
      (if (= Clicks 5)
         (progn
         (setvar 'Click_Beep 5)
-            (if (and (!= SPEED 99) (> Enable_Smart_Cruise 0) (< Smart_Cruise 1))
-                        (setvar 'Smart_Cruise (+ 0.5 Smart_Cruise))
+            (if (and (!= SPEED 99) (> Enable_Smart_Cruise 0) (< Smart_Cruise 2))
+                        (setvar 'Smart_Cruise (+ 1 Smart_Cruise))
             )
 
-            (if (= Smart_Cruise 0.5); If Smart Cruise is enabled, show it on screen
+            (if (= Smart_Cruise 1); If Smart Cruise is half-enabled, show it on screen
                 (progn
                     (setvar 'Disp-Num 16)
                     (setvar 'Last-Disp-Num 99); this display may be needed multiple times, so clear the last disp too
             ))
 
-            (if (= Smart_Cruise 1); If Smart Cruise is enabled, show it on screen
+            (if (= Smart_Cruise 2); If Smart Cruise is enabled, show it on screen
                 (progn
                     (setvar 'Disp-Num 17)
                     (if (< SPEED 2) ; re command actuall speed as reverification sets it to 0.8x
@@ -301,12 +344,12 @@
      ;xxx repeat display section whilst scooter is running xxx
 
 
-      (if (and (> (secs-since Timer_Start) 6) (= Custom_Control 0)) ; 6 = display duration +1
+      (if (and (> (secs-since Timer_Start) 6) (= Smart_Cruise 0)) ; 6 = display duration +1
           (setvar 'Disp-Num Last-Batt-Disp-Num)
 
       )
 
-    (if (and (> (secs-since Timer_Start) 12) (= Custom_Control 0)) ; 12= (2xdisplay duration + 2)
+    (if (and (> (secs-since Timer_Start) 12) (= Smart_Cruise 0)) ; 12= (2xdisplay duration + 2)
         (progn
             (setvar 'Disp-Num (+ SPEED 4))
             (setvar 'Timer_Start (systime))
@@ -314,7 +357,7 @@
 
     ;xxx end repeat display section
 
-     (if (and (= Smart_Cruise 0.5) (> (secs-since Timer_Start) 5)); time out Smart Cruise if second activation isnt recieved within display duration
+     (if (and (= Smart_Cruise 1) (> (secs-since Timer_Start) 5)); time out Smart Cruise if second activation isnt recieved within display duration
         (setvar 'Smart_Cruise 0)
      )
 
@@ -359,7 +402,7 @@
       (setvar 'Timer_Start (systime))
       (setvar 'Timer_Duration 0.3)
 
-      (if (= Smart_Cruise 1) ; if Smart Cruise is on and switch pressed, turn it off
+      (if (>= Smart_Cruise 2) ; if Smart Cruise is on and switch pressed, turn it off
             (setvar 'Smart_Cruise 0)
       ;else
             (if (< SAFE_START_TIMER 1) ; check safe start isnt running, dont allow gear shifts if it is on
@@ -378,7 +421,7 @@
      (if (> (secs-since Timer_Start) Timer_Duration)
       (progn
 
-            (if (!= Smart_Cruise 1); If Smart Cruise is enabled, dont shut down
+            (if (and (!= Smart_Cruise 2) (!= Smart_Cruise 3)); If Smart Cruise is enabled, dont shut down
                 (progn
                     (setvar 'Timer_Duration 999999); set to infinite
                     (if (< SPEED Start_Speed); start at old speed if less than start speed
@@ -397,10 +440,10 @@
 
 
 
-            (if (= Smart_Cruise 1); Require Smart Cruise to be re-enabled after a fixed duration
+            (if (or (= Smart_Cruise 2) (= Smart_Cruise 3)); Require Smart Cruise to be re-enabled after a fixed duration
                 (if (> (secs-since Timer_Start) Smart_Cruise_Timeout);
                     (progn
-                    (setvar 'Smart_Cruise 0.5)
+                    (setvar 'Smart_Cruise 1)
                     (setvar 'Timer_Start (systime))
                     (setvar 'Timer_Duration 5); sets timer duration to display duration to allow for re-enable
                     (setvar 'Disp-Num 16)
@@ -882,7 +925,7 @@
 
     (if (> Click_Beep 0)
     (progn
-    (if (and (= Click_Beep 5) (> Enable_Custom_Control 0)(!= SPEED 99)) (foc-play-tone 1 1500 Beeps_Vol))
+    (if (and (= Click_Beep 5) (> Enable_Smart_Cruise 0)(!= SPEED 99)) (foc-play-tone 1 1500 Beeps_Vol))
     (if (= Enable_Trigger_Beeps 1)
     (progn
     (if (= Click_Beep 1)(foc-play-tone 1 2500 Beeps_Vol))
