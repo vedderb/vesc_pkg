@@ -517,8 +517,8 @@ Item {
 
                     Button {
                         Layout.fillWidth: true
-                        visible: true //Change to true to enable Custom Controls
-                        text: "Enable Custom Control (5 clicks)"
+                        visible: true //Change to true to enable Smart Cruise
+                        text: "Enable Smart Cruise (5 clicks)"
                         onClicked: { customDialog.open()}
                     }
 
@@ -1237,7 +1237,7 @@ Dialog {
         focus: true
         width: big.width - 20
         closePolicy: Popup.CloseOnEscape
-        title: "Custom Control"
+        title: "Smart Cruise"
 
        ScrollView {
                     id: customScroll
@@ -1256,7 +1256,7 @@ Dialog {
             wrapMode: Text.WordWrap
 
             text:
-                "This gives you the option of custom control if you have changed the software code to do so.  If when running you do a quintuple (5) click the display will show “C ?” another quintuple click this will confirm and custom control will be engaged. The display will show “C”"
+                "This gives you the option of Smart Cruise if you have changed the software code to do so.  If when running you do a quintuple (5) click the display will show "C ?" another quintuple click this will confirm and Smart Cruise will be engaged. The display will show "C""
             }
 
         Text {
@@ -1265,7 +1265,7 @@ Dialog {
             wrapMode: Text.WordWrap
            topPadding:10
             text:
-                "Any click on the trigger will disengage custom."
+                "Any click on the trigger will disengage Smart Cruise."
             }
 
         Text {
@@ -1290,7 +1290,7 @@ Dialog {
                         id: enable_custom
                         visible : true
                         Layout.fillWidth: true
-                        text: "Enable Custom Control"
+                        text: "Enable Smart Cruise"
                         checked: true
                         onClicked: { write_settings()}
 

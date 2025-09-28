@@ -20,8 +20,8 @@
 (eeprom-store-i 12 7) ; Speed to jump to on triple click, (actual speed #, not user speed)
 (eeprom-store-i 13 1) ; Turn safe start on or off 1=On 0=Off
 (eeprom-store-i 14 0) ; Enable Reverse speed. 1=On 0=Off
-(eeprom-store-i 15 0) ; Enable 5 click Custom Control. 1=On 0=Off
-(eeprom-store-i 16 60) ; How long before custom control times out and requires reactivation in sec.
+(eeprom-store-i 15 0) ; Enable 5 click Smart Cruise. 1=On 0=Off
+(eeprom-store-i 16 60) ; How long before Smart Cruise times out and requires reactivation in sec.
 (eeprom-store-i 17 0) ; Rotation of Display, 0-3 . Each number rotates display 90 deg.
 (eeprom-store-i 18 5) ; Display Brighness 0-5
 (eeprom-store-i 19 0) ; Bluetooth Wiring, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
@@ -43,8 +43,8 @@
 (define Jump_Speed (eeprom-read-i 12))
 (define Use_Safe_Start (eeprom-read-i 13))
 (define Enable_Reverse (eeprom-read-i 14))
-(define Enable_Custom_Control (eeprom-read-i 15))
-(define Custom_Control_Timeout (eeprom-read-i 16))
+(define Enable_Smart_Cruise (eeprom-read-i 15))
+(define Smart_Cruise_Timeout (eeprom-read-i 16))
 (define Rotation (eeprom-read-i 17))
 (define Disp_Brightness (eeprom-read-i 18))
 (define Bluetooth (eeprom-read-i 19))
@@ -144,7 +144,7 @@
 (define Timer_Start 0)
 (define Timer_Duration 0)
 (define New_Start_Speed Start_Speed)
-(define Custom_Control 0); variable to control Custom control on 5 clicks
+(define Smart_Cruise 0); variable to control Smart Cruise on 5 clicks
 (define Clicks 0)
 (define Thirds-Total 0)
 (define Warning-Counter 0); Count how many times the 3rds warnings have been triggered.
@@ -255,17 +255,17 @@
      (if (= Clicks 5)
         (progn
         (setvar 'Click_Beep 5)
-            (if (and (!= SPEED 99) (> Enable_Custom_Control 0) (< Custom_Control 1))
-                        (setvar 'Custom_Control (+ 0.5 Custom_Control))
+            (if (and (!= SPEED 99) (> Enable_Smart_Cruise 0) (< Smart_Cruise 1))
+                        (setvar 'Smart_Cruise (+ 0.5 Smart_Cruise))
             )
 
-            (if (= Custom_Control 0.5); If custom control is enabled, show it on screen
+            (if (= Smart_Cruise 0.5); If Smart Cruise is enabled, show it on screen
                 (progn
                     (setvar 'Disp-Num 16)
                     (setvar 'Last-Disp-Num 99); this display may be needed multiple times, so clear the last disp too
             ))
 
-            (if (= Custom_Control 1); If custom control is enabled, show it on screen
+            (if (= Smart_Cruise 1); If Smart Cruise is enabled, show it on screen
                 (progn
                     (setvar 'Disp-Num 17)
                     (if (< SPEED 2) ; re command actuall speed as reverification sets it to 0.8x
@@ -314,8 +314,8 @@
 
     ;xxx end repeat display section
 
-     (if (and (= Custom_Control 0.5) (> (secs-since Timer_Start) 5)); time out custom control if second activation isnt recieved within display duration
-        (setvar 'Custom_Control 0)
+     (if (and (= Smart_Cruise 0.5) (> (secs-since Timer_Start) 5)); time out Smart Cruise if second activation isnt recieved within display duration
+        (setvar 'Smart_Cruise 0)
      )
 
      ;Extra Long Press Commands when off (10 seconds)
@@ -347,7 +347,7 @@
    (loopwhile (= SW_STATE 3)
    (progn
     (sleep 0.02)
-    (if (> Custom_Control 0); If custom control is enabled, dont shut down
+    (if (> Smart_Cruise 0); If Smart Cruise is enabled, dont shut down
                 (timeout-reset)
             )
 
@@ -359,8 +359,8 @@
       (setvar 'Timer_Start (systime))
       (setvar 'Timer_Duration 0.3)
 
-      (if (= Custom_Control 1) ; if custom control is on and switch pressed, turn it off
-            (setvar 'Custom_Control 0)
+      (if (= Smart_Cruise 1) ; if Smart Cruise is on and switch pressed, turn it off
+            (setvar 'Smart_Cruise 0)
       ;else
             (if (< SAFE_START_TIMER 1) ; check safe start isnt running, dont allow gear shifts if it is on
             (setvar 'Clicks (+ Clicks 1)))
@@ -378,7 +378,7 @@
      (if (> (secs-since Timer_Start) Timer_Duration)
       (progn
 
-            (if (!= Custom_Control 1); If custom control is enabled, dont shut down
+            (if (!= Smart_Cruise 1); If Smart Cruise is enabled, dont shut down
                 (progn
                     (setvar 'Timer_Duration 999999); set to infinite
                     (if (< SPEED Start_Speed); start at old speed if less than start speed
@@ -389,7 +389,7 @@
                         (setvar 'New_Start_Speed Start_Speed)
                     )
                 (setvar 'SPEED 99)
-                (setvar 'Custom_Control 0) ; turn off custom control
+                (setvar 'Smart_Cruise 0) ; turn off Smart Cruise
                 (setvar 'SW_STATE 0)
                 (spawn 35 SW_STATE_0)
                 (break) ;SWST_OFF
@@ -397,10 +397,10 @@
 
 
 
-            (if (= Custom_Control 1); Require custom control to be re-enabled after a fixed duration
-                (if (> (secs-since Timer_Start) Custom_Control_Timeout);
+            (if (= Smart_Cruise 1); Require Smart Cruise to be re-enabled after a fixed duration
+                (if (> (secs-since Timer_Start) Smart_Cruise_Timeout);
                     (progn
-                    (setvar 'Custom_Control 0.5)
+                    (setvar 'Smart_Cruise 0.5)
                     (setvar 'Timer_Start (systime))
                     (setvar 'Timer_Duration 5); sets timer duration to display duration to allow for re-enable
                     (setvar 'Disp-Num 16)
@@ -714,7 +714,7 @@
   (progn
 
   (if (= Scooter_Type 0) ;For Blacktip Turn off the display
-        (if (!= Last-Disp-Num 17); if last display was the custom control, dont disable display
+        (if (!= Last-Disp-Num 17); if last display was the Smart Cruise, dont disable display
             (i2c-tx-rx 0x70 (list 0x80))))
    ;else For Cuda X make sure it doesnt get stuck on diaplaying B1 or B2 error, so switch back to last battery.
   (if (and (= Scooter_Type 1) (> Last-Disp-Num 20) )
