@@ -493,6 +493,22 @@ Item {
                         }
                     }
 
+                    DoubleSpinBox {
+                        id: battery_ah
+                        Layout.fillWidth: true
+                        visible : true
+                        decimals: 1
+                        prefix: "Battery capacity: "
+                        realFrom: 0.5
+                        realTo: 20
+                        realValue: 9
+                        realStepSize: 0.5
+                        onRealValueChanged: {
+                            mMcConf.updateParamDouble("si_battery_ah", battery_ah.realValue, null)
+                            mCommands.setMcconf(false)
+                        }
+                    }
+
                      Button {
                         Layout.fillWidth: true
                         text: "Enable Untangle And Reverse (4 Clicks)"
@@ -746,7 +762,10 @@ Item {
         da.setUint8(23, (display_rotation2.realValue == 0) ? 0 : Math.round(display_rotation2.realValue / 90))
         da.setUint8(24, enable_tbeeps.checked ? 1 : 0)
         mCommands.sendCustomAppData(buffer)
+
         ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
+        battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
+
         console.log("Sent? " )
     }
 
@@ -1006,7 +1025,10 @@ Item {
             cudaX_Flip.checked =  (dv.getUint8(22) == 1 )? true : false
             display_rotation2.realValue = (dv.getUint8(23) == 0) ? 0 : dv.getUint8(23) * 90
             enable_tbeeps.checked =  (dv.getUint8(24) == 1 )? true : false
+
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
+            battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
+
             readSettingsDone = true
 
             console.log("Values From Lisp Recieved")
