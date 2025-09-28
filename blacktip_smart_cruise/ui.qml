@@ -31,7 +31,7 @@ Item {
     property int gaugeSize: big.width * 0.8
     property int gaugeSize2: big.width * 0.45
 
- 
+
 
 
 
@@ -80,25 +80,25 @@ Item {
             clip: true
 
             // Home page settings.
-      
+
             Page {
-                
+
                 ScrollView {
                     id: homeScroll
                     anchors.fill: parent
                     clip: true
-                    contentWidth: availableWidth  
-                
+                    contentWidth: availableWidth
+
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
-                
+
                     Rectangle {
                         id: big
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         color: "transparent"
-                        
+
 
                         CustomGauge {
                             id: speedGauge
@@ -115,18 +115,18 @@ Item {
                             labelStep: 200
                             value: 0
                             typeText: "RPM"
-                            
+
                             Image {
                                 anchors.centerIn: parent
                                 antialiasing: true
                                 height: big.width * 0.2
                                 fillMode: Image.PreserveAspectFit
                                 source : "https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_smart_cruise/shark_with_laser.png"
-                                
+
                                 anchors.horizontalCenterOffset: -(big.width)/3.7
                                 anchors.verticalCenterOffset: -(big.width)/1.9
                             }
-                            
+
                             Text {
                                 id: name
                                 color: Utility.getAppHexColor("lightText")
@@ -138,8 +138,8 @@ Item {
                                 anchors.horizontalCenterOffset: big.width*0.45
                                 font.family:  "Roboto"
                             }
-                            
-                            
+
+
                             CustomGauge {
                                 id: batteryGauge
                                 width: gaugeSize2*1.2
@@ -157,7 +157,7 @@ Item {
                                 property color orangeColor: Utility.getAppHexColor("orange")
                                 property color redColor: "red"
                                 nibColor: value > 50 ? greenColor : value > 20 ? orangeColor : redColor
-                                
+
                                 Text {
                                     id: batteryLabel
                                     color: Utility.getAppHexColor("lightText")
@@ -169,7 +169,7 @@ Item {
                                     anchors.margins: 10
                                     font.family:  "Roboto"
                                 }
-                                
+
                                 Text {
                                     id: battValLabel
                                     color: Utility.getAppHexColor("lightText")
@@ -182,7 +182,7 @@ Item {
                                     anchors.margins: 10
                                     font.family:  "Roboto"
                                 }
-                                
+
                                 Behavior on nibColor {
                                     ColorAnimation {
                                         duration: 1000;
@@ -192,7 +192,7 @@ Item {
                                 }
                             }
                         }
-                        
+
                         CustomGauge {
                             id: escTempGauge
                             width:gaugeSize2
@@ -201,7 +201,7 @@ Item {
                             anchors.horizontalCenterOffset: -0.25 *big.width
                             anchors.verticalCenter: big.top
                             anchors.verticalCenterOffset: (1.05 * big.width) + tab.height
-                            
+
                             minimumValue: 0
                             maximumValue: 100
                             value: 0
@@ -222,9 +222,9 @@ Item {
                             typeText: "TEMP\nESC"
                             minAngle: -160
                             maxAngle: 160
-                            
+
                         }
-                        
+
                         CustomGauge {
                             id: motTempGauge
                             width: gaugeSize2
@@ -258,25 +258,25 @@ Item {
                 }
             }}
             // Speeds Page
-            
+
             Page {
                 background: Rectangle {
                     opacity: 0.0
                 }
-                
-                
+
+
                 ScrollView {
                     id: speedsScroll
                     anchors.fill: parent
                     clip: true
-                    contentWidth: availableWidth 
-                    
-                    
-                    
+                    contentWidth: availableWidth
+
+
+
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 0
-                        
+
                         DoubleSpinBox {
                             id: reverse_speed
                             Layout.fillWidth: true
@@ -290,7 +290,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: untangle_speed
                             Layout.fillWidth: true
@@ -304,8 +304,8 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                                                       
-                        
+
+
                         DoubleSpinBox {
                             id: one_speed
                             Layout.fillWidth: true
@@ -318,7 +318,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: two_speed
                             Layout.fillWidth: true
@@ -332,7 +332,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: three_speed
                             Layout.fillWidth: true
@@ -346,7 +346,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: four_speed
                             Layout.fillWidth: true
@@ -360,7 +360,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: five_speed
                             Layout.fillWidth: true
@@ -374,7 +374,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: six_speed
                             Layout.fillWidth: true
@@ -388,7 +388,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: seven_speed
                             Layout.fillWidth: true
@@ -402,7 +402,7 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                        
+
                         DoubleSpinBox {
                             id: eight_speed
                             Layout.fillWidth: true
@@ -416,28 +416,28 @@ Item {
                             realStepSize: 1.0
                             onRealValueChanged: { write_settings()}
                         }
-                    } 
+                    }
                 }
             }
-            
+
             /// Settings Page
-            
+
             Page {
                 background: Rectangle {
                     opacity: 0.0
                 }
-                
-                
+
+
                 ScrollView {
                     id: settingsScroll
                     anchors.fill: parent
                     clip: true
-                    contentWidth: availableWidth  
-               
+                    contentWidth: availableWidth
+
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
-                    
+
                     DoubleSpinBox {
                         id: no_speeds
                         Layout.fillWidth: true
@@ -450,7 +450,7 @@ Item {
                         realStepSize: 1.0
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                     DoubleSpinBox {
                         id: start_speed
                         Layout.fillWidth: true
@@ -463,7 +463,7 @@ Item {
                         realStepSize: 1.0
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                     DoubleSpinBox {
                         id: jump_speed
                         Layout.fillWidth: true
@@ -476,7 +476,7 @@ Item {
                         realStepSize: 1.0
                         onRealValueChanged: { write_settings()}
                    }
-                    
+
                     DoubleSpinBox {
                         id: ramp_rate
                         Layout.fillWidth: true
@@ -492,20 +492,20 @@ Item {
                             mCommands.setMcconf(false)
                         }
                     }
-                    
+
                      Button {
                         Layout.fillWidth: true
                         text: "Enable Untangle And Reverse (4 Clicks)"
                         onClicked: { reverseDialog.open()}
                     }
-                    
+
                     Button {
                         Layout.fillWidth: true
                         visible: true //Change to true to enable Custom Controls
                         text: "Enable Custom Control (5 clicks)"
                         onClicked: { customDialog.open()}
                     }
-                    
+
                     CheckBox {
                         id: safe_start
                         visible : true
@@ -514,7 +514,7 @@ Item {
                         checked: false
                         onClicked: { write_settings()}
                     }
-                        
+
                     CheckBox {
                         id: enable_beeps
                         visible : true
@@ -523,7 +523,7 @@ Item {
                         checked: false
                         onClicked: { write_settings()}
                     }
-                        
+
                     CheckBox {
                         id: enable_tbeeps
                         visible : true
@@ -532,7 +532,7 @@ Item {
                         checked: false
                         onClicked: { write_settings()}
                     }
-                                                                                            
+
                     DoubleSpinBox {
                         id: beeps_volume
                         Layout.fillWidth: true
@@ -545,7 +545,7 @@ Item {
                         realStepSize: 1
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                     CheckBox {
                         id: cudaX_Flip
                         visible : (enable_bluetooth.currentIndex > 2) ? true : false
@@ -554,7 +554,7 @@ Item {
                         checked: false
                         onClicked: { write_settings()}
                     }
-                    
+
                     DoubleSpinBox {
                         id: display_rotation
                         Layout.fillWidth: true
@@ -568,7 +568,7 @@ Item {
                         realStepSize: 90
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                      DoubleSpinBox {
                         id: display_rotation2
                         Layout.fillWidth: true
@@ -582,7 +582,7 @@ Item {
                         realStepSize: 90
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                     DoubleSpinBox {
                         id: display_brightness
                         Layout.fillWidth: true
@@ -596,34 +596,34 @@ Item {
                         realStepSize: 20
                         onRealValueChanged: { write_settings()}
                     }
-                    
+
                  Text {
                         id: text1
                         topPadding:5
                         font.pixelSize: Qt.application.font.pixelSize * 0.8
                         color: Utility.getAppHexColor("lightText")
                         text: "*Restart Required"
-                        
+
                     }
-                   
-                             
-                               
+
+
+
                  Item {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
                     }
-                    
-                        
-                          
+
+
+
                  Button {
                         Layout.fillWidth: true
                         text: "Change Scooter Hardware Type"
                         visible: true
                         onClicked: { hardwareDialog.open()}
                     }
-                    
-                
-                
+
+
+
                 }
             }}
 
@@ -638,9 +638,9 @@ Item {
         repeat: true
         interval: 1000
         running: true
-        
+
         onTriggered: {
-            
+
             if (readSettingsDone) {
                 return
             }
@@ -658,36 +658,36 @@ Item {
         interval: 50
         running: true
         repeat: true
-        
+
         onTriggered: {
-            
+
             if (swipeView.currentIndex == 0){
                 mCommands.getValues()
                 mCommands.getValuesSetup()
             }}}
-    
+
     // get HW and firmware values
-    
+
     function updateFwText() {
         var params = VescIf.getLastFwRxParams()
-        
+
         var testFwStr = "";
         var fwNameStr = "";
-        
+
         if (params.isTestFw > 0) {
             testFwStr = " BETA " +  params.isTestFw
         }
-        
+
         if (params.fwName !== "") {
             fwNameStr = " (" + params.fwName + ")"
         }
-        
-        versionText.text = "Your Scooter Electronics Hardware (HW) Version is: " + params.hw 
-               
-        // Text for FW version        
-       // "Current FW : v" + params.major + "." + (1e5 + params.minor + '').slice(-2) + fwNameStr + testFwStr + "\n" + 
+
+        versionText.text = "Your Scooter Electronics Hardware (HW) Version is: " + params.hw
+
+        // Text for FW version
+       // "Current FW : v" + params.major + "." + (1e5 + params.minor + '').slice(-2) + fwNameStr + testFwStr + "\n" +
     }
-    
+
     // delay timer
     Timer {
         id: timer
@@ -699,7 +699,7 @@ Item {
             }
         }
     }
-    
+
     function delay(delayTime, cb) {
         timer.stop();
         timer.interval = Math.max(0, Math.floor(delayTime));
@@ -709,17 +709,17 @@ Item {
     }
 
     // write settings
-    
+
     function write_settings () {
-        
+
         if (!readSettingsDone) {
             return
         }
-        
-        
+
+
         var buffer = new ArrayBuffer(25)
         var da = new DataView(buffer)
-        
+
         da.setUint8(0, reverse_speed.realValue)
         da.setUint8(1, untangle_speed.realValue)
         da.setUint8(2, one_speed.realValue)
@@ -739,7 +739,7 @@ Item {
         da.setUint8(16, custom_timeout.realValue)
         da.setUint8(17, (display_rotation.realValue == 0) ? 0 : Math.round(display_rotation.realValue / 90))
         da.setUint8(18, (display_brightness.realValue == 0) ? 0 : Math.round(display_brightness.realValue / 20))
-        da.setUint8(19, enable_bluetooth.currentIndex) 
+        da.setUint8(19, enable_bluetooth.currentIndex)
         da.setUint8(20, enable_beeps.checked ? 1 : 0)
         da.setUint8(21, beeps_volume.realValue)
         da.setUint8(22, cudaX_Flip.checked ? 1 : 0)
@@ -749,9 +749,9 @@ Item {
         ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
         console.log("Sent? " )
     }
-    
+
     function reset_defaults_blacktip () {
-        
+
         var buffer1 = new ArrayBuffer(25)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
@@ -780,18 +780,18 @@ Item {
         da1.setUint8(23, 0)
         da1.setUint8(24, 0)
         mCommands.sendCustomAppData(buffer1)
-        
-        
+
+
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
-        
+
         mMcConf.updateParamInt("si_motor_poles", 5, null)
         mMcConf.updateParamDouble("l_erpm_start", 0.9, null)
         mMcConf.updateParamDouble("l_in_current_map_start", 1, null) //6.05 only
         mMcConf.updateParamDouble("l_in_current_map_filter", 0.005, null) //6.05 only
         mMcConf.updateParamDouble("l_min_erpm", -6000, null)
         mMcConf.updateParamDouble("l_max_erpm", 6000, null)
-        
-        
+
+
         //Motor Temp Settings
         mMcConf.updateParamInt("l_temp_motor_start", 160, null)
         mMcConf.updateParamInt("l_temp_motor_end", 180, null)
@@ -800,7 +800,7 @@ Item {
         mMcConf.updateParamDouble("m_ntc_motor_beta", 3950, null)
         mMcConf.updateParamBool("foc_temp_comp", 1, null)
         mMcConf.updateParamDouble("foc_temp_comp_base_temp", 67.3, null)
-        
+
         //FOC Blacktip motor settings
         mMcConf.updateParamDouble("foc_motor_r", 0.1225, null)
         mMcConf.updateParamDouble("foc_motor_l", 0.00023008, null) //245.97
@@ -810,24 +810,24 @@ Item {
         mMcConf.updateParamDouble("foc_current_ki", 122.48, null)
         mMcConf.updateParamDouble("foc_observer_gain", 3.63e+06, null)
         mMcConf.updateParamDouble("foc_openloop_rpm", 500, null)
-        
+
         mMcConf.updateParamDouble("foc_sl_openloop_hyst", 0.1, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time_lock", 0, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time_ramp", 0.1, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time", 0.05, null)
         mMcConf.updateParamDouble("foc_sl_openloop_boost_q", 20, null)
         mMcConf.updateParamDouble("foc_sl_openloop_max_q", 30, null)
-        
+
         //PID Settings
         mMcConf.updateParamDouble("s_pid_min_erpm", 5, null)
         mMcConf.updateParamBool("s_pid_allow_braking", 0, null)
         mMcConf.updateParamDouble("s_pid_ramp_erpms_s", 5000, null)
-        
+
         //Battery Settings
         mMcConf.updateParamEnum("si_battery_type", 0, null)
         mMcConf.updateParamInt("si_battery_cells", 10, null)
         mMcConf.updateParamDouble("si_battery_ah", 9, null)
-        
+
         //Current & Voltage Settings
         mMcConf.updateParamDouble("l_current_max", 45, null)
         mMcConf.updateParamDouble("l_current_min", -45, null)
@@ -837,29 +837,29 @@ Item {
         mMcConf.updateParamDouble("l_min_vin", 29, null)
         mMcConf.updateParamDouble("l_battery_cut_start", 32, null)
         mMcConf.updateParamDouble("l_battery_cut_end", 30, null)
-        
+
         // App settings for UART/Bluetooth
         mAppConf.updateParamEnum("app_to_use", 3)
         mAppConf.updateParamInt("app_uart_baudrate", 115200)
         mAppConf.updateParamEnum("shutdown_mode", 9)
-        
-      
+
+
          mCommands.setMcconf(false) // Write Motor settings immediatly
-        
-        
+
+
         delay(2000, function() {
             mCommands.setAppConf()  // Write App settings 2 seconds later
         })
-        
-        
+
+
         readSettingsDone = false
-        
+
         console.log("Defaults Reset" )
-        
+
     }
-    
+
     function reset_defaults_cudax () {
-        
+
         var buffer1 = new ArrayBuffer(25)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
@@ -888,18 +888,18 @@ Item {
         da1.setUint8(23, 2)
         da1.setUint8(24, 0)
         mCommands.sendCustomAppData(buffer1)
-        
-        
+
+
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
-        
+
         mMcConf.updateParamInt("si_motor_poles", 7, null)
         mMcConf.updateParamDouble("l_erpm_start", 0.9, null)
         mMcConf.updateParamDouble("l_in_current_map_start", 1, null) //6.05 only
         mMcConf.updateParamDouble("l_in_current_map_filter", 0.005, null) //6.05 only
         mMcConf.updateParamDouble("l_min_erpm", -9000, null)
         mMcConf.updateParamDouble("l_max_erpm", 9000, null)
-        
-        
+
+
         //Motor Temp Settings
         mMcConf.updateParamInt("l_temp_motor_start", 160, null)
         mMcConf.updateParamInt("l_temp_motor_end", 180, null)
@@ -908,36 +908,36 @@ Item {
         mMcConf.updateParamDouble("m_ntc_motor_beta", 3950, null)
         mMcConf.updateParamBool("foc_temp_comp", 1, null)
         mMcConf.updateParamDouble("foc_temp_comp_base_temp", 67.7, null)
-        
+
         //FOC Cuda X motor settings
         mMcConf.updateParamDouble("foc_motor_r", 0.0253, null)
-        mMcConf.updateParamDouble("foc_motor_l", 0.00013034, null) 
+        mMcConf.updateParamDouble("foc_motor_l", 0.00013034, null)
         mMcConf.updateParamDouble("foc_motor_ld_lq_diff", 0.00001821, null)
         mMcConf.updateParamDouble("foc_motor_flux_linkage", 0.014246, null)
         mMcConf.updateParamDouble("foc_current_kp", 0.1303, null)
         mMcConf.updateParamDouble("foc_current_ki", 25.25, null)
         mMcConf.updateParamDouble("foc_observer_gain", 4.93e+06, null)
         mMcConf.updateParamDouble("foc_openloop_rpm", 500, null)
-        
+
         mMcConf.updateParamDouble("foc_sl_openloop_hyst", 0.1, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time_lock", 0, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time_ramp", 0.1, null)
         mMcConf.updateParamDouble("foc_sl_openloop_time", 0.05, null)
         mMcConf.updateParamDouble("foc_sl_openloop_boost_q", 20, null)
         mMcConf.updateParamDouble("foc_sl_openloop_max_q", 30, null)
-        
-        
-        
+
+
+
         //PID Settings
         mMcConf.updateParamDouble("s_pid_min_erpm", 5, null)
         mMcConf.updateParamBool("s_pid_allow_braking", 0, null)
         mMcConf.updateParamDouble("s_pid_ramp_erpms_s", 5000, null)
-        
+
         //Battery Settings
         mMcConf.updateParamEnum("si_battery_type", 0, null)
         mMcConf.updateParamInt("si_battery_cells", 10, null)
         mMcConf.updateParamDouble("si_battery_ah", 9, null)
-        
+
         //Current & Voltage Settings
         mMcConf.updateParamDouble("l_current_max", 100, null)
         mMcConf.updateParamDouble("l_current_min", -100, null)
@@ -947,40 +947,40 @@ Item {
         mMcConf.updateParamDouble("l_min_vin", 29, null)
         mMcConf.updateParamDouble("l_battery_cut_start", 32, null)
         mMcConf.updateParamDouble("l_battery_cut_end", 30, null)
-        
+
         // App settings for UART/Bluetooth
         mAppConf.updateParamEnum("app_to_use", 3)
         mAppConf.updateParamInt("app_uart_baudrate", 115200)
         mAppConf.updateParamEnum("shutdown_mode", 9)
-        
-       
+
+
         mCommands.setMcconf(false) // Write Motor settings immediatly
-        
-        
+
+
         delay(2000, function() {
             mCommands.setAppConf()  // Write App settings 2 seconds later
         })
-        
-       
-        
+
+
+
         readSettingsDone = false
-        
+
         console.log("Defaults Reset" )
-        
+
     }
 
 
 
     Connections {
         target: mCommands
-        
+
         function onCustomAppDataReceived (data) {
             var dv = new DataView(data)
-            
-           
+
+
             enable_bluetooth.currentIndex =  dv.getUint8(19) // set first so U spinbox range is opened up for cuda x
-            
-            
+
+
             reverse_speed.realValue = dv.getUint8(0)
             untangle_speed.realValue = dv.getUint8(1)
             one_speed.realValue = dv.getUint8(2)
@@ -1008,18 +1008,18 @@ Item {
             enable_tbeeps.checked =  (dv.getUint8(24) == 1 )? true : false
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             readSettingsDone = true
-            
+
             console.log("Values From Lisp Recieved")
-            
+
         }
     }
-    
+
     Connections {
         id: commandsUpdate
         target: mCommands
-        
+
         property string lastFault: ""
-        
+
         function onValuesSetupReceived(values, mask) {
 
            var soc = Math.max(0, Math.min(1, values.battery_level))
@@ -1041,15 +1041,15 @@ Item {
             motTempGauge.labelStep = Math.ceil(motTempGauge.maximumValue/ 50) * 5
             motTempGauge.maximumValue = Math.ceil(mMcConf.getParamDouble("l_temp_motor_end") / 5) * 5
             motTempGauge.throttleStartValue = Math.ceil(mMcConf.getParamDouble("l_temp_motor_start") / 5) * 5
-            
-            
+
+
         }
     }
 
 
 Dialog {
         id: reverseDialog
-        standardButtons: Dialog.Ok 
+        standardButtons: Dialog.Ok
         modal: true
         focus: true
         width: big.width - 20
@@ -1060,19 +1060,19 @@ Dialog {
                     id: reverseScroll
                     anchors.fill: parent
                     clip: true
-                    contentWidth: availableWidth 
-        
-        
+                    contentWidth: availableWidth
+
+
         ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
-    
+
 
         Text {
             color: "#ffffff"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-           
+
             text:
                 "This adds two reverse gears, untangle and reverse. You can access these gears via a quadruple (4) click on the trigger."
             }
@@ -1085,7 +1085,7 @@ Dialog {
             text:
                 "<b> This feature can be dangerous and requires training. By enabling this feature you acknowledge you fully understand how to use it safely. <b>"
             }
-        
+
         CheckBox {
                         id: enable_reverse
                         visible : true
@@ -1097,10 +1097,10 @@ Dialog {
             }
             }
         }
-    
+
     Dialog {
         id: hardwareDialog
-        standardButtons: Dialog.Ok 
+        standardButtons: Dialog.Ok
         modal: true
         focus: true
         width: big.width - 20
@@ -1111,19 +1111,19 @@ Dialog {
                     id: hardwareScroll
                     anchors.fill: parent
                     clip: true
-                    contentWidth: availableWidth 
-        
-        
+                    contentWidth: availableWidth
+
+
         ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
-    
+
 
         Text {
             color: "#ffffff"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-           
+
             text:
                 "The below dropdown allows you to select your scooter and hardware type."
             }
@@ -1136,7 +1136,7 @@ Dialog {
             text:
                 "<b> Warning: If you are connected via Bluetooth and select a scooter without Bluetooth you will loose your connection.<b>"
             }
-        
+
            Text {
             color: "#ffffff"
             Layout.fillWidth: true
@@ -1145,17 +1145,17 @@ Dialog {
             text:
                 "If you loose Bluetooth you will need to use the PC based VESC Tool and connect via USB to select the correct scooter."
             }
-                                    
+
            Text {
             Layout.fillWidth: true
             font.pixelSize: Qt.application.font.pixelSize
             id: versionText
             topPadding:15
             color: Utility.getAppHexColor("lightText")
-            text: "Your Scooter Electronics Hardware (HW) Version is   : "      
-                    }    
-                   
-                    
+            text: "Your Scooter Electronics Hardware (HW) Version is   : "
+                    }
+
+
                     ComboBox {
                         id: enable_bluetooth
                         visible : true
@@ -1163,15 +1163,15 @@ Dialog {
                         currentIndex: 0
                         model:  ["Blacktip HW:60_MK5 with Bluetooth (Latest)*","Blacktip HW:60, No Bluetooth*","Blacktip HW:410, No Bluetooth*", "Cuda-X HW:60_MK5, With Bluetooth (Latest)*" , "Cuda-X HW:60, No Bluetooth*"]
                         onCurrentIndexChanged: { write_settings()}
-                        
+
                     }
-                   
+
                     Rectangle {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
                         color : "transparent"
                     }
-                    
+
                     Text {
                         color: "#ffffff"
                         Layout.fillWidth: true
@@ -1180,37 +1180,37 @@ Dialog {
                         text:
                             "Use reset button to reset ALL the settings for the scooter. Must be used after a firmware update."
             }
-                   
+
                     Button {
                         Layout.fillWidth: true
                         text: "Reset Blacktip Defaults*"
                         visible: (enable_bluetooth.currentIndex < 3) ? true : false
                         onClicked: { reset_defaults_blacktip ()}
                     }
-                
+
                     Button {
                         Layout.fillWidth: true
                         text: "Reset Cuda-X Defaults*"
                         visible: (enable_bluetooth.currentIndex > 2) ? true : false
                         onClicked: { reset_defaults_cudax ()}
                     }
-            
+
                     Text {
                         id: text3
                         topPadding:5
                         font.pixelSize: Qt.application.font.pixelSize * 0.8
                         color: Utility.getAppHexColor("lightText")
                         text: "*Restart Required"
-                        
+
                     }
                }
-             
+
             }
         }
-    
+
     Dialog {
         id: customDialog
-        standardButtons: Dialog.Ok 
+        standardButtons: Dialog.Ok
         modal: true
         focus: true
         width: big.width - 20
@@ -1222,17 +1222,17 @@ Dialog {
                     anchors.fill: parent
                     clip: true
                     contentWidth: availableWidth
-                            
+
        ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
-    
+
 
         Text {
             color: "#ffffff"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-           
+
             text:
                 "This gives you the option of custom control if you have changed the software code to do so.  If when running you do a quintuple (5) click the display will show “C ?” another quintuple click this will confirm and custom control will be engaged. The display will show “C”"
             }
@@ -1263,17 +1263,17 @@ Dialog {
             text:
                 "<b> Changing the software and coding new features can be dangerous.  By changing the software code and enabling this feature you acknowledge you fully understand how to use it safely. <b>"
             }
-        
+
         CheckBox {
                         id: enable_custom
-                        visible : true 
+                        visible : true
                         Layout.fillWidth: true
                         text: "Enable Custom Control"
                         checked: true
                         onClicked: { write_settings()}
-                        
+
                     }
-                    
+
                     DoubleSpinBox {
                         id: custom_timeout
                         Layout.fillWidth: true
@@ -1289,7 +1289,7 @@ Dialog {
                     }
             }}
         }
-    
+
 
 
 
