@@ -161,6 +161,7 @@ typedef struct {
 	float mc_max_temp_fet, mc_max_temp_mot;
 	float mc_current_max, mc_current_min, current_max, current_min, max_continuous_current;
 	float surge_angle, surge_angle2, surge_angle3, surge_adder;
+	float ki; // config ki scaled taking account the loop frequency.
 	bool overcurrent;
 	bool surge_enable;
 	bool current_beeping;
@@ -393,6 +394,11 @@ static void app_init(data *d) {
 	d->odometer = VESC_IF->mc_get_odometer();
 }
 
+static float normalized_to_iteration_ki(float normalized_ki, int loop_freq_hz) {
+	 // Default frequency of Float thread used to be 832 Hz so we retain that scale.
+	return normalized_ki * (832.0 / loop_freq_hz);
+}
+
 static void configure(data *d) {
 	d->debug_render_1 = 2;
 	d->debug_render_2 = 4;
@@ -418,6 +424,7 @@ static void configure(data *d) {
 	d->turntilt_step_size = d->float_conf.turntilt_speed / d->float_conf.hertz;
 	d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
 	d->inputtilt_step_size = d->float_conf.inputtilt_speed / d->float_conf.hertz;
+	d->ki = normalized_to_iteration_ki(d->float_conf.ki, d->float_conf.hertz);
 
 	d->surge_angle = d->float_conf.surge_angle;
 	d->surge_angle2 = d->float_conf.surge_angle * 2;
@@ -2011,7 +2018,7 @@ static void float_thd(void *arg) {
 			bool tail_down = SIGN(d->proportional) != SIGN(d->erpm);
 
 			// Resume real PID maths
-			d->pid_integral = d->pid_integral + d->proportional * d->float_conf.ki;
+			d->pid_integral = d->pid_integral + d->proportional * d->ki;
 
 			// Apply I term Filter
 			if (d->float_conf.ki_limit > 0 && fabsf(d->pid_integral) > d->float_conf.ki_limit) {
@@ -2729,6 +2736,7 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 			d->float_conf.ki = 0.005;
 		else if (h1 > 1)
 			d->float_conf.ki = ((float)(h1 - 1)) / 100;
+		d->ki = normalized_to_iteration_ki(d->float_conf.ki, d->float_conf.hertz);
 		d->float_conf.ki_limit = h2 + 19;
 		if (h2 == 0)
 			d->float_conf.ki_limit = 0;
