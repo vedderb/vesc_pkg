@@ -11,3 +11,4 @@ confxml.h
 *.cproject
 *.project
 *.settings
+*.vscode
