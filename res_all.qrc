@@ -20,6 +20,7 @@
         <file>vdisp/vdisp.vescpkg</file>
         <file>vdisp/vdisp_esc.vescpkg</file>
         <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
+        <file>timeout/timeout.vescpkg</file>
    </qresource>
 </RCC>
 
