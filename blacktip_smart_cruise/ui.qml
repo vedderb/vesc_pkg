@@ -558,6 +558,15 @@ Item {
                         onClicked: { write_settings()}
                     }
 
+                    CheckBox {
+                        id: use_ah_battery_calculation
+                        visible : true
+                        Layout.fillWidth: true
+                        text: "Use ampere-hour based battery calculation"
+                        checked: false
+                        onClicked: { write_settings()}
+                    }
+
                     DoubleSpinBox {
                         id: beeps_volume
                         Layout.fillWidth: true
@@ -742,7 +751,7 @@ Item {
         }
 
 
-        var buffer = new ArrayBuffer(28)
+        var buffer = new ArrayBuffer(29)
         var da = new DataView(buffer)
 
         da.setUint8(0, reverse_speed.realValue)
@@ -773,6 +782,7 @@ Item {
         da.setUint8(25, enable_smart_cruise_auto_engage.checked ? 1 : 0)
         da.setUint8(26, smart_cruise_auto_engage_delay.realValue)
         da.setUint8(27, enable_thirds_warning_startup.checked ? 1 : 0)
+        da.setUint8(28, use_ah_battery_calculation.checked ? 1 : 0)
         mCommands.sendCustomAppData(buffer)
 
         ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
@@ -782,7 +792,7 @@ Item {
     }
 
     function reset_defaults_blacktip () {
-        var buffer1 = new ArrayBuffer(28)
+        var buffer1 = new ArrayBuffer(29)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
         da1.setUint8(1, 20)
@@ -812,6 +822,7 @@ Item {
         da1.setUint8(25, 0) // Enable Auto-Engage default: off
         da1.setUint8(26, 10) // Auto-Engage Delay default: 10 seconds
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
+        da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/master/datatypes.h
@@ -890,7 +901,7 @@ Item {
     }
 
     function reset_defaults_cudax () {
-        var buffer1 = new ArrayBuffer(28)
+        var buffer1 = new ArrayBuffer(29)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
         da1.setUint8(1, 10)
@@ -920,6 +931,7 @@ Item {
         da1.setUint8(25, 0) // Enable Auto-Engage default: off
         da1.setUint8(26, 10) // Auto-Engage Delay default: 10 seconds
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
+        da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
@@ -1040,6 +1052,7 @@ Item {
             enable_smart_cruise_auto_engage.checked =  (dv.getUint8(25) == 1 )? true : false
             smart_cruise_auto_engage_delay.realValue = dv.getUint8(26)
             enable_thirds_warning_startup.checked =  (dv.getUint8(27) == 1 )? true : false
+            use_ah_battery_calculation.checked =  (dv.getUint8(28) == 1 )? true : false
 
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
