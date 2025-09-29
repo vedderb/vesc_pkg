@@ -28,7 +28,7 @@ Item {
         }
         
         // Prevent installing on VBMS
-        if (hwName == "vbms32") {
+        if (hwName == "vbms16" || hwName == "vbms32") {
             return false
         }
 		
