@@ -32,10 +32,20 @@
 (eeprom-store-i 24 0) ; Trigger Click Beeps
 (eeprom-store-i 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
 (eeprom-store-i 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
+(eeprom-store-i 27 0) ; Enable Thirds warning on from power-up. 1=On 0=Off
 (eeprom-store-i 127 150); writes 150 to eeprom to stop settings being loaded again
 ))
 
 ;**** Program to update settings from eeprom ****
+
+(defun calculate-corrected-battery (raw-batt)
+    "Calculate corrected battery percentage from raw battery reading"
+    (+ (* 4.3867 raw-batt raw-batt raw-batt raw-batt)
+       (* -6.7072 raw-batt raw-batt raw-batt)
+       (* 2.4021 raw-batt raw-batt)
+       (* 1.3619 raw-batt)))
+
+(move-to-flash calculate-corrected-battery)
 
 (defun Update_Settings () ;Program that reads eeprom and writes to variables
    (progn
@@ -57,6 +67,7 @@
 (define Enable_Trigger_Beeps (eeprom-read-i 24))
 (define Enable_Smart_Cruise_Auto_Engage (eeprom-read-i 25))
 (define Smart_Cruise_Auto_Engage_Time (eeprom-read-i 26))
+(define Enable_Thirds_Warning_Startup (eeprom-read-i 27))
 
 (define Speed_Set (list
 (eeprom-read-i 0); Reverse Speed 2 %
@@ -81,6 +92,19 @@
 
 (Update_Settings) ; creates all settings variables
 
+;**** Auto-enable thirds warning on startup if setting is enabled ****
+(if (> Enable_Thirds_Warning_Startup 0)
+    (progn
+        ; Wait a bit for battery reading to stabilize
+        (sleep 1.0)
+        ; Calculate corrected battery % using the new function
+        (define Temp-Batt-Startup (get-batt))
+        (define Actual-Batt-Startup (calculate-corrected-battery Temp-Batt-Startup))
+        ; Set Thirds-Total to current battery level
+        (setvar 'Thirds-Total Actual-Batt-Startup)
+        (setvar 'Warning-Counter 0)
+    ))
+
 ;**** Program that interperets data from GUI ****
 
 (defun My_Data_Recv_Prog (data)
@@ -88,16 +112,16 @@
     (if (= (bufget-u8 data 0) 255 );Handshake to trigger data send if not yet recieved.
     (progn
 
-    (define setbuf (array-create 27))  ;create a temp array to store setting
+    (define setbuf (array-create 28))  ;create a temp array to store setting
     (bufclear setbuf) ;clear the buffer
-    (looprange i 0 27
+    (looprange i 0 28
     (bufset-i8 setbuf i (or (eeprom-read-i i) 0)))
     (send-data setbuf)
     (free setbuf)
     )
 
     (progn
-    (looprange i 0 27
+    (looprange i 0 28
     (eeprom-store-i i (bufget-u8 data i))); writes settings to eeprom
     (Update_Settings); updates actuall settings in lisp
 
@@ -206,7 +230,7 @@
      (progn
    ;Claculate corrected batt %, only needed when scooter is off in state 0
    (setvar 'Temp-Batt (get-batt))
-   (setvar 'Actual-Batt  (+ (* 4.3867 Temp-Batt Temp-Batt Temp-Batt Temp-Batt) (* -6.7072 Temp-Batt Temp-Batt Temp-Batt)(* 2.4021 Temp-Batt Temp-Batt)(* 1.3619 Temp-Batt )))
+   (setvar 'Actual-Batt (calculate-corrected-battery Temp-Batt))
    (sleep 0.02)
 
 
