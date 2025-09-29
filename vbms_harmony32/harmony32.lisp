@@ -58,6 +58,32 @@
 
 @const-start
 
+;;; Hack until problem is found ;;;
+; Pre-load all functions that are loaded with the dynamic loader. This will
+; make them end up in the image and there is no need to load them dynamically.
+
+str-merge
+foldl
+foldr
+zipwith
+filter
+str-cmp-asc
+str-cmp-dsc
+second
+third
+abs
+
+defun
+defunret
+defmacro
+loopfor
+loopwhile
+looprange
+loopforeach
+loopwhile-thd
+
+;;; Hack End ;;;
+
 (defun bms-current () (* (bms-get-current) -2.0))
 
 (defun beep (times dt) {

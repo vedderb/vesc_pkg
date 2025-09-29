@@ -33,7 +33,7 @@ Item {
         }
 
         var res = false
-        if (hwName == "vbms32" && fwName == "micro") {
+        if (hwName == "vbms32" && (fwName == "micro" || fwName == "")) {
             res = true
         }
 

@@ -53,6 +53,32 @@
 
 @const-start
 
+;;; Hack until problem is found ;;;
+; Pre-load all functions that are loaded with the dynamic loader. This will
+; make them end up in the image and there is no need to load them dynamically.
+
+str-merge
+foldl
+foldr
+zipwith
+filter
+str-cmp-asc
+str-cmp-dsc
+second
+third
+abs
+
+defun
+defunret
+defmacro
+loopfor
+loopwhile
+looprange
+loopforeach
+loopwhile-thd
+
+;;; Hack End ;;;
+
 ; Current inverted and different shunt compared to stock FW
 ; TODO: The hardware should provide a unitless raw value...
 (defun bms-current () (* (bms-get-current) -0.2))
