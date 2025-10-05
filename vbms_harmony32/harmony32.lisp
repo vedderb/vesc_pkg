@@ -360,12 +360,27 @@ loopwhile-thd
 
 (defun update-temps () {
         ; Exit if any of the BQs has invalid temperature settings
-        (if (or
-                (!= (bms-read-reg 1 0x92fd 1) 0x3b)
-                (and (> (bms-get-param 'cells_ic2) 0) (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b))
-            )
-            (exit-error 0)
-        )
+        (if (!= (bms-read-reg 1 0x92fd 1) 0x3b) {
+                (print "Invalid temp reg, retrying...")
+                (sleep 0.01)
+
+                (if (!= (bms-read-reg 1 0x92fd 1) 0x3b) {
+                        (print "Temp reg still invalid, exit error!")
+                        (exit-error 0)
+                })
+        })
+
+        (if (> (bms-get-param 'cells_ic2) 0) {
+                (if (!= (bms-read-reg 2 0x92fd 1) 0x3b) {
+                        (print "Invalid temp IC2 reg, retrying...")
+                        (sleep 0.01)
+
+                        (if (!= (bms-read-reg 2 0x92fd 1) 0x3b) {
+                                (print "Temp reg IC2 still invalid, exit error!")
+                                (exit-error 0)
+                        })
+                })
+        })
 
         (var bms-temps (with-com '(bms-get-temps)))
         (var temp-ext-num (truncate (bms-get-param 'temp_num) 0 4))
@@ -670,7 +685,14 @@ loopwhile-thd
             (set-bms-val 'bms-temps-adc 1 t-min) ; Cell Min
             (set-bms-val 'bms-temps-adc 2 t-max) ; Cell Max
             (set-bms-val 'bms-temps-adc 3 t-mos) ; Mosfet
-            (set-bms-val 'bms-temps-adc 4 -300.0) ; Ambient
+
+            ; Use channel 4 as ambient-sensor when not used as a cell sensor
+            ; and when it shows a valid reading
+            (if (and (< temp-ext-num 4) (> (ix bms-temps 4) -50))
+                (set-bms-val 'bms-temps-adc 4 (ix bms-temps 4))
+                (set-bms-val 'bms-temps-adc 4 -300.0)
+            )
+
             (looprange i 0 temp-ext-num {
                     (set-bms-val 'bms-temps-adc (+ 5 i) (ix bms-temps (+ i 1)))
             })
