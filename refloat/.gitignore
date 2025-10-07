@@ -1,0 +1,12 @@
+compile_commands.json
+package_README-gen.md
+ui.qml
+
+*.bin
+*.d
+*.elf
+*.list
+*.o
+*.obj
+*.so
+*.vescpkg

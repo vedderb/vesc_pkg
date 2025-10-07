@@ -1,4 +1,7 @@
-PKGS = balance float tnt x1_unlocker lib_files lib_interpolation lib_nau7802 lib_pn532 lib_ws2812 logui lib_code_server
+PKGS = balance float refloat tnt x1_unlocker vbms32 vbms32_micro
+PKGS += lib_files lib_interpolation lib_nau7802 lib_pn532
+PKGS += lib_ws2812 logui lib_code_server lib_midi lib_disp_ui
+PKGS += vdisp lib_tca9535 vbms_harmony32
 
 all: vesc_pkg_all.rcc
 

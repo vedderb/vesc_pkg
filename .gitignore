@@ -3,9 +3,11 @@
 confxml.c
 confxml.h
 
-*.bin
 *.elf
 *.o
 *.obj
 *.so
 *.rcc
+*.cproject
+*.project
+*.settings

@@ -20,20 +20,22 @@
 
 #include "vesc_c_if.h"
 
+#include "footpad_sensor.h"
+
 #include "conf/datatypes.h"
 #include "conf/confparser.h"
 #include "conf/confxml.h"
 #include "conf/buffer.h"
 #include "conf/conf_default.h"
+#include "./led.h"
+
+#include "konami.h"
 
 #include <math.h>
 #include <string.h>
 
 // Acceleration average
 #define ACCEL_ARRAY_SIZE 40
-
-// ADC Hand-Press Scale Factor (Accomdate lighter presses than what's needed for engagement by foot)
-#define ADC_HAND_PRESS_SCALE 0.8
 
 HEADER
 
@@ -62,6 +64,7 @@ typedef enum {
 	FAULT_STARTUP = 11,
 	FAULT_REVERSE = 12,
 	FAULT_QUICKSTOP = 13,
+	CHARGING = 14,
 	DISABLED = 15
 } FloatState;
 
@@ -89,12 +92,6 @@ typedef enum {
 	TILTBACK_TEMP
 } SetpointAdjustmentType;
 
-typedef enum {
-	OFF = 0,
-	HALF,
-	ON
-} SwitchState;
-
 typedef struct{
 	float a0, a1, a2, b1, b2;
 	float z1, z2;
@@ -104,6 +101,23 @@ typedef enum {
 	BQ_LOWPASS,
 	BQ_HIGHPASS
 } BiquadType;
+
+typedef enum {
+	NO_LIGHTS = 0,
+	INTERNAL = 1,
+	EXTERNAL_MODULE = 2
+} LightingType;
+
+static const FootpadSensorState flywheel_konami_sequence[] = { FS_LEFT, FS_NONE, FS_RIGHT, FS_NONE, FS_LEFT, FS_NONE, FS_RIGHT };
+static const FootpadSensorState battery_konami_sequence[] = { FS_LEFT, FS_NONE, FS_LEFT, FS_NONE, FS_LEFT, FS_NONE, FS_LEFT };
+
+#define MAXLCMNAMELENGTH 20
+#define MAXLCMPAYLOADLENGTH 64
+
+typedef struct {
+    uint8_t data[MAXLCMPAYLOADLENGTH];
+    uint8_t size;
+} lcmPayload;
 
 // This is all persistent state of the application, which will be allocated in init. It
 // is put here because variables can only be read-only when this program is loaded
@@ -117,14 +131,25 @@ typedef struct {
 
 	// Firmware version, passed in from Lisp
 	int fw_version_major, fw_version_minor, fw_version_beta;
+	uint8_t battery_level;
 
-	// Buzzer
+	// Beeper
 	int beep_num_left;
 	int beep_duration;
 	int beep_countdown;
 	int beep_reason;
-	bool buzzer_enabled;
+	bool beeper_enabled;
 
+	// LEDs
+	LEDData led_data;
+
+	// External Lights (LCM)
+	char lcm_name[MAXLCMNAMELENGTH];
+	lcmPayload lcm_payload;
+
+	float charge_voltage, charge_current;
+	float charge_timer;
+	
 	// Config values
 	float loop_time_seconds;
 	unsigned int start_counter_clicks, start_counter_clicks_max;
@@ -134,8 +159,9 @@ typedef struct {
 	float torquetilt_on_step_size, torquetilt_off_step_size, turntilt_step_size;
 	float tiltback_variable, tiltback_variable_max_erpm, noseangling_step_size, inputtilt_ramped_step_size, inputtilt_step_size;
 	float mc_max_temp_fet, mc_max_temp_mot;
-	float mc_current_max, mc_current_min, max_continuous_current;
+	float mc_current_max, mc_current_min, current_max, current_min, max_continuous_current;
 	float surge_angle, surge_angle2, surge_angle3, surge_adder;
+	bool overcurrent;
 	bool surge_enable;
 	bool current_beeping;
 	bool duty_beeping;
@@ -150,13 +176,13 @@ typedef struct {
 	float duty_cycle, abs_duty_cycle, duty_smooth;
 	float erpm, abs_erpm, avg_erpm;
 	float motor_current;
-	float adc1, adc2;
 	float throttle_val;
 	float max_duty_with_margin;
-	SwitchState switch_state;
+	FootpadSensor footpad_sensor;
 
 	// Feature: ATR (Adaptive Torque Response)
 	float atr_on_step_size, atr_off_step_size;
+	float atr_speed_boost_multiplier;
 	float acceleration, last_erpm;
 	float accel_gap;
 	float accelhist[ACCEL_ARRAY_SIZE];
@@ -177,6 +203,10 @@ typedef struct {
 	float pid_value;
 	float setpoint, setpoint_target, setpoint_target_interpolated;
 	float applied_booster_current;
+	float applied_haptic_current, haptic_timer;
+	int haptic_counter, haptic_mode;
+	HAPTIC_BUZZ_TYPE haptic_type;
+	bool haptic_tone_in_progress;
 	float noseangling_interpolated, inputtilt_interpolated;
 	float filtered_current;
 	float torquetilt_target, torquetilt_interpolated;
@@ -194,7 +224,7 @@ typedef struct {
 	float motor_timeout_seconds;
 	float brake_timeout; // Seconds
 	float wheelslip_timer, wheelslip_end_timer, overcurrent_timer, tb_highvoltage_timer;
-	float switch_warn_buzz_erpm;
+	float switch_warn_beep_erpm;
 	float quickstop_erpm;
 	bool traction_control;
 
@@ -213,8 +243,7 @@ typedef struct {
 
 	// Feature: Flywheel
 	bool is_flywheel_mode, flywheel_abort, flywheel_allow_abort;
-	float flywheel_pitch_offset, flywheel_roll_offset, flywheel_konami_timer, flywheel_konami_pitch;
-	int flywheel_konami_state;
+	float flywheel_pitch_offset, flywheel_roll_offset;
 
 	// Feature: Handtest
 	bool do_handtest;
@@ -248,54 +277,55 @@ typedef struct {
 	int debug_render_1, debug_render_2;
 	int debug_sample_field, debug_sample_count, debug_sample_index;
 	int debug_experiment_1, debug_experiment_2, debug_experiment_3, debug_experiment_4, debug_experiment_5, debug_experiment_6;
+
+	Konami flywheel_konami;
+	Konami battery_konami;
 } data;
 
 static void brake(data *d);
 static void set_current(data *d, float current);
 static void flywheel_stop(data *d);
 static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len);
-static bool flywheel_konami_check(data *d);
-static bool flywheel_konami_step(data *d, int input);
 
 /**
  * BUZZER / BEEPER on Servo Pin
  */
-const VESC_PIN buzzer_pin = VESC_PIN_PPM;
+const VESC_PIN beeper_pin = VESC_PIN_PPM;
 
-#define EXT_BUZZER_ON()  VESC_IF->io_write(buzzer_pin, 1)
-#define EXT_BUZZER_OFF() VESC_IF->io_write(buzzer_pin, 0)
+#define EXT_BEEPER_ON()  VESC_IF->io_write(beeper_pin, 1)
+#define EXT_BEEPER_OFF() VESC_IF->io_write(beeper_pin, 0)
 
-void buzzer_init()
+void beeper_init()
 {
-	VESC_IF->io_set_mode(buzzer_pin, VESC_PIN_MODE_OUTPUT);
+	VESC_IF->io_set_mode(beeper_pin, VESC_PIN_MODE_OUTPUT);
 }
 
-void buzzer_update(data *d)
+void beeper_update(data *d)
 {
-	if (d->buzzer_enabled && (d->beep_num_left > 0)) {
+	if (d->beeper_enabled && (d->beep_num_left > 0)) {
 		d->beep_countdown--;
 		if (d->beep_countdown <= 0) {
 			d->beep_countdown = d->beep_duration;
 			d->beep_num_left--;	
 			if (d->beep_num_left & 0x1)
-				EXT_BUZZER_ON();
+				EXT_BEEPER_ON();
 			else
-				EXT_BUZZER_OFF();
+				EXT_BEEPER_OFF();
 		}
 	}
 }
 
-void buzzer_enable(data *d, bool enable)
+void beeper_enable(data *d, bool enable)
 {
-	d->buzzer_enabled = enable;
+	d->beeper_enabled = enable;
 	if (!enable) {
-		EXT_BUZZER_OFF();
+		EXT_BEEPER_OFF();
 	}
 }
 
 void beep_alert(data *d, int num_beeps, bool longbeep)
 {
-	if (!d->buzzer_enabled)
+	if (!d->beeper_enabled)
 		return;
 	if (d->beep_num_left == 0) {
 		d->beep_num_left = num_beeps * 2 + 1;
@@ -306,18 +336,18 @@ void beep_alert(data *d, int num_beeps, bool longbeep)
 
 void beep_off(data *d, bool force)
 {
-	// don't mess with the buzzer if we're in the process of doing a multi-beep
+	// don't mess with the beeper if we're in the process of doing a multi-beep
 	if (force || (d->beep_num_left == 0))
-		EXT_BUZZER_OFF();
+		EXT_BEEPER_OFF();
 }
 
 void beep_on(data *d, bool force)
 {
-	if (!d->buzzer_enabled)
+	if (!d->beeper_enabled)
 		return;
-	// don't mess with the buzzer if we're in the process of doing a multi-beep
+	// don't mess with the beeper if we're in the process of doing a multi-beep
 	if (force || (d->beep_num_left == 0))
-		EXT_BUZZER_ON();
+		EXT_BEEPER_ON();
 }
 
 // Utility Functions
@@ -356,7 +386,7 @@ static void app_init(data *d) {
 	if (d->state != DISABLED) {
 		d->state = STARTUP;
 	}
-	d->buzzer_enabled = true;
+	d->beeper_enabled = true;
 	
 	// Allow saving of odometer
 	d->odometer_dirty = 0;
@@ -368,7 +398,8 @@ static void configure(data *d) {
 	d->debug_render_2 = 4;
 
 	// This timer is used to determine how long the board has been disengaged / idle
-	d->disengage_timer = d->current_time;
+	// subtract 1 second to prevent the haptic buzz disengage click on "write config"
+	d->disengage_timer = d->current_time - 1;
 
 	// Set calculated values from config
 	d->loop_time_seconds = 1.0 / d->float_conf.hertz;
@@ -408,33 +439,12 @@ static void configure(data *d) {
 	d->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
 	d->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
 
+	// Current limiting
 	d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-	int mcm = d->mc_current_max;
-	float mc_max_reduce = d->mc_current_max - mcm;
-	if (mc_max_reduce >= 0.5) {
-		// reduce the max current by X% to save that for torque tilt situations
-		// less than 60 peak amps makes no sense though so I'm not allowing it
-		d->mc_current_max = fmaxf(mc_max_reduce * d->mc_current_max, 60);
-	}
-
-	// min current is a positive value here!
+	d->current_max = fminf(d->mc_current_max, d->float_conf.limit_current_accel);
 	d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-	mcm = d->mc_current_min;
-	float mc_min_reduce = fabsf(d->mc_current_min - mcm);
-	if (mc_min_reduce >= 0.5) {
-		// reduce the max current by X% to save that for torque tilt situations
-		// less than 50 peak breaking amps makes no sense though so I'm not allowing it
-		d->mc_current_min = fmaxf(mc_min_reduce * d->mc_current_min, 50);
-	}
-
-	// Decimals of abs-max specify max continuous current
-	float max_abs = VESC_IF->get_cfg_float(CFG_PARAM_l_abs_current_max);
-	int mabs = max_abs;
-	d->max_continuous_current = (max_abs - mabs) * 100;
-	if (d->max_continuous_current < 25) {
-		// anything below 25A is suspicious and will be ignored!
-		d->max_continuous_current = d->mc_current_max;
-	}
+	d->current_min = fminf(d->mc_current_min, fabsf(d->float_conf.limit_current_brake));
+	d->max_continuous_current = d->float_conf.limit_current_cont;
 
 	// Maximum amps change when braking
 	d->pid_brake_increment = 5;
@@ -467,6 +477,12 @@ static void configure(data *d) {
 
 	// Feature: ATR:
 	d->float_acc_diff = 0;
+	d->atr_speed_boost_multiplier = 1.0 / 3000.0;  // used to be hard coded to 3000, still is for speed_boost <= 40%
+	if (fabsf(d->float_conf.atr_speed_boost) > 0.4) {
+		// above 0.4 we add 500erpm for each extra 10% of speed boost, so at most +6000 for 100% speed boost
+		// we're producing a multiplier here to avoid unnecessary floating point division in the main loop
+		d->atr_speed_boost_multiplier = 1 / ((fabsf(d->float_conf.atr_speed_boost) - 0.4) * 5000 + 3000);
+	}
 
 	/* INSERT OG TT LOGIC? */
 
@@ -496,24 +512,32 @@ static void configure(data *d) {
 	d->inputtilt_ramped_step_size = 0;
 
 	// Speed above which to warn users about an impending full switch fault
-	d->switch_warn_buzz_erpm = d->float_conf.is_footbuzz_enabled ? 2000 : 100000;
+	d->switch_warn_beep_erpm = d->float_conf.is_footbeep_enabled ? 2000 : 100000;
 
 	// Speed below which we check for quickstop conditions
 	d->quickstop_erpm = 200;
 
 	// Variable nose angle adjustment / tiltback (setting is per 1000erpm, convert to per erpm)
 	d->tiltback_variable = d->float_conf.tiltback_variable / 1000;
-	if (d->tiltback_variable > 0) {
-		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
-	} else {
+	if ((d->float_conf.tiltback_variable < 0) || (d->float_conf.tiltback_variable_max < 0)) {
+		// we now allow negative rate or negative max (or both), it all is treated as negative tilt
+		// runtime logic expects positive rate but negative max for negative tilt:
+		if (d->tiltback_variable < 0)
+			d->tiltback_variable *= -1;
+		if (d->float_conf.tiltback_variable_max > 0)
+			d->float_conf.tiltback_variable_max *= -1;
+	}
+	if (d->tiltback_variable == 0) {
 		d->tiltback_variable_max_erpm = 100000;
+	} else {
+		d->tiltback_variable_max_erpm = fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
 	}
 
 	// Reset loop time variables
 	d->last_time = 0.0;
 	d->filtered_loop_overshoot = 0.0;
 
-	d->buzzer_enabled = d->float_conf.is_buzzer_enabled;
+	d->beeper_enabled = d->float_conf.is_beeper_enabled;
 	if (d->float_conf.float_disable) {
 		d->state = DISABLED;
 		beep_alert(d, 3, false);
@@ -524,6 +548,13 @@ static void configure(data *d) {
 	}
 
 	d->do_handtest = false;
+
+	konami_init(&d->flywheel_konami, flywheel_konami_sequence, sizeof(flywheel_konami_sequence));
+	konami_init(&d->battery_konami, battery_konami_sequence, sizeof(battery_konami_sequence));
+
+	// External light module support
+	d->lcm_name[0] = '\0';
+	d->lcm_payload.size = 0;
 }
 
 static void reset_vars(data *d) {
@@ -561,6 +592,7 @@ static void reset_vars(data *d) {
 	d->softstart_pid_limit = 0;
 	d->startup_pitch_tolerance = d->float_conf.startup_pitch_tolerance;
 	d->surge_adder = 0;
+	d->overcurrent = false;
 
 	// PID Brake Scaling
 	d->kp_brake_scale = 1.0;
@@ -587,6 +619,11 @@ static void reset_vars(data *d) {
 	// RC Move:
 	d->rc_steps = 0;
 	d->rc_current = 0;
+
+	// Haptic Buzz:
+	d->haptic_tone_in_progress = false;
+	d->haptic_timer = d->current_time;
+	d->applied_haptic_current = 0;
 }
 
 
@@ -667,68 +704,27 @@ static float get_setpoint_adjustment_step_size(data *d) {
 	return 0;
 }
 
-// Read ADCs and determine switch state
-static SwitchState check_adcs(data *d) {
-	SwitchState sw_state;
+bool is_engaged(const data *d) {
+	if (d->footpad_sensor.state == FS_BOTH) {
+		return true;
+	}
 
-	float fault_adc1 = d->float_conf.fault_adc1;
-	float fault_adc2 = d->float_conf.fault_adc2;
+	if (d->footpad_sensor.state == FS_LEFT || d->footpad_sensor.state == FS_RIGHT) {
+		// 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
+		bool is_simple_start = d->float_conf.startup_simplestart_enabled &&
+			(d->current_time - d->disengage_timer > 5);
+
+		if (d->float_conf.fault_is_dual_switch || is_simple_start) {
+			return true;
+		}
+	}
+
+	// Keep the board engaged in flywheel mode
 	if (d->is_flywheel_mode) {
-		// use local variables to avoid risk of VESC Tool writing settings!
-		fault_adc1 = 0;
-		fault_adc2 = 0;
+		return true;
 	}
 
-	// Calculate switch state from ADC values
-	if(fault_adc1 == 0 && fault_adc2 == 0){ // No Switch
-		sw_state = ON;
-	}else if(fault_adc2 == 0){ // Single switch on ADC1
-		if(d->adc1 > fault_adc1){
-			sw_state = ON;
-		} else {
-			sw_state = OFF;
-		}
-	}else if(fault_adc1 == 0){ // Single switch on ADC2
-		if(d->adc2 > fault_adc2){
-			sw_state = ON;
-		} else {
-			sw_state = OFF;
-		}
-	}else{ // Double switch
-		if(d->adc1 > fault_adc1 && d->adc2 > fault_adc2){
-			sw_state = ON;
-		}else if(d->adc1 > fault_adc1 || d->adc2 > fault_adc2){
-			// 5 seconds after stopping we allow starting with a single sensor (e.g. for jump starts)
-			bool is_simple_start = d->float_conf.startup_simplestart_enabled &&
-				(d->current_time - d->disengage_timer > 5);
-
-			if (d->float_conf.fault_is_dual_switch || is_simple_start)
-				sw_state = ON;
-			else
-				sw_state = HALF;
-		}else{
-			sw_state = OFF;
-		}
-	}
-
-	if ((sw_state == OFF) && (d->state <= RUNNING_TILTBACK)) {
-		if (d->abs_erpm > d->switch_warn_buzz_erpm) {
-			// If we're at riding speed and the switch is off => ALERT the user
-			// set force=true since this could indicate an imminent shutdown/nosedive
-			beep_on(d, true);
-			d->beep_reason = BEEP_SENSORS;
-		}
-		else {
-			// if we drop below riding speed stop buzzing
-			beep_off(d, false);
-		}
-	}
-	else {
-		// if the switch comes back on we stop buzzing
-		beep_off(d, false);
-	}
-
-	return sw_state;
+	return false;
 }
 
 // Fault checking order does not really matter. From a UX perspective, switch should be before angle.
@@ -763,7 +759,7 @@ static bool check_faults(data *d){
 				d->fault_angle_roll_timer = d->current_time;
 			}
 		}
-		if (d->switch_state == ON) {
+		if (is_engaged(d)) {
 			// allow turning it off by engaging foot sensors
 			d->state = FAULT_SWITCH_HALF;
 			return true;
@@ -776,7 +772,7 @@ static bool check_faults(data *d){
 
 		// Check switch
 		// Switch fully open
-		if (d->switch_state == OFF) {
+		if (d->footpad_sensor.state == FS_NONE && !d->is_flywheel_mode) {
 			if (!disable_switch_faults) {
 				if((1000.0 * (d->current_time - d->fault_switch_timer)) > d->float_conf.fault_delay_switch_full){
 					d->state = FAULT_SWITCH_FULL;
@@ -802,7 +798,7 @@ static bool check_faults(data *d){
 		// Feature: Reverse-Stop
 		if(d->setpointAdjustmentType == REVERSESTOP){
 			//  Taking your foot off entirely while reversing? Ignore delays
-			if (d->switch_state == OFF) {
+			if (d->footpad_sensor.state == FS_NONE) {
 				d->state = FAULT_SWITCH_FULL;
 				return true;
 			}
@@ -831,7 +827,7 @@ static bool check_faults(data *d){
 
 		// Switch partially open and stopped
 		if(!d->float_conf.fault_is_dual_switch) {
-			if((d->switch_state == HALF || d->switch_state == OFF) && d->abs_erpm < d->float_conf.fault_adc_half_erpm){
+			if(!is_engaged(d) && d->abs_erpm < d->float_conf.fault_adc_half_erpm){
 				if ((1000.0 * (d->current_time - d->fault_switch_half_timer)) > d->float_conf.fault_delay_switch_half){
 					d->state = FAULT_SWITCH_HALF;
 					return true;
@@ -859,8 +855,8 @@ static bool check_faults(data *d){
 		}
 
 		if (d->is_flywheel_mode && d->flywheel_allow_abort) {
-			if (d->adc1 > (d->float_conf.fault_adc1 * ADC_HAND_PRESS_SCALE)
-			    && d->adc2 > (d->float_conf.fault_adc2 * ADC_HAND_PRESS_SCALE)) {
+			FootpadSensorState state = footpad_sensor_state_evaluate(&d->footpad_sensor, &d->float_conf, true);
+			if (state == FS_BOTH) {
 				d->state = FAULT_SWITCH_HALF;
 				d->flywheel_abort = true;
 				return true;
@@ -930,12 +926,18 @@ static void calculate_setpoint_target(data *d) {
 		if (d->abs_duty_cycle > d->max_duty_with_margin) {
 			d->wheelslip_timer = d->current_time;
 		}
-		else if (d->current_time - d->wheelslip_timer > 0.5) {
+		else if (d->current_time - d->wheelslip_timer > 0.2) {
 			if (d->abs_duty_cycle < 0.7) {
 				// Leave wheelslip state only if duty < 70%
 				d->traction_control = false;
 				d->state = RUNNING;
 			}
+		}
+		if (d->float_conf.fault_reversestop_enabled && (d->erpm < 0)) {
+			// the 500ms wheelslip time can cause us to blow past the reverse stop condition!
+			d->setpointAdjustmentType = REVERSESTOP;
+			d->reverse_timer = d->current_time;
+			d->reverse_total_erpm = 0;
 		}
 	} else if (d->abs_duty_cycle > d->float_conf.tiltback_duty) {
 		if (d->erpm > 0) {
@@ -1055,7 +1057,7 @@ static void calculate_setpoint_target(data *d) {
 
 	if (d->is_flywheel_mode == false) {
 		if (d->setpointAdjustmentType == TILTBACK_DUTY) {
-			if (d->float_conf.is_dutybuzz_enabled || (d->float_conf.tiltback_duty_angle == 0)) {
+			if (d->float_conf.is_dutybeep_enabled || (d->float_conf.tiltback_duty_angle == 0)) {
 				beep_on(d, true);
 				d->beep_reason = BEEP_DUTY;
 				d->duty_beeping = true;
@@ -1302,8 +1304,8 @@ static void apply_torquetilt(data *d) {
 	// Take abs motor current, subtract start offset, and take the max of that with 0 to get the current above our start threshold (absolute).
 	// Then multiply it by "power" to get our desired angle, and min with the limit to respect boundaries.
 	// Finally multiply it by sign motor current to get directionality back
-	d->torquetilt_target = fminf(fmaxf((fabsf(d->atr_filtered_current) - d->float_conf.torquetilt_start_current), 0) *
-			tt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->atr_filtered_current);
+	float abs_net_torque = fmaxf(0, (fabsf(d->atr_filtered_current) - d->float_conf.torquetilt_start_current));
+	d->torquetilt_target = fminf(abs_net_torque * tt_strength, d->float_conf.torquetilt_angle_limit) * SIGN(d->atr_filtered_current);
 
 	if ((d->torquetilt_interpolated - d->torquetilt_target > 0 && d->torquetilt_target > 0) ||
 			(d->torquetilt_interpolated - d->torquetilt_target < 0 && d->torquetilt_target < 0)) {
@@ -1356,10 +1358,18 @@ static void apply_torquetilt(data *d) {
 		d->accel_gap = 0;
 	}
 
-	float atr_strength = (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
-	// from 3000 to 6000 erpm gradually crank up the torque response
+	// d->accel_gap | > 0  | <= 0
+	// -------------+------+-------
+	//      forward | up   | down
+	//     !forward | down | up
+	float atr_strength = forward == (d->accel_gap > 0) ? d->float_conf.atr_strength_up : d->float_conf.atr_strength_down;
+
+	// from 3000 to 6000..9000 erpm gradually crank up the torque response
 	if ((d->abs_erpm > 3000) && (!d->braking)) {
-		float speedboost = (d->abs_erpm - 3000) / 3000;
+		float speedboost = (d->abs_erpm - 3000) * d->atr_speed_boost_multiplier;
+		// configured speedboost can now also be negative (-1...1)!
+		// -1 brings it to 0 (if erpm exceeds 9000)
+		// +1 doubles it     (if erpm exceeds 9000)
 		speedboost = fminf(1, speedboost) * d->float_conf.atr_speed_boost;
 		atr_strength += atr_strength * speedboost;
 	}
@@ -1612,6 +1622,90 @@ static void apply_turntilt(data *d) {
 	d->setpoint += d->turntilt_interpolated;
 }
 
+static float haptic_buzz(data *d, float note_period, bool brake) {
+	if (d->is_flywheel_mode) {
+		return 0;
+	}
+	if (((d->setpointAdjustmentType > TILTBACK_NONE) && (d->state <= RUNNING_TILTBACK))
+	    || d->overcurrent) {
+
+		if (d->setpointAdjustmentType == TILTBACK_DUTY)
+			d->haptic_type = d->float_conf.haptic_buzz_duty;
+		else if (d->setpointAdjustmentType == TILTBACK_HV)
+			d->haptic_type = d->float_conf.haptic_buzz_hv;
+		else if (d->setpointAdjustmentType == TILTBACK_LV)
+			d->haptic_type = d->float_conf.haptic_buzz_lv;
+		else if (d->setpointAdjustmentType == TILTBACK_TEMP)
+			d->haptic_type = d->float_conf.haptic_buzz_temp;
+		else if (d->overcurrent)
+			d->haptic_type = d->float_conf.haptic_buzz_current;
+		else
+			d->haptic_type = HAPTIC_BUZZ_NONE;
+
+		// This kicks it off till at least one ~300ms tone is completed
+		if (d->haptic_type != HAPTIC_BUZZ_NONE)
+			d->haptic_tone_in_progress = true;
+	}
+
+	if (d->haptic_tone_in_progress || brake) {
+		d->haptic_counter += 1;
+
+		float buzz_current = fminf(20, d->float_conf.haptic_buzz_intensity);
+		// small periods (1,2) produce audible tone, higher periods produce vibration
+		int buzz_period = d->haptic_type;
+		if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING)
+			buzz_period = 1;
+
+		// alternate frequencies, depending on "mode"
+		buzz_period += d->haptic_mode;
+
+		if (brake) {
+			// This is to emulate the equivalent of "stop click"
+			buzz_current = fmaxf(3, d->float_conf.startup_click_current * 0.8);
+			buzz_current = fminf(10, buzz_current);
+			buzz_period = 0;
+		}
+		else if ((d->abs_erpm < 10000) && (buzz_current > 5)) {
+			// scale high currents down to as low as 5A for lower erpms
+			buzz_current = fmaxf(d->float_conf.haptic_buzz_min, d->abs_erpm / 10000 * buzz_current);
+		}
+
+		if (d->haptic_counter > buzz_period) {
+			d->haptic_counter = 0;
+		}
+
+		if (d->haptic_counter == 0) {
+			if (d->applied_haptic_current > 0) {
+				d->applied_haptic_current = -buzz_current;
+			}
+			else {
+				d->applied_haptic_current = buzz_current;
+			}
+
+			if (fabsf(d->haptic_timer - d->current_time) > note_period) {
+				d->haptic_tone_in_progress = false;
+				if (brake)
+					d->haptic_mode += 1;
+				else {
+					if (d->haptic_type == HAPTIC_BUZZ_ALTERNATING)
+						d->haptic_mode = 5 - d->haptic_mode;
+					else
+						d->haptic_mode = 1 - d->haptic_mode;
+				}
+
+				d->haptic_timer = d->current_time;
+			}
+		}
+	}
+	else {
+		d->haptic_mode = 0;
+		d->haptic_counter = 0;
+		d->haptic_timer = d->current_time;
+		d->applied_haptic_current = 0;
+	}
+	return d->applied_haptic_current;
+}
+
 static void brake(data *d) {
 	// Brake timeout logic
 	float brake_timeout_length = 1; // Brake Timeout hard-coded to 1s
@@ -1631,11 +1725,12 @@ static void brake(data *d) {
 }
 
 static void set_current(data *d, float current){
-	// Limit current output to configured max output
-	if (current > 0 && current > VESC_IF->get_cfg_float(CFG_PARAM_l_current_max)) {
-		current = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-	} else if(current < 0 && current < VESC_IF->get_cfg_float(CFG_PARAM_l_current_min)) {
-		current = VESC_IF->get_cfg_float(CFG_PARAM_l_current_min);
+	// Limit current output to configured max output (as configured in motor cfg)
+	if (current > d->mc_current_max) {
+		current = d->mc_current_max;
+		d->overcurrent = true;
+	} else if(current < -d->mc_current_min) {
+		current = -d->mc_current_min;
 	}
 
 	// Reset the timeout
@@ -1656,9 +1751,10 @@ static void float_thd(void *arg) {
 	data *d = (data*)arg;
 
 	app_init(d);
+	led_init(&d->led_data, &d->float_conf);
 
 	while (!VESC_IF->should_terminate()) {
-		buzzer_update(d);
+		beeper_update(d);
 
 		// Update times
 		d->current_time = VESC_IF->system_time();
@@ -1727,11 +1823,6 @@ static void float_thd(void *arg) {
 		d->abs_duty_cycle = fabsf(d->duty_cycle);
 		d->erpm = VESC_IF->mc_get_rpm();
 		d->abs_erpm = fabsf(d->erpm);
-		d->adc1 = VESC_IF->io_read_analog(VESC_PIN_ADC1);
-		d->adc2 = VESC_IF->io_read_analog(VESC_PIN_ADC2); // Returns -1.0 if the pin is missing on the hardware
-		if (d->adc2 < 0.0) {
-			d->adc2 = 0.0;
-		}
 		d->duty_smooth = d->duty_smooth * 0.9 + d->duty_cycle * 0.1;
 
 		// UART/PPM Remote Throttle ///////////////////////
@@ -1814,7 +1905,21 @@ static void float_thd(void *arg) {
 		if ((d->abs_yaw_change > 0.04) && !unchanged)	// don't count tiny yaw changes towards aggregate
 			d->yaw_aggregate += d->yaw_change;
 
-		d->switch_state = check_adcs(d);
+		footpad_sensor_update(&d->footpad_sensor, &d->float_conf);
+
+		int float_state = (d->is_flywheel_mode && (d->state <= RUNNING_TILTBACK)) ? RUNNING_FLYWHEEL : d->state;
+		int switch_state = footpad_sensor_state_to_switch_compat(d->footpad_sensor.state);
+		led_update(&d->led_data, &d->float_conf, d->current_time, d->erpm, d->abs_duty_cycle, switch_state, float_state);
+
+		if (d->footpad_sensor.state == FS_NONE && float_state <= RUNNING_TILTBACK && d->abs_erpm > d->switch_warn_beep_erpm) {
+			// If we're at riding speed and the switch is off => ALERT the user
+			// set force=true since this could indicate an imminent shutdown/nosedive
+			beep_on(d, true);
+			d->beep_reason = BEEP_SENSORS;
+		} else {
+			// if the switch comes back on we stop beeping
+			beep_off(d, false);
+		}
 
 		// Log Values
 		d->float_setpoint = d->setpoint;
@@ -2009,30 +2114,32 @@ static void float_thd(void *arg) {
 			// Current Limiting!
 			float current_limit;
 			if (d->braking) {
-				current_limit = d->mc_current_min * (1 + 0.6 * fabsf(d->torqueresponse_interpolated / 10));
+				current_limit = d->current_min * (1 + 0.6 * fabsf(d->torqueresponse_interpolated / 10));
 			}
 			else {
-				current_limit = d->mc_current_max * (1 + 0.6 * fabsf(d->torqueresponse_interpolated / 10));
+				current_limit = d->current_max * (1 + 0.6 * fabsf(d->torqueresponse_interpolated / 10));
 			}
 			if (fabsf(new_pid_value) > current_limit) {
 				new_pid_value = SIGN(new_pid_value) * current_limit;
 			}
-			else {
-				// Over continuous current for more than 3 seconds? Just beep, don't actually limit currents
-				if (fabsf(d->atr_filtered_current) < d->max_continuous_current) {
-					d->overcurrent_timer = d->current_time;
-					if (d->current_beeping) {
-						d->current_beeping = false;
-						beep_off(d, false);
-					}
-				} else {
-					if (d->current_time - d->overcurrent_timer > 3) {
-						beep_on(d, true);
-						d->current_beeping = true;
-					}
+
+			d->overcurrent = false;
+
+			// Over continuous current for more than 3 seconds? Just beep, don't actually limit currents
+			if (fabsf(d->atr_filtered_current) < d->max_continuous_current) {
+				d->overcurrent_timer = d->current_time;
+				if (d->current_beeping) {
+					d->current_beeping = false;
+					beep_off(d, false);
+				}
+			} else {
+				if (d->current_time - d->overcurrent_timer > 3) {
+					beep_on(d, true);
+					d->current_beeping = true;
+					d->overcurrent = true;
 				}
 			}
-			
+
 			if (d->traction_control) {
 				// freewheel while traction loss is detected
 				d->pid_value = 0;
@@ -2062,6 +2169,10 @@ static void float_thd(void *arg) {
 					set_current(d, d->pid_value + d->float_conf.startup_click_current);
 			}
 			else {
+				// modulate haptic buzz onto pid_value unconditionally to allow
+				// checking for haptic conditions, and to finish minimum duration haptic effect
+				// even after short pulses of hitting the condition(s)
+				d->pid_value += haptic_buzz(d, 0.3, false);
 				set_current(d, d->pid_value);
 			}
 
@@ -2076,16 +2187,26 @@ static void float_thd(void *arg) {
 		case (FAULT_STARTUP):
 			if (d->is_flywheel_mode) {
 				if ((d->flywheel_abort) ||	// single-pad pressed while balancing upright
-					(d->flywheel_allow_abort && d->adc1 > 1 && d->adc2 > 1)) {
+					(d->flywheel_allow_abort && d->footpad_sensor.adc1 > 1 && d->footpad_sensor.adc2 > 1)) {
 					flywheel_stop(d);
 					break;
 				}
 			}
-			else {
-				if (flywheel_konami_check(d)) {
+
+			if (!d->is_flywheel_mode && d->true_pitch_angle > 75 && d->true_pitch_angle < 105) {
+				if (konami_check(&d->flywheel_konami, &d->footpad_sensor, &d->float_conf, d->current_time)) {
 					unsigned char enabled[6] = {0x82, 0, 0, 0, 0, 1};
 					cmd_flywheel_toggle(d, enabled, 6);
 				}
+			}
+
+			if (konami_check(&d->battery_konami, &d->footpad_sensor, &d->float_conf, d->current_time)) {
+				if (d->battery_level > 94)
+					// 1 long beep indicates full charge (95% or more)
+					beep_alert(d, 1, 1);
+				else
+					// N short beeps where N is batterylevel/10 (e.g. 5 beeps for 50%)
+					beep_alert(d, d->battery_level / 10, 0);
 			}
 
 			if (d->current_time - d->disengage_timer > 10) {
@@ -2125,21 +2246,30 @@ static void float_thd(void *arg) {
 			// Check for valid startup position and switch state
 			if (fabsf(d->pitch_angle) < d->startup_pitch_tolerance &&
 				fabsf(d->roll_angle) < d->float_conf.startup_roll_tolerance && 
-				d->switch_state == ON) {
+				is_engaged(d)) {
 				reset_vars(d);
 				break;
 			}
-			// Ignore roll while it's upside down
+			// Ignore roll for the first second while it's upside down
 			if(d->is_upside_down && (fabsf(d->pitch_angle) < d->startup_pitch_tolerance)) {
-				if ((d->state != FAULT_REVERSE) ||
-					// after a reverse fault, wait at least 1 second before allowing to re-engage
-					(d->current_time - d->disengage_timer) > 1) {
-					reset_vars(d);
-					break;
+				if ((d->current_time - d->disengage_timer) > 1) {
+					// after 1 second:
+					if (fabsf(fabsf(d->roll_angle) - 180) < d->float_conf.startup_roll_tolerance) {
+						reset_vars(d);
+						break;
+					}
+				}
+				else {
+					// 1 second or less, ignore roll-faults to allow for kick flips etc.
+					if (d->state != FAULT_REVERSE) {
+						// don't instantly re-engage after a reverse fault!
+						reset_vars(d);
+						break;
+					}
 				}
 			}
 			// Push-start aka dirty landing Part II
-			if(d->float_conf.startup_pushstart_enabled && (d->abs_erpm > 1000) && (d->switch_state == ON)) {
+			if(d->float_conf.startup_pushstart_enabled && (d->abs_erpm > 1000) && is_engaged(d)) {
 				if ((fabsf(d->pitch_angle) < 45) && (fabsf(d->roll_angle) < 45)) {
 					// 45 to prevent board engaging when upright or laying sideways
 					// 45 degree tolerance is more than plenty for tricks / extreme mounts
@@ -2148,8 +2278,27 @@ static void float_thd(void *arg) {
 				}
 			}
 
-			// Set RC current or maintain brake current (and keep WDT happy!)
-			do_rc_move(d);
+			if ((d->current_time - d->disengage_timer) < 0.008) {
+				// 20ms brake buzz, single tone
+				if (d->float_conf.startup_click_current > 0) {
+					set_current(d, haptic_buzz(d, 0.008, true));
+				}
+			}
+			else {
+				// Set RC current or maintain brake current (and keep WDT happy!)
+				do_rc_move(d);
+			}
+			break;
+		case (CHARGING):
+			if ((d->current_time - d->charge_timer) > 10) {
+				// 10 seconds of no chargestate calls? Revert back to normal
+				if (d->float_conf.float_disable) {
+					d->state = DISABLED;
+				}
+				else {
+					d->state = STARTUP;
+				}
+			}
 			break;
 		case (DISABLED):;
 			// no set_current, no brake_current
@@ -2290,6 +2439,14 @@ enum {
 	FLOAT_COMMAND_HANDTEST = 13,
 	FLOAT_COMMAND_TUNE_TILT = 14,
 	FLOAT_COMMAND_FLYWHEEL = 22,
+	FLOAT_COMMAND_HAPTIC = 23,
+	FLOAT_COMMAND_LCM_POLL = 24,   // this should only be called by external light modules
+	FLOAT_COMMAND_LIGHT_INFO = 25, // to be called by apps to check if a lighting module is present / get info
+	FLOAT_COMMAND_LIGHT_CTRL = 26, // to be called by apps to change light settings
+	FLOAT_COMMAND_LCM_INFO = 27,   // to be called by apps to check lighting controller firmware
+	FLOAT_COMMAND_CHARGESTATE = 28,// to be called by ADV LCM while charging
+	FLOAT_COMMAND_GET_BATTERY = 29, 
+	FLOAT_COMMAND_LCM_DEBUG = 99,  // reserved for external debug purposes
 } float_commands;
 
 static void send_realtime_data(data *d){
@@ -2309,13 +2466,13 @@ static void send_realtime_data(data *d){
 		state = RUNNING_FLYWHEEL;
 	}
 	send_buffer[ind++] = (state & 0xF) + (d->setpointAdjustmentType << 4);
-	state = d->switch_state;
+	state = footpad_sensor_state_to_switch_compat(d->footpad_sensor.state);
 	if (d->do_handtest) {
 		state |= 0x8;
 	}
 	send_buffer[ind++] = (state & 0xF) + (d->beep_reason << 4);
-	buffer_append_float32_auto(send_buffer, d->adc1, &ind);
-	buffer_append_float32_auto(send_buffer, d->adc2, &ind);
+	buffer_append_float32_auto(send_buffer, d->footpad_sensor.adc1, &ind);
+	buffer_append_float32_auto(send_buffer, d->footpad_sensor.adc2, &ind);
 
 	// Setpoints
 	buffer_append_float32_auto(send_buffer, d->float_setpoint, &ind);
@@ -2329,8 +2486,14 @@ static void send_realtime_data(data *d){
 	buffer_append_float32_auto(send_buffer, d->true_pitch_angle, &ind);
 	buffer_append_float32_auto(send_buffer, d->atr_filtered_current, &ind);
 	buffer_append_float32_auto(send_buffer, d->float_acc_diff, &ind);
-	buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
-	buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
+	if (d->state == CHARGING) {
+		buffer_append_float32_auto(send_buffer, d->charge_current, &ind);
+		buffer_append_float32_auto(send_buffer, d->charge_voltage, &ind);
+	}
+	else {
+		buffer_append_float32_auto(send_buffer, d->applied_booster_current, &ind);
+		buffer_append_float32_auto(send_buffer, d->motor_current, &ind);
+	}
 	buffer_append_float32_auto(send_buffer, d->throttle_val, &ind);
 
 	if (ind > BUFSIZE) {
@@ -2367,15 +2530,15 @@ static void cmd_send_all_data(data *d, unsigned char mode){
 		send_buffer[ind++] = state;
 
 		// passed switch-state includes bit3 for handtest, and bits4..7 for beep reason
-		state = d->switch_state;
+		state = footpad_sensor_state_to_switch_compat(d->footpad_sensor.state);
 		if (d->do_handtest) {
 			state |= 0x8;
 		}
 		send_buffer[ind++] = (state & 0xF) + (d->beep_reason << 4);
 		d->beep_reason = BEEP_NONE;
 
-		send_buffer[ind++] = d->adc1 * 50;
-		send_buffer[ind++] = d->adc2 * 50;
+		send_buffer[ind++] = d->footpad_sensor.adc1 * 50;
+		send_buffer[ind++] = d->footpad_sensor.adc2 * 50;
 
 		// Setpoints (can be positive or negative)
 		send_buffer[ind++] = d->float_setpoint * 5 + 128;
@@ -2416,12 +2579,31 @@ static void cmd_send_all_data(data *d, unsigned char mode){
 			buffer_append_float16(send_buffer, VESC_IF->mc_get_amp_hours_charged(false), 10, &ind);
 			buffer_append_float16(send_buffer, VESC_IF->mc_get_watt_hours(false), 1, &ind);
 			buffer_append_float16(send_buffer, VESC_IF->mc_get_watt_hours_charged(false), 1, &ind);
-			send_buffer[ind++] = fmaxf(0, fminf(125, VESC_IF->mc_get_battery_level(NULL))) * 2;
+			send_buffer[ind++] = fmaxf(0, fminf(110, d->battery_level)) * 2;
 			// ind = 55
+		}
+		if (mode >= 4) {
+			// make charge current and voltage available in mode 4
+			buffer_append_float16(send_buffer, d->charge_current, 10, &ind);
+			buffer_append_float16(send_buffer, d->charge_voltage, 10, &ind);
+			// ind = 59
 		}
 	}
 
 	if (ind > SNDBUFSIZE) {
+		VESC_IF->printf("BUFSIZE too small...\n");
+	}
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+static void cmd_send_battery(){
+	uint8_t send_buffer[10];
+	int32_t ind = 0;
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_GET_BATTERY;
+	buffer_append_float32_auto(send_buffer, VESC_IF->mc_get_battery_level(NULL), &ind);
+
+	if (ind > 10) {
 		VESC_IF->printf("BUFSIZE too small...\n");
 	}
 	VESC_IF->send_app_data(send_buffer, ind);
@@ -2442,7 +2624,9 @@ static void cmd_lock(data *d, unsigned char *cfg)
 {
 	if (d->state >= FAULT_ANGLE_PITCH) {
 		d->float_conf.float_disable = cfg[0] ? true : false;
-		d->state = cfg[0] ? DISABLED : STARTUP;
+		if (d->state != CHARGING) {
+			d->state = cfg[0] ? DISABLED : STARTUP;
+		}
 		write_cfg_to_eeprom(d);
 	}
 }
@@ -2453,8 +2637,8 @@ static void cmd_handtest(data *d, unsigned char *cfg)
 		d->do_handtest = cfg[0] ? true : false;
 		if (d->do_handtest) {
 			// temporarily reduce max currents to make hand test safer / gentler
-			d->mc_current_max = 7;
-			d->mc_current_min = -7;
+			d->current_max = 7;
+			d->current_min = -7;
 			// Disable I-term and all tune modifiers and tilts
 			d->float_conf.ki = 0;
 			d->float_conf.kp_brake = 1;
@@ -2470,6 +2654,8 @@ static void cmd_handtest(data *d, unsigned char *cfg)
 			d->float_conf.tiltback_variable = 0;
 			d->float_conf.fault_delay_pitch = 50;
 			d->float_conf.fault_delay_roll = 50;
+			d->float_conf.startup_pitch_tolerance = 1;
+			d->float_conf.startup_speed = 10;
 		}
 		else {
 			read_cfg_from_eeprom(d);
@@ -2575,8 +2761,11 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 			d->float_conf.atr_strength_down = ((float)h2) / 10.0 + 0.5;
 
 		split(cfg[6], &h1, &h2);
-		d->float_conf.atr_torque_offset = h1 + 5;
+		int isnegative = h1;
 		d->float_conf.atr_speed_boost = ((float)(h2 * 5)) / 100;
+		if (isnegative) {
+			d->float_conf.atr_speed_boost *= -1;
+		}
 
 		split(cfg[7], &h1, &h2);
 		d->float_conf.atr_angle_limit = h1 + 5;
@@ -2596,10 +2785,10 @@ static void cmd_runtime_tune(data *d, unsigned char *cfg, int len)
 		d->float_conf.braketilt_lingering = h2;
 
 		split(cfg[11], &h1, &h2);
-		d->mc_current_max = h1 * 5 + 55;
-		d->mc_current_min = h2 * 5 + 55;
-		if (h1 == 0) d->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-		if (h2 == 0) d->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
+		d->current_max = h1 * 5 + 55;
+		d->current_min = h2 * 5 + 55;
+		if (h1 == 0) d->current_max = fminf(d->mc_current_max, d->float_conf.limit_current_accel);
+		if (h2 == 0) d->current_min = fminf(d->mc_current_min, fabsf(d->float_conf.limit_current_brake));
 
 		// Update values normally done in configure()
 		d->atr_on_step_size = d->float_conf.atr_on_speed / d->float_conf.hertz;
@@ -2689,7 +2878,7 @@ static void cmd_tune_defaults(data *d){
 	d->float_conf.startup_speed = APPCONF_FLOAT_STARTUP_SPEED;
 	d->float_conf.startup_click_current = APPCONF_FLOAT_STARTUP_CLICK_CURRENT;
 	d->float_conf.brake_current = APPCONF_FLOAT_BRAKE_CURRENT;
-	d->float_conf.is_buzzer_enabled = APPCONF_FLOAT_IS_BUZZER_ENABLED;
+	d->float_conf.is_beeper_enabled = APPCONF_FLOAT_IS_BEEPER_ENABLED;
 	d->float_conf.tiltback_constant = APPCONF_FLOAT_TILTBACK_CONSTANT;
 	d->float_conf.tiltback_constant_erpm = APPCONF_FLOAT_TILTBACK_CONSTANT_ERPM;
 	d->float_conf.tiltback_variable = APPCONF_FLOAT_TILTBACK_VARIABLE;
@@ -2721,8 +2910,8 @@ static void cmd_tune_defaults(data *d){
 static void cmd_runtime_tune_tilt(data *d, unsigned char *cfg, int len)
 {
 	unsigned int flags = cfg[0];
-	bool duty_buzz = flags & 0x1;
-	d->float_conf.is_dutybuzz_enabled = duty_buzz;
+	bool duty_beep = flags & 0x1;
+	d->float_conf.is_dutybeep_enabled = duty_beep;
 	float retspeed = cfg[1];
 	if (retspeed > 0) {
 		d->float_conf.tiltback_return_speed = retspeed / 10;
@@ -2755,7 +2944,7 @@ static void cmd_runtime_tune_tilt(data *d, unsigned char *cfg, int len)
 static void cmd_runtime_tune_other(data *d, unsigned char *cfg, int len)
 {
 	unsigned int flags = cfg[0];
-	d->buzzer_enabled = ((flags & 0x2) == 2);
+	d->beeper_enabled = ((flags & 0x2) == 2);
 	d->float_conf.fault_reversestop_enabled = ((flags & 0x4) == 4);
 	d->float_conf.fault_is_dual_switch = ((flags & 0x8) == 8);
 	d->float_conf.fault_darkride_enabled = ((flags & 0x10) == 0x10);
@@ -2763,7 +2952,7 @@ static void cmd_runtime_tune_other(data *d, unsigned char *cfg, int len)
 	d->float_conf.startup_simplestart_enabled = ((flags & 0x40) == 0x40);
 	d->float_conf.startup_pushstart_enabled = ((flags & 0x80) == 0x80);
 
-	d->float_conf.is_buzzer_enabled = d->buzzer_enabled;
+	d->float_conf.is_beeper_enabled = d->beeper_enabled;
 	d->startup_pitch_trickmargin = dirty_landings ? 10 : 0;
 	d->float_conf.startup_dirtylandings_enabled = dirty_landings;
 
@@ -2853,6 +3042,207 @@ void cmd_rc_move(data *d, unsigned char *cfg)//int amps, int time)
 	}
 }
 
+static void cmd_haptic_config(data *d, unsigned char *cfg, int len)
+{
+	if (len > 6) {
+		d->float_conf.haptic_buzz_intensity = cfg[0];
+		d->float_conf.haptic_buzz_min = cfg[1];
+	        d->float_conf.haptic_buzz_duty = cfg[2];
+		d->float_conf.haptic_buzz_hv = cfg[3];
+		d->float_conf.haptic_buzz_lv = cfg[4];
+		d->float_conf.haptic_buzz_temp = cfg[5];
+		d->float_conf.haptic_buzz_current = cfg[6];
+		beep_alert(d, 1, 1);
+	}
+	else {
+		d->float_conf.haptic_buzz_intensity = cfg[0];
+		d->float_conf.haptic_buzz_min = 4;
+	        d->float_conf.haptic_buzz_duty = cfg[1];
+		d->float_conf.haptic_buzz_hv = cfg[1];
+		d->float_conf.haptic_buzz_lv = cfg[1];
+		d->float_conf.haptic_buzz_temp = cfg[1];
+		d->float_conf.haptic_buzz_current = cfg[1];
+	}
+	beep_alert(d, 1, 1);
+}
+
+/**
+ * Command for the LCM to poll data from the float package
+ * Also used to pass LCM name/version info (usually on 1st call)
+ */
+static void cmd_lcm_poll(data *d, unsigned char *cfg, int len)
+{
+	// Optional: pass in name and version in a single string
+	if (len > 0) {
+ 		// Read name from LCM
+		for (int i = 0; i < MAXLCMNAMELENGTH; i++) {
+			if (i > len || i > MAXLCMNAMELENGTH - 1 || cfg[i] == '\0') {
+				d->lcm_name[i] = '\0';
+				break;
+			}
+			d->lcm_name[i] = (char)cfg[i];
+		}
+	}
+
+	#define POLLBUFSIZE 20 + MAXLCMPAYLOADLENGTH
+	uint8_t send_buffer[POLLBUFSIZE];
+	int32_t ind = 0;
+	mc_fault_code fault = VESC_IF->mc_get_fault();
+
+	// 11 bytes for base info
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_LCM_POLL;
+
+	uint8_t state = (d->state & 0xF);
+	if ((d->is_flywheel_mode) && (d->state > 0) && (d->state < 6)) {
+		state = RUNNING_FLYWHEEL;
+	}
+	state += d->footpad_sensor.state << 4;
+	if (d->do_handtest) {
+		state |= 0x80;
+	}
+		
+	send_buffer[ind++] = state;
+	send_buffer[ind++] = fault;
+
+	// LCM only needs Duty Cycle, ERPM, and Input Current
+	send_buffer[ind++] = fminf(100, fabsf(d->abs_duty_cycle * 100));
+	buffer_append_float16(send_buffer, d->erpm, 1e0, &ind);
+	buffer_append_float16(send_buffer, VESC_IF->mc_get_tot_current_in(), 1e0, &ind);
+	buffer_append_float16(send_buffer, VESC_IF->mc_get_input_voltage_filtered(), 1e1, &ind);
+
+	// LCM control info
+	send_buffer[ind++] = d->float_conf.led_brightness;
+	send_buffer[ind++] = d->float_conf.led_brightness_idle;
+	send_buffer[ind++] = d->float_conf.led_status_brightness;
+
+	// Relay any generic byte pairs set by cmd_light_ctrl
+	for (int i = 0; i < d->lcm_payload.size; i++) {
+		send_buffer[ind++] = d->lcm_payload.data[i];
+	}
+	d->lcm_payload.size = 0; // Message has been processed, clear it
+
+	if (ind > POLLBUFSIZE) {
+		VESC_IF->printf("BUFSIZE too small [%d vs %d]...\n", ind, POLLBUFSIZE);
+	}
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+/**
+ * Command for apps to call to get info about lighting
+ */
+static void cmd_light_info(data *d)
+{
+	uint8_t send_buffer[15];
+	int32_t ind = 0;
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_LIGHT_INFO;
+	send_buffer[ind++] = d->float_conf.led_type;
+	send_buffer[ind++] = d->float_conf.led_brightness;
+	send_buffer[ind++] = d->float_conf.led_brightness_idle;
+	send_buffer[ind++] = d->float_conf.led_status_brightness;
+	send_buffer[ind++] = d->float_conf.led_mode;
+	send_buffer[ind++] = d->float_conf.led_mode_idle;
+	send_buffer[ind++] = d->float_conf.led_status_mode;
+	send_buffer[ind++] = d->float_conf.led_status_count;
+	send_buffer[ind++] = d->float_conf.led_forward_count;
+	send_buffer[ind++] = d->float_conf.led_rear_count;
+
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+/**
+ * Command for apps to call to LCM hardware info (if any)
+ */
+static void cmd_lcm_info(data *d)
+{
+	uint8_t send_buffer[18];
+	int32_t ind = 0;
+	send_buffer[ind++] = 101;//Magic Number
+	send_buffer[ind++] = FLOAT_COMMAND_LCM_INFO;
+	// Write light module firmware name into buffer
+	for (int i = 0; i < MAXLCMNAMELENGTH; i++) {
+		send_buffer[ind++] = d->lcm_name[i];
+		if (d->lcm_name[i] == '\0') {
+			break;
+		}
+	}
+
+	VESC_IF->send_app_data(send_buffer, ind);
+}
+
+/**
+ * Command to be called by ADV/LCM to announce that the board is charging
+ */
+static void cmd_chargestate(data *d, unsigned char *cfg, int len)
+{
+	// ignore this while riding!
+	if ((d->state >= RUNNING) && (d->state <= RUNNING_FLYWHEEL))
+		return;
+
+	// Expecting 6 bytes:
+	// -magic nr: must be 151
+	// -charging: 1/0 aka true/false
+	// -voltage: 16bit float divided by 10
+	// -current: 16bit float divided by 10
+	if (len < 6)
+		return;
+
+        uint8_t magicnr = cfg[0];
+	if (magicnr != 151)
+		return;
+
+	bool charging = (cfg[1] > 0);
+	d->charge_timer = d->current_time;
+
+	if (charging) {
+	        int32_t idx = 2;
+		d->charge_voltage = buffer_get_float16(cfg, 10, &idx);
+		d->charge_current = buffer_get_float16(cfg, 10, &idx);
+		d->state = CHARGING;
+	}
+	else if (d->state == CHARGING) {
+		// Once charging is done, go back to normal
+		if (d->float_conf.float_disable) {
+			d->state = DISABLED;
+		}
+		else {
+			d->state = STARTUP;
+		}
+		d->charge_voltage = 0;
+		d->charge_current = 0;
+	}
+}
+
+/**
+ * Command for apps to call to control LCM details (lights, behavior, etc)
+ */
+static void cmd_light_ctrl(data *d, unsigned char *cfg, int len)
+{
+	if (len < 3)
+		return;
+
+	d->float_conf.led_brightness = cfg[0];
+	d->float_conf.led_brightness_idle = cfg[1];
+	d->float_conf.led_status_brightness = cfg[2];
+
+	if (len > 3) {
+		if (d->float_conf.led_type == LED_Type_External_Module) {
+			// Copy rest of payload into data for LCM to pull
+			d->lcm_payload.size = len - 3;
+			for (int i = 0; i < d->lcm_payload.size; i++) {
+				d->lcm_payload.data[i] = cfg[i + 3];
+			}
+		} else {
+			if (len > 5) {
+				d->float_conf.led_mode = cfg[3];
+				d->float_conf.led_mode_idle = cfg[4];
+				d->float_conf.led_status_mode = cfg[5];
+			}
+		}
+	}
+}
+
 static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 {
 	if ((cfg[0] & 0x80) == 0)
@@ -2876,8 +3266,11 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 	if (d->is_flywheel_mode) {
 		if ((d->flywheel_pitch_offset == 0) || (command == 2)) {
 			// accidental button press?? board isn't evn close to being upright
-			if (fabsf(d->true_pitch_angle) < 70)
+			if (fabsf(d->true_pitch_angle) < 70) {
+				// don't forget to set flywheel mode back to false!
+				d->is_flywheel_mode = false;
 				return;
+			}
 
 			d->flywheel_pitch_offset = d->true_pitch_angle;
 			d->flywheel_roll_offset = d->roll_angle;
@@ -2893,7 +3286,7 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 		d->float_conf.startup_pitch_tolerance = 0.2;
 		d->float_conf.startup_roll_tolerance = 25;
 		d->float_conf.fault_pitch = 6;
-		d->float_conf.fault_roll = 35;	// roll can fluctuate significantly in the upright position
+		d->float_conf.fault_roll = 60;	// roll can fluctuate significantly in the upright position
 		if (command & 0x4) {
 			d->float_conf.fault_roll = 90;
 		}
@@ -2914,10 +3307,10 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 			d->float_conf.kp2 /= 100;
 		}
 
-		d->float_conf.tiltback_duty_angle = 4;
+		d->float_conf.tiltback_duty_angle = 2;
 		d->float_conf.tiltback_duty = 0.1;
-		d->float_conf.tiltback_duty_speed = 20;
-		d->float_conf.tiltback_return_speed = 20;
+		d->float_conf.tiltback_duty_speed = 5;
+		d->float_conf.tiltback_return_speed = 5;
 
 		if (cfg[3] > 0) {
 			d->float_conf.tiltback_duty_angle = cfg[3];
@@ -2928,15 +3321,17 @@ static void cmd_flywheel_toggle(data *d, unsigned char *cfg, int len)
 			d->float_conf.tiltback_duty /= 100;
 		}
 		if ((len > 6) && (cfg[6] > 1) && (cfg[6] < 100)) {
-			d->float_conf.tiltback_duty_speed = cfg[6];
-			d->float_conf.tiltback_return_speed = cfg[6];
+			d->float_conf.tiltback_duty_speed = cfg[6] / 2;
+			d->float_conf.tiltback_return_speed = cfg[6] / 2;
 		}
+		d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
+		d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
 
 		// Limit speed of wheel and limit amps
 		//backup_erpm = mc_interface_get_configuration()->l_max_erpm;
 		VESC_IF->set_cfg_float(CFG_PARAM_l_min_erpm + 100, -6000);
 		VESC_IF->set_cfg_float(CFG_PARAM_l_max_erpm + 100, 6000);
-		d->mc_current_max = d->mc_current_min = 40;
+		d->current_max = d->current_min = 50;
 
 		d->flywheel_allow_abort = cfg[5];
 
@@ -2975,78 +3370,6 @@ void flywheel_stop(data *d)
 	configure(d);
 }
 
-bool flywheel_konami_check(data *d)
-{
-	if ((d->flywheel_konami_state == 0) && flywheel_konami_step(d, 1)) { // LEFT
-		d->flywheel_konami_state = 1;
-		d->flywheel_konami_timer = d->current_time;
-		d->flywheel_konami_pitch = d->true_pitch_angle;
-	} else if ((d->flywheel_konami_state == 1) && flywheel_konami_step(d, 0)) { // _
-		d->flywheel_konami_state = 2;
-		d->flywheel_konami_timer = d->current_time;
-	} else if ((d->flywheel_konami_state == 2) && flywheel_konami_step(d, 2)) { // RIGHT
-		d->flywheel_konami_state = 3;
-		d->flywheel_konami_timer = d->current_time;
-	} else if ((d->flywheel_konami_state == 3) && flywheel_konami_step(d, 0)) { // _
-		d->flywheel_konami_state = 4;
-		d->flywheel_konami_timer = d->current_time;
-	} else if ((d->flywheel_konami_state == 4) && flywheel_konami_step(d, 1)) { // LEFT
-		d->flywheel_konami_state = 5;
-		d->flywheel_konami_timer = d->current_time;
-	} else if ((d->flywheel_konami_state == 5) && flywheel_konami_step(d, 0)) { // _
-		d->flywheel_konami_state = 6;
-		d->flywheel_konami_timer = d->current_time;
-	} else if ((d->flywheel_konami_state == 6) && flywheel_konami_step(d, 2)) { // RIGHT (ENABLE FLYWHEEL)
-		d->flywheel_konami_state = 7;
-		d->flywheel_konami_timer = d->current_time;
-		return true;
-	} else if (// Timeout:
-		   (d->current_time - d->flywheel_konami_timer > 0.5) ||
-		   // Right Press when expecting Left:
-		   ((d->flywheel_konami_state == 4) && flywheel_konami_step(d, 2)) ||
-		   // Left Press when expecting Right:
-		   (((d->flywheel_konami_state == 2) || (d->flywheel_konami_state == 6)) && flywheel_konami_step(d, 1)) ||
-		   // Double Press when expecting None:
-		   (((d->flywheel_konami_state == 1) || (d->flywheel_konami_state == 3) || (d->flywheel_konami_state == 5)) && flywheel_konami_step(d, 3))) {
-
-		d->flywheel_konami_state = 0;
-	}
-	return false;
-}
-
-bool flywheel_konami_step(data *d, int input)
-{
-	float fault_adc1 = d->float_conf.fault_adc1 * ADC_HAND_PRESS_SCALE;
-	float fault_adc2 = d->float_conf.fault_adc2 * ADC_HAND_PRESS_SCALE;
-	if((!d->is_flywheel_mode) && (d->true_pitch_angle > 75) && (d->true_pitch_angle < 105) && // Check that Flywheel is inactive and board is within reasonable pitch range
-	   ((d->flywheel_konami_state == 0) || (fabsf(d->true_pitch_angle - d->flywheel_konami_pitch) < 2.5)))
-	{
-		switch(input) {
-		case 1: // ADC 1 Pressed
-			if ((d->adc1 > fault_adc1) && (d->adc2 < fault_adc2)) {
-				return true;
-			}
-			break;
-		case 2: // ADC 2 Pressed
-			if ((d->adc1 < fault_adc1) && (d->adc2 > fault_adc2)) {
-				return true;
-			}
-			break;
-		case 3: // ADC 1 + 2 Pressed
-			if ((d->adc1 > fault_adc1) && (d->adc2 > fault_adc2)) {
-				return true;
-			}
-			break;
-		default: // No ADC Pressed
-			if ((d->adc1 < fault_adc1) && (d->adc2 < fault_adc2)) {
-				return true;
-			}
-			break;
-		}
-	}
-	return false; // Reached if any conditions along the way are failed
-}
-
 // Handler for incoming app commands
 static void on_command_received(unsigned char *buffer, unsigned int len) {
 	data *d = (data*)ARG;
@@ -3073,8 +3396,8 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			send_buffer[ind++] = 101;	// magic nr.
 			send_buffer[ind++] = 0x0;	// command ID
 			send_buffer[ind++] = (uint8_t) (10 * APPCONF_FLOAT_VERSION);
-			send_buffer[ind++] = 2;     // build number
-			send_buffer[ind++] = 1;
+			send_buffer[ind++] = 1;     // build number
+			send_buffer[ind++] = d->float_conf.led_type;
 			VESC_IF->send_app_data(send_buffer, ind);
 			return;
 		}
@@ -3182,6 +3505,41 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
 			}
 			return;
 		}
+		case FLOAT_COMMAND_HAPTIC: {
+			if (len >= 6) {
+				cmd_haptic_config(d, &buffer[2], len-2);
+			}
+			else {
+				if (!VESC_IF->app_is_output_disabled()) {
+					VESC_IF->printf("Float App: Command length incorrect (%d)\n", len);
+				}
+			}
+			return;
+		}
+		case FLOAT_COMMAND_LCM_POLL: {
+			cmd_lcm_poll(d, &buffer[2], len-2);
+			return;
+		}
+		case FLOAT_COMMAND_LIGHT_INFO: {
+			cmd_light_info(d);
+			return;
+		}
+		case FLOAT_COMMAND_LIGHT_CTRL: {
+			cmd_light_ctrl(d, &buffer[2], len-2);
+			return;
+		}
+		case FLOAT_COMMAND_LCM_INFO: {
+			cmd_lcm_info(d);
+			return;
+		}
+		case FLOAT_COMMAND_CHARGESTATE: {
+			cmd_chargestate(d, &buffer[2], len-2);
+			return;
+		}
+		case FLOAT_COMMAND_GET_BATTERY: {
+			cmd_send_battery();
+			return;
+		}
 		default: {
 			if (!VESC_IF->app_is_output_disabled()) {
 				VESC_IF->printf("Float App: Unknown command received %d vs %d\n", command, FLOAT_COMMAND_PRINT_INFO);
@@ -3208,6 +3566,16 @@ static lbm_value ext_set_fw_version(lbm_value *args, lbm_uint argn) {
 		d->fw_version_beta = VESC_IF->lbm_dec_as_i32(args[2]);
 	}
 	//VESC_IF->printf("Version is set: %d.%d [%d]\n", d->fw_version_major, d->fw_version_minor, d->fw_version_beta);
+	return VESC_IF->lbm_enc_sym_true;
+}
+
+// Called from Lisp periodically to pass in the battery level
+static lbm_value ext_set_batt_level(lbm_value *args, lbm_uint argn) {
+	data *d = (data*)ARG;
+	if (argn > 0) {
+		// store battery level as 0..100 8-bit integer
+		d->battery_level = VESC_IF->lbm_dec_as_float(args[0]) * 100;
+	}
 	return VESC_IF->lbm_enc_sym_true;
 }
 
@@ -3265,7 +3633,10 @@ static void stop(void *arg) {
 	VESC_IF->request_terminate(d->thread);
 	if (!VESC_IF->app_is_output_disabled()) {
 		VESC_IF->printf("Float App Terminated");
-	}
+	}	
+	
+	led_stop(&d->led_data);
+
 	VESC_IF->free(d);
 }
 
@@ -3293,8 +3664,8 @@ INIT_FUN(lib_info *info) {
 
 	configure(d);
 
-	if ((d->float_conf.is_buzzer_enabled) || (d->float_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
-		buzzer_init();
+	if ((d->float_conf.is_beeper_enabled) || (d->float_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
+		beeper_init();
 	}
 
 	VESC_IF->ahrs_init_attitude_info(&d->m_att_ref);
@@ -3308,6 +3679,7 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->set_app_data_handler(on_command_received);
 	VESC_IF->lbm_add_extension("ext-float-dbg", ext_bal_dbg);
 	VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
+	VESC_IF->lbm_add_extension("ext-set-batt-level", ext_set_batt_level);
 
 	return true;
 }

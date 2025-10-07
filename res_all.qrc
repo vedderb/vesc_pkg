@@ -3,15 +3,24 @@
    <qresource prefix="/vesc_packages">
         <file>balance/balance.vescpkg</file>
         <file>float/float.vescpkg</file>
+        <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
         <file>x1_unlocker/x1_unlocker.vescpkg</file>
+        <file>vbms32/vbms32.vescpkg</file>
+        <file>vbms32_micro/vbms32_micro.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
         <file>lib_nau7802/nau7802.vescpkg</file>
         <file>lib_interpolation/interpolation.vescpkg</file>
         <file>lib_files/files.vescpkg</file>
         <file>lib_pn532/pn532.vescpkg</file>
         <file>lib_code_server/code_server.vescpkg</file>
+        <file>lib_midi/midi.vescpkg</file>
+        <file>lib_disp_ui/disp_ui.vescpkg</file>
+        <file>lib_tca9535/tca9535.vescpkg</file>
+        <file>vdisp/vdisp.vescpkg</file>
+        <file>vdisp/vdisp_esc.vescpkg</file>
+        <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
    </qresource>
 </RCC>
 

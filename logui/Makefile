@@ -3,7 +3,7 @@ VESC_TOOL ?= vesc_tool
 all: logui.vescpkg
 
 logui.vescpkg:
-	$(VESC_TOOL) --buildPkg "logui.vescpkg:logger.lisp:ui.qml:0:README.md:LogUI"
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'custom:vbms32' --testPkgDesc 'vesc:test'
 
 clean:
 	rm -f logui.vescpkg

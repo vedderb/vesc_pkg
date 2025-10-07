@@ -9,22 +9,22 @@
         (var cmdlen (length cmd))
         (var buffer (array-create (+ cmdlen 7)))
         (var ind 0)
-        
+
         (bufadd-u8 buffer ind 0) ; Preamble
         (bufadd-u8 buffer ind 0) ; Startcode 1
         (bufadd-u8 buffer ind 0xFF) ; Startcode 2
         (bufadd-u8 buffer ind cmdlen)
         (bufadd-u8 buffer ind (+ (bitwise-not cmdlen) 1))
-        
+
         (var sum 0)
         (loopforeach c cmd {
                 (bufadd-u8 buffer ind c)
                 (setq sum (+ sum c))
         })
-        
+
         (bufadd-u8 buffer ind (+ (bitwise-not sum) 1)) ; Checksum
         (bufadd-u8 buffer ind 0) ; Postamble
-        
+
         (i2c-tx-rx pn532-addr buffer)
         (free buffer)
 })
@@ -138,8 +138,13 @@
     false
 )
 
-(defun pn532-init (pins) {
-        (apply i2c-start (append '('rate-400k) pins))
+(defun pn532-init () {
+        ; For compatibility with old software
+        (match (trap (apply i2c-start (rest-args)))
+            ((exit-ok (? a)) nil)
+            (_ (apply i2c-start (append '('rate-400k) (first (rest-args)))))
+        )
+
         (i2c-tx-rx pn532-addr '(0)) ; Required on the ESP for some reason
         (pn532-sam)
 })

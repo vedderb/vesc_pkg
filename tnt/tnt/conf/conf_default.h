@@ -5,32 +5,32 @@
 
 // Pitch Kp0
 #ifndef APPCONF_TNT_KP0
-#define APPCONF_TNT_KP0 0
+#define APPCONF_TNT_KP0 3
 #endif
 
 // Pitch 1 Current
 #ifndef APPCONF_TNT_CURRENT1
-#define APPCONF_TNT_CURRENT1 1
+#define APPCONF_TNT_CURRENT1 3
 #endif
 
 // Pitch 2 Current
 #ifndef APPCONF_TNT_CURRENT2
-#define APPCONF_TNT_CURRENT2 5
+#define APPCONF_TNT_CURRENT2 12
 #endif
 
 // Pitch 3 Current
 #ifndef APPCONF_TNT_CURRENT3
-#define APPCONF_TNT_CURRENT3 140
+#define APPCONF_TNT_CURRENT3 25
 #endif
 
 // Pitch 4 Current
 #ifndef APPCONF_TNT_CURRENT4
-#define APPCONF_TNT_CURRENT4 0
+#define APPCONF_TNT_CURRENT4 45
 #endif
 
 // Pitch 5 Current
 #ifndef APPCONF_TNT_CURRENT5
-#define APPCONF_TNT_CURRENT5 0
+#define APPCONF_TNT_CURRENT5 150
 #endif
 
 // Pitch 6 Current
@@ -38,34 +38,34 @@
 #define APPCONF_TNT_CURRENT6 0
 #endif
 
-// Pitch 1
+// Pitch Angle 1
 #ifndef APPCONF_TNT_PITCH1
-#define APPCONF_TNT_PITCH1 0.2
+#define APPCONF_TNT_PITCH1 0.5
 #endif
 
-// Pitch 2
+// Pitch Angle 2
 #ifndef APPCONF_TNT_PITCH2
-#define APPCONF_TNT_PITCH2 0.5
+#define APPCONF_TNT_PITCH2 1
 #endif
 
-// Pitch 3
+// Pitch Angle 3
 #ifndef APPCONF_TNT_PITCH3
-#define APPCONF_TNT_PITCH3 3
+#define APPCONF_TNT_PITCH3 1.5
 #endif
 
-// Pitch 4
+// Pitch Angle 4
 #ifndef APPCONF_TNT_PITCH4
-#define APPCONF_TNT_PITCH4 1.5
+#define APPCONF_TNT_PITCH4 2
 #endif
 
-// Pitch 5
+// Pitch Angle 5
 #ifndef APPCONF_TNT_PITCH5
-#define APPCONF_TNT_PITCH5 2
+#define APPCONF_TNT_PITCH5 4.5
 #endif
 
-// Pitch 6
+// Pitch Angle 6
 #ifndef APPCONF_TNT_PITCH6
-#define APPCONF_TNT_PITCH6 3
+#define APPCONF_TNT_PITCH6 6
 #endif
 
 // Enable Pitch Kp Input
@@ -75,22 +75,22 @@
 
 // Mahony KP
 #ifndef APPCONF_TNT_MAHONY_KP
-#define APPCONF_TNT_MAHONY_KP 2
+#define APPCONF_TNT_MAHONY_KP 1.3
 #endif
 
-// Kp Rate
+// Pitch Rate Kp
 #ifndef APPCONF_TNT_KP_RATE
-#define APPCONF_TNT_KP_RATE 0.4
+#define APPCONF_TNT_KP_RATE 0.6
 #endif
 
 // Pitch Filter
 #ifndef APPCONF_TNT_PITCH_FILTER
-#define APPCONF_TNT_PITCH_FILTER 25
+#define APPCONF_TNT_PITCH_FILTER 35
 #endif
 
 // Kalman Factor 1
 #ifndef APPCONF_TNT_KALMAN1
-#define APPCONF_TNT_KALMAN1 10
+#define APPCONF_TNT_KALMAN1 0
 #endif
 
 // Kalman Factor 2
@@ -101,6 +101,86 @@
 // Kalman Factor 3
 #ifndef APPCONF_TNT_KALMAN3
 #define APPCONF_TNT_KALMAN3 0.5
+#endif
+
+// Enable Brake Curve
+#ifndef APPCONF_TNT_BRAKE_CURVE
+#define APPCONF_TNT_BRAKE_CURVE 0
+#endif
+
+// Pitch Kp0
+#ifndef APPCONF_TNT_BRAKEKP0
+#define APPCONF_TNT_BRAKEKP0 3
+#endif
+
+// Pitch Rate Kp
+#ifndef APPCONF_TNT_BRAKEKP_RATE
+#define APPCONF_TNT_BRAKEKP_RATE 0.6
+#endif
+
+// Pitch 1 Current
+#ifndef APPCONF_TNT_BRAKECURRENT1
+#define APPCONF_TNT_BRAKECURRENT1 3
+#endif
+
+// Pitch 2 Current
+#ifndef APPCONF_TNT_BRAKECURRENT2
+#define APPCONF_TNT_BRAKECURRENT2 12
+#endif
+
+// Pitch 3 Current
+#ifndef APPCONF_TNT_BRAKECURRENT3
+#define APPCONF_TNT_BRAKECURRENT3 25
+#endif
+
+// Pitch 4 Current
+#ifndef APPCONF_TNT_BRAKECURRENT4
+#define APPCONF_TNT_BRAKECURRENT4 45
+#endif
+
+// Pitch 5 Current
+#ifndef APPCONF_TNT_BRAKECURRENT5
+#define APPCONF_TNT_BRAKECURRENT5 150
+#endif
+
+// Pitch 6 Current
+#ifndef APPCONF_TNT_BRAKECURRENT6
+#define APPCONF_TNT_BRAKECURRENT6 0
+#endif
+
+// Pitch Angle 1
+#ifndef APPCONF_TNT_BRAKEPITCH1
+#define APPCONF_TNT_BRAKEPITCH1 0.5
+#endif
+
+// Pitch Angle 2
+#ifndef APPCONF_TNT_BRAKEPITCH2
+#define APPCONF_TNT_BRAKEPITCH2 1
+#endif
+
+// Pitch Angle 3
+#ifndef APPCONF_TNT_BRAKEPITCH3
+#define APPCONF_TNT_BRAKEPITCH3 1.5
+#endif
+
+// Pitch Angle 4
+#ifndef APPCONF_TNT_BRAKEPITCH4
+#define APPCONF_TNT_BRAKEPITCH4 2
+#endif
+
+// Pitch Angle 5
+#ifndef APPCONF_TNT_BRAKEPITCH5
+#define APPCONF_TNT_BRAKEPITCH5 4.5
+#endif
+
+// Pitch Angle 6
+#ifndef APPCONF_TNT_BRAKEPITCH6
+#define APPCONF_TNT_BRAKEPITCH6 6
+#endif
+
+// Enable Pitch Kp Input Braking
+#ifndef APPCONF_TNT_PITCH_KP_INPUT_BRAKE
+#define APPCONF_TNT_PITCH_KP_INPUT_BRAKE 0
 #endif
 
 // Level 1 Roll Kp
@@ -125,7 +205,7 @@
 
 // Level 2 Roll Angle
 #ifndef APPCONF_TNT_ROLL2
-#define APPCONF_TNT_ROLL2 25
+#define APPCONF_TNT_ROLL2 35
 #endif
 
 // Level 3 Roll Angle
@@ -140,7 +220,7 @@
 
 // Level 2 Roll Kp Braking
 #ifndef APPCONF_TNT_BRKROLL_KP2
-#define APPCONF_TNT_BRKROLL_KP2 0.3
+#define APPCONF_TNT_BRKROLL_KP2 0.2
 #endif
 
 // Level 3 Roll Kp Braking
@@ -155,7 +235,7 @@
 
 // Level 2 Roll Angle Braking
 #ifndef APPCONF_TNT_BRKROLL2
-#define APPCONF_TNT_BRKROLL2 25
+#define APPCONF_TNT_BRKROLL2 35
 #endif
 
 // Level 3 Roll Angle Braking
@@ -165,7 +245,12 @@
 
 // Roll High ERPM Scale
 #ifndef APPCONF_TNT_ROLLKP_HIGHERPM
-#define APPCONF_TNT_ROLLKP_HIGHERPM 3000
+#define APPCONF_TNT_ROLLKP_HIGHERPM 2500
+#endif
+
+// Roll High ERPM Scale
+#ifndef APPCONF_TNT_ROLL_HS_HIGHERPM
+#define APPCONF_TNT_ROLL_HS_HIGHERPM 10000
 #endif
 
 // Roll Low ERPM Scale
@@ -173,9 +258,94 @@
 #define APPCONF_TNT_ROLLKP_LOWERPM 750
 #endif
 
+// Roll Low ERPM Scale
+#ifndef APPCONF_TNT_ROLL_HS_LOWERPM
+#define APPCONF_TNT_ROLL_HS_LOWERPM 6000
+#endif
+
 // Roll Maximum Scaler
 #ifndef APPCONF_TNT_ROLLKP_MAXSCALE
-#define APPCONF_TNT_ROLLKP_MAXSCALE 300
+#define APPCONF_TNT_ROLLKP_MAXSCALE 200
+#endif
+
+// Roll Maximum Scaler
+#ifndef APPCONF_TNT_ROLL_HS_MAXSCALE
+#define APPCONF_TNT_ROLL_HS_MAXSCALE 0
+#endif
+
+// Yaw Rate Kp
+#ifndef APPCONF_TNT_YAW_RATE_KP
+#define APPCONF_TNT_YAW_RATE_KP 0
+#endif
+
+// Level 1 Yaw Kp
+#ifndef APPCONF_TNT_YAW_KP1
+#define APPCONF_TNT_YAW_KP1 0
+#endif
+
+// Level 2 Yaw Kp
+#ifndef APPCONF_TNT_YAW_KP2
+#define APPCONF_TNT_YAW_KP2 0.02
+#endif
+
+// Level 3 Yaw Kp
+#ifndef APPCONF_TNT_YAW_KP3
+#define APPCONF_TNT_YAW_KP3 0
+#endif
+
+// Level 1 Yaw Angle Change
+#ifndef APPCONF_TNT_YAW1
+#define APPCONF_TNT_YAW1 60
+#endif
+
+// Level 2 Yaw Angle Change
+#ifndef APPCONF_TNT_YAW2
+#define APPCONF_TNT_YAW2 500
+#endif
+
+// Level 3 Yaw Angle Change
+#ifndef APPCONF_TNT_YAW3
+#define APPCONF_TNT_YAW3 750
+#endif
+
+// Yaw Rate Brake Kp
+#ifndef APPCONF_TNT_YAW_RATE_BRAKE_KP
+#define APPCONF_TNT_YAW_RATE_BRAKE_KP 0
+#endif
+
+// Level 1 Yaw Kp Braking
+#ifndef APPCONF_TNT_BRKYAW_KP1
+#define APPCONF_TNT_BRKYAW_KP1 0
+#endif
+
+// Level 2 Yaw Kp Braking
+#ifndef APPCONF_TNT_BRKYAW_KP2
+#define APPCONF_TNT_BRKYAW_KP2 0.02
+#endif
+
+// Level 3 Yaw Kp Braking
+#ifndef APPCONF_TNT_BRKYAW_KP3
+#define APPCONF_TNT_BRKYAW_KP3 0
+#endif
+
+// Level 1 Yaw Angle Braking
+#ifndef APPCONF_TNT_BRKYAW1
+#define APPCONF_TNT_BRKYAW1 60
+#endif
+
+// Level 2 Yaw Angle Braking
+#ifndef APPCONF_TNT_BRKYAW2
+#define APPCONF_TNT_BRKYAW2 500
+#endif
+
+// Level 3 Yaw Angle Braking
+#ifndef APPCONF_TNT_BRKYAW3
+#define APPCONF_TNT_BRKYAW3 750
+#endif
+
+// Yaw Minimum ERPM
+#ifndef APPCONF_TNT_YAW_MINERPM
+#define APPCONF_TNT_YAW_MINERPM 1500
 #endif
 
 // Enable Surge
@@ -183,64 +353,184 @@
 #define APPCONF_TNT_IS_SURGE_ENABLED 0
 #endif
 
-// Surge Period
-#ifndef APPCONF_TNT_SURGE_PERIOD
-#define APPCONF_TNT_SURGE_PERIOD 0.7
+// High Current Threshold, Low Duty
+#ifndef APPCONF_TNT_SURGE_STARTCURRENT
+#define APPCONF_TNT_SURGE_STARTCURRENT 85
 #endif
 
-// Surge Cycle
-#ifndef APPCONF_TNT_SURGE_CYCLE
-#define APPCONF_TNT_SURGE_CYCLE 0.3
+// High Current Threshold, Max Duty
+#ifndef APPCONF_TNT_SURGE_START_HD_CURRENT
+#define APPCONF_TNT_SURGE_START_HD_CURRENT 40
 #endif
 
-// Surge Start Angle Speed
-#ifndef APPCONF_TNT_SURGE_STARTANGLESPEED
-#define APPCONF_TNT_SURGE_STARTANGLESPEED 50
+// Duty to Start Current Scaling
+#ifndef APPCONF_TNT_SURGE_SCALEDUTY
+#define APPCONF_TNT_SURGE_SCALEDUTY 35
 #endif
 
-// Surge Start Differential
-#ifndef APPCONF_TNT_SURGE_DIFFLIMIT
-#define APPCONF_TNT_SURGE_DIFFLIMIT 3.5
+// Surge Setpoint Margin
+#ifndef APPCONF_TNT_SURGE_PITCHMARGIN
+#define APPCONF_TNT_SURGE_PITCHMARGIN 2.5
 #endif
 
-// Surge End Current Margin
-#ifndef APPCONF_TNT_SURGE_CURRENTMARGIN
-#define APPCONF_TNT_SURGE_CURRENTMARGIN 1.3
+// Surge Max Nose Lift
+#ifndef APPCONF_TNT_SURGE_MAXANGLE
+#define APPCONF_TNT_SURGE_MAXANGLE 1.5
+#endif
+
+// High Current Minimum ERPM
+#ifndef APPCONF_TNT_SURGE_MINERPM
+#define APPCONF_TNT_SURGE_MINERPM 2000
+#endif
+
+// Surge Max Ramp Rate
+#ifndef APPCONF_TNT_SURGE_DUTY
+#define APPCONF_TNT_SURGE_DUTY 150
+#endif
+
+// Current Filter Frequency
+#ifndef APPCONF_TNT_CURRENT_FILTER
+#define APPCONF_TNT_CURRENT_FILTER 6
+#endif
+
+// Surge Return Speed
+#ifndef APPCONF_TNT_TILTBACK_SURGE_SPEED
+#define APPCONF_TNT_TILTBACK_SURGE_SPEED 20
 #endif
 
 // Enable Traction Control
 #ifndef APPCONF_TNT_IS_TRACTION_ENABLED
-#define APPCONF_TNT_IS_TRACTION_ENABLED 0
+#define APPCONF_TNT_IS_TRACTION_ENABLED 1
 #endif
 
-// Wheelslip Margin
-#ifndef APPCONF_TNT_WHEELSLIP_MARGIN
-#define APPCONF_TNT_WHEELSLIP_MARGIN 6
-#endif
-
-// Wheelslip Acceleration Trigger
+// Start Acceleration
 #ifndef APPCONF_TNT_WHEELSLIP_ACCELSTART
 #define APPCONF_TNT_WHEELSLIP_ACCELSTART 35
 #endif
 
-// Wheelslip Acceleration End
+// Transition Condition
+#ifndef APPCONF_TNT_WHEELSLIP_ACCELSLOWED
+#define APPCONF_TNT_WHEELSLIP_ACCELSLOWED 10
+#endif
+
+// End Acceleration
 #ifndef APPCONF_TNT_WHEELSLIP_ACCELEND
-#define APPCONF_TNT_WHEELSLIP_ACCELEND 5
+#define APPCONF_TNT_WHEELSLIP_ACCELEND 2
 #endif
 
-// Wheelslip Low ERPM Scaler
+// Low ERPM Scaler
 #ifndef APPCONF_TNT_WHEELSLIP_SCALEACCEL
-#define APPCONF_TNT_WHEELSLIP_SCALEACCEL 5
+#define APPCONF_TNT_WHEELSLIP_SCALEACCEL 4
 #endif
 
-// Wheelslip Scale ERPM
+// Scale ERPM
 #ifndef APPCONF_TNT_WHEELSLIP_SCALEERPM
-#define APPCONF_TNT_WHEELSLIP_SCALEERPM 3000
+#define APPCONF_TNT_WHEELSLIP_SCALEERPM 6000
 #endif
 
-// Loop Hertz
+// ERPM Filter Freq
+#ifndef APPCONF_TNT_WHEELSLIP_FILTER_FREQ_FAST
+#define APPCONF_TNT_WHEELSLIP_FILTER_FREQ_FAST 25
+#endif
+
+// Angle Limit
+#ifndef APPCONF_TNT_WHEELSLIP_MAX_ANGLE
+#define APPCONF_TNT_WHEELSLIP_MAX_ANGLE 10
+#endif
+
+// Hold Acceleration
+#ifndef APPCONF_TNT_WHEELSLIP_ACCELHOLD
+#define APPCONF_TNT_WHEELSLIP_ACCELHOLD 2
+#endif
+
+// Hold Period
+#ifndef APPCONF_TNT_WHEELSLIP_RESETTIME
+#define APPCONF_TNT_WHEELSLIP_RESETTIME 50
+#endif
+
+// Tracking ERPM Rate Limit
+#ifndef APPCONF_TNT_WHEELSLIP_ERPM_RATE_LIMIT
+#define APPCONF_TNT_WHEELSLIP_ERPM_RATE_LIMIT 8
+#endif
+
+// Tracking ERPM Exclusion Rate
+#ifndef APPCONF_TNT_WHEELSLIP_ERPM_EXCLUSION_RATE
+#define APPCONF_TNT_WHEELSLIP_ERPM_EXCLUSION_RATE 20
+#endif
+
+// Tracking ERPM Margin
+#ifndef APPCONF_TNT_WHEELSLIP_ERPM_MARGIN
+#define APPCONF_TNT_WHEELSLIP_ERPM_MARGIN 1000
+#endif
+
+// Enable Traction Control Braking
+#ifndef APPCONF_TNT_IS_TC_BRAKING_ENABLED
+#define APPCONF_TNT_IS_TC_BRAKING_ENABLED 0
+#endif
+
+// Minimum Remote Angle
+#ifndef APPCONF_TNT_TC_BRAKING_ANGLE
+#define APPCONF_TNT_TC_BRAKING_ANGLE 0
+#endif
+
+// Minimum ERPM
+#ifndef APPCONF_TNT_TC_BRAKING_MIN_ERPM
+#define APPCONF_TNT_TC_BRAKING_MIN_ERPM 1500
+#endif
+
+// Off Delay
+#ifndef APPCONF_TNT_TC_BRAKING_OFF_TIME
+#define APPCONF_TNT_TC_BRAKING_OFF_TIME 0
+#endif
+
+// Enable Speed Stability
+#ifndef APPCONF_TNT_ENABLE_SPEED_STABILITY
+#define APPCONF_TNT_ENABLE_SPEED_STABILITY 1
+#endif
+
+// Enable Throttle Stability
+#ifndef APPCONF_TNT_ENABLE_THROTTLE_STABILITY
+#define APPCONF_TNT_ENABLE_THROTTLE_STABILITY 0
+#endif
+
+// Pitch Current Max Stability
+#ifndef APPCONF_TNT_STABL_PITCH_MAXSCALE
+#define APPCONF_TNT_STABL_PITCH_MAXSCALE 0
+#endif
+
+// Pitch Rate Max Stability
+#ifndef APPCONF_TNT_STABL_RATE_MAXSCALE
+#define APPCONF_TNT_STABL_RATE_MAXSCALE 100
+#endif
+
+// Minimum Scale ERPM
+#ifndef APPCONF_TNT_STABL_MIN_ERPM
+#define APPCONF_TNT_STABL_MIN_ERPM 3000
+#endif
+
+// Maximum Scale ERPM
+#ifndef APPCONF_TNT_STABL_MAX_ERPM
+#define APPCONF_TNT_STABL_MAX_ERPM 8000
+#endif
+
+// Ramp Rate Up
+#ifndef APPCONF_TNT_STABL_RAMP
+#define APPCONF_TNT_STABL_RAMP 50
+#endif
+
+// Ramp Rate Down
+#ifndef APPCONF_TNT_STABL_RAMP_DOWN
+#define APPCONF_TNT_STABL_RAMP_DOWN 5
+#endif
+
+// Package Loop Frequency
 #ifndef APPCONF_TNT_HERTZ
-#define APPCONF_TNT_HERTZ 832
+#define APPCONF_TNT_HERTZ 10000
+#endif
+
+// EMA Filter Adjustment Factor
+#ifndef APPCONF_TNT_EMA_FACTOR
+#define APPCONF_TNT_EMA_FACTOR 1
 #endif
 
 // Pitch Axis Fault Cutoff
@@ -255,27 +545,22 @@
 
 // ADC1 Switch Voltage
 #ifndef APPCONF_TNT_FAULT_ADC1
-#define APPCONF_TNT_FAULT_ADC1 3
+#define APPCONF_TNT_FAULT_ADC1 2.5
 #endif
 
 // ADC2 Switch Voltage
-#ifndef APPCONF_TNT_FAULT_ADC2
-#define APPCONF_TNT_FAULT_ADC2 3
+#ifndef APPCONF_TNT_FAULT_ADC1
+#define APPCONF_TNT_FAULT_ADC1 2.5
 #endif
 
-// Beep on Sensor Fault
-#ifndef APPCONF_TNT_IS_FOOTBUZZ_ENABLED
-#define APPCONF_TNT_IS_FOOTBUZZ_ENABLED 0
+// Enable FOC Beep on Sensor Fault
+#ifndef APPCONF_TNT_IS_FOOTBEEP_ENABLED
+#define APPCONF_TNT_IS_FOOTBEEP_ENABLED 0
 #endif
 
-// Pitch Fault Delay
+// Angle Fault Delay
 #ifndef APPCONF_TNT_FAULT_DELAY_PITCH
 #define APPCONF_TNT_FAULT_DELAY_PITCH 250
-#endif
-
-// Roll Fault Delay
-#ifndef APPCONF_TNT_FAULT_DELAY_ROLL
-#define APPCONF_TNT_FAULT_DELAY_ROLL 250
 #endif
 
 // Half Switch Fault Delay
@@ -285,7 +570,7 @@
 
 // Full Switch Fault Delay
 #ifndef APPCONF_TNT_FAULT_DELAY_SWITCH_FULL
-#define APPCONF_TNT_FAULT_DELAY_SWITCH_FULL 250
+#define APPCONF_TNT_FAULT_DELAY_SWITCH_FULL 500
 #endif
 
 // ADC Half State Fault ERPM
@@ -303,6 +588,21 @@
 #define APPCONF_TNT_FAULT_MOVING_FAULT_DISABLED 0
 #endif
 
+// Enable Quick Stop
+#ifndef APPCONF_TNT_FAULT_IS_QUICKSTOP_ENABLED
+#define APPCONF_TNT_FAULT_IS_QUICKSTOP_ENABLED 0
+#endif
+
+// Quick Stop Angle
+#ifndef APPCONF_TNT_QUICKSTOP_ANGLE
+#define APPCONF_TNT_QUICKSTOP_ANGLE 14
+#endif
+
+// Quick Stop ERPM
+#ifndef APPCONF_TNT_QUICKSTOP_ERPM
+#define APPCONF_TNT_QUICKSTOP_ERPM 2000
+#endif
+
 // Angle
 #ifndef APPCONF_TNT_TILTBACK_DUTY_ANGLE
 #define APPCONF_TNT_TILTBACK_DUTY_ANGLE 5
@@ -313,14 +613,14 @@
 #define APPCONF_TNT_TILTBACK_DUTY_SPEED 3
 #endif
 
-// Duty Cycle
+// Alert Duty Cycle
 #ifndef APPCONF_TNT_TILTBACK_DUTY
-#define APPCONF_TNT_TILTBACK_DUTY 0.8
+#define APPCONF_TNT_TILTBACK_DUTY 80
 #endif
 
-// Beep on Duty Tiltback
-#ifndef APPCONF_TNT_IS_DUTYBUZZ_ENABLED
-#define APPCONF_TNT_IS_DUTYBUZZ_ENABLED 0
+// Enable High Duty FOC Beep
+#ifndef APPCONF_TNT_IS_DUTYBEEP_ENABLED
+#define APPCONF_TNT_IS_DUTYBEEP_ENABLED 0
 #endif
 
 // Angle
@@ -335,7 +635,7 @@
 
 // High Voltage Threshold
 #ifndef APPCONF_TNT_TILTBACK_HV
-#define APPCONF_TNT_TILTBACK_HV 63.5
+#define APPCONF_TNT_TILTBACK_HV 84.5
 #endif
 
 // Angle
@@ -350,12 +650,22 @@
 
 // Low Voltage Threshold
 #ifndef APPCONF_TNT_TILTBACK_LV
-#define APPCONF_TNT_TILTBACK_LV 45
+#define APPCONF_TNT_TILTBACK_LV 60
+#endif
+
+// Reduced Range Threshold
+#ifndef APPCONF_TNT_MIDVOLT_WARNING
+#define APPCONF_TNT_MIDVOLT_WARNING 74
+#endif
+
+// Low Range Threshold
+#ifndef APPCONF_TNT_LOWVOLT_WARNING
+#define APPCONF_TNT_LOWVOLT_WARNING 66
 #endif
 
 // Angle
 #ifndef APPCONF_TNT_TILTBACK_HT_ANGLE
-#define APPCONF_TNT_TILTBACK_HT_ANGLE 10
+#define APPCONF_TNT_TILTBACK_HT_ANGLE 8
 #endif
 
 // Speed
@@ -376,6 +686,41 @@
 // Constant Tiltback ERPM
 #ifndef APPCONF_TNT_TILTBACK_CONSTANT_ERPM
 #define APPCONF_TNT_TILTBACK_CONSTANT_ERPM 500
+#endif
+
+// Enable High Current FOC Tones
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_CURRENT
+#define APPCONF_TNT_HAPTIC_BUZZ_CURRENT 0
+#endif
+
+// Tone Frequency
+#ifndef APPCONF_TNT_TONE_FREQ_HIGH_CURRENT
+#define APPCONF_TNT_TONE_FREQ_HIGH_CURRENT 180
+#endif
+
+// Tone Volume
+#ifndef APPCONF_TNT_TONE_VOLT_HIGH_CURRENT
+#define APPCONF_TNT_TONE_VOLT_HIGH_CURRENT 5
+#endif
+
+// Enable High Duty FOC Tones
+#ifndef APPCONF_TNT_HAPTIC_BUZZ_DUTY
+#define APPCONF_TNT_HAPTIC_BUZZ_DUTY 0
+#endif
+
+// Tone Frequency
+#ifndef APPCONF_TNT_TONE_FREQ_HIGH_DUTY
+#define APPCONF_TNT_TONE_FREQ_HIGH_DUTY 350
+#endif
+
+// Tone Volume
+#ifndef APPCONF_TNT_TONE_VOLT_HIGH_DUTY
+#define APPCONF_TNT_TONE_VOLT_HIGH_DUTY 2
+#endif
+
+// Beep Volume
+#ifndef APPCONF_TNT_BEEP_VOLTAGE
+#define APPCONF_TNT_BEEP_VOLTAGE 5
 #endif
 
 // Nose Angling Speed
@@ -410,7 +755,7 @@
 
 // Input Deadband
 #ifndef APPCONF_TNT_INPUTTILT_DEADBAND
-#define APPCONF_TNT_INPUTTILT_DEADBAND 0.05
+#define APPCONF_TNT_INPUTTILT_DEADBAND 5
 #endif
 
 // Sticky Tilt Angle 1
@@ -438,19 +783,9 @@
 #define APPCONF_TNT_STARTUP_PITCH_TOLERANCE 7
 #endif
 
-// Startup Roll Axis Angle Tolerance
-#ifndef APPCONF_TNT_STARTUP_ROLL_TOLERANCE
-#define APPCONF_TNT_STARTUP_ROLL_TOLERANCE 45
-#endif
-
 // Startup Centering Speed
 #ifndef APPCONF_TNT_STARTUP_SPEED
 #define APPCONF_TNT_STARTUP_SPEED 60
-#endif
-
-// Startup Click Current
-#ifndef APPCONF_TNT_STARTUP_CLICK_CURRENT
-#define APPCONF_TNT_STARTUP_CLICK_CURRENT 0
 #endif
 
 // Enable Simple Start
@@ -468,14 +803,74 @@
 #define APPCONF_DIRTYLANDINGS_ENABLED 0
 #endif
 
+// Simple Start Delay
+#ifndef APPCONF_TNT_SIMPLE_START_DELAY
+#define APPCONF_TNT_SIMPLE_START_DELAY 3
+#endif
+
 // Brake Current
 #ifndef APPCONF_TNT_BRAKE_CURRENT
 #define APPCONF_TNT_BRAKE_CURRENT 6
 #endif
 
-// Enable Buzzer on Servo/PPM
-#ifndef APPCONF_TNT_IS_BUZZER_ENABLED
-#define APPCONF_TNT_IS_BUZZER_ENABLED 0
+// High Current Margin
+#ifndef APPCONF_TNT_OVERCURRENT_MARGIN
+#define APPCONF_TNT_OVERCURRENT_MARGIN 10
+#endif
+
+// Tone Duration
+#ifndef APPCONF_TNT_OVERCURRENT_PERIOD
+#define APPCONF_TNT_OVERCURRENT_PERIOD 0.3
+#endif
+
+// Reset Trip Data On Write
+#ifndef APPCONF_TNT_IS_RESETTRIPDATA_ENABLED
+#define APPCONF_TNT_IS_RESETTRIPDATA_ENABLED 0
+#endif
+
+// Enable FOC Beeps
+#ifndef APPCONF_TNT_IS_BEEPER_ENABLED
+#define APPCONF_TNT_IS_BEEPER_ENABLED 0
+#endif
+
+// Enable Pitch Debug Info
+#ifndef APPCONF_TNT_IS_PITCHDEBUG_ENABLED
+#define APPCONF_TNT_IS_PITCHDEBUG_ENABLED 0
+#endif
+
+// Enable Roll Debug Info
+#ifndef APPCONF_TNT_IS_ROLLDEBUG_ENABLED
+#define APPCONF_TNT_IS_ROLLDEBUG_ENABLED 0
+#endif
+
+// Enable Yaw Debug Info
+#ifndef APPCONF_TNT_IS_PITCHDEBUG_ENABLED
+#define APPCONF_TNT_IS_PITCHDEBUG_ENABLED 0
+#endif
+
+// Enable Stability Debug Info
+#ifndef APPCONF_TNT_IS_STABILITYDEBUG_ENABLED
+#define APPCONF_TNT_IS_STABILITYDEBUG_ENABLED 0
+#endif
+
+// Enable Current Debug Info
+#ifndef APPCONF_TNT_IS_CURRENTDEBUG_ENABLED
+#define APPCONF_TNT_IS_CURRENTDEBUG_ENABLED 0
+#endif
+
+// Enable Surge Debug Info
+#ifndef APPCONF_TNT_IS_SURGEDEBUG_ENABLED
+#define APPCONF_TNT_IS_SURGEDEBUG_ENABLED 0
+#endif
+
+// Enable Traction Control Debug Info
+#ifndef APPCONF_TNT_IS_TCDEBUG_ENABLED
+#define APPCONF_TNT_IS_TCDEBUG_ENABLED 0
+#endif
+
+// Enable Traction Braking Debug Info
+#ifndef APPCONF_TNT_IS_BRAKINGDEBUG_ENABLED
+#define APPCONF_TNT_IS_BRAKINGDEBUG_ENABLED 0
 #endif
 
 // Disable Package
@@ -485,7 +880,7 @@
 
 // Package Version
 #ifndef APPCONF_TNT_VERSION
-#define APPCONF_TNT_VERSION 1
+#define APPCONF_TNT_VERSION 1.6
 #endif
 
 // CONF_DEFAULT_H_

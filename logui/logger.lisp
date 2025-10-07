@@ -4,6 +4,30 @@
 
 ; Minimum input voltage, stop logging when voltage drops lower
 (def vin-min 18)
+(def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
+
+@const-start
+
+(defun has-dual-motors () {
+        (if is-esc
+            (atomic
+                (var motor-before (get-selected-motor))
+                (select-motor 2)
+                (var res (= (get-selected-motor) 2))
+                (select-motor motor-before)
+                res
+            )
+            false
+        )
+})
+
+(defmacro run-m2 (code) `(atomic {
+            (var res nil)
+            (select-motor 2)
+            (setq res ,code)
+            (select-motor 1)
+            res
+}))
 
 ; Local data to log
 ;
@@ -32,6 +56,11 @@
         ("cnt_wh" "Wh" "Watt Hours"     (get-wh))
         ("cnt_ah_chg" "Ah" "Ah Chg"     (get-ah-chg))
         ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
+        ("ADC1" "V"                     (get-adc 0))
+        ("ADC2" "V"                     (get-adc 1))
+        ("iq" "A"                       (get-iq))
+        ("id" "A"                       (get-id))
+        ("Fault"                        (get-fault))
 ))
 
 ; CAN-data template. Same format as above, but all %d in strings will
@@ -44,15 +73,12 @@
         ("V%d RPM"                      (canget-rpm id))
         ("V%d Temp Fet" "degC" 1        (canget-temp-fet id))
         ("V%d Temp Motor" "degC" 1      (canget-temp-motor id))
+        ("V%d ADC1" "V"                 (canget-adc id 0))
+        ("V%d ADC2" "V"                 (canget-adc id 1))
+        ("V%d Input Voltage" "V"        (canget-vin id))
 ))
 
 (defun merge-lists (list-with-lists) (foldl append () list-with-lists))
-
-(def fw-num (+ (first (sysinfo 'fw-ver)) (* (second (sysinfo 'fw-ver)) 0.01)))
-(if (>= fw-num 6.02)
-    (def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
-    (def is-esc true)
-)
 
 ; Scan CAN-bus and make loglists for all devices
 (defun canlist-create ()
@@ -101,7 +127,7 @@
                 res
             )
             res
-            
+
 )))
 
 (defun loglist-parse (id lst res-fun)
@@ -162,20 +188,20 @@
     (progn
         (def last-can-id id)
         (stop-log id)
-        
-        (def loglist (merge-lists 
+
+        (def loglist (merge-lists
                 (list
                     (if (and is-esc log-local) loglist-local ())
                     (if log-can (canlist-create) ())
                     (if log-bms (bmslist-create) ())
         )))
-        
+
         (if (eq loglist nil)
             (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
-            
+
             (progn
                 (log-configure id loglist)
-                
+
                 (log-start
                     id ; CAN id
                     (length loglist) ; Field num
@@ -183,26 +209,23 @@
                     true ; Append time
                     append-gnss ; Append gnss
                 )
-                
+
                 (def log-running true)
                 (def log-thd-id (spawn log-thd id rate loglist))
                 (send-data "Log Started")
         ))
 ))
 
-(defun stop-log (id)
-    (progn
+(defun stop-log (id) {
         (log-stop id)
-        (if log-running
-            (progn
+        (if log-running {
                 (def log-running false)
                 (wait log-thd-id)
                 (send-data "Log stopped")
-        ))
-))
+        })
+})
 
-(defun save-config (id append-gnss log-local log-can log-bms rate at-boot)
-    (progn
+(defun save-config (id append-gnss log-local log-can log-bms rate at-boot) {
         (write-setting 'can-id id)
         (write-setting 'log-at-boot at-boot)
         (write-setting 'log-rate rate)
@@ -211,21 +234,15 @@
         (write-setting 'log-can log-can)
         (write-setting 'log-bms log-bms)
         (send-data "Settings Saved!")
-))
+})
 
 (defun event-handler ()
     (loopwhile t
         (recv
-            ((event-data-rx ? data) (eval (read data)))
+            ((event-data-rx . (? data)) (eval (read data)))
             (event-shutdown (stop-log last-can-id))
             (_ nil) ; Ignore other events
 )))
-
-(event-register-handler (spawn event-handler))
-(event-enable 'event-data-rx)
-(if is-esc
-    (event-enable 'event-shutdown)
-)
 
 (defun vin-hw ()
     (if is-esc
@@ -236,29 +253,17 @@
         )
 ))
 
-; Voltage monitor thread that stops logging if the voltage drops too low
-(spawn 50 (fn ()
-        (loopwhile t
-            (progn
-                (if (< (vin-hw) vin-min)
-                    (progn
-                        (stop-log last-can-id)
-                        (sleep 1)
-                ))
-                (sleep 0.01)
-))))
-
 ; Persistent settings
 ; Format: (label . (offset type))
 (def eeprom-addrs '(
-    (ver-code    . (0 i))
-    (can-id      . (1 i))
-    (log-at-boot . (2 b))
-    (append-gnss . (3 b))
-    (log-rate    . (4 f))
-    (log-local   . (5 b))
-    (log-can     . (6 b))
-    (log-bms     . (7 b))
+        (ver-code    . (0 i))
+        (can-id      . (1 i))
+        (log-at-boot . (2 b))
+        (append-gnss . (3 b))
+        (log-rate    . (4 f))
+        (log-local   . (5 b))
+        (log-can     . (6 b))
+        (log-bms     . (7 b))
 ))
 
 (defun print-settings ()
@@ -291,17 +296,16 @@
             ((eq type 'b) (eeprom-store-i addr (if val 1 0)))
 )))
 
-(defun restore-settings ()
-    (progn
-        (write-setting 'can-id -1)
+(defun restore-settings () {
+        (write-setting 'can-id (if (eq (sysinfo 'hw-type) 'hw-express) -2 2))
         (write-setting 'log-at-boot false)
         (write-setting 'log-rate 10)
-        (write-setting 'append-gnss true)
+        (write-setting 'append-gnss false)
         (write-setting 'log-local true)
-        (write-setting 'log-can false)
+        (write-setting 'log-can true)
         (write-setting 'log-bms false)
         (write-setting 'ver-code settings-version)
-))
+})
 
 (defun send-settings ()
     (send-data (str-merge
@@ -319,24 +323,57 @@
     (send-data (str-merge "msg " text))
 )
 
-; Restore settings if version number does not match
-; as that probably means something else is in eeprom
-(if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+(defun main () {
+        (if (has-dual-motors) {
+                (setq loglist-local (append
+                        loglist-local
+                        '(
+                            ("M2 Current" "A"                  (run-m2 (get-current)))
+                            ("M2 Current In" "A"               (run-m2 (get-current-in)))
+                            ("M2 Duty"                         (run-m2 (get-duty)))
+                            ("M2 RPM"                          (run-m2 (get-rpm)))
+                            ("M2 Temp Fet" "degC" 1            (run-m2 (get-temp-fet)))
+                            ("M2 Temp Motor" "degC" 1          (run-m2 (get-temp-mot)))
+                            ("M2 iq" "A"                       (run-m2 (get-iq)))
+                            ("M2 id" "A"                       (run-m2 (get-id)))
+                            ("M2 Fault"                        (run-m2 (get-fault)))
+                        )
+                ))
+        })
 
-; Avoid delay in case this script is imported and executed.
-(spawn (fn ()
-        (progn
-            ; Wait for things to start up
-            (sleep 10)
-            
-            ; Start logging at boot if configured
-            (if (read-setting 'log-at-boot)
-                (start-log
-                    (read-setting 'can-id)
-                    (read-setting 'append-gnss)
-                    (read-setting 'log-local)
-                    (read-setting 'log-can)
-                    (read-setting 'log-bms)
-                    (read-setting 'log-rate)
-            ))
-)))
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-data-rx)
+        (if is-esc (event-enable 'event-shutdown))
+
+        ; Voltage monitor thread that stops logging if the voltage drops too low
+        (loopwhile-thd 100 t {
+                (if (< (vin-hw) vin-min) {
+                        (stop-log last-can-id)
+                        (sleep 1)
+                })
+                (sleep 0.01)
+        })
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        ; Wait for things to start up
+        (sleep 10)
+
+        ; Start logging at boot if configured
+        (if (read-setting 'log-at-boot)
+            (start-log
+                (read-setting 'can-id)
+                (read-setting 'append-gnss)
+                (read-setting 'log-local)
+                (read-setting 'log-can)
+                (read-setting 'log-bms)
+                (read-setting 'log-rate)
+        ))
+})
+
+@const-end
+
+(trap (image-save))
+(main)
