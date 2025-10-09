@@ -91,6 +91,11 @@ make clean
 make VESC_TOOL=/path/to/vesc_tool
 ```
 
+For building native libraries for VESC Express with c_libs you will need to specify the architecture:
+```sh
+make ARCH=esp32
+```
+
 ### Notes
 
 * Make sure that you build a VESC Package file (\*.vescpkg) in the main directory of your package (e.g. euc/euc.vescpkg)
