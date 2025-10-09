@@ -623,7 +623,7 @@ loopwhile-thd
 (defun send-can-info () {
         (var buf-canid35 (array-create 8))
 
-        (var ah-left (- (bms-get-param 'batt_ah) ah-cnt-soc))
+        (var ah-left (* (bms-get-param 'batt_ah) (- 1.0 soc)))
         (var min-left (if (< iout -1.0)
                 (* (/ ah-left (- iout)) 60.0)
                 0.0
