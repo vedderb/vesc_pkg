@@ -699,7 +699,7 @@ loopwhile-thd
             (set-bms-val 'bms-data-version 1)
 
             (set-bms-val 'bms-v-cell-min c-min)
-            (set-bms-val 'bms-v-cell-min c-max)
+            (set-bms-val 'bms-v-cell-max c-max)
 
             (if (= (bms-get-param 'soc_use_ah) 1)
                 {
