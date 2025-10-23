@@ -21,6 +21,8 @@
         <file>vdisp/vdisp_esc.vescpkg</file>
         <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
         <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
+        <file>dash35b/dash35b.vescpkg</file>
+        <file>dash35b/dash35b_esc.vescpkg</file>
    </qresource>
 </RCC>
 

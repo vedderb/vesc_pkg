@@ -1,0 +1,347 @@
+@const-start
+
+(def page-x 70)
+(def page-y 45)
+(def page-w 400)
+(def page-h 160)
+
+; Round with decimals
+; E.g. (round-x 1.23 0.1) -> 1.2
+(defun round-x (val x) {
+        (* (round (/ val x)) x)
+})
+
+;; Association list that contains the resources allocated for the current page.
+;; When a page is switched, the page-resources variable is rebound and the previous
+;; resources can be freed by GC.
+(def page-resources nil)
+
+;; Given an image buffer draw a right aligned text in there and
+;; then stuff the image buffer onto display at pos x y
+(defun ttf-txt-right (imgbuf x y str) {
+        (var (w-txt h-txt) (ttf-text-dims font-16 str))
+        (var (w-img h-img) (img-dims imgbuf))
+        (var render-x (- w-img w-txt))
+        (img-clear imgbuf)
+        (ttf-text imgbuf render-x 16 '(0 1 2 3) font-16 str)
+        (disp-render imgbuf x y colors-text-aa)
+})
+
+;; Given an image buffer draw a left aligned text in there and
+;; then stuff the image buffer onto display at pos x y
+(defun ttf-txt-left (imgbuf x y str) {
+        (img-clear imgbuf)
+        (ttf-text imgbuf 0 16 '(0 1 2 3) font-16 str)
+        (disp-render imgbuf x y colors-text-aa)
+})
+
+(defun trunc01 (x)
+    (cond
+        ((< x 0.0) 0.0)
+        ((> x 1.0) 1.0)
+        (t x)
+))
+
+;; pages can take arguments saying if is is displayed as a result of a page switch
+;; or if it was already active and just possibly needs an update.
+;; But not really sure there is any efficient way to clear the entire "page"-area.
+;; would need to create a image buffer of the correct size and then blit that to the page area.
+
+(defun get-page-1-state () (list
+        (round-x (if (and (> stats-km 0.1) (> stats-wh 0.5)) (/ (* stats-battery-ah stats-battery-soc stats-vin) (/ stats-wh stats-km)) 0.0) 0.1) ; Range
+        (round-x stats-km 0.1)             ; 1 - Trip
+        (round-x stats-odom 0.1)           ; 2 - ODO
+        (round-x (if (> stats-km 0.1) (/ stats-wh stats-km) 0) 0.1) ; 3 - Efficiency
+))
+
+(def page-1-state (get-page-1-state))
+(defun page-1 (s) {
+        (var cat-col-x 50)
+        (var val-col-x 200)
+
+        (var curr-state (get-page-1-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-1-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state)) ; Update all fields on page switch
+
+                (setq page-resources
+                    (list
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 90 20))
+                ))
+
+                (disp-render img-page-clear page-x page-y (list 0 0))
+
+                (var textimg (assoc page-resources 'text-img))
+
+                ; Draw static labels
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 20) "Range")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 40) "Trip")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 60) "ODO")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 80) "Efficiency")
+        })
+
+        (var textimg (assoc page-resources 'text-img))
+
+        (if (ix update-state 0)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 20) (str-from-n (ix curr-state 0) "%.1f km"))
+        )
+        (if (ix update-state 1)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 40) (str-from-n (ix curr-state 1) "%.1f km"))
+        )
+        (if (ix update-state 2)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 60) (str-from-n (ix curr-state 2) "%.1f km"))
+        )
+        (if (ix update-state 3)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 80) (str-from-n (ix curr-state 3) "%.1f Wh/km"))
+        )
+
+        (setq page-1-state curr-state)
+})
+
+(defun get-page-2-state () (list
+        (round (secs-since 0))                       ; 0 - Time
+        (round-x stats-wh 0.1)                       ; 1 - Wh
+        (round-x stats-duty 0.01)                    ; 2 - Duty
+        stats-kmh-max                                ; 3 - Speed Max
+        (round (* stats-kw 1000.0))                  ; 4 - Power Now
+        (* stats-kw-max 1000.0)                      ; 5 - Power Max
+        (round stats-temp-motor)                     ; 6 - T Mot Now
+        stats-temp-motor-max                         ; 7 - T Mot Max
+        (round stats-temp-esc)                       ; 8 - T FET Now
+        stats-temp-esc-max                           ; 9 - T FET Max
+        (round-x stats-amps-now 0.1)                 ; 10 - I Now
+        (round-x stats-amps-now-max 0.1)             ; 11 - I Max
+))
+
+(def page-2-state (get-page-2-state))
+(defun page-2 (s) {
+        (var left-col-width 90)  ; Fixed width for left column alignment
+        (var right-col-width 90) ; Fixed width for right column alignment
+
+        (var curr-state (get-page-2-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-2-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state)) ;; Update all the volatile fields if s
+                ;; Draw the static postion of this page once when called with s = true
+
+                (setq page-resources
+                    (list
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 90 20))
+                ))
+
+                (disp-render img-page-clear page-x page-y (list 0 0))
+
+                (var textimg (assoc page-resources 'text-img))
+
+                ; Left column - labels and values
+                (ttf-txt-right textimg page-x (+ page-y 10) "Time")
+                (ttf-txt-right textimg page-x (+ page-y 28) "Wh")
+                (ttf-txt-right textimg page-x (+ page-y 46) "Duty")
+                (ttf-txt-right textimg page-x (+ page-y 64) "Speed Max")
+                (ttf-txt-right textimg page-x (+ page-y 82) "Power Now")
+                (ttf-txt-right textimg page-x (+ page-y 100) "Power Max")
+
+                ; Right column - labels and values
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 10) "T Mot Now")
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 28) "T Mot Max")
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 46) "T FET Now")
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 64) "T FET Max")
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 82) "I Now")
+                (ttf-txt-right textimg (+ page-x 210) (+ page-y 100) "I Max")
+        })
+
+        (var textimg (assoc page-resources 'text-img))
+
+        ;; This is also a zipwith....
+        (if (ix update-state 0) {
+                (var secs (to-i (ix curr-state 0)))
+                (var hh (mod (/ secs 3600) 24))
+                (var mm (mod (/ secs 60) 60))
+                (var ss (mod secs 60))
+                (var str (str-merge (str-from-n hh "%02d:") (str-from-n mm "%02d:") (str-from-n ss "%02d")))
+                (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 10) str)
+        })
+        (if (ix update-state 1)
+            (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 28) (str-from-n (ix curr-state 1) "%.1f Wh"))
+        )
+        (if (ix update-state 2)
+            (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 46) (str-from-n (* (ix curr-state 2) 100.0) "%.0f %%"))
+        )
+        (if (ix update-state 3)
+            (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 64) (str-from-n (ix curr-state 3) "%.1f km/h"))
+        )
+        (if (ix update-state 4)
+            (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 82) (str-from-n (ix curr-state 4) "%.0f W"))
+        )
+        (if (ix update-state 5)
+            (ttf-txt-left textimg (+ page-x 12 left-col-width) (+ page-y 100) (str-from-n (ix curr-state 5) "%.0f W"))
+        )
+
+        (if (ix update-state 6)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 10) (str-from-n (ix curr-state 6) "%.0f C"))
+        )
+        (if (ix update-state 7)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 28) (str-from-n (ix curr-state 7) "%.0f C"))
+        )
+        (if (ix update-state 8)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 46) (str-from-n (ix curr-state 8) "%.0f C"))
+        )
+        (if (ix update-state 9)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 64) (str-from-n (ix curr-state 9) "%.0f C"))
+        )
+        (if (ix update-state 10)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 82) (str-from-n (ix curr-state 10) "%.0f A"))
+        )
+        (if (ix update-state 11)
+            (ttf-txt-left textimg (+ page-x 222 left-col-width) (+ page-y 100) (str-from-n (ix curr-state 11) "%.0f A"))
+        )
+
+        (setq page-2-state curr-state)
+})
+
+(defun draw-bat-cell (cell imgbuf x y v-empty v-full volt bal) {
+        (img-clear imgbuf)
+        (var (w h) (img-dims imgbuf))
+
+        ; Calculate fill ratio (0.0 to 1.0)
+        (var voltage-range (- v-full v-empty))
+        (var current-level (- volt v-empty))
+        (var fill-ratio (trunc01 (/ current-level voltage-range)))
+
+        ; Calculate fill height
+        (var fill-height (to-i (* fill-ratio (- h 2))))
+
+        ; Draw cell outline
+        (img-rectangle imgbuf 0 0 w h 2 '(filled) '(rounded 3))
+
+        ; Fill cell with appropriate color
+        (if (> fill-height 0) {
+                (var fill-color (if bal 4 3))  ; Red if low, normal color otherwise
+                (img-rectangle imgbuf 0 (- h 0 fill-height) w fill-height fill-color '(filled) '(rounded 3))
+        })
+
+        (ttf-text imgbuf (- w 2) (- h 2) '(0 1) font-16-2c (str-merge (str-from-n cell "%02d") (str-from-n (to-float volt) "-%.2f")) 'up)
+
+        (disp-render imgbuf x y (list 0x000000 0xFFFFFF 0x787878 0x00C321 0xFF7700 0 0 0 0 0 0 0 0 0 0 0))
+})
+
+(defun get-page-3-state () (list
+        (get-bms-val 'bms-cell-num) ; 0
+        (map (fn (x) (round-x (get-bms-val 'bms-v-cell x) 0.01)) (range (/ (get-bms-val 'bms-cell-num) 2))) ; 1 - First half of cells
+        (map (fn (x) (= (get-bms-val 'bms-bal-state x) 1)) (range (/ (get-bms-val 'bms-cell-num) 2))) ; 2 - First half of balance states
+        (map (fn (x) (round-x (get-bms-val 'bms-v-cell x) 0.01)) (range (/ (get-bms-val 'bms-cell-num) 2) (get-bms-val 'bms-cell-num))) ; 3 - Second half of cells
+        (map (fn (x) (= (get-bms-val 'bms-bal-state x) 1)) (range (/ (get-bms-val 'bms-cell-num) 2) (get-bms-val 'bms-cell-num))) ; 4 - Second half of balance states
+        (if (> (get-bms-val 'bms-temp-adc-num) 2) (get-bms-val 'bms-temps-adc 2) 0.0) ; 5 - T Cell Max
+        (if (> (get-bms-val 'bms-temp-adc-num) 3) (get-bms-val 'bms-temps-adc 3) 0.0) ; T 6 - Mos
+        (get-bms-val 'bms-hum)        ; 7
+        (get-bms-val 'bms-v-cell-min) ; 8
+        (get-bms-val 'bms-v-cell-max) ; 9
+        (get-bms-val 'bms-i-in-ic)    ; 10
+))
+
+(def page-3-state (get-page-3-state))
+(defun page-3 (s) {
+        (var curr-state (get-page-3-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-3-state curr-state))
+
+        (var num-cells (ix curr-state 0))
+        (var cell-width 15)
+        (var cell-height 64)
+        (var cell-spacing-x 2)
+
+        (if (or s (ix update-state 0))
+            (disp-render img-page-clear page-x page-y (list 0 0))
+        )
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state))
+                (setq page-resources
+                    (list
+                        (cons 'cell-img (img-buffer dm-pool 'indexed16 cell-width cell-height))
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 69 20))
+                ))
+
+                (var textimg (assoc page-resources 'text-img))
+
+                (ttf-txt-right textimg 335 68 "T Cell")
+                (ttf-txt-right textimg 335 88 "T PCB")
+                (ttf-txt-right textimg 335 108 "Hum")
+                (ttf-txt-right textimg 335 128 "C Min")
+                (ttf-txt-right textimg 335 148 "C Max")
+                (ttf-txt-right textimg 335 168 "I")
+        })
+
+        (var cellimg (assoc page-resources 'cell-img))
+        (var textimg (assoc page-resources 'text-img))
+
+        (var cell-xs (+ cell-width cell-spacing-x))
+        (var ofs-x (+ 74 (* 0.5 cell-xs (- 16 (/ num-cells 2)))))
+
+        ; Upper cells
+        (if (or (ix update-state 1) (ix update-state 2)) {
+                (looprange i 0 (/ num-cells 2) {
+                        (draw-bat-cell (+ i 1) cellimg (+ ofs-x (* i cell-xs)) 62 2.8 4.2
+                            (ix (ix curr-state 1) i) (ix (ix curr-state 2) i)
+                        )
+                })
+        })
+
+        ; Lower cells
+        (if (or (ix update-state 3) (ix update-state 4)) {
+                (looprange i (/ num-cells 2) num-cells {
+                        (var ind0 (- i (/ num-cells 2)))
+                        (draw-bat-cell (+ i 1) cellimg (+ ofs-x (* ind0 cell-xs)) 133 2.8 4.2
+                            (ix (ix curr-state 3) ind0) (ix (ix curr-state 4) i)
+                        )
+                })
+        })
+
+        (if (ix update-state 5)
+            (ttf-txt-left textimg 411 68 (str-from-n (ix curr-state 5) "%.0fC"))
+        )
+
+        (if (ix update-state 6)
+            (ttf-txt-left textimg 411 88 (str-from-n (ix curr-state 6) "%.0fC"))
+        )
+
+        (if (ix update-state 7)
+            (ttf-txt-left textimg 411 108 (str-from-n (ix curr-state 7) "%.0f%%"))
+        )
+
+        (if (ix update-state 8)
+            (ttf-txt-left textimg 411 128 (str-from-n (ix curr-state 8) "%.2fV"))
+        )
+
+        (if (ix update-state 9)
+            (ttf-txt-left textimg 411 148 (str-from-n (ix curr-state 9) "%.2fV"))
+        )
+
+        (if (ix update-state 10)
+            (ttf-txt-left textimg 411 168 (str-from-n (ix curr-state 10) "%.1fA"))
+        )
+
+        (setq page-3-state curr-state)
+})
+
+(def pages (list
+        page-1
+        page-2
+        page-3
+))
+
+(defun view-pages-thread () {
+        ;; recreated if the view thread restarts
+        (var last-page 100) ;; Should mean that we get s on first call
+
+        ;; Could make an assoc list or  a struct for the various arguments passed to the page-fun.
+
+        (loopwhile t {
+                (var page-now-sample page-now)
+                (var curr-page (ix pages page-now-sample))
+                (if curr-page (curr-page (not (= last-page page-now-sample))))
+                (setq last-page page-now-sample)
+                (sleep 0.05)
+        })
+})
