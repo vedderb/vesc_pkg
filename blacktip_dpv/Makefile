@@ -5,7 +5,7 @@ BASH ?= bash
 GENERATED_DIR := generated
 BINARY_STAMP := $(GENERATED_DIR)/binary_luts.stamp
 LUT_BINARY := $(GENERATED_DIR)/display_lut.bin
-DIST_README := README.dist.md
+DIST_FILES := README.dist.md ui.dist.qml
 
 # Source files that should trigger a rebuild
 SOURCE_FILES := blacktip_dpv.lisp ui.qml pkgdesc.qml README.md
@@ -34,10 +34,10 @@ $(BRANCH_FILE): FORCE
 	fi
 
 # Generate distribution README when source files or branch changes
-$(DIST_README): $(SOURCE_FILES) $(VERSION_GENERATOR) $(BRANCH_FILE)
+dist_files: $(SOURCE_FILES) $(VERSION_GENERATOR) $(BRANCH_FILE)
 	@$(BASH) $(VERSION_GENERATOR)
 
-blacktip_dpv.vescpkg: $(DIST_README) $(LUT_BINARY)
+blacktip_dpv.vescpkg: dist_files $(LUT_BINARY)
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'vesc:test'
 
 check-whitespace:
@@ -59,9 +59,9 @@ test: check-whitespace smoke-tests
 	@echo "All checks passed"
 
 clean:
-	rm -f blacktip_dpv.vescpkg $(DIST_README) $(BRANCH_FILE)
+	rm -f blacktip_dpv.vescpkg $(DIST_FILES) $(BRANCH_FILE)
 	rm -rf $(GENERATED_DIR)
 
-.PHONY: all test clean check-whitespace smoke-tests binary FORCE
+.PHONY: all test clean check-whitespace smoke-tests binary dist_files FORCE
 
 FORCE:

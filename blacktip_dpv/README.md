@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 ## License
 

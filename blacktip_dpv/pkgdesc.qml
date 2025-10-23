@@ -4,7 +4,7 @@ Item {
     property string pkgName: "BlacktipDPV"
     property string pkgDescriptionMd: "README.dist.md"
     property string pkgLisp: "blacktip_dpv.lisp"
-    property string pkgQml: "ui.qml"
+    property string pkgQml: "ui.dist.qml"
     property bool pkgQmlIsFullscreen: true
     property string pkgOutput: "blacktip_dpv.vescpkg"
 

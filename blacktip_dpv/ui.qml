@@ -16,6 +16,9 @@ Item {
     anchors.fill: parent
     anchors.margins: 10
 
+    readonly property string const_BLACKTIP_DPV_VERSION: "<unknown>"
+    readonly property string const_BLACKTIP_DPV_RELEASE_DATE: "<unknown>"
+
     readonly property int const_RELOAD_DELAY_MS: 1000
 
     property Commands mCommands: VescIf.commands()
@@ -121,11 +124,23 @@ Item {
                                 Text {
                                     id: name
                                     color: Utility.getAppHexColor("lightText")
-                                    text: "Blacktip\nDPV\nVersion 0.2"
+                                    text: "Blacktip DPV"
                                     font.pixelSize: big.width/22.0
                                     verticalAlignment: Text.AlignVCenter
                                     anchors.centerIn: parent
                                     anchors.verticalCenterOffset: big.width*0.2
+                                    anchors.horizontalCenterOffset: big.width*0.45
+                                    font.family:  "Roboto"
+                                }
+
+                                Text {
+                                    id: version
+                                    color: Utility.getAppHexColor("lightText")
+                                    text: "Version: " + const_BLACKTIP_DPV_VERSION + "\nDate: " + const_BLACKTIP_DPV_RELEASE_DATE
+                                    font.pixelSize: big.width/22.0
+                                    verticalAlignment: Text.AlignVCenter
+                                    anchors.centerIn: parent
+                                    anchors.verticalCenterOffset: big.width*0.25
                                     anchors.horizontalCenterOffset: big.width*0.45
                                     font.family:  "Roboto"
                                 }
