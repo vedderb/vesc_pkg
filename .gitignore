@@ -11,3 +11,8 @@ confxml.h
 *.cproject
 *.project
 *.settings
+
+blacktip_dpv/generated/
+blacktip_dpv/README.dist.md
+blacktip_dpv/.git_branch_cache
+**/__pycache__/
