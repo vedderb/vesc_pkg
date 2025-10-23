@@ -20,6 +20,7 @@
         <file>vdisp/vdisp.vescpkg</file>
         <file>vdisp/vdisp_esc.vescpkg</file>
         <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
+        <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
    </qresource>
 </RCC>
 
