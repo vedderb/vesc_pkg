@@ -1,11 +1,11 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "BlacktipDPV"
+    property string pkgName: "Blacktip DPV"
     property string pkgDescriptionMd: "README.dist.md"
     property string pkgLisp: "blacktip_dpv.lisp"
-    property string pkgQml: "ui.qml"
-    property bool pkgQmlIsFullscreen: true
+    property string pkgQml: "ui.dist.qml"
+    property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "blacktip_dpv.vescpkg"
 
     // This function should return true when this package is compatible

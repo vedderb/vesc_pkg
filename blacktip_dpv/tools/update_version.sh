@@ -8,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 README_FILE="$PROJECT_DIR/README.md"
 DIST_README_FILE="$PROJECT_DIR/README.dist.md"
+UI_FILE="$PROJECT_DIR/ui.qml"
+DIST_UI_FILE="$PROJECT_DIR/ui.dist.qml"
 
 # Check if README exists
 if [ ! -f "$README_FILE" ]; then
@@ -56,3 +58,13 @@ sed "/^\*\*Version:\*\*/a\\
 rm -f "$DIST_README_FILE.tmp"
 
 echo "✓ Generated $DIST_README_FILE with version: $FULL_VERSION"
+
+# Create distribution ui by copying source and replacing version line
+cp "$UI_FILE" "$DIST_UI_FILE"
+
+# Replace version and add build timestamp
+sed "s/\(readonly property string const_BLACKTIP_DPV_VERSION: \"\)<unknown>\(\"\)/\1${FULL_VERSION}\2/" "$DIST_UI_FILE" > "$DIST_UI_FILE.tmp"
+sed "s/\(readonly property string const_BLACKTIP_DPV_RELEASE_DATE: \"\)<unknown>\(\"\)/\1${BUILD_TIMESTAMP}\2/" "$DIST_UI_FILE.tmp" > "$DIST_UI_FILE"
+rm -f "$DIST_UI_FILE.tmp"
+
+echo "✓ Generated $DIST_UI_FILE with version: $FULL_VERSION"
