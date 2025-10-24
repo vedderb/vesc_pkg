@@ -129,7 +129,7 @@ Item {
                                     antialiasing: true
                                     height: big.width * 0.2
                                     fillMode: Image.PreserveAspectFit
-                                    source : "https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png"
+                                    source : "https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png"
 
                                     anchors.horizontalCenterOffset: -(big.width)/3.7
                                     anchors.verticalCenterOffset: -(big.width)/1.9

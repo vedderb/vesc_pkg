@@ -294,4 +294,4 @@ The `pixbuf` variable is a 16-byte working buffer that is essential to the displ
 
 ## Repository
 
-<https://github.com/mikeller/vesc_pkg>
+<https://github.com/vedderb/vesc_pkg>
