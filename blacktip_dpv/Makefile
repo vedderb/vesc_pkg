@@ -34,10 +34,10 @@ $(BRANCH_FILE): FORCE
 	fi
 
 # Generate distribution README when source files or branch changes
-dist_files: $(SOURCE_FILES) $(VERSION_GENERATOR) $(BRANCH_FILE)
+$(DIST_FILES) &: $(SOURCE_FILES) $(VERSION_GENERATOR) $(BRANCH_FILE)
 	@$(BASH) $(VERSION_GENERATOR)
 
-blacktip_dpv.vescpkg: dist_files $(LUT_BINARY)
+blacktip_dpv.vescpkg: README.dist.md $(LUT_BINARY)
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'vesc:test'
 
 check-whitespace:
@@ -62,6 +62,6 @@ clean:
 	rm -f blacktip_dpv.vescpkg $(DIST_FILES) $(BRANCH_FILE)
 	rm -rf $(GENERATED_DIR)
 
-.PHONY: all test clean check-whitespace smoke-tests binary dist_files FORCE
+.PHONY: all test clean check-whitespace smoke-tests binary FORCE
 
 FORCE:

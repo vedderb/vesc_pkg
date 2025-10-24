@@ -19,7 +19,16 @@ Item {
     readonly property string const_BLACKTIP_DPV_VERSION: "<unknown>"
     readonly property string const_BLACKTIP_DPV_RELEASE_DATE: "<unknown>"
 
+    readonly property var const_SCOOTER_MODELS: [
+        "Blacktip series 2, with Bluetooth",
+        "Blacktip series 2, No Bluetooth",
+        "Blacktip series 1, No Bluetooth",
+        "CudaX, With Bluetooth",
+        "CudaX, No Bluetooth",
+    ]
+
     readonly property int const_RELOAD_DELAY_MS: 1000
+
 
     property Commands mCommands: VescIf.commands()
     property ConfigParams mMcConf: VescIf.mcConfig()
@@ -35,6 +44,11 @@ Item {
     property int gaugeSize2: big.width * 0.45
 
     property bool loading_values: false
+
+    property string firmwareVersion: "&lt;unknown$gt;"
+
+    property string detectedHardwareModel: "<unknown>"
+    property string possibleScooterModels: ""
 
     Component.onCompleted: {
         mCommands.emitEmptySetupValues()
@@ -122,26 +136,22 @@ Item {
                                 }
 
                                 Text {
-                                    id: name
                                     color: Utility.getAppHexColor("lightText")
-                                    text: "Blacktip DPV"
+                                    text:
+                                        "<b><u>Blacktip DPV:</u></b><br>" +
+                                        "Configured scooter model:<br>" +
+                                        "- " + (hardware_configuration.currentIndex >= 0 ? const_SCOOTER_MODELS[hardware_configuration.currentIndex] : "&lt;unknown&gt;") + "<br>" +
+                                        "Runtime version:<br>" +
+                                        "- " + const_BLACKTIP_DPV_VERSION + "<br>" +
+                                        "Runtime build timestamp:<br>" +
+                                        "- " + const_BLACKTIP_DPV_RELEASE_DATE + "<br>" +
+                                        "VESC firmware version:<br>" +
+                                        "- " + firmwareVersion
                                     font.pixelSize: big.width/22.0
                                     verticalAlignment: Text.AlignVCenter
                                     anchors.centerIn: parent
-                                    anchors.verticalCenterOffset: big.width*0.2
-                                    anchors.horizontalCenterOffset: big.width*0.45
-                                    font.family:  "Roboto"
-                                }
-
-                                Text {
-                                    id: version
-                                    color: Utility.getAppHexColor("lightText")
-                                    text: "Version: " + const_BLACKTIP_DPV_VERSION + "\nDate: " + const_BLACKTIP_DPV_RELEASE_DATE
-                                    font.pixelSize: big.width/22.0
-                                    verticalAlignment: Text.AlignVCenter
-                                    anchors.centerIn: parent
-                                    anchors.verticalCenterOffset: big.width*0.25
-                                    anchors.horizontalCenterOffset: big.width*0.45
+                                    anchors.verticalCenterOffset: 1.05 * big.width
+                                    anchors.horizontalCenterOffset: 0.05 * big.width
                                     font.family:  "Roboto"
                                 }
 
@@ -711,10 +721,21 @@ Item {
             fwNameStr = " (" + params.fwName + ")"
         }
 
-        versionText.text = "Detected motor controller version:\n" + params.hw
+        if (params.major >= 0) {
+            firmwareVersion = params.major + "." + (1e5 + params.minor + '').slice(-2) + fwNameStr + testFwStr
+        }
 
-        // Text for FW version
-       // "Current FW : v" + params.major + "." + (1e5 + params.minor + '').slice(-2) + fwNameStr + testFwStr + "\n" +
+        detectedHardwareModel = params.hw
+
+        if (detectedHardwareModel == "410") {
+            possibleScooterModels = "\n- " + const_SCOOTER_MODELS[2]
+        } else if (detectedHardwareModel == "60") {
+            possibleScooterModels = "\n- " + const_SCOOTER_MODELS[1] + "\n- " + const_SCOOTER_MODELS[4] + "\nIf upgraded with Bluetooth adaptor:\n- " + const_SCOOTER_MODELS[0] + "\n- " + const_SCOOTER_MODELS[3]
+        } else if (detectedHardwareModel == "60_MK5") {
+            possibleScooterModels = "\n- " + const_SCOOTER_MODELS[0] + "\n- " + const_SCOOTER_MODELS[3]
+        } else {
+            possibleScooterModels = ""
+        }
     }
 
     // delay timer
@@ -1617,14 +1638,6 @@ Item {
                     color: "#ffffff"
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-
-                    text: "The below dropdown allows you to select your scooter and hardware type."
-                }
-
-                Text {
-                    color: "#ffffff"
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
                     topPadding:15
                     text: "<b> Warning: If you are connected via Bluetooth and select a scooter without Bluetooth you will loose your connection.<b>"
                 }
@@ -1640,10 +1653,9 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     font.pixelSize: Qt.application.font.pixelSize
-                    id: versionText
                     topPadding:15
                     color: Utility.getAppHexColor("lightText")
-                    text: "Detected motor controller: <unknown>"
+                    text: "Detected motor controller model: " + detectedHardwareModel + "\nPossible scooter models for this hardware:" + possibleScooterModels
                 }
 
                 Text {
@@ -1651,20 +1663,14 @@ Item {
                     font.pixelSize: Qt.application.font.pixelSize
                     topPadding:15
                     color: Utility.getAppHexColor("lightText")
-                    text: "Select your model and hardware version:"
+                    text: "Select your model and hardware version:*"
                 }
 
                 ComboBox {
                     id: hardware_configuration
                     Layout.fillWidth: true
-                    currentIndex: 0
-                    model: [
-                        "Blacktip HW:60_MK5 with Bluetooth (Latest)*",
-                        "Blacktip HW:60, No Bluetooth*",
-                        "Blacktip HW:410, No Bluetooth*",
-                        "Cuda-X HW:60_MK5, With Bluetooth (Latest)*",
-                        "Cuda-X HW:60, No Bluetooth*",
-                    ]
+                    currentIndex: -1
+                    model: const_SCOOTER_MODELS
 
                     onCurrentIndexChanged: {
                         if (hardwareDialog.original_hardware_configuration != hardware_configuration.currentIndex) {
