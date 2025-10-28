@@ -223,7 +223,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 ### Requirements
 
 - Dive Xtras Blacktip or CudaX scooter
-- the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases)
+- the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases) or the latest official Package Store in VESC Tool
 - VESC Tool (PC) or VESC mobile app (iOS/Android), version 6.06 or higher from [VESC Project](https://vesc-project.com/vesc_tool)
 - USB cable (for models without Bluetooth)
 
