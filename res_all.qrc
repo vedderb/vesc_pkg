@@ -2,7 +2,6 @@
 <RCC>
    <qresource prefix="/vesc_packages">
         <file>balance/balance.vescpkg</file>
-        <file>float/float.vescpkg</file>
         <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
