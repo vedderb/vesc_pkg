@@ -1,12 +1,12 @@
 # Improved Software for Dive Xtras Scooters
 
-![Blacktip DPV Logo](https://raw.githubusercontent.com/mikeller/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
+![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 ## License
 
-This software is released under the GPL-3.0 License. See the [LICENSE](https://github.com/mikeller/vesc_pkg/blob/main/LICENSE) file for details.
+This software is released under the GPL-3.0 License. See the [LICENSE](https://github.com/vedderb/vesc_pkg/blob/main/LICENSE) file for details.
 
 ## About
 
@@ -223,7 +223,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 ### Requirements
 
 - Dive Xtras Blacktip or CudaX scooter
-- the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases)
+- the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases) or the latest official Package Store in VESC Tool
 - VESC Tool (PC) or VESC mobile app (iOS/Android), version 6.06 or higher from [VESC Project](https://vesc-project.com/vesc_tool)
 - USB cable (for models without Bluetooth)
 
@@ -307,7 +307,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Configure to suit your preferences
 - Test basic functionality in a safe environment
 
-\* this model can be upgraded with a Bluetooth module to enable Bluetooth connectivity, see [these instructions](https://github.com/mikeller/vesc_pkg/blob/main/blacktip_dpv/BLUETOOTH_UPGRADE.md)
+\* this model can be upgraded with a Bluetooth module to enable Bluetooth connectivity, see [these instructions](https://github.com/vedderb/vesc_pkg/blob/main/blacktip_dpv/BLUETOOTH_UPGRADE.md)
 
 ### First-Time Configuration
 
@@ -397,7 +397,7 @@ All settings are accessible through the VESC mobile app or VESC Tool:
 For issues, questions, or feature requests:
 
 - **GitHub Issues:** [Report bugs or request features](https://github.com/mikeller/vesc_pkg/issues)
-- **Documentation:** See [DEVELOPMENT.md](https://github.com/mikeller/vesc_pkg/blob/main/blacktip_dpv/DEVELOPMENT.md) for technical details
+- **Documentation:** See [DEVELOPMENT.md](https://github.com//vedderb/vesc_pkg/blob/main/blacktip_dpv/DEVELOPMENT.md) for technical details
 
 ### Before Reporting Issues
 

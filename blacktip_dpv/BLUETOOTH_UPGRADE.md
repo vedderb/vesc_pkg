@@ -6,7 +6,7 @@
 
 - **Flipsky wireless Bluetooth module** (like [Flipsky Wireless Bluetooth Module 2.4G for VESC&VESC Tool Electric Skateboard for V6](https://www.aliexpress.com/item/1005008747516291.html))
 - **VESC Tool** from [VESC Project](https://vesc-project.com/vesc_tool)
-- the **'blacktip_dpv.vescpackage'** firmware from [GitHub](https://github.com/mikeller/vesc_pkg/releases/)
+- the **'blacktip_dpv.vescpackage'** firmware from [GitHub](https://github.com/mikeller/vesc_pkg/releases/) or the latest official Package Store in VESC Tool
 
 ## Installation
 

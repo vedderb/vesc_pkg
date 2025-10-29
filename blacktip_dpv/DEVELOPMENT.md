@@ -48,7 +48,8 @@ The build system automatically generates version information for the package:
   * On `main` branch: `<version>-<yyyymmdd>-<git-hash>` (e.g., `1.0.0-20251013-120605-2eacfa2`)
   * On other branches: `<version>-<branch-name>-<git-hash>` (e.g., `1.0.0-feature-xyz-2eacfa2`)
 * **Distribution**: During build, `tools/update_version.sh` creates `README.dist.md` with the full version and build timestamp
-* **Package**: The `.vescpkg` includes `README.dist.md` (referenced in `pkgdesc.qml`) so users see the detailed version info
+* **Distribution**: During build, `tools/update_version.sh` creates `ui.dist.qml` with the full version and build timestamp
+* **Package**: The `.vescpkg` includes `README.dist.md` and `ui.dist.qml` (referenced in `pkgdesc.qml`) so users see the detailed version info
 * **Repository**: The `README.md` in the repository shows only the base version for simplicity
 * **Rebuild behavior**: The package is only rebuilt when source files change (`blacktip_dpv.lisp`, `ui.qml`, `pkgdesc.qml`, `README.md`)
 
@@ -57,7 +58,7 @@ To update the version:
 1. Edit the version line in `README.md`: `**Version:** 1.1.0`
 1. Run `make` - the distribution file will be generated automatically with a new timestamp
 
-**Note**: `README.dist.md` is generated during build and should not be committed to git.
+**Note**: `README.dist.md` and `ui.dist.qml` are generated during build and should not be committed to git.
 
 ### Test Suite
 
@@ -293,4 +294,4 @@ The `pixbuf` variable is a 16-byte working buffer that is essential to the displ
 
 ## Repository
 
-<https://github.com/mikeller/vesc_pkg>
+<https://github.com/vedderb/vesc_pkg>
