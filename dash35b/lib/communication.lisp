@@ -152,6 +152,7 @@
 
 ; Send event
 ; ID 0: Toggle cruise control
+; ID 1: Save data, power might turn off
 (defun comm-send-event (event-id) {
         (var buf (bufcreate 2))
         (bufset-u8 buf 0 event-id)

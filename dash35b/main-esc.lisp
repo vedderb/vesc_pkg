@@ -109,6 +109,15 @@
                                 (setq cruise-on (if (= cruise-on 0) 1 0))
                                 (if (= cruise-on 1) (setq cruise-ts (systime)))
                         })
+
+                        ((= (bufget-u8 data 0) 1) { ; About to turn off
+                                ; store-backup is very new, so fall back to conf-store
+                                ; if it does not exist using trap
+                                (match (trap (store-backup))
+                                    ((exit-ok (? a)) t)
+                                    (_ (conf-store))
+                                )
+                        })
                     )
             })
         )
@@ -127,7 +136,7 @@
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
 
-        (def buf-can (array-create 8))
+        (var buf-can (array-create 8))
 
         (loopwhile-thd ("Send CAN" 100) t {
                 (bufclear buf-can)

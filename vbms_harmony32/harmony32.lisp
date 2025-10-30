@@ -96,6 +96,14 @@ loopwhile-thd
         })
 })
 
+; ID 0: Toggle cruise control
+; ID 1: Save data, power might turn off
+(defun comm-send-event (event-id) {
+        (var buf (bufcreate 2))
+        (bufset-u8 buf 0 event-id)
+        (can-send-sid 250 buf)
+})
+
 (def rtc-val-magic 115)
 
 ; Short-circuit protection (SCD)
@@ -353,6 +361,8 @@ loopwhile-thd
 })
 
 (defun psw-off () {
+        (comm-send-event 1)
+        (sleep 0.5)
         (bms-set-pchg 0)
         (bms-set-out 0)
         (setq psw-state false)
@@ -1035,6 +1045,8 @@ loopwhile-thd
                     {
                         (bms-set-pchg 0)
                         (bms-set-out 0)
+
+                        (comm-send-event 1)
 
                         (setq psw-status (if scd-latched "FLT_PSW_SHORT" "FLT_PSW_OT"))
                 })
