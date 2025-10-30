@@ -127,12 +127,11 @@
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
 
-        (def soc 0.0) ; Show SOC 0 until BMS boots
         (def buf-can (array-create 8))
 
         (loopwhile-thd ("Send CAN" 100) t {
                 (bufclear buf-can)
-                (bufset-i16 buf-can 0 (* soc 1000))
+                (bufset-i16 buf-can 0 (* (get-batt) 1000))
                 (bufset-i16 buf-can 2 (* (abs (get-duty)) 1000))
                 (bufset-i16 buf-can 4 (* (abs (get-speed)) 3.6 10))
                 (if dual-motors
