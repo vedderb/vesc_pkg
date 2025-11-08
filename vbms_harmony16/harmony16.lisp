@@ -421,8 +421,6 @@ loopwhile-thd
 
 (defun psw-thd () {
         (loopwhile t {
-                (loopwhile (not (main-init-done)) (sleep 0.1))
-
                 (if (and
                         psw-state
                         (or
@@ -1207,6 +1205,8 @@ loopwhile-thd
 
                 })
         })
+
+        ;(f-connect 0 5 4 10)
 
         (start-hum-thd)
 })
