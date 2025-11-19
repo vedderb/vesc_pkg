@@ -9,7 +9,7 @@
         ; Current controller time constant in us
         (var tc 1500.0)
 
-        (conf-set 'l-current-min (- current))
+        (conf-set 'l-current-min (* (- current) 0.28))
         (conf-set 'l-current-max current)
         (conf-set 'l-abs-current-max (* current 1.4))
 
