@@ -1,0 +1,295 @@
+;;;; Variables
+
+(def val-lever1 0.0)
+(def val-lever2 0.0)
+
+(def light-on 0)
+(def hb false)
+(def indl false)
+(def indr false)
+(def ind-ms 430)
+(def sidestand false)
+(def brake-on false)
+(def drive-mode 1)
+(def hazard-on false)
+
+(def battery-a-charging false)
+(def battery-a-chg-time 0.0)
+(def stats-battery-ah 0.0)
+
+(def ind-l-on false)
+(def ind-r-on false)
+
+(import "pkg@://vesc_packages/lib_tca9535/tca9535.vescpkg" 'tca9535)
+(read-eval-program tca9535)
+
+@const-start
+
+; Output Pins
+(def pin-light 0) ; ESP IO0
+(def pin-ind-l 1) ; ESP IO1
+(def pin-ind-r 2) ; ESP IO2
+(def pin-brake-light 3) ; ESP IO3
+
+; IO-expander pins
+(def io-pin-ind-l 2) ; Active high, PD
+(def io-pin-ind-r 3) ; Active high, PD
+(def io-pin-hb 4) ; Active high, PD
+(def io-pin-brake 6) ; Active high, PD
+(def io-pin-sidestand 7) ; Active high, PD
+(def io-pin-park 13) ; Active low, Pu
+(def io-pin-hazard 10) ; Active low, Pu
+
+; Persistent settings
+; Format: (label . (offset type))
+(def eeprom-addrs '(
+        (ver-code   . (0 i))
+        (ind-duty   . (1 f))
+        (ind-freq   . (2 i))
+))
+
+(defun print-settings ()
+    (loopforeach it eeprom-addrs
+        (print (list (first it) (read-setting (first it))))
+))
+
+(def settings-version 281i32)
+
+(defun read-setting (name)
+    (let (
+            (addr (first (assoc eeprom-addrs name)))
+            (type (second (assoc eeprom-addrs name)))
+        )
+        (cond
+            ((eq type 'i) (eeprom-read-i addr))
+            ((eq type 'f) (eeprom-read-f addr))
+            ((eq type 'b) (!= (eeprom-read-i addr) 0))
+)))
+
+(defun write-setting (name val)
+    (let (
+            (addr (first (assoc eeprom-addrs name)))
+            (type (second (assoc eeprom-addrs name)))
+        )
+        (cond
+            ((eq type 'i) (eeprom-store-i addr val))
+            ((eq type 'f) (eeprom-store-f addr val))
+            ((eq type 'b) (eeprom-store-i addr (if val 1 0)))
+)))
+
+(defun restore-settings () {
+        (write-setting 'ind-duty 0.08)
+        (write-setting 'ind-freq 500)
+        (write-setting 'ver-code settings-version)
+})
+
+(defun send-settings ()
+    (send-data (str-merge
+            "settings "
+            (str-from-n (read-setting 'ind-duty) "%.3f ")
+            (str-from-n (read-setting 'ind-freq) "%d ")
+)))
+
+(defun save-config (ind-duty ind-freq) {
+        (write-setting 'ind-duty ind-duty)
+        (write-setting 'ind-freq ind-freq)
+
+        (pwm-stop 0)
+        (pwm-stop 1)
+        (pwm-start (read-setting 'ind-freq) 0.0 0 pin-ind-l)
+        (pwm-start (read-setting 'ind-freq) 0.0 1 pin-ind-r)
+
+        (send-data "Settings Saved!")
+})
+
+(defun send-msg (text)
+    (send-data (str-merge "msg " text))
+)
+
+(defun proc-sid (id data) {
+        (cond
+            ((= id 35) {
+                    (setq battery-a-charging (= (bufget-u8 data 2) 1))
+                    (setq battery-a-chg-time (bufget-u16 data 3))
+                    (setq stats-battery-ah (/ (bufget-u16 data 5) 10.0))
+            })
+
+            ((= id 201) {
+                    (var drive-mode-new (bufget-u8 data 0))
+                    (setq light-on (bufget-u8 data 1))
+                    (gpio-write pin-light light-on)
+            })
+
+            ; Event
+            ((= id 250) {
+                    (cond
+                        ((= (bufget-u8 data 0) 0) { ; Toggle cruise control
+
+                        })
+                    )
+            })
+        )
+})
+
+(defun event-handler ()
+    (loopwhile t
+        (recv
+            ((event-can-sid . ((? id) . (? data))) (proc-sid id data))
+            ((event-data-rx . (? data)) (eval (read data)))
+            (_ nil)
+)))
+
+(defun read-pins () {
+        (tca9535-write-pins '(17 0))
+        (var pd (tca9535-read-pins
+                io-pin-ind-l
+                io-pin-ind-r
+                io-pin-hb
+                io-pin-brake
+                io-pin-sidestand
+        ))
+
+        (tca9535-write-pins '(17 1))
+        (var pu (tca9535-read-pins
+                io-pin-park
+                io-pin-hazard
+        ))
+
+        (append pd pu)
+})
+
+(defun main () {
+        (set-print-prefix "ESP-")
+
+        ; Force ublox-driver to stop as we will use the same pins for the io-expander
+        (uart-start 0 20 21 115200)
+        (uart-stop 0)
+        (loopwhile (not (main-init-done)) (sleep 0.1))
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        (gpio-configure pin-light 'pin-mode-out)
+        (gpio-configure pin-brake-light 'pin-mode-out)
+
+        (pwm-stop 0)
+        (pwm-stop 1)
+        (pwm-start (read-setting 'ind-freq) 0.0 0 pin-ind-l)
+        (pwm-start (read-setting 'ind-freq) 0.0 1 pin-ind-r)
+
+        (tca9535-init 0x20 'rate-100k 21 20)
+
+        ; Set io-0 as output high
+        (tca9535-set-dir '(17 out))
+        (tca9535-write-pins '(17 0))
+
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-can-sid)
+        (event-enable 'event-data-rx)
+
+        (var hazard-last false)
+
+        (loopwhile-thd ("PinReader" 150) t {
+                ; Sample inputs three times and use the most
+                ; common sample. This will reject noise.
+                (var sample-num 3)
+
+                ; This will be a list of lists with pin samples
+                ; ((p1s1 p2s1 p3s1 ...) (p1s2 p2s2 p3s2 ...) ...)
+                (var pin-samples (map
+                        (fn (x) {
+                                (sleep 0.02) ; This is our sleep
+                                (read-pins)
+                        })
+                        (range sample-num)
+                ))
+
+                (var pin-num (length (first pin-samples)))
+                (var pins (range pin-num)) ; Store result in this list
+
+                (looprange i 0 pin-num {
+                        (var sum 0)
+                        (looprange j 0 sample-num {
+                                (var sample (ix (ix pin-samples j) i))
+                                (setq sum (+ sum sample))
+                        })
+
+                        ; If more than half of the samples are set...
+                        (setix pins i (if (> sum (/ sample-num 2)) 1 0))
+                })
+
+                ; NOTE: Swap active-high/active-low if input
+                ;       signals are inverse
+                (setq indl       (= (ix pins 0) 1))
+                (setq indr       (= (ix pins 1) 1))
+                (setq hb         (= (ix pins 2) 1))
+                (setq sidestand  (= (ix pins 4) 1))
+                (setq brake-on   (= (ix pins 3) 1))
+
+                ; Hazard has a momentary button, but we simulate a toggle button
+                (var hazard (= (ix pins 6) 0))
+                (if (and (not hazard-last) hazard) (setq hazard-on (not hazard-on)))
+                (setq hazard-last hazard)
+        })
+
+        (loopwhile-thd ("Indicator" 150) t {
+                (if (or indl indr hazard-on)
+                    {
+                        (setq ind-l-on (or indl hazard-on))
+                        (setq ind-r-on (or indr hazard-on))
+
+                        (pwm-set-duty (if ind-l-on 1.0 0.0) 0)
+                        (pwm-set-duty (if ind-r-on 1.0 0.0) 1)
+                        (sleep 0.42)
+
+                        (setq ind-l-on false)
+                        (setq ind-r-on false)
+                        (pwm-set-duty 0.0 0)
+                        (pwm-set-duty 0.0 1)
+                        (sleep 0.36)
+                    }
+                    {
+                        (if (= light-on 1)
+                            {
+                                (pwm-set-duty (read-setting 'ind-duty) 0)
+                                (pwm-set-duty (read-setting 'ind-duty) 1)
+                            }
+                            {
+                                (pwm-set-duty 0.0 0)
+                                (pwm-set-duty 0.0 1)
+                            }
+                        )
+
+                        (sleep 0.05)
+                    }
+                )
+        })
+
+        (var canbuf (bufcreate 8))
+        (loopwhile-thd ("Send CAN" 150) t {
+                (bufclear canbuf)
+                (if (or indl indr hazard-on) {
+                        (bufset-u8 canbuf 0 (if ind-l-on 1 0))
+                        (bufset-u8 canbuf 1 (if ind-r-on 1 0))
+                })
+                (bufset-u16 canbuf 2 ind-ms)
+                (bufset-u8 canbuf 4 (if hb 1 0))
+                (can-send-sid 30 canbuf)
+
+                (bufclear canbuf)
+                (bufset-u8 canbuf 0 (if sidestand 0 1))
+                (can-send-sid 31 canbuf)
+
+                (bufclear canbuf)
+                (bufset-i16 canbuf 4 (* (if brake-on 1.0 0.0) 1000))
+                (can-send-sid 200 canbuf)
+
+                (sleep 0.1) ; 10 Hz
+        })
+})
+
+@const-end
+
+(image-save)
+(main)

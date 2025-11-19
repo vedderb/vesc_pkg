@@ -23,6 +23,8 @@
         <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
         <file>dash35b/dash35b.vescpkg</file>
         <file>dash35b/dash35b_esc.vescpkg</file>
+        <file>vl_bike_39p/vl_bike_39p_stm.vescpkg</file>
+        <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
    </qresource>
 </RCC>
 
