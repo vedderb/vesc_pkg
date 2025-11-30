@@ -1,0 +1,148 @@
+(def conf-state "Undefined")
+(def conf-ongoing false)
+
+@const-start
+
+(defunret conf-motor-ipm-abi (encoder current current-detect) {
+        (setq conf-state "Begin")
+
+        ; Current controller time constant in us
+        (var tc 1500.0)
+
+        (conf-set 'l-current-min (* (- current) 0.28))
+        (conf-set 'l-current-max current)
+        (conf-set 'l-abs-current-max (* current 1.4))
+
+        (conf-set 'l-in-current-min (- current))
+        (conf-set 'l-in-current-max current)
+
+        (setq conf-state "Measure R")
+        (conf-set 'foc-motor-r (* (conf-measure-res (* current 0.5) 1000) 1.0e3))
+
+        (setq conf-state "Measure L")
+        (var ind-data (conf-measure-ind current-detect))
+
+        (conf-set 'foc-motor-l (ix ind-data 0))
+
+        ; Divide by two to make observer + MTPA perform better
+        (conf-set 'foc-motor-ld-lq-diff (* (ix ind-data 1) 0.5))
+
+        (var bw (/ 1.0 (* tc 1.0e-6)))
+        (conf-set 'foc-current-kp (* (conf-get 'foc-motor-l) 1.0e-6 bw))
+        (conf-set 'foc-current-ki (* (conf-get 'foc-motor-r) 1.0e-3 bw))
+
+        (setq conf-state "Measure Flux Linkage")
+        ; This will return the list
+        ; (flux-linkage flux-linkage-undriven undriven-samples enc-offset enc-ratio enc-inverted)
+        (var linkage-data (conf-detect-lambda-enc
+                current-detect ; Current
+                0.4 ; Duty
+                1500 ; ERPM per sec
+                (conf-get 'foc-motor-r) ; R in mOhm
+                (conf-get 'foc-motor-l) ; L in uH
+        ))
+
+        (if (eq linkage-data nil) {
+                (return nil)
+        })
+
+        (var flux-linkage (ix linkage-data 1)) ; Use undrived flux linkage
+
+        (conf-set 'foc-observer-type 0) ; Ortega original
+
+        ; A third of what VESC Tool calculates works well on most IPM motors
+        (conf-set 'foc-observer-gain (/ 1.0e-3 (* flux-linkage flux-linkage) 3.0))
+
+        ; Slightly lower flux linkage makes observer more stable
+        (conf-set 'foc-motor-flux-linkage (* flux-linkage 1.0e3 0.9))
+
+        ; Encoder
+        (cond
+            ((= encoder 1) {
+                    (conf-set 'foc-encoder-offset (ix linkage-data 3))
+                    (conf-set 'foc-encoder-inverted (ix linkage-data 5))
+                    (conf-set 'foc-encoder-ratio (ix linkage-data 4))
+                    (conf-set 'foc-sensor-mode 1)
+            })
+        )
+
+        (conf-store)
+
+        (setq conf-state "Done!")
+})
+
+(defunret conf-start (encoder current-lim current-detect) {
+        (if conf-ongoing {
+                (send-msg "Configuration ongoing...")
+                (return)
+        })
+
+        (setq conf-ongoing true)
+
+        (conf-set 'foc-openloop-rpm 200)
+
+        (cond
+            ((= encoder 1) {
+                    (conf-set 'm-sensor-port-mode 14) ; PWM + ABI
+                    (conf-set 'm-encoder-counts 1024)
+            })
+        )
+
+        (conf-set 'foc-mtpa-mode 2) ; IQ Measured MTPA
+        (conf-set 'foc-sl-erpm 100000) ; Encoder only
+
+        (conf-set 'foc-offsets-cal-mode 4) ; Auto-cal
+        (conf-dc-cal-set nil nil nil 0 0 0 0 0 0) ; No voltage offsets
+
+        ;(conf-set 'm-motor-temp-sens-type 4)
+        ;(sleep 1.0) ; Wait for temp fault
+
+        (setq conf-state "Begin Config")
+        (var conf-thd (spawn 150 conf-motor-ipm-abi encoder current-lim current-detect))
+
+        (loopwhile t {
+                (cond
+                    ((= (get-fault) 1) {
+                            (send-msg (str-merge "Overvoltage during " conf-state))
+                            (kill conf-thd nil)
+                            (break)
+                    })
+
+                    ((= (get-fault) 2) {
+                            (send-msg (str-merge "Undervoltage during " conf-state))
+                            (kill conf-thd nil)
+                            (break)
+                    })
+
+                    ((= (get-fault) 4) {
+                            (send-msg (str-merge "Abs overcurrent during " conf-state))
+                            (kill conf-thd nil)
+                            (break)
+                    })
+
+                    ((= (get-fault) 5) {
+                            (send-msg (str-merge "Overtemp MOSFET " conf-state))
+                            (kill conf-thd nil)
+                            (break)
+                    })
+
+                    ((= (get-fault) 6) {
+                            (send-msg (str-merge "Overtemp Motor " conf-state))
+                            (kill conf-thd nil)
+                            (break)
+                    })
+                )
+
+                (if (eq conf-state "Done!") {
+                        (send-msg "Configuration Done!")
+                        (break)
+                })
+
+                (sleep 0.02)
+        })
+
+        (setq conf-ongoing false)
+})
+
+;(conf-start 1 550 100)
+

@@ -252,11 +252,11 @@ loopwhile-thd
         })
 
         (if (> (bms-get-param 'cells_ic2) 0) {
-                (if (!= (bms-read-reg 2 0x92fd 1) 0x3b) {
+                (if (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b) {
                         (print "Invalid temp IC2 reg, retrying...")
                         (sleep 0.01)
 
-                        (if (!= (bms-read-reg 2 0x92fd 1) 0x3b) {
+                        (if (!= (with-com '(bms-read-reg 2 0x92fd 1)) 0x3b) {
                                 (print "Temp reg IC2 still invalid, exit error!")
                                 (exit-error 0)
                         })
@@ -370,7 +370,7 @@ loopwhile-thd
         ))
 
         (var ichg 0.0)
-        (if (and (test-chg 400) charge-ok charge-wakeup) {
+        (if (and charge-ok charge-wakeup (test-chg 400)) {
                 (set-chg true)
 
                 (looprange i 0 (* charger-max-delay 10.0) {

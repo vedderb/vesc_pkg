@@ -2,7 +2,6 @@
 <RCC>
    <qresource prefix="/vesc_packages">
         <file>balance/balance.vescpkg</file>
-        <file>float/float.vescpkg</file>
         <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
@@ -21,6 +20,12 @@
         <file>vdisp/vdisp.vescpkg</file>
         <file>vdisp/vdisp_esc.vescpkg</file>
         <file>vbms_harmony32/vbms_harmony32.vescpkg</file>
+        <file>blacktip_dpv/blacktip_dpv.vescpkg</file>
+        <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
+        <file>dash35b/dash35b.vescpkg</file>
+        <file>dash35b/dash35b_esc.vescpkg</file>
+        <file>vl_bike_39p/vl_bike_39p_stm.vescpkg</file>
+        <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
    </qresource>
 </RCC>
 

@@ -1,0 +1,270 @@
+@const-start
+
+(defun view-static-state () (list
+        indicate-l-on                       ; 0
+        indicate-r-on                       ; 1
+        highbeam-on                         ; 2
+        kickstand-down                      ; 3
+        drive-mode                          ; 4
+        performance-mode                    ; 5
+        cruise-control-active               ; 6
+        cruise-control-speed                ; 7
+        (round (* 100.0 stats-battery-soc)) ; 8
+        battery-a-charging                  ; 9
+        stats-fault-code                    ; 10
+        (round stats-temp-esc)              ; 11
+        (round stats-temp-battery)          ; 12
+        (round (secs-since 0))              ; 13
+        (cond
+            (temp-ambient-rx temp-ambient)
+            ((> (get-bms-val 'bms-temp-adc-num) 4) (get-bms-val 'bms-temps-adc 4))
+            (t -300.0)
+        ) ; 14
+        (* (round (* stats-vin 10)) 0.1)    ; 15
+        (round stats-kmh)                   ; 16
+        (round stats-amps-now)              ; 17
+        cruise-control-active               ; 18
+        (round cruise-control-speed)        ; 19
+        light-on                            ; 20
+        page-now                            ; 21
+        (round stats-temp-motor)            ; 22
+        battery-a-charging                  ; 23
+        battery-a-chg-time                  ; 24
+        date-time                           ; 25
+))
+
+;(print (ix (view-static-state) 25))
+
+(defun view-static-thread () {
+        (var update-state (map (fn (x) t) (view-static-state)))
+        (var state-last (view-static-state))
+
+        (disp-render img-vesc 16 7 colors-vesc)
+        (disp-render img-batt-level 10 83 colors-white-aa)
+
+        (loopwhile t {
+                ; Indicator L
+                (var state-ind 0)
+                (if (ix update-state state-ind) {
+                        (if (ix state-last state-ind)
+                            (disp-render img-indicator-l 70 12 colors-green-icon)
+                            (disp-render img-indicator-l 70 12 colors-dim-icon)
+                        )
+                })
+
+                ; Warning
+                (var state-ind 10)
+                (if (ix update-state state-ind) {
+                        (if (!= (ix state-last state-ind) 0)
+                            (disp-render img-warning 124 11 colors-red-icon)
+                            (disp-render img-warning 124 11 colors-dim-icon)
+                        )
+                })
+
+                ; High Beam
+                (if (or (ix update-state 2) (ix update-state 20)) {
+                        (cond
+                            ((ix state-last 2) (disp-render img-highbeam 175 14 colors-blue-icon))
+                            ((ix state-last 20) (disp-render img-lowbeam 175 14 colors-green-icon))
+                            (true (disp-render img-lowbeam 175 14 colors-dim-icon))
+                        )
+                })
+
+                ; Kick Stand
+                (var state-ind 3)
+                (if (ix update-state state-ind) {
+                        (if (ix state-last state-ind)
+                            (disp-render img-kickstand 278 14 colors-red-icon)
+                            (disp-render img-kickstand 278 14 colors-dim-icon)
+                        )
+                })
+
+                ; Temperature
+                (if (or (ix update-state 11) (ix update-state 12) (ix update-state 22)) {
+                        (cond
+                            ((> (ix state-last 11) config-esc-hot) (disp-render img-temp-e 323 10 colors-red-icon))
+                            ((> (ix state-last 12) config-battery-hot) (disp-render img-temp-b 323 10 colors-red-icon))
+                            ((> (ix state-last 22) config-motor-hot) (disp-render img-temp-m 323 10 colors-red-icon))
+                            (true                      (disp-render img-temp-b 323 10 colors-dim-icon))
+                        )
+                })
+
+                ; Indicator R
+                (var state-ind 1)
+                (if (ix update-state state-ind) {
+                        (if (ix state-last state-ind)
+                            (disp-render img-indicator-r 374 12 colors-green-icon)
+                            (disp-render img-indicator-r 374 12 colors-dim-icon)
+                        )
+                })
+
+                ; Mode Symbol
+                (if (or (ix update-state 4) (ix update-state 5)) {
+                        (var txt (cond
+                                ((eq (ix state-last 4) 0)   "R")
+                                ((eq (ix state-last 4) 1)   "N")
+                                ((eq (ix state-last 4) 2)   "1")
+                                ((eq (ix state-last 4) 3)   "2")
+                                ((eq (ix state-last 4) 4)   "3")
+                                (true                       "N")
+                        ))
+
+                        (var imgbuf (img-buffer dm-pool 'indexed4 34 40))
+                        ;(img-clear imgbuf 2) ; Show where buffer is
+                        (img-clear imgbuf)
+
+                        (ttf-txt-center txt font-48 imgbuf)
+                        (disp-render imgbuf 223 8 colors-text-aa)
+                })
+
+                ; Clock
+                (if (or (ix update-state 13) (ix update-state 25)) {
+                        (var imgbuf (img-buffer dm-pool 'indexed4 46 17))
+                        (img-clear imgbuf)
+
+                        (var (hh mm)
+                            (if (ix state-last 25)
+                                (list (to-i (ix (ix state-last 25) 4)) (to-i (ix (ix state-last 25) 5)))
+                                (list (mod (/ (to-i (ix state-last 13)) 3600) 24) (mod (/ (to-i (ix state-last 13)) 60) 60))
+                        ))
+
+                        (var str (str-merge (str-from-n hh "%02d:") (str-from-n mm "%02d")))
+
+                        (ttf-txt-center str font-16 imgbuf)
+                        (disp-render imgbuf 425 9 colors-text-aa)
+                })
+
+                ; Temp
+                (var state-ind 14)
+                (if (ix update-state state-ind) {
+                        (var temp (to-i (ix state-last state-ind)))
+
+                        (var imgbuf (img-buffer dm-pool 'indexed4 46 17))
+                        (img-clear imgbuf)
+
+                        (var str (if (> temp -200)
+                                (str-from-n temp "%d C")
+                                "---"
+                        ))
+
+                        (ttf-txt-center str font-16 imgbuf)
+                        (disp-render imgbuf 425 26 colors-text-aa)
+                })
+
+                ; Battery %
+                (var state-ind 8)
+                (if (ix update-state state-ind) {
+                        (var percent (to-i (ix state-last state-ind)))
+
+                        (var (w h) '(42 18))
+                        (var imgbuf (img-buffer dm-pool 'indexed2 w h))
+                        (var imgbuf2 (img-buffer dm-pool 'indexed2 w h))
+                        (img-rectangle imgbuf 0 0 w h 1 '(rounded 2) '(filled))
+
+                        (looprange i 0 10 {
+                                (disp-render
+                                    (if (> percent (* i 10)) imgbuf imgbuf2)
+                                    14 (- 271 (* i 20)) colors-theme-2
+                                )
+                        })
+
+                        ; Batt %
+                        (setq imgbuf (img-buffer dm-pool 'indexed4 40 15))
+                        (img-clear imgbuf)
+                        (var str (str-from-n percent "%d%%"))
+                        (ttf-txt-center str font-16 imgbuf)
+                        (disp-render imgbuf 16 299 colors-text-aa)
+                })
+
+                ; Battery volts
+                (var state-ind 15)
+                (if (ix update-state state-ind) {
+                        (var v-in (to-float (ix state-last state-ind)))
+
+                        ; Batt V
+                        (var imgbuf (img-buffer dm-pool 'indexed4 60 15))
+                        (img-clear imgbuf)
+                        (var str (str-from-n v-in "%.1fV"))
+                        (ttf-txt-center str font-16 imgbuf)
+                        (disp-render imgbuf 6 59 colors-text-aa)
+                })
+
+                ; Speed or Charging
+                (if (or (ix update-state 16) (ix update-state 17)
+                        (ix update-state 23) (ix update-state 24)) {
+
+                        (var kmh (to-float (ix state-last 16)))
+                        (var current (to-float (ix state-last 17)))
+                        (var charging (ix state-last 23))
+                        (var min-left (to-i (ix state-last 24)))
+
+                        (var imgbuf (img-buffer dm-pool 'indexed4 276 114))
+                        (img-clear imgbuf)
+
+                        ; TODO: Separate case for charging
+                        ; with AA for the text
+                        (if charging
+                            {
+                                (img-blit imgbuf img-charging 58 0 0)
+                                (ttf-txt-center "Time Left" font-16-2c imgbuf '(0 3) 80)
+                                (ttf-txt-center
+                                    (str-merge (str-from-n (/ min-left 60) "%dh ") (str-from-n (mod min-left 60) "%dmin"))
+                                    font-16-2c imgbuf '(0 3) 100
+                                )
+                            }
+                            {
+                                (img-circle imgbuf 138 140 140 1 '(filled))
+                                (img-arc imgbuf 138 140 140 -180 0 2 '(thickness 8))
+
+                                (if (> current 0)
+                                    (img-arc imgbuf 138 140 140 -90 (+ -90.0 (* current (/ 90.0 config-curr-accel))) 3 '(thickness 8))
+                                    (img-arc imgbuf 138 140 140 (+ -90.0 (* current (/ 90.0 config-curr-brake))) -90 3 '(thickness 8))
+                                )
+
+                                (ttf-txt-center "km/h" font-16-2c imgbuf '(0 3) 30)
+                                (ttf-txt-center (str-from-n kmh) font-90 imgbuf '(0 3) 105)
+                            }
+                        )
+
+                        (disp-render imgbuf 102 206 (if charging colors-charging colors-speed))
+                })
+
+                ; Cruise Control
+                (if (or (ix update-state 18) (ix update-state 19)) {
+                        (var active (ix state-last 18))
+                        (var kmh (to-float (ix state-last 19)))
+
+                        (var (color-txt color-icon) (if active
+                                (list colors-text-aa colors-green-icon)
+                                (list colors-dim-icon colors-dim-icon)
+                        ))
+
+                        (disp-render img-cruise 407 225 color-icon)
+
+                        (var imgbuf (img-buffer dm-pool 'indexed4 52 28))
+                        (img-clear imgbuf)
+                        (ttf-txt-center (str-from-n kmh "%.0f") font-32 imgbuf)
+                        (disp-render imgbuf 403 262 color-txt)
+                })
+
+                ; Page
+                (var state-ind 21)
+                (if (ix update-state state-ind) {
+                        (var page (to-i (ix state-last state-ind)))
+
+                        (var imgbuf (img-buffer dm-pool 'indexed4 74 20))
+                        (img-clear imgbuf)
+                        (var str (str-merge (str-from-n (+ page 1) "Page %d/") (str-from-n page-num)))
+                        (ttf-txt-center str font-16 imgbuf)
+                        (disp-render imgbuf 393 297 colors-text-aa)
+                })
+
+                (var state-new (view-static-state))
+                (looprange i 0 (length update-state)
+                    (setix update-state i (not-eq (ix state-last i) (ix state-new i)))
+                )
+                (setq state-last state-new)
+
+                (sleep 0.05)
+        })
+})
