@@ -293,7 +293,7 @@
                 (looprange i (/ num-cells 2) num-cells {
                         (var ind0 (- i (/ num-cells 2)))
                         (draw-bat-cell (+ i 1) cellimg (+ ofs-x (* ind0 cell-xs)) 133 2.8 4.2
-                            (ix (ix curr-state 3) ind0) (ix (ix curr-state 4) i)
+                            (ix (ix curr-state 3) ind0) (ix (ix curr-state 4) ind0)
                         )
                 })
         })
