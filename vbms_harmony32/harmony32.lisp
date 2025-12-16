@@ -87,12 +87,15 @@ loopwhile-thd
 (defun bms-current () (* (bms-get-current) -2.0))
 
 (defun beep (times dt) {
-        (loopwhile (> times 0) {
-                (pwm-set-duty 0.5 0)
-                (sleep dt)
-                (pwm-set-duty 0.0 0)
-                (sleep dt)
-                (setq times (- times 1))
+        (if (= (bms-get-param 'beeper_enabled) 1) 
+        {
+                (loopwhile (> times 0) {
+                        (pwm-set-duty 0.5 0)
+                        (sleep dt)
+                        (pwm-set-duty 0.0 0)
+                        (sleep dt)
+                        (setq times (- times 1))
+                })
         })
 })
 

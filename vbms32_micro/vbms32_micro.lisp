@@ -84,17 +84,20 @@ loopwhile-thd
 (defun bms-current () (* (bms-get-current) -0.2))
 
 (defun beep (times dt) {
-        (mutex-lock buz-mutex)
+        (if (= (bms-get-param 'beeper_enabled) 1) 
+        {
+                (mutex-lock buz-mutex)
 
-        (loopwhile (> times 0) {
-                (pwm-set-duty 0.5 0)
-                (sleep dt)
-                (pwm-set-duty 0.0 0)
-                (sleep dt)
-                (setq times (- times 1))
+                (loopwhile (> times 0) {
+                        (pwm-set-duty 0.5 0)
+                        (sleep dt)
+                        (pwm-set-duty 0.0 0)
+                        (sleep dt)
+                        (setq times (- times 1))
+                })
+
+                (mutex-unlock buz-mutex)
         })
-
-        (mutex-unlock buz-mutex)
 })
 
 (def rtc-val-magic 115)
