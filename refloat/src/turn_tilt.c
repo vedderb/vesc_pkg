@@ -21,14 +21,22 @@
 
 #include <math.h>
 
-void turn_tilt_reset(TurnTilt *tt) {
-    tt->last_yaw_angle = 0;
-    tt->last_yaw_change = 0;
-    tt->yaw_change = 0;
-    tt->yaw_aggregate = 0;
+void turn_tilt_init(TurnTilt *tt) {
+    tt->step_size = 0.0f;
+    tt->boost_per_erpm = 0.0f;
+    turn_tilt_reset(tt);
+}
 
-    tt->target = 0;
-    tt->setpoint = 0;
+void turn_tilt_reset(TurnTilt *tt) {
+    tt->last_yaw_angle = 0.0f;
+    tt->last_yaw_change = 0.0f;
+    tt->yaw_change = 0.0f;
+    tt->abs_yaw_change = 0.0f;
+    tt->yaw_aggregate = 0.0f;
+
+    tt->ramped_step_size = 0.0f;
+    tt->target = 0.0f;
+    tt->setpoint = 0.0f;
 }
 
 void turn_tilt_configure(TurnTilt *tt, const RefloatConfig *config) {
@@ -65,14 +73,7 @@ void turn_tilt_aggregate(TurnTilt *tt, const IMU *imu) {
     }
 }
 
-void turn_tilt_update(
-    TurnTilt *tt,
-    const MotorData *md,
-    const ATR *atr,
-    float balance_pitch,
-    float noseangling,
-    const RefloatConfig *config
-) {
+void turn_tilt_update(TurnTilt *tt, const MotorData *md, const RefloatConfig *config) {
     if (config->turntilt_strength == 0) {
         return;
     }
@@ -119,32 +120,12 @@ void turn_tilt_update(
         } else {
             tt->target *= md->erpm_sign;
         }
-
-        // ATR interference: Reduce target during moments of high torque response
-        float atr_min = 2;
-        float atr_max = 5;
-        if (sign(atr->target) != sign(tt->target)) {
-            // further reduced turntilt during moderate to steep downhills
-            atr_min = 1;
-            atr_max = 4;
-        }
-        if (fabsf(atr->target) > atr_min) {
-            // Start scaling turntilt when ATR>2, down to 0 turntilt for ATR > 5 degrees
-            float atr_scaling = (atr_max - fabsf(atr->target)) / (atr_max - atr_min);
-            if (atr_scaling < 0) {
-                atr_scaling = 0;
-                // during heavy torque response clear the yaw aggregate too
-                tt->yaw_aggregate = 0;
-            }
-            tt->target *= atr_scaling;
-        }
-        if (fabsf(balance_pitch - noseangling) > 4) {
-            // no setpoint changes during heavy acceleration or braking
-            tt->target = 0;
-            tt->yaw_aggregate = 0;
-        }
     }
 
-    // Move towards target limited by max speed
-    rate_limitf(&tt->setpoint, tt->target, tt->step_size);
+    // Smoothen changes in tilt angle by ramping the step size
+    smooth_rampf(&tt->setpoint, &tt->ramped_step_size, tt->target, tt->step_size, 0.04, 1.5);
+}
+
+void turn_tilt_winddown(TurnTilt *tt) {
+    tt->setpoint *= 0.995;
 }

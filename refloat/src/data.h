@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include "alert_tracker.h"
 #include "atr.h"
+#include "bms.h"
 #include "booster.h"
 #include "brake_tilt.h"
 #include "charging.h"
@@ -48,17 +50,37 @@ typedef struct {
     // Firmware version, passed in from Lisp
     int fw_version_major, fw_version_minor, fw_version_beta;
 
+    // IMU data for the balancing filter
+    BalanceFilterData balance_filter;
+
     Time time;
     MotorData motor;
     IMU imu;
     PID pid;
     MotorControl motor_control;
+
     TorqueTilt torque_tilt;
     ATR atr;
     BrakeTilt brake_tilt;
     TurnTilt turn_tilt;
     Booster booster;
     Remote remote;
+
+    State state;
+    FootpadSensor footpad;
+    HapticFeedback haptic_feedback;
+    AlertTracker alert_tracker;
+
+    Leds leds;
+    LcmData lcm;
+    Charging charging;
+    BMS bms;
+
+    DataRecord data_record;
+
+    Konami flywheel_konami;
+    Konami headlights_on_konami;
+    Konami headlights_off_konami;
 
     // Beeper
     int beep_num_left;
@@ -67,13 +89,6 @@ typedef struct {
     int beep_reason;
     bool beeper_enabled;
 
-    Leds leds;
-
-    // Lights Control Module - external lights control
-    LcmData lcm;
-
-    Charging charging;
-
     // Config values
     uint32_t loop_time_us;
     float startup_pitch_trickmargin, startup_pitch_tolerance;
@@ -81,23 +96,13 @@ typedef struct {
     float tiltback_duty_step_size, tiltback_hv_step_size, tiltback_lv_step_size,
         tiltback_return_step_size;
     float tiltback_variable, tiltback_variable_max_erpm, noseangling_step_size;
-    float mc_max_temp_fet, mc_max_temp_mot;
     bool duty_beeping;
-
-    // IMU data for the balancing filter
-    BalanceFilterData balance_filter;
-
-    float max_duty_with_margin;
-
-    FootpadSensor footpad;
-
-    // Rumtime state values
-    State state;
 
     float balance_current;
 
     float setpoint, setpoint_target, setpoint_target_interpolated;
     float noseangling_interpolated;
+    time_t alert_timer;
     time_t nag_timer;
     float idle_voltage;
     time_t fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer,
@@ -128,11 +133,4 @@ typedef struct {
     int rc_counter;
     float rc_current_target;
     float rc_current;
-
-    HapticFeedback haptic_feedback;
-    DataRecord data_record;
-
-    Konami flywheel_konami;
-    Konami headlights_on_konami;
-    Konami headlights_off_konami;
 } Data;
