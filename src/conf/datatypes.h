@@ -35,14 +35,22 @@ typedef enum {
 
 typedef enum {
     LED_MODE_OFF = 0,
-    LED_MODE_INTERNAL,
-    LED_MODE_EXTERNAL,
+    LED_MODE_INTERNAL = 0x1,
+    LED_MODE_EXTERNAL = 0x2,
+    LED_MODE_BOTH = 0x3,
 } LedMode;
 
 typedef enum {
     LED_PIN_B6 = 0,
-    LED_PIN_B7
+    LED_PIN_B7,
+    LED_PIN_C9,
+    LED_PIN_LAST = LED_PIN_C9
 } LedPin;
+
+typedef enum {
+    LED_PIN_CFG_PULLUP_TO_5V = 0,
+    LED_PIN_CFG_NO_PULLUP
+} LedPinConfig;
 
 typedef enum {
     LED_COLOR_GRB = 0,
@@ -100,6 +108,9 @@ typedef enum {
     LED_ANIM_STROBE,
     LED_ANIM_KNIGHT_RIDER,
     LED_ANIM_FELONY,
+    LED_ANIM_RAINBOW_CYCLE,
+    LED_ANIM_RAINBOW_FADE,
+    LED_ANIM_RAINBOW_ROLL,
 } LedAnimMode;
 
 typedef enum {
@@ -154,6 +165,7 @@ typedef struct {
 typedef struct {
     LedMode mode;
     LedPin pin;
+    LedPinConfig pin_config;
     CfgLedStrip status;
     CfgLedStrip front;
     CfgLedStrip rear;
@@ -180,6 +192,16 @@ typedef struct {
 } CfgHapticFeedback;
 
 typedef struct {
+    bool enabled;
+    float cell_lv_threshold;
+    float cell_hv_threshold;
+    float cell_balance_threshold;
+    int8_t cell_lt_threshold;
+    int8_t cell_ht_threshold;
+    int8_t bms_ht_threshold;
+} CfgBMS;
+
+typedef struct {
     bool is_default;
 } CfgMeta;
 
@@ -204,11 +226,13 @@ typedef struct {
     uint16_t fault_adc_half_erpm;
     bool fault_is_dual_switch;
     bool fault_moving_fault_disabled;
+    bool enable_quickstop;
     bool fault_darkride_enabled;
     bool fault_reversestop_enabled;
     float tiltback_duty_angle;
     float tiltback_duty_speed;
     float tiltback_duty;
+    uint8_t tiltback_speed;
     float tiltback_hv_angle;
     float tiltback_hv_speed;
     float tiltback_hv;
@@ -216,6 +240,7 @@ typedef struct {
     float tiltback_lv_speed;
     float tiltback_lv;
     float tiltback_return_speed;
+    bool persistent_fatal_error;
     float tiltback_constant;
     uint16_t tiltback_constant_erpm;
     float tiltback_variable;
@@ -279,7 +304,7 @@ typedef struct {
     bool is_footbeep_enabled;
 
     CfgHapticFeedback haptic;
-
+    CfgBMS bms;
     CfgLeds leds;
     CfgHardware hardware;
 

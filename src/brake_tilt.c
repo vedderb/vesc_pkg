@@ -22,9 +22,15 @@
 
 #include <math.h>
 
+void brake_tilt_init(BrakeTilt *bt) {
+    bt->factor = 0.0f;
+    brake_tilt_reset(bt);
+}
+
 void brake_tilt_reset(BrakeTilt *bt) {
-    bt->target = 0;
-    bt->setpoint = 0;
+    bt->ramped_step_size = 0.0f;
+    bt->target = 0.0f;
+    bt->setpoint = 0.0f;
 }
 
 void brake_tilt_configure(BrakeTilt *bt, const RefloatConfig *config) {
@@ -76,7 +82,8 @@ void brake_tilt_update(
         braketilt_step_size /= 2;
     }
 
-    rate_limitf(&bt->setpoint, bt->target, braketilt_step_size);
+    // Smoothen changes in tilt angle by ramping the step size
+    smooth_rampf(&bt->setpoint, &bt->ramped_step_size, bt->target, braketilt_step_size, 0.05, 1.5);
 }
 
 void brake_tilt_winddown(BrakeTilt *bt) {

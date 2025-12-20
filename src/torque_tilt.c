@@ -22,9 +22,15 @@
 
 #include <math.h>
 
+void torque_tilt_init(TorqueTilt *tt) {
+    tt->on_step_size = 0.0f;
+    tt->off_step_size = 0.0f;
+    torque_tilt_reset(tt);
+}
+
 void torque_tilt_reset(TorqueTilt *tt) {
-    tt->setpoint = 0;
-    tt->ramped_step_size = 0;
+    tt->ramped_step_size = 0.0f;
+    tt->setpoint = 0.0f;
 }
 
 void torque_tilt_configure(TorqueTilt *tt, const RefloatConfig *config) {
@@ -49,9 +55,15 @@ void torque_tilt_update(TorqueTilt *tt, const MotorData *motor, const RefloatCon
         sign(motor->filt_current);
 
     float step_size = 0;
-    if ((tt->setpoint - target > 0 && target > 0) || (tt->setpoint - target < 0 && target < 0)) {
+    if (tt->setpoint * target < 0) {
+        // Moving towards opposite sign (crossing zero);
+        // Use the faster tilt speed until 0 is reached
+        step_size = fmaxf(tt->off_step_size, tt->on_step_size);
+    } else if (fabsf(tt->setpoint) > fabsf(target)) {
+        // Moving towards smaller angle of same sign or zero
         step_size = tt->off_step_size;
     } else {
+        // Moving towards larger angle of same sign
         step_size = tt->on_step_size;
     }
 
