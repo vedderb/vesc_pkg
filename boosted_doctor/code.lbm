@@ -3,6 +3,7 @@
 ; --- Constants ---
 (define COMM_GET_STATUS       1)
 (define COMM_GET_CELLS        2)
+(define COMM_PFAIL_RESET      3)
 
 (define BAT_TYPE_UNKNOWN      0)
 (define BAT_TYPE_SRB          1)
@@ -257,6 +258,31 @@
   (if debug-enable {
       (debug-print "TX: GETAFECELLS")
   })
+})
+
+(defun send-pfail-reset () {
+  ; Msg 1: PFAILRES
+  (var payload1 (bufcreate 8))
+  (bufset-u8 payload1 0 0x50) ; P
+  (bufset-u8 payload1 1 0x46) ; F
+  (bufset-u8 payload1 2 0x41) ; A
+  (bufset-u8 payload1 3 0x49) ; I
+  (bufset-u8 payload1 4 0x4C) ; L
+  (bufset-u8 payload1 5 0x52) ; R
+  (bufset-u8 payload1 6 0x45) ; E
+  (bufset-u8 payload1 7 0x53) ; S
+  
+  ; Msg 2: ET\r\n
+  (var payload2 (bufcreate 4))
+  (bufset-u8 payload2 0 0x45) ; E
+  (bufset-u8 payload2 1 0x54) ; T
+  (bufset-u8 payload2 2 0x0D) ; \r
+  (bufset-u8 payload2 3 0x0A) ; \n
+
+  (can-send-eid 0x10246110u32 payload1)
+  (can-send-eid 0x10146111u32 payload2)
+    
+  (debug-print "TX: PFAILRESET")
 })
 
 (defun process-afe-buffer () {
@@ -570,6 +596,9 @@
                    (setq i (+ i 1))
               })
               (send-data msg)
+          })
+          (if (= cmd COMM_PFAIL_RESET) {
+              (send-pfail-reset)
           })
         })
       })

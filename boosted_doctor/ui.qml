@@ -22,6 +22,7 @@ Item {
     property string fwVersion: verMajor + "." + verMinor + "." + verPatch
     readonly property int commGetStatus: 1
     readonly property int commGetCells: 2
+    readonly property int commPfailReset: 3
     property double amps: 0.0
     property var cellVoltages: []
 
@@ -261,6 +262,33 @@ Item {
                             }
                         }
                     }
+                }
+            }
+
+            Button {
+                Layout.fillWidth: true
+                visible: connected
+                text: "Clear RLOD"
+                font.pointSize: 14
+                
+                background: Rectangle {
+                    color: parent.down ? Qt.darker(colorRed, 1.2) : colorRed
+                    radius: 4
+                }
+                contentItem: Text {
+                    text: parent.text
+                    font: parent.font
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: {
+                    var buffer = new ArrayBuffer(1);
+                    var dv = new DataView(buffer);
+                    var ind = 0;
+                    dv.setUint8(ind, commPfailReset);
+                    ind += 1;
+                    mCommands.sendCustomAppData(buffer);
                 }
             }
             
