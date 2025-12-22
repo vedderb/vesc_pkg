@@ -11,21 +11,22 @@
 (define BAT_TYPE_REV          3)
 
 ; --- State Variables ---
-(define val-cell-count 12) ; Default to 12, updates based on max cell ID seen
-(define cell-voltage-buffer (bufcreate 30)) ; Capacity for 15 cells
-(define afe-rx-buf (bufcreate 2048)) ; Ring Buffer (Increased to 2k)
+(define val-cell-count 12) ; Default to 12
+(define cell-voltage-buffer (bufcreate 30))
+(define AFE_RX_BUF_SIZE 256)
+(define afe-rx-buf (bufcreate AFE_RX_BUF_SIZE)) ; Ring Buffer
 (define afe-rx-head 0) ; Write Index
 (define afe-rx-tail 0) ; Read Index
 (define afe-rx-overflow-cnt 0) ; Overflow Counter
 (define afe-line-buf (bufcreate 64)) ; Linear Line Buffer
 (define afe-line-len 0) ; Current Line Length
-
 (define debug-enable nil)
 (define tx-counter 0)
 
 (define last-boosted-bms-rx-time 0)
 (define last-vesc-bms-tx-time 0)
 (define last-cell-req-time 0)
+(define last-ping-time 0)
 
 ; --- UI State Variables ---
 (define val-soc 0)
@@ -132,6 +133,7 @@
       
       ; Int part
       (var v-num 0)
+      (var digit-count 0)
       (setq ctr 0)
       (setq keep-parsing t)
       
@@ -144,6 +146,7 @@
                   (setq v-num (+ (* v-num 10) (- c 48)))
                   (setq idx (+ idx 1))
                   (setq ctr (+ ctr 1))
+                  (setq digit-count (+ digit-count 1))
                   (if (> ctr 100) { (setq keep-parsing nil) })
               } {
                   (setq keep-parsing nil)
@@ -177,7 +180,7 @@
           })
       })
       
-      (if (and (> cell-num 0) (> volt 0)) {
+      (if (and (> cell-num 0) (> volt 0) (>= digit-count 4)) {
           ;(print (str-merge "LOG: Cycled Cell " (str-from-n cell-num) " -> " (str-from-n volt "%.3f") "mV"))
           
           ; Store in buffer (int16 mV)
@@ -290,13 +293,12 @@
      (var loop-check t)
      (var processed-count 0)
      
-     ; Process up to 2048 bytes per loop
      (var cells-updated 0)
      (loopwhile (and loop-check (!= afe-rx-head afe-rx-tail)) {
          
          ; Read Byte from Ring Buffer
          (var b (bufget-u8 afe-rx-buf afe-rx-tail))
-         (setq afe-rx-tail (bitwise-and (+ afe-rx-tail 1) 2047)) ; Modulo 2048
+         (setq afe-rx-tail (mod (+ afe-rx-tail 1) AFE_RX_BUF_SIZE))
          
          ; Log Raw (DISABLED: High Overhead)
          ;(if (or (and (>= b 32) (<= b 126)) (= b 10) (= b 13)) {
@@ -322,12 +324,11 @@
          })
          
          (setq processed-count (+ processed-count 1))
-         (if (> processed-count 2048) (setq loop-check nil)) ; Yield only after full buffer drain
+         (if (> processed-count AFE_RX_BUF_SIZE) (setq loop-check nil)) ; Yield only after full buffer drain
      })
-     
-     
+
      (if (> cells-updated 0) {
-         (print (str-merge "RX: Parsed " (str-from-n cells-updated) " Cells"))
+         (debug-print (str-merge "RX: Parsed " (str-from-n cells-updated) " Cells"))
      })
      
      (if (> afe-rx-overflow-cnt 0) {
@@ -356,221 +357,231 @@
 
 
 (defun process-can-frame (id data) {
-  ; [FAST PATH] GETAFECELLS RESPONSE - ZERO ALLOCATION
-  ; Check ID directly: (header << 4) | counter. We mask out counter (0xF).
-  ; 0x02411 << 4 = 0x24110
-  ; 0x12411 << 4 = 0x124110
-  ; 0x22411 << 4 = 0x224110
-  (var id-masked (bitwise-and id 0xFFFFF0))
-  
-  (if (or (= id-masked 0x24110) (= id-masked 0x124110) (= id-masked 0x224110)) {
-     ; Unrolled Loop Optimization for DLC=8 (Common case)
-     (if (= (buflen data) 8) {
-         ; Block Write Optimization (Check if safe to write 8 bytes without wrap)
-         ; 2048 - 8 = 2040. If head < 2040, we can write linearly.
-         (if (< afe-rx-head 2040) {
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 0))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 1) (bufget-u8 data 1))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 2) (bufget-u8 data 2))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 3) (bufget-u8 data 3))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 4) (bufget-u8 data 4))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 5) (bufget-u8 data 5))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 6) (bufget-u8 data 6))
-             (bufset-u8 afe-rx-buf (+ afe-rx-head 7) (bufget-u8 data 7))
-             (setq afe-rx-head (+ afe-rx-head 8))
-         } {
-             ; Wrap Case (Slow Path)
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 0))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 1))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 2))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 3))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 4))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 5))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 6))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 7))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-         })
-     } {
-         ; Fallback for partial frames
-         (var i 0)
-         (loopwhile (< i (buflen data)) {
-             (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data i))
-             (setq afe-rx-head (bitwise-and (+ afe-rx-head 1) 2047))
-             (setq i (+ i 1))
-         })
-     })
-  } {
-      ; [SLOW PATH] Other Messages - Allocates variables
-      (var header (bitwise-and (shr id 4) 0xFFFFF))
-      (var dlc (buflen data))
-      
-      (cond
+  (var header (bitwise-and (shr id 4) 0xFFFFF))
+  (var dlc (buflen data))
 
-      ; [VOLTAGE] ID_BTY_VOLTAGE (0x33445)
-      ((= header 0x33445)
-        (if (>= dlc 8) {
-            (setq last-boosted-bms-rx-time (systime))
-            (var cell-low (bufget-u16 data 0 'little-endian))
-            (var cell-high (bufget-u16 data 2 'little-endian))
-            (var pack-mv (bufget-u32 data 4 'little-endian))
-            
-            (setq val-cell-min (/ cell-low 1000.0))
-            (setq val-cell-max (/ cell-high 1000.0))
-            (setq val-pack-volt (/ pack-mv 1000.0))
-            (debug-print (str-merge 
-              "  -> [VOLTAGE] Pack: " (str-from-n val-pack-volt "%.3f") "V"
-              " | Cells: " (str-from-n (/ cell-low 1000.0) "%.3f") "V"
-              " - " (str-from-n (/ cell-high 1000.0) "%.3f") "V"))
-        })
-      )
+  (cond
 
-      ; [SOC] ID_BTY_SOC (0x33449)
-      ((= header 0x33449)
-        (if (>= dlc 5) {
-            (var soc (bufget-u8 data 4))
-            (var charge-status (if (> dlc 6) (bufget-u8 data 6) 0))
-            (setq val-soc soc)
-            (debug-print (str-merge "  -> [SOC] " (str-from-n soc) "% (Status: " (str-from-n charge-status) ")"))
-        })
-      )
+  ;  GETAFECELLS 
+    ((or (= header 0x2411) (= header 0x12411) (= header 0x22411))
+      (if (= (buflen data) 8) {
+          ; Block Write Optimization (Check if safe to write 8 bytes without wrap)
+          (if (< afe-rx-head (- AFE_RX_BUF_SIZE 8)) {
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 0))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 1) (bufget-u8 data 1))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 2) (bufget-u8 data 2))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 3) (bufget-u8 data 3))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 4) (bufget-u8 data 4))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 5) (bufget-u8 data 5))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 6) (bufget-u8 data 6))
+              (bufset-u8 afe-rx-buf (+ afe-rx-head 7) (bufget-u8 data 7))
+              (setq afe-rx-head (+ afe-rx-head 8))
+          } {
+              ; Wrap Case (Slow Path)
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 0))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 1))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 2))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 3))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 4))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 5))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 6))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data 7))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+          })
+      } {
+          ; Fallback for partial frames
+          (var i 0)
+          (loopwhile (< i (buflen data)) {
+              (bufset-u8 afe-rx-buf afe-rx-head (bufget-u8 data i))
+              (setq afe-rx-head (mod (+ afe-rx-head 1) AFE_RX_BUF_SIZE))
+              (setq i (+ i 1))
+          })
+      })
+    )
 
-      ; [AMPERAGE] ID_BTY_AMPERAGE (0x33447)
-      ((= header 0x33447)
-        (if (>= dlc 8) {
+    ; [VOLTAGE] ID_BTY_VOLTAGE (0x33445)
+    ((= header 0x33445)
+      (if (>= dlc 8) {
           (setq last-boosted-bms-rx-time (systime))
-          (var avg-amps (bufget-i32 data 0 'little-endian))
-          (var inst-amps (bufget-i32 data 4 'little-endian))
-          (setq val-amps (/ avg-amps 1000.0))
-          (debug-print (str-merge "  -> [AMPS] Avg: " (str-from-n avg-amps) "mA | Inst: " (str-from-n inst-amps) "mA"))
-        })
+          (var cell-low (bufget-u16 data 0 'little-endian))
+          (var cell-high (bufget-u16 data 2 'little-endian))
+          (var pack-mv (bufget-u32 data 4 'little-endian))
+          
+          (setq val-cell-min (/ cell-low 1000.0))
+          (setq val-cell-max (/ cell-high 1000.0))
+          (setq val-pack-volt (/ pack-mv 1000.0))
+          (debug-print (str-merge 
+            "  -> [VOLTAGE] Pack: " (str-from-n val-pack-volt "%.3f") "V"
+            " | Cells: " (str-from-n (/ cell-low 1000.0) "%.3f") "V"
+            " - " (str-from-n (/ cell-high 1000.0) "%.3f") "V"))
+      })
+    )
+
+    ; [SOC] ID_BTY_SOC (0x33449)
+    ((= header 0x33449)
+      (if (>= dlc 5) {
+          (var soc (bufget-u8 data 4))
+          (var charge-status (if (> dlc 6) (bufget-u8 data 6) 0))
+          (setq val-soc soc)
+          (debug-print (str-merge "  -> [SOC] " (str-from-n soc) "% (Status: " (str-from-n charge-status) ")"))
+      })
+    )
+
+    ; [AMPERAGE] ID_BTY_AMPERAGE (0x33447)
+    ((= header 0x33447)
+      (if (>= dlc 8) {
+        (setq last-boosted-bms-rx-time (systime))
+        (var avg-amps (bufget-i32 data 0 'little-endian))
+        (var inst-amps (bufget-i32 data 4 'little-endian))
+        (setq val-amps (/ avg-amps 1000.0))
+        (debug-print (str-merge "  -> [AMPS] Avg: " (str-from-n avg-amps) "mA | Inst: " (str-from-n inst-amps) "mA"))
+      })
+    )
+
+    ; [VERSION] ID_BTY_VERSION (0x33440)
+    ((= header 0x33440)
+      (if (>= dlc 3)
+        {
+          (setq last-boosted-bms-rx-time (systime))
+          (setq val-ver-major (bufget-u8 data 0))
+          (setq val-ver-minor (bufget-u8 data 1))
+          (setq val-ver-patch (bufget-u8 data 2))
+
+          (debug-print (str-merge "  -> [VERSION] v"  
+            (str-from-n (bufget-u8 data 0)) "." 
+            (str-from-n (bufget-u8 data 1)) "." 
+            (str-from-n (bufget-u8 data 2))))
+        }
       )
+    )
 
-      ; [VERSION] ID_BTY_VERSION (0x33440)
-      ((= header 0x33440)
-        (if (>= dlc 3)
-          {
-            (setq last-boosted-bms-rx-time (systime))
-            (setq val-ver-major (bufget-u8 data 0))
-            (setq val-ver-minor (bufget-u8 data 1))
-            (setq val-ver-patch (bufget-u8 data 2))
-
-            (debug-print (str-merge "  -> [VERSION] v"  
-              (str-from-n (bufget-u8 data 0)) "." 
-              (str-from-n (bufget-u8 data 1)) "." 
-              (str-from-n (bufget-u8 data 2))))
-          }
-        )
-      )
-
-      ; [IDENTIFIER] ID_BTY_IDENTIFIER (0x33443)
-      ((= header 0x33443)
-        (if (>= dlc 8) {
-            (setq last-boosted-bms-rx-time (systime))
-            ; Use let for local variables instead of define
-            (var bat-type (bufget-u8 data 0))
-            (var bat-ext (bufget-u8 data 4))
-            (var bat-type-enum BAT_TYPE_UNKNOWN)
-            
-            (if (= bat-type 0xD2)
-                (setq bat-type-enum BAT_TYPE_SRB)
-                (if (= bat-type 0x81)
-                    (if (= bat-ext 0x0C)
-                      (setq bat-type-enum BAT_TYPE_REV)
-                      (if (= bat-ext 0x0D)
-                        (setq bat-type-enum BAT_TYPE_XRB)
-                        (setq bat-type-enum BAT_TYPE_UNKNOWN)
-                      )
+    ; [IDENTIFIER] ID_BTY_IDENTIFIER (0x33443)
+    ((= header 0x33443)
+      (if (>= dlc 8) {
+          (setq last-boosted-bms-rx-time (systime))
+          ; Use let for local variables instead of define
+          (var bat-type (bufget-u8 data 0))
+          (var bat-ext (bufget-u8 data 4))
+          (var bat-type-enum BAT_TYPE_UNKNOWN)
+          
+          (if (= bat-type 0xD2)
+              (setq bat-type-enum BAT_TYPE_SRB)
+              (if (= bat-type 0x81)
+                  (if (= bat-ext 0x0C)
+                    (setq bat-type-enum BAT_TYPE_REV)
+                    (if (= bat-ext 0x0D)
+                      (setq bat-type-enum BAT_TYPE_XRB)
+                      (setq bat-type-enum BAT_TYPE_UNKNOWN)
                     )
-                    (setq bat-type-enum BAT_TYPE_UNKNOWN)
-                )
-            )
-            (setq val-bat-type bat-type-enum)
-            (debug-print (str-merge "  -> [ID] Enum: " (str-from-n bat-type-enum)))
-        })
-      )
-      
-      ; [TIMESTAMP] ID_BTY_TIMESTAMP (0x3344E)
-      ((= header 0x3344E)
-        (if (>= dlc 7) {
-          (setq last-boosted-bms-rx-time (systime))
-          (debug-print (str-merge "  -> [TIME] 20" 
-            (str-from-n (bufget-u8 data 6) "%02d") "-" (str-from-n (bufget-u8 data 5) "%02d") "-" (str-from-n (bufget-u8 data 4) "%02d") " "
-            (str-from-n (bufget-u8 data 2) "%02d") ":" (str-from-n (bufget-u8 data 1) "%02d") ":" (str-from-n (bufget-u8 data 0) "%02d")
-          ))
-        })
-      )
-      
-      ; [SRB BUTTON]
-      ((= header 0x3344C)
-        (if (>= dlc 2) {
-          (debug-print (str-merge "  -> [BUTTON] State: " (str-from-n (bufget-u8 data 1)) " | Pairing: " (str-from-n (bufget-u8 data 0))))
-        })
-      )
+                  )
+                  (setq bat-type-enum BAT_TYPE_UNKNOWN)
+              )
+          )
+          (setq val-bat-type bat-type-enum)
+          (debug-print (str-merge "  -> [ID] Enum: " (str-from-n bat-type-enum)))
+      })
+    )
+    
+    ; [TIMESTAMP] ID_BTY_TIMESTAMP (0x3344E)
+    ((= header 0x3344E)
+      (if (>= dlc 7) {
+        (setq last-boosted-bms-rx-time (systime))
+        (debug-print (str-merge "  -> [TIME] 20" 
+          (str-from-n (bufget-u8 data 6) "%02d") "-" (str-from-n (bufget-u8 data 5) "%02d") "-" (str-from-n (bufget-u8 data 4) "%02d") " "
+          (str-from-n (bufget-u8 data 2) "%02d") ":" (str-from-n (bufget-u8 data 1) "%02d") ":" (str-from-n (bufget-u8 data 0) "%02d")
+        ))
+      })
+    )
+    
+    ; [SRB BUTTON]
+    ((= header 0x3344C)
+      (if (>= dlc 2) {
+        (var btn-state (bufget-u8 data 0))
+        ; D0 = Button State (0x01..0x0C)
+        ; D1 = Pairing (0x00/0x01)
+        (var btn-str "Unknown")
+        (cond
+            ((= btn-state 0x01) (setq btn-str "Pressed 1x"))
+            ((= btn-state 0x02) (setq btn-str "Pressed 2x"))
+            ((= btn-state 0x03) (setq btn-str "Pressed 3x"))
+            ((= btn-state 0x04) (setq btn-str "Pressed 4x"))
+            ((= btn-state 0x05) (setq btn-str "Pressed 5x"))
+            ((= btn-state 0x06) (setq btn-str "Pressed Now"))
+            ((= btn-state 0x07) (setq btn-str "Held <1s"))
+            ((= btn-state 0x08) (setq btn-str "Held <2s"))
+            ((= btn-state 0x09) (setq btn-str "Held >2s"))
+            ((= btn-state 0x0A) (setq btn-str "Was Held <1.5s"))
+            ((= btn-state 0x0B) (setq btn-str "Was Held <2s"))
+            ((= btn-state 0x0C) (setq btn-str "Was Held >2s"))
+            (t (setq btn-str (str-from-n btn-state "0x%02X")))
+        )
+        (print (str-merge "  -> [BUTTON] " btn-str " (Pairing: " (str-from-n (bufget-u8 data 1)) ")"))
+      })
+    )
 
-      ; [XRB BUTTON]
-      ((= header 0x3B41A)
-        (if (>= dlc 2) {
-            (var state (bufget-u8 data 1))
-              (debug-print (str-merge "  -> [XRB BUTTON] State: " (str-from-n state "0x%02X")))
-        })
-      )
+    ; [XRB BUTTON]
+    ((= header 0x3B41A)
+      (if (>= dlc 2) {
+          (var state (bufget-u8 data 1))
+            (print (str-merge "  -> [XRB BUTTON] State: " (str-from-n state "0x%02X")))
+      })
+    )
 
-    ; [STATE] ID_BTY_STATE (0x3344A)
-      ((= header 0x3344A)
-        (if (>= dlc 7) {
-          (var charger-conn (bufget-u8 data 0))
-          (var tmr-lsb (bufget-u8 data 1))
-          (var tmr-msb (bufget-u8 data 2))
-          (var pwr-state (bufget-u8 data 3))
-          (var ts-ms (bufget-u8 data 6))
-          (var state-timer 0)
-          (var pwr-str "")
-          (var chg-str "")
+  ; [STATE] ID_BTY_STATE (0x3344A)
+    ((= header 0x3344A)
+      (if (>= dlc 7) {
+        (var charger-conn (bufget-u8 data 0))
+        (var tmr-lsb (bufget-u8 data 1))
+        (var tmr-msb (bufget-u8 data 2))
+        (var pwr-state (bufget-u8 data 3))
+        (var ts-ms (bufget-u8 data 6))
+        (var state-timer 0)
+        (var pwr-str "")
+        (var chg-str "")
 
-          ; Combine Timer
-          (setq state-timer (bitwise-or tmr-lsb (shl tmr-msb 8)))
+        ; Combine Timer
+        (setq state-timer (bitwise-or tmr-lsb (shl tmr-msb 8)))
 
-          ; Decode Power State
-          (if (= pwr-state 0x00) (setq pwr-str "On")
-            (if (= pwr-state 0x02) (setq pwr-str "Shutdown Cmd")
-              (if (= pwr-state 0x03) (setq pwr-str "Cable Disconnected")
-                (if (= pwr-state 0x05) (setq pwr-str "Button Held")
-                  (setq pwr-str "Unknown")
-                )
+        ; Decode Power State
+        (if (= pwr-state 0x00) (setq pwr-str "On")
+          (if (= pwr-state 0x02) (setq pwr-str "Shutdown Cmd")
+            (if (= pwr-state 0x03) (setq pwr-str "Cable Disconnected")
+              (if (= pwr-state 0x05) (setq pwr-str "Button Held")
+                (setq pwr-str "Unknown")
               )
             )
           )
+        )
 
-          ; Decode Charger Connection
-          (if (= charger-conn 0x01) (setq chg-str "Connected") (setq chg-str "Normal"))
-            
-          (debug-print (str-merge "  -> [STATE] Pwr: " pwr-str " (" (str-from-n pwr-state "0x%02X") ") | Tmr: " (str-from-n state-timer) "ms | TS: " (str-from-n ts-ms) "ms | Chg: " chg-str))
-        })
-      )
-
-      ; Known IDs to silence/log minimally
-      ((or (= header 0x33448) (= header 0x2B418) (= header 0x1B418)) {
-        nil
-        ;(debug-print "  -> [CTR]")
-      })
-
-      ((= header 0x33441)
-        (debug-print "  -> [SERIAL]")
-      )
-
-      (t {
-        nil
-        ;(debug-print (str-merge "  -> Unmatched Header: " (str-from-n header "0x%X")))
+        ; Decode Charger Connection
+        (if (= charger-conn 0x01) (setq chg-str "Connected") (setq chg-str "Normal"))
+          
+        (debug-print (str-merge "  -> [STATE] Pwr: " pwr-str " (" (str-from-n pwr-state "0x%02X") ") | Tmr: " (str-from-n state-timer) "ms | TS: " (str-from-n ts-ms) "ms | Chg: " chg-str))
       })
     )
-  })
+
+    ; Known IDs to silence/log minimally
+    ((or (= header 0x33448) (= header 0x2B418) (= header 0x1B418)) {
+      nil
+      ;(debug-print "  -> [CTR]")
+    })
+
+    ((= header 0x33441)
+      (debug-print "  -> [SERIAL]")
+    )
+
+    (t {
+      nil
+      ;(debug-print (str-merge "  -> Unmatched Header: " (str-from-n header "0x%X")))
+    })
+  )
 })
 
 ; --- Event Handler Thread ---
@@ -625,7 +636,7 @@
 ; --- Transmission / Keep-Alive Loop ---
 (defun tx-loop () {
   (loopwhile t {
-    (sleep 0.02)
+    (sleep 0.1)
     ; Run buffer processing decoupled from RX
     (process-afe-buffer)
 
@@ -641,7 +652,10 @@
     ; Boosted CAN Messages
     (if is-connected {
       ; Send Ping Message
-      (send-ping)
+      (if (> (secs-since last-ping-time) 0.1) {
+          (send-ping)
+          (setq last-ping-time (systime))
+      })
 
       ; Request cell data
       (if (> (secs-since last-cell-req-time) 0.5) {
