@@ -285,7 +285,7 @@
   (can-send-eid 0x10246110u32 payload1)
   (can-send-eid 0x10146111u32 payload2)
     
-  (debug-print "TX: PFAILRESET")
+  (print "TX: PFAILRESET")
 })
 
 (defun process-afe-buffer () {
