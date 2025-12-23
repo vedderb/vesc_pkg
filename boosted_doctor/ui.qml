@@ -95,7 +95,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 60 // Increased height for better spacing
+        height: 60
 
         Text {
             anchors.centerIn: parent
@@ -127,7 +127,10 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
-                color: connected ? colorGreen : colorRed
+                color: {
+                    var base = connected ? colorGreen : colorRed;
+                    return statusMouseArea.pressed ? Qt.darker(base, 1.2) : base;
+                }
                 radius: 5
                 
                 Text {
@@ -135,6 +138,41 @@ Item {
                     color: colorWhite
                     font.pointSize: 18
                     text: connected ? (getBatTypeString(batType) + " " + fwVersion) : "No battery detected"
+                }
+
+                Text {
+                    text: "▼"
+                    visible: connected
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                    anchors.right: parent.right
+                    anchors.rightMargin: 15
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                MouseArea {
+                    id: statusMouseArea
+                    anchors.fill: parent
+                    enabled: connected
+                    onClicked: statusMenu.visible ? statusMenu.close() : statusMenu.open()
+                }
+
+                Menu {
+                    id: statusMenu
+                    y: parent.height
+                    width: parent.width // Match width of status bar
+                    
+                    MenuItem {
+                        text: "Clear RLOD"
+                        onTriggered: {
+                            var buffer = new ArrayBuffer(1);
+                            var dv = new DataView(buffer);
+                            var ind = 0;
+                            dv.setUint8(ind, commPfailReset);
+                            ind += 1;
+                            mCommands.sendCustomAppData(buffer);
+                        }
+                    }
                 }
             }
 
@@ -265,33 +303,6 @@ Item {
                 }
             }
 
-            Button {
-                Layout.fillWidth: true
-                visible: connected
-                text: "Clear RLOD"
-                font.pointSize: 14
-                
-                background: Rectangle {
-                    color: parent.down ? Qt.darker(colorRed, 1.2) : colorRed
-                    radius: 4
-                }
-                contentItem: Text {
-                    text: parent.text
-                    font: parent.font
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                onClicked: {
-                    var buffer = new ArrayBuffer(1);
-                    var dv = new DataView(buffer);
-                    var ind = 0;
-                    dv.setUint8(ind, commPfailReset);
-                    ind += 1;
-                    mCommands.sendCustomAppData(buffer);
-                }
-            }
-            
             // Spacer to ensure content isn't flush with bottom if short
             Item { height: 20 }
         }
