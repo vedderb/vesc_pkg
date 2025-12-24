@@ -21,11 +21,11 @@ Item {
         var major = fwRxParams.major;
         var minor = fwRxParams.minor;
 
-        console.log("HW Name: " + hwName)
-        console.log("FW Name: " + fwName)
-        console.log("HW Type: " + hwType)
-        console.log("Major: " + major)
-        console.log("Minor: " + minor)
+        //console.log("HW Name: " + hwName)
+        //console.log("FW Name: " + fwName)
+        //console.log("HW Type: " + hwType)
+        //console.log("Major: " + major)
+        //console.log("Minor: " + minor)
 
         // Prevent installing on VBMS
         if (hwType != "vesc") {
