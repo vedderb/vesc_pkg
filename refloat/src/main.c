@@ -22,6 +22,7 @@
 #include "vesc_c_if.h"
 
 #include "atr.h"
+#include "bms.h"
 #include "booster.h"
 #include "brake_tilt.h"
 #include "charging.h"
@@ -67,7 +68,16 @@ typedef enum {
     BEEP_SENSORS = 7,
     BEEP_LOWBATT = 8,
     BEEP_IDLE = 9,
-    BEEP_ERROR = 10
+    BEEP_ERROR = 10,
+    BEEP_SPEED = 11,
+    BEEP_TEMP_CELL_UNDER = 12,
+    BEEP_TEMP_CELL_OVER = 13,
+    BEEP_CELL_LV = 14,
+    BEEP_CELL_HV = 15,
+    BEEP_CELL_BALANCE = 16,
+    BEEP_BMS_CONNECTION = 17,
+    BEEP_BMS_TEMP_OVER = 18,
+    BEEP_FW_FAULT = 19
 } BeepReason;
 
 static const FootpadSensorState flywheel_konami_sequence[] = {
@@ -146,23 +156,28 @@ void beep_on(Data *d, bool force) {
 }
 
 static void reconfigure(Data *d) {
-    d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
-    d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
-    d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
-    d->tiltback_variable =
-        d->float_conf.tiltback_variable / 1000 * sign(d->float_conf.tiltback_variable_max);
-    d->tiltback_variable_max_erpm =
-        fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
+    balance_filter_configure(&d->balance_filter, &d->float_conf);
 
     motor_data_configure(&d->motor, d->float_conf.atr_filter / d->float_conf.hertz);
     motor_control_configure(&d->motor_control, &d->float_conf);
-    balance_filter_configure(&d->balance_filter, &d->float_conf);
+
     torque_tilt_configure(&d->torque_tilt, &d->float_conf);
     atr_configure(&d->atr, &d->float_conf);
     brake_tilt_configure(&d->brake_tilt, &d->float_conf);
     turn_tilt_configure(&d->turn_tilt, &d->float_conf);
     remote_configure(&d->remote, &d->float_conf);
+
     haptic_feedback_configure(&d->haptic_feedback, &d->float_conf);
+    alert_tracker_configure(&d->alert_tracker, &d->float_conf);
+
+    d->startup_step_size = d->float_conf.startup_speed / d->float_conf.hertz;
+    d->noseangling_step_size = d->float_conf.noseangling_speed / d->float_conf.hertz;
+    d->startup_pitch_trickmargin = d->float_conf.startup_dirtylandings_enabled ? 10 : 0;
+    d->tiltback_variable =
+        d->float_conf.tiltback_variable / 1000 * sign(d->float_conf.tiltback_variable_max);
+    // TODO handle division by zero
+    d->tiltback_variable_max_erpm =
+        fabsf(d->float_conf.tiltback_variable_max / d->tiltback_variable);
 
     time_refresh_idle(&d->time);
 }
@@ -195,11 +210,6 @@ static void configure(Data *d) {
         VESC_IF->set_cfg_float(CFG_PARAM_IMU_accel_confidence_decay, 0.1);
     }
 
-    d->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
-    d->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
-
-    d->max_duty_with_margin = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty) - 0.05;
-
     // Feature: Reverse Stop
     d->reverse_tolerance = 20000;
     d->reverse_stop_step_size = 100.0 / d->float_conf.hertz;
@@ -225,14 +235,15 @@ static void leds_headlights_switch(CfgLeds *cfg_leds, LcmData *lcm, bool headlig
 
 static void reset_runtime_vars(Data *d) {
     motor_data_reset(&d->motor);
+    pid_init(&d->pid);
+
+    torque_tilt_reset(&d->torque_tilt);
     atr_reset(&d->atr);
     brake_tilt_reset(&d->brake_tilt);
-    torque_tilt_reset(&d->torque_tilt);
     turn_tilt_reset(&d->turn_tilt);
     remote_reset(&d->remote);
     booster_reset(&d->booster);
 
-    pid_init(&d->pid);
     d->balance_current = 0;
 
     // Set values for startup
@@ -303,9 +314,12 @@ static float get_setpoint_adjustment_step_size(Data *d) {
         return d->tiltback_duty_step_size;
     case (SAT_PB_HIGH_VOLTAGE):
     case (SAT_PB_TEMPERATURE):
+    case (SAT_PB_ERROR):
         return d->tiltback_hv_step_size;
     case (SAT_PB_LOW_VOLTAGE):
         return d->tiltback_lv_step_size;
+    case (SAT_PB_SPEED):
+        return d->tiltback_duty_step_size;
     default:
         return 0;
     }
@@ -402,8 +416,9 @@ static bool check_faults(Data *d) {
                 }
             }
 
-            if (d->motor.abs_erpm < 200 && fabsf(d->imu.pitch) > 14 &&
-                fabsf(d->remote.setpoint) < 30 && sign(d->imu.pitch) == d->motor.erpm_sign) {
+            if (d->float_conf.enable_quickstop && d->motor.abs_erpm < 200 &&
+                fabsf(d->imu.pitch) > 14 && fabsf(d->remote.setpoint) < 30 &&
+                sign(d->imu.pitch) == d->motor.erpm_sign) {
                 state_stop(&d->state, STOP_QUICKSTOP);
                 return true;
             }
@@ -495,7 +510,8 @@ static bool check_faults(Data *d) {
 }
 
 static void calculate_setpoint_target(Data *d) {
-    if (d->motor.batt_voltage < d->float_conf.tiltback_hv) {
+    if (d->motor.batt_voltage < d->motor.hv_threshold &&
+        !bms_is_fault(&d->bms, BMSF_CELL_OVER_VOLTAGE)) {
         timer_refresh(&d->time, &d->tb_highvoltage_timer);
     }
 
@@ -516,7 +532,6 @@ static void calculate_setpoint_target(Data *d) {
                     d->state.sat = SAT_NONE;
                     d->reverse_total_erpm = 0;
                     d->setpoint_target = 0;
-                    pid_reset_integral(&d->pid);
                 }
             }
         }
@@ -551,7 +566,7 @@ static void calculate_setpoint_target(Data *d) {
             d->traction_control = false;
         }
         // Remain in wheelslip state for a bit to avoid any overreactions
-        if (d->motor.duty_cycle > d->max_duty_with_margin) {
+        if (d->motor.duty_cycle > d->motor.duty_max_with_margin) {
             timer_refresh(&d->time, &d->wheelslip_timer);
         } else if (timer_older(&d->time, d->wheelslip_timer, 0.2)) {
             if (d->motor.duty_raw < 0.85) {
@@ -575,11 +590,18 @@ static void calculate_setpoint_target(Data *d) {
         if (d->state.mode != MODE_FLYWHEEL) {
             d->state.sat = SAT_PB_DUTY;
         }
-    } else if (d->motor.duty_cycle > 0.05 && d->motor.batt_voltage > d->float_conf.tiltback_hv) {
-        d->beep_reason = BEEP_HV;
+    } else if (d->motor.duty_cycle > 0.05 &&
+               (d->motor.batt_voltage > d->motor.hv_threshold ||
+                bms_is_fault(&d->bms, BMSF_CELL_OVER_VOLTAGE))) {
+        if (bms_is_fault(&d->bms, BMSF_CELL_OVER_VOLTAGE)) {
+            d->beep_reason = BEEP_CELL_HV;
+        } else {
+            d->beep_reason = BEEP_HV;
+        }
         beep_alert(d, 3, false);
         if (timer_older(&d->time, d->tb_highvoltage_timer, 0.5) ||
-            d->motor.batt_voltage > d->float_conf.tiltback_hv + 1) {
+            d->motor.batt_voltage > d->motor.hv_threshold + 1 ||
+            bms_is_fault(&d->bms, BMSF_CELL_OVER_VOLTAGE)) {
             // 500ms have passed or voltage is another volt higher, time for some tiltback
             if (d->motor.erpm > 0) {
                 d->setpoint_target = d->float_conf.tiltback_hv_angle;
@@ -592,11 +614,21 @@ static void calculate_setpoint_target(Data *d) {
             // The rider has 500ms to react to the triple-beep, or maybe it was just a short spike
             d->state.sat = SAT_NONE;
         }
-    } else if (d->motor.mosfet_temp > d->mc_max_temp_fet) {
+    } else if (bms_is_fault(&d->bms, BMSF_CONNECTION)) {
+        beep_alert(d, 3, true);
+        d->beep_reason = BEEP_BMS_CONNECTION;
+
+        if (d->motor.erpm > 0) {
+            d->setpoint_target = d->float_conf.tiltback_hv_angle;
+        } else {
+            d->setpoint_target = -d->float_conf.tiltback_hv_angle;
+        }
+        d->state.sat = SAT_PB_ERROR;
+    } else if (d->motor.mosfet_temp > d->motor.mosfet_temp_max) {
         // Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
         beep_alert(d, 3, true);
         d->beep_reason = BEEP_TEMPFET;
-        if (d->motor.mosfet_temp > d->mc_max_temp_fet + 1) {
+        if (d->motor.mosfet_temp > d->motor.mosfet_temp_max + 1) {
             if (d->motor.erpm > 0) {
                 d->setpoint_target = d->float_conf.tiltback_lv_angle;
             } else {
@@ -607,11 +639,11 @@ static void calculate_setpoint_target(Data *d) {
             // The rider has 1 degree Celsius left before we start tilting back
             d->state.sat = SAT_NONE;
         }
-    } else if (d->motor.motor_temp > d->mc_max_temp_mot) {
+    } else if (d->motor.motor_temp > d->motor.motor_temp_max) {
         // Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
         beep_alert(d, 3, true);
         d->beep_reason = BEEP_TEMPMOT;
-        if (d->motor.motor_temp > d->mc_max_temp_mot + 1) {
+        if (d->motor.motor_temp > d->motor.motor_temp_max + 1) {
             if (d->motor.erpm > 0) {
                 d->setpoint_target = d->float_conf.tiltback_lv_angle;
             } else {
@@ -622,17 +654,42 @@ static void calculate_setpoint_target(Data *d) {
             // The rider has 1 degree Celsius left before we start tilting back
             d->state.sat = SAT_NONE;
         }
-    } else if (d->motor.duty_cycle > 0.05 && d->motor.batt_voltage < d->float_conf.tiltback_lv) {
+    } else if (bms_is_fault(&d->bms, BMSF_CELL_OVER_TEMP) ||
+               bms_is_fault(&d->bms, BMSF_CELL_UNDER_TEMP) ||
+               bms_is_fault(&d->bms, BMSF_OVER_TEMP)) {
+        // Use the angle from Low-Voltage tiltback, but slower speed from High-Voltage tiltback
+        beep_alert(d, 3, true);
+        if (bms_is_fault(&d->bms, BMSF_CELL_OVER_TEMP)) {
+            d->beep_reason = BEEP_TEMP_CELL_OVER;
+        } else if (bms_is_fault(&d->bms, BMSF_CELL_UNDER_TEMP)) {
+            d->beep_reason = BEEP_TEMP_CELL_UNDER;
+        } else {
+            d->beep_reason = BEEP_BMS_TEMP_OVER;
+        }
+        if (d->motor.erpm > 0) {
+            d->setpoint_target = d->float_conf.tiltback_lv_angle;
+        } else {
+            d->setpoint_target = -d->float_conf.tiltback_lv_angle;
+        }
+        d->state.sat = SAT_PB_TEMPERATURE;
+    } else if (d->motor.duty_cycle > 0.05 &&
+               (d->motor.batt_voltage < d->motor.lv_threshold ||
+                bms_is_fault(&d->bms, BMSF_CELL_UNDER_VOLTAGE))) {
         beep_alert(d, 3, false);
-        d->beep_reason = BEEP_LV;
+        if (bms_is_fault(&d->bms, BMSF_CELL_UNDER_VOLTAGE)) {
+            d->beep_reason = BEEP_CELL_LV;
+        } else {
+            d->beep_reason = BEEP_LV;
+        }
         float abs_motor_current = fabsf(d->motor.dir_current);
-        float vdelta = d->float_conf.tiltback_lv - d->motor.batt_voltage;
+        float vdelta = d->motor.lv_threshold - d->motor.batt_voltage;
         float ratio = vdelta * 20 / abs_motor_current;
         // When to do LV tiltback:
         // a) we're 2V below lv threshold
         // b) motor current is small (we cannot assume vsag)
         // c) we have more than 20A per Volt of difference (we tolerate some amount of vsag)
-        if ((vdelta > 2) || (abs_motor_current < 5) || (ratio > 1)) {
+        if ((vdelta > 2) || (abs_motor_current < 5) || (ratio > 1) ||
+            bms_is_fault(&d->bms, BMSF_CELL_UNDER_VOLTAGE)) {
             if (d->motor.erpm > 0) {
                 d->setpoint_target = d->float_conf.tiltback_lv_angle;
             } else {
@@ -644,13 +701,22 @@ static void calculate_setpoint_target(Data *d) {
             d->state.sat = SAT_NONE;
             d->setpoint_target = 0;
         }
+    } else if (d->float_conf.tiltback_speed > 0.0 &&
+               fabsf(d->motor.speed) > d->float_conf.tiltback_speed) {
+        if (d->motor.speed > 0) {
+            d->setpoint_target = d->float_conf.tiltback_duty_angle;
+        } else {
+            d->setpoint_target = -d->float_conf.tiltback_duty_angle;
+        }
+        d->beep_reason = BEEP_SPEED;
+        d->state.sat = SAT_PB_SPEED;
     } else {
         // Normal running
         d->state.sat = SAT_NONE;
         d->setpoint_target = 0;
     }
 
-    if (d->state.wheelslip && d->motor.duty_cycle > d->max_duty_with_margin) {
+    if (d->state.wheelslip && d->motor.duty_cycle > d->motor.duty_max_with_margin) {
         d->setpoint_target = 0;
     }
     if (d->state.darkride) {
@@ -747,8 +813,21 @@ static void refloat_thd(void *arg) {
         }
 
         haptic_feedback_update(
-            &d->haptic_feedback, &d->motor_control, &d->state, &d->motor, &d->time
+            &d->haptic_feedback,
+            &d->motor_control,
+            &d->state,
+            &d->motor,
+            &d->alert_tracker,
+            &d->time
         );
+
+        bms_update(&d->bms, &d->float_conf.bms, &d->time);
+
+        motor_data_evaluate_alerts(&d->motor, &d->alert_tracker, &d->time);
+        alert_tracker_finalize(&d->alert_tracker, &d->time);
+        if (alert_tracker_is_alert_active(&d->alert_tracker, ALERT_FW_FAULT)) {
+            d->beep_reason = BEEP_FW_FAULT;
+        }
 
         // Control Loop State Logic
         switch (d->state.state) {
@@ -759,7 +838,7 @@ static void refloat_thd(void *arg) {
                 d->state.state = STATE_READY;
 
                 // if within 5V of LV tiltback threshold, issue 1 beep for each volt below that
-                float threshold = d->float_conf.tiltback_lv + 5;
+                float threshold = d->motor.lv_threshold + 5;
                 if (d->motor.batt_voltage < threshold) {
                     int beeps = (int) fminf(6, threshold - d->motor.batt_voltage);
                     beep_alert(d, beeps + 1, true);
@@ -803,22 +882,13 @@ static void refloat_thd(void *arg) {
                 // in case of wheelslip, don't change torque tilts, instead slightly decrease each
                 // cycle
                 if (d->state.wheelslip) {
+                    turn_tilt_winddown(&d->turn_tilt);
                     torque_tilt_winddown(&d->torque_tilt);
                     atr_winddown(&d->atr);
                     brake_tilt_winddown(&d->brake_tilt);
                 } else {
                     apply_noseangling(d);
-                    d->setpoint += d->noseangling_interpolated;
-
-                    turn_tilt_update(
-                        &d->turn_tilt,
-                        &d->motor,
-                        &d->atr,
-                        d->imu.balance_pitch,
-                        d->noseangling_interpolated,
-                        &d->float_conf
-                    );
-                    d->setpoint += d->turn_tilt.setpoint;
+                    turn_tilt_update(&d->turn_tilt, &d->motor, &d->float_conf);
 
                     torque_tilt_update(&d->torque_tilt, &d->motor, &d->float_conf);
                     atr_update(&d->atr, &d->motor, &d->float_conf);
@@ -830,6 +900,9 @@ static void refloat_thd(void *arg) {
                         d->setpoint - d->imu.balance_pitch
                     );
                 }
+
+                d->setpoint += d->noseangling_interpolated;
+                d->setpoint += d->turn_tilt.setpoint;
 
                 // aggregated torque tilts:
                 // if signs match between torque tilt and ATR + brake tilt, use the more significant
@@ -843,7 +916,7 @@ static void refloat_thd(void *arg) {
                 }
             }
 
-            pid_update(&d->pid, d->setpoint, &d->motor, &d->imu, &d->state, &d->float_conf);
+            pid_update(&d->pid, d->setpoint, &d->motor, &d->imu, &d->float_conf);
 
             float booster_proportional = d->setpoint - d->brake_tilt.setpoint - d->imu.pitch;
             booster_update(&d->booster, &d->motor, &d->float_conf, booster_proportional);
@@ -857,7 +930,14 @@ static void refloat_thd(void *arg) {
             }
 
             float new_current = d->pid.p + d->pid.i + pitch_based;
-            float current_limit = d->motor.braking ? d->motor.current_min : d->motor.current_max;
+            float current_limit;
+            if (d->state.mode == MODE_HANDTEST) {
+                current_limit = 7;
+            } else if (d->state.mode == MODE_FLYWHEEL) {
+                current_limit = 40;
+            } else {
+                current_limit = d->motor.braking ? d->motor.current_min : d->motor.current_max;
+            }
             if (fabsf(new_current) > current_limit) {
                 new_current = sign(new_current) * current_limit;
             }
@@ -912,6 +992,22 @@ static void refloat_thd(void *arg) {
                 d->state.darkride = false;
             }
 
+            // alert if cells are out of balance or bms connection failed
+            if (bms_is_fault(&d->bms, BMSF_CONNECTION) ||
+                (bms_is_fault(&d->bms, BMSF_CELL_BALANCE) && time_elapsed(&d->time, disengage, 5)
+                )) {
+                if (timer_older(&d->time, d->alert_timer, 15)) {
+                    timer_refresh(&d->time, &d->alert_timer);
+                    beep_alert(d, 4, false);
+
+                    if (bms_is_fault(&d->bms, BMSF_CONNECTION)) {
+                        d->beep_reason = BEEP_BMS_CONNECTION;
+                    } else {
+                        d->beep_reason = BEEP_CELL_BALANCE;
+                    }
+                }
+            }
+
             if (time_elapsed(&d->time, idle, 1800)) {  // alert user after 30 minutes
                 if (timer_older(&d->time, d->nag_timer, 60)) {  // beep every 60 seconds
                     timer_refresh(&d->time, &d->nag_timer);
@@ -962,8 +1058,12 @@ static void refloat_thd(void *arg) {
                 if ((fabsf(d->imu.balance_pitch) < 45) && (fabsf(d->imu.roll) < 45)) {
                     // 45 to prevent board engaging when upright or laying sideways
                     // 45 degree tolerance is more than plenty for tricks / extreme mounts
-                    engage(d);
-                    break;
+                    if (d->float_conf.fault_reversestop_enabled && d->motor.erpm < 0) {
+                        // ignore push start backwards if reverse stop is enabled
+                    } else {
+                        engage(d);
+                        break;
+                    }
                 }
             }
 
@@ -975,26 +1075,42 @@ static void refloat_thd(void *arg) {
 
         motor_control_apply(&d->motor_control, d->motor.abs_erpm_smooth, d->state.state, &d->time);
 
-        data_recorder_sample(&d->data_record, d);
+        data_recorder_sample(&d->data_record, d, d->time.now);
 
         VESC_IF->sleep_us(d->loop_time_us);
     }
 }
 
+// TODO: The required buffer size is not provided by the confparser. Until it's
+// added, use a number that should always be bigger. On a config write, we
+// check if we've written past the buffer end and crash. On a config read,
+// there's no way to check and the trailing end of the config will have bogus
+// numbers read from the EEPROM.
+#ifndef SERIALIZED_CONFIG_LENGTH
+#define SERIALIZED_CONFIG_LENGTH 320
+#endif
+
 static void write_cfg_to_eeprom(Data *d) {
-    uint32_t ints = sizeof(RefloatConfig) / 4 + 1;
-    uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
+    const size_t words = (SERIALIZED_CONFIG_LENGTH - 1) / 4 + 1;
+    const size_t bufsize = words * 4;
+    uint32_t *buffer = VESC_IF->malloc(bufsize);
     if (!buffer) {
-        log_error("Failed to write config to EEPROM: Out of memory.");
+        log_error("Failed to write config: Out of memory.");
         return;
+    }
+    memset(buffer, 0, bufsize);
+
+    uint32_t written_bytes = confparser_serialize_refloatconfig((uint8_t *) buffer, &d->float_conf);
+    if (written_bytes > bufsize) {
+        log_error("Config write buffer overflow, terminating.");
+        fatal_error_terminate();
     }
 
     bool write_ok = true;
-    memcpy(buffer, &(d->float_conf), sizeof(RefloatConfig));
-    for (uint32_t i = 0; i < ints; i++) {
+    for (uint32_t i = 0; i < words; ++i) {
         eeprom_var v;
         v.as_u32 = buffer[i];
-        if (!VESC_IF->store_eeprom_var(&v, i + 1)) {
+        if (!VESC_IF->store_eeprom_var(&v, i)) {
             write_ok = false;
             break;
         }
@@ -1003,19 +1119,22 @@ static void write_cfg_to_eeprom(Data *d) {
     VESC_IF->free(buffer);
 
     if (write_ok) {
-        eeprom_var v;
-        v.as_u32 = REFLOATCONFIG_SIGNATURE;
-        VESC_IF->store_eeprom_var(&v, 0);
-
+        log_msg("Config written: %uB", written_bytes);
         beep_alert(d, 1, 0);
         leds_status_confirm(&d->leds);
     } else {
-        log_error("Failed to write config to EEPROM.");
+        log_error("Failed to write config.");
     }
 }
 
 static void aux_thd(void *arg) {
     Data *d = (Data *) arg;
+
+    if (VESC_IF->thread_set_priority) {
+        VESC_IF->thread_set_priority(-1);
+    }
+
+    time_t motor_config_refresh_timer = 0;
 
     while (!VESC_IF->should_terminate()) {
         leds_update(&d->leds, &d->state, d->footpad.state);
@@ -1026,40 +1145,42 @@ static void aux_thd(void *arg) {
             d->odometer = VESC_IF->mc_get_odometer();
         }
 
+        if (timer_older(&d->time, motor_config_refresh_timer, 0.5)) {
+            motor_data_refresh_motor_config(
+                &d->motor, d->float_conf.tiltback_lv, d->float_conf.tiltback_hv
+            );
+            timer_refresh(&d->time, &motor_config_refresh_timer);
+        }
+
         VESC_IF->sleep_us(1e6 / LEDS_REFRESH_RATE);
     }
 }
 
 static void read_cfg_from_eeprom(Data *d) {
-    uint32_t ints = sizeof(RefloatConfig) / 4 + 1;
-    uint32_t *buffer = VESC_IF->malloc(ints * sizeof(uint32_t));
+    uint32_t words = (SERIALIZED_CONFIG_LENGTH - 1) / 4 + 1;
+    uint32_t *buffer = VESC_IF->malloc(words * sizeof(uint32_t));
     if (!buffer) {
-        log_error("Failed to read config from EEPROM: Out of memory.");
+        log_error("Failed to read config: Out of memory.");
         return;
     }
 
     eeprom_var v;
-    bool read_ok = VESC_IF->read_eeprom_var(&v, 0);
-    if (read_ok) {
-        if (v.as_u32 == REFLOATCONFIG_SIGNATURE) {
-            for (uint32_t i = 0; i < ints; i++) {
-                if (!VESC_IF->read_eeprom_var(&v, i + 1)) {
-                    read_ok = false;
-                    break;
-                }
-                buffer[i] = v.as_u32;
-            }
-        } else {
-            log_error("Failed signature check while reading config from EEPROM, using defaults.");
-            confparser_set_defaults_refloatconfig(&d->float_conf);
-            return;
+    bool read_ok = true;
+    for (uint32_t i = 0; i < words; ++i) {
+        if (!VESC_IF->read_eeprom_var(&v, i)) {
+            read_ok = false;
+            break;
         }
+        buffer[i] = v.as_u32;
     }
 
     if (read_ok) {
-        memcpy(&d->float_conf, buffer, sizeof(RefloatConfig));
+        if (!confparser_deserialize_refloatconfig((uint8_t *) buffer, &d->float_conf)) {
+            log_error("Failed to deserialize config, using defaults.");
+            confparser_set_defaults_refloatconfig(&d->float_conf);
+        }
     } else {
-        log_error("Failed to read config from EEPROM, using defaults.");
+        log_error("Failed to read config, using defaults.");
         confparser_set_defaults_refloatconfig(&d->float_conf);
     }
 
@@ -1071,18 +1192,31 @@ static void data_init(Data *d) {
 
     read_cfg_from_eeprom(d);
 
-    d->odometer = VESC_IF->mc_get_odometer();
-
     balance_filter_init(&d->balance_filter);
-    state_init(&d->state);
+
     time_init(&d->time);
+    motor_data_init(&d->motor);
+    imu_init(&d->imu);
     pid_init(&d->pid);
     motor_control_init(&d->motor_control);
+
+    torque_tilt_init(&d->torque_tilt);
+    atr_init(&d->atr);
+    brake_tilt_init(&d->brake_tilt);
+    turn_tilt_init(&d->turn_tilt);
+    booster_init(&d->booster);
+    remote_init(&d->remote);
+
+    state_init(&d->state);
+    footpad_sensor_init(&d->footpad);
     haptic_feedback_init(&d->haptic_feedback);
+    alert_tracker_init(&d->alert_tracker);
+
+    leds_init(&d->leds);
     lcm_init(&d->lcm, &d->float_conf.hardware.leds);
     charging_init(&d->charging);
-    remote_init(&d->remote);
-    leds_init(&d->leds);
+    bms_init(&d->bms);
+
     data_recorder_init(&d->data_record);
 
     konami_init(&d->flywheel_konami, flywheel_konami_sequence, sizeof(flywheel_konami_sequence));
@@ -1096,33 +1230,8 @@ static void data_init(Data *d) {
         headlights_off_konami_sequence,
         sizeof(headlights_off_konami_sequence)
     );
-}
 
-static float app_get_debug(int index) {
-    Data *d = (Data *) ARG;
-
-    switch (index) {
-    case (1):
-        return d->balance_current;
-    case (2):
-        return d->pid.p;
-    case (3):
-        return d->pid.i;
-    case (4):
-        return d->pid.rate_p;
-    case (5):
-        return d->setpoint;
-    case (6):
-        return d->atr.setpoint;
-    case (7):
-        return d->motor.erpm;
-    case (8):
-        return d->motor.dir_current;
-    case (9):
-        return d->motor.filt_current;
-    default:
-        return 0;
-    }
+    d->odometer = VESC_IF->mc_get_odometer();
 }
 
 // See also:
@@ -1144,13 +1253,15 @@ enum {
     COMMAND_LOCK = 12,
     COMMAND_HANDTEST = 13,
     COMMAND_TUNE_TILT = 14,
+    COMMAND_LIGHTS_CONTROL = 20,
     COMMAND_FLYWHEEL = 22,
     COMMAND_REALTIME_DATA = 31,
     COMMAND_REALTIME_DATA_IDS = 32,
+    COMMAND_ALERTS_LIST = 35,
+    COMMAND_ALERTS_CONTROL = 36,
     COMMAND_DATA_RECORD_REQUEST = 41,
 
     // commands above 200 are unstable and can change protocol at any time
-    COMMAND_LIGHTS_CONTROL = 202,
 } Commands;
 
 static void send_realtime_data(Data *d) {
@@ -1318,8 +1429,6 @@ static void cmd_handtest(Data *d, unsigned char *cfg) {
 
     d->state.mode = cfg[0] ? MODE_HANDTEST : MODE_NORMAL;
     if (d->state.mode == MODE_HANDTEST) {
-        // temporarily reduce max currents to make hand test safer / gentler
-        d->motor.current_max = d->motor.current_min = 7;
         // Disable I-term and all tune modifiers and tilts
         d->float_conf.ki = 0;
         d->float_conf.kp_brake = 1;
@@ -1447,15 +1556,7 @@ static void cmd_runtime_tune(Data *d, unsigned char *cfg, int len) {
         d->float_conf.braketilt_strength = h1;
         d->float_conf.braketilt_lingering = h2;
 
-        split(cfg[11], &h1, &h2);
-        d->motor.current_max = h1 * 5 + 55;
-        d->motor.current_min = h2 * 5 + 55;
-        if (h1 == 0) {
-            d->motor.current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-        }
-        if (h2 == 0) {
-            d->motor.current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-        }
+        // cfg[11] used to be current min and max limits
     }
     if (len >= 16) {
         split(cfg[12], &h1, &h2);
@@ -1741,9 +1842,6 @@ static void cmd_flywheel_toggle(Data *d, unsigned char *cfg, int len) {
         d->tiltback_duty_step_size = d->float_conf.tiltback_duty_speed / d->float_conf.hertz;
         d->tiltback_return_step_size = d->float_conf.tiltback_return_speed / d->float_conf.hertz;
 
-        // Limit amps
-        d->motor.current_max = d->motor.current_min = 40;
-
         // Disable I-term and all tune modifiers and tilts
         d->float_conf.ki = 0;
         d->float_conf.kp_brake = 1;
@@ -1804,7 +1902,7 @@ static void cmd_realtime_data_ids() {
 }
 
 static void cmd_realtime_data(Data *d) {
-    static const int bufsize = 79;
+    static const int bufsize = 16 + ITEMS_COUNT(RT_DATA_ALL_ITEMS) * 2 + 9;
     uint8_t buffer[bufsize];
     int32_t ind = 0;
 
@@ -1822,10 +1920,13 @@ static void cmd_realtime_data(Data *d) {
         mask |= 0x2;
     }
 
+    mask |= 0x4;  // Append active alerts mask, always appended from now on
+
     buffer[ind++] = mask;
 
     const DataRecord *rd = &d->data_record;
-    uint8_t extra_flags = rd->autostop << 2 | rd->autostart << 1 | rd->recording;
+    uint8_t extra_flags =
+        d->alert_tracker.fatal_error << 3 | rd->autostop << 2 | rd->autostart << 1 | rd->recording;
     buffer[ind++] = extra_flags;
 
     buffer_append_uint32(buffer, d->time.now, &ind);
@@ -1852,18 +1953,96 @@ static void cmd_realtime_data(Data *d) {
         buffer_append_float16_auto(buffer, d->charging.voltage, &ind);
     }
 
+    buffer_append_uint32(buffer, d->alert_tracker.active_alert_mask, &ind);
+    buffer_append_uint32(buffer, 0, &ind);  // extra 32 bits for more flags if needed
+    buffer[ind++] = d->alert_tracker.fw_fault_code;
+
     SEND_APP_DATA(buffer, bufsize, ind);
 }
 
+static void buffer_append_fault_name(uint8_t *buffer, mc_fault_code code, int32_t *index) {
+    const char *str = VESC_IF->mc_fault_to_string(code);
+    uint32_t length = strlen(str);
+    if (length > 11 && str[0] == 'F') {
+        str += 11;
+    }
+    buffer_append_string_max(buffer, str, index, 50);
+}
+
+static void cmd_alerts_list(const AlertTracker *at, uint8_t *buf, size_t len) {
+    // Note: Accessing the circular buffer from multiple threads is racey.
+    // Needs locking, but locking in the control loop is undesirable. Once
+    // alert checking is outside the control loop thread, locking can be added.
+    time_t since = 0;
+    if (len >= 4) {
+        int32_t ind = 0;
+        since = buffer_get_uint32(buf, &ind);
+    }
+
+    uint8_t buffer[SEND_BUF_MAX_SIZE];
+    int32_t ind = 0;
+
+    buffer[ind++] = 101;  // Package ID
+    buffer[ind++] = COMMAND_ALERTS_LIST;
+
+    buffer_append_uint32(buffer, at->active_alert_mask, &ind);
+    buffer_append_uint32(buffer, 0, &ind);  // extra 32 bits for more flags if needed
+    buffer[ind++] = at->fw_fault_code;
+    if (at->fw_fault_code != FAULT_CODE_NONE) {
+        buffer_append_fault_name(buffer, at->fw_fault_code, &ind);
+    }
+
+    int size_index = ind++;
+    uint8_t size = circular_buffer_size(&at->alert_buffer);
+    uint8_t real_size = 0;
+    for (uint8_t i = 0; i < size; ++i) {
+        AlertRecord alert;
+        circular_buffer_get(&at->alert_buffer, i, &alert);
+
+        if (alert.time > since) {
+            // 7 bytes fixed and at most 50 bytes string with one byte for size
+            if (ind + 7 + 51 > SEND_BUF_MAX_SIZE) {
+                // if we can't fit into the message buffer, we only send what we can
+                break;
+            }
+
+            buffer_append_uint32(buffer, alert.time, &ind);
+            buffer[ind++] = alert.id;
+            buffer[ind++] = alert.active;
+            buffer[ind++] = alert.code;
+            if (alert.code != FAULT_CODE_NONE) {
+                buffer_append_fault_name(buffer, alert.code, &ind);
+            }
+            ++real_size;
+        }
+    }
+
+    buffer[size_index] = real_size;
+
+    SEND_APP_DATA(buffer, SEND_BUF_MAX_SIZE, ind);
+}
+
+static void cmd_alerts_control(AlertTracker *at, uint8_t *buf, size_t len) {
+    if (len < 1) {
+        return;
+    }
+    uint8_t command = buf[0];
+    if (command == 1) {  // clear fatal error
+        alert_tracker_clear_fatal(at);
+    }
+}
+
 static void lights_control_request(CfgLeds *leds, uint8_t *buffer, size_t len, LcmData *lcm) {
-    if (len < 2) {
+    if (len < 5) {
         return;
     }
 
-    uint8_t mask = buffer[0];
-    uint8_t value = buffer[1];
+    int32_t ind = 0;
+    uint32_t mask = buffer_get_uint32(buffer, &ind);
 
-    if (mask != 0) {
+    if ((mask & 0xff) != 0) {
+        uint8_t value = buffer[ind++];
+
         if (mask & 0x1) {
             leds->on = value & 0x1;
         }
@@ -1909,7 +2088,7 @@ static void cmd_info(const Data *d, unsigned char *buf, int len) {
 
         // Backwards compatibility for the LED type - external used to be 3
         uint8_t led_type = d->float_conf.hardware.leds.mode;
-        if (led_type == LED_MODE_EXTERNAL) {
+        if (led_type & LED_MODE_EXTERNAL) {
             led_type = 3;
         }
 
@@ -1945,7 +2124,7 @@ static void cmd_info(const Data *d, unsigned char *buf, int len) {
         }
         if (d->float_conf.hardware.leds.mode != LED_MODE_OFF) {
             capabilities |= 1;
-            if (d->float_conf.hardware.leds.mode == LED_MODE_EXTERNAL) {
+            if (d->float_conf.hardware.leds.mode & LED_MODE_EXTERNAL) {
                 capabilities |= 1 << 1;
             }
         }
@@ -2106,21 +2285,20 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
         data_recorder_request(&d->data_record, &buffer[2], len - 2);
         return;
     }
+    case COMMAND_ALERTS_LIST: {
+        cmd_alerts_list(&d->alert_tracker, &buffer[2], len - 2);
+        return;
+    }
+    case COMMAND_ALERTS_CONTROL: {
+        cmd_alerts_control(&d->alert_tracker, &buffer[2], len - 2);
+        return;
+    }
     default: {
         if (!VESC_IF->app_is_output_disabled()) {
             log_error("Unknown command received: %u", command);
         }
     }
     }
-}
-
-// Register get_debug as a lisp extension
-static lbm_value ext_dbg(lbm_value *args, lbm_uint argn) {
-    if (argn != 1 || !VESC_IF->lbm_is_number(args[0])) {
-        return VESC_IF->lbm_enc_sym_eerror;
-    }
-
-    return VESC_IF->lbm_enc_float(app_get_debug(VESC_IF->lbm_dec_as_i32(args[0])));
 }
 
 // Called from Lisp on init to pass in the version info of the firmware
@@ -2132,6 +2310,25 @@ static lbm_value ext_set_fw_version(lbm_value *args, lbm_uint argn) {
         d->fw_version_beta = VESC_IF->lbm_dec_as_i32(args[2]);
     }
     return VESC_IF->lbm_enc_sym_true;
+}
+
+// Called from Lisp to pass in values from the bms. Stores BMS values if
+// arguments are passed in and BMS integration is enabled.
+//
+// Always returns whether BMS integration is enabled.
+static lbm_value ext_bms(lbm_value *args, lbm_uint argn) {
+    Data *d = (Data *) ARG;
+
+    if (argn > 5 && d->float_conf.bms.enabled) {
+        d->bms.cell_lv = VESC_IF->lbm_dec_as_float(args[0]);
+        d->bms.cell_hv = VESC_IF->lbm_dec_as_float(args[1]);
+        d->bms.cell_lt = VESC_IF->lbm_dec_as_i32(args[2]);
+        d->bms.cell_ht = VESC_IF->lbm_dec_as_i32(args[3]);
+        d->bms.bms_ht = VESC_IF->lbm_dec_as_i32(args[4]);
+        d->bms.msg_age = VESC_IF->lbm_dec_as_float(args[5]);
+    }
+
+    return d->float_conf.bms.enabled ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_nil;
 }
 
 // Used to send the current or default configuration to VESC Tool.
@@ -2226,6 +2423,11 @@ INIT_FUN(lib_info *info) {
     }
     data_init(d);
 
+    // Periodically called from the aux thread. Do the first refresh here to avoid races.
+    motor_data_refresh_motor_config(
+        &d->motor, d->float_conf.tiltback_lv, d->float_conf.tiltback_hv
+    );
+
     info->stop_fun = stop;
     info->arg = d;
 
@@ -2253,12 +2455,12 @@ INIT_FUN(lib_info *info) {
     VESC_IF->imu_set_read_callback(imu_ref_callback);
     VESC_IF->conf_custom_add_config(get_cfg, set_cfg, get_cfg_xml);
     VESC_IF->set_app_data_handler(on_command_received);
-    VESC_IF->lbm_add_extension("ext-dbg", ext_dbg);
     VESC_IF->lbm_add_extension("ext-set-fw-version", ext_set_fw_version);
+    VESC_IF->lbm_add_extension("ext-bms", ext_bms);
 
     return true;
 }
 
-void send_app_data_overflow_terminate() {
+void fatal_error_terminate() {
     stop(ARG);
 }

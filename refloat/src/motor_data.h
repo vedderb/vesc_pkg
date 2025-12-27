@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "alert_tracker.h"
 #include "biquad.h"
 
 #include <stdbool.h>
@@ -50,10 +51,16 @@ typedef struct {
     float mosfet_temp;
     float motor_temp;
 
+    // The following values are periodically updated from the aux thread
     float current_min;
     float current_max;
     float battery_current_min;
     float battery_current_max;
+    float mosfet_temp_max;
+    float motor_temp_max;
+    float duty_max_with_margin;
+    float lv_threshold;
+    float hv_threshold;
 
     float accel_history[ACCEL_ARRAY_SIZE];
     uint8_t accel_idx;
@@ -62,10 +69,16 @@ typedef struct {
     Biquad current_biquad;
 } MotorData;
 
+void motor_data_init(MotorData *m);
+
 void motor_data_reset(MotorData *m);
+
+void motor_data_refresh_motor_config(MotorData *m, float lv_threshold, float hv_threshold);
 
 void motor_data_configure(MotorData *m, float frequency);
 
 void motor_data_update(MotorData *m);
+
+void motor_data_evaluate_alerts(const MotorData *m, AlertTracker *at, const Time *time);
 
 float motor_data_get_current_saturation(const MotorData *m);

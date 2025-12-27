@@ -1,5 +1,5 @@
-// Copyright 2022 Dado Mista
-// Copyright 2024 Lukas Hrazky
+// Copyright 2024 Syler Clayton
+// Copyright 2025 Lukas Hrazky
 //
 // This file is part of the Refloat VESC package.
 //
@@ -18,29 +18,36 @@
 
 #pragma once
 
-#include "atr.h"
 #include "conf/datatypes.h"
-#include "motor_data.h"
+#include "time.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef enum {
+    BMSF_NONE = 0,
+    BMSF_CONNECTION = 1,
+    BMSF_OVER_TEMP = 2,
+    BMSF_CELL_OVER_VOLTAGE = 3,
+    BMSF_CELL_UNDER_VOLTAGE = 4,
+    BMSF_CELL_OVER_TEMP = 5,
+    BMSF_CELL_UNDER_TEMP = 6,
+    BMSF_CELL_BALANCE = 7
+} BMSFaultCode;
 
 typedef struct {
-    float factor;
-    float target;
-    float ramped_step_size;
-    float setpoint;
-} BrakeTilt;
+    float cell_lv;
+    float cell_hv;
+    int16_t cell_lt;
+    int16_t cell_ht;
+    int16_t bms_ht;
+    float msg_age;
 
-void brake_tilt_init(BrakeTilt *bt);
+    uint32_t fault_mask;
+} BMS;
 
-void brake_tilt_reset(BrakeTilt *bt);
+void bms_init(BMS *bms);
 
-void brake_tilt_configure(BrakeTilt *bt, const RefloatConfig *config);
+void bms_update(BMS *bms, const CfgBMS *cfg, const Time *time);
 
-void brake_tilt_update(
-    BrakeTilt *bt,
-    const MotorData *motor,
-    const ATR *atr,
-    const RefloatConfig *config,
-    float balance_offset
-);
-
-void brake_tilt_winddown(BrakeTilt *bt);
+bool bms_is_fault(const BMS *bms, BMSFaultCode fault_code);

@@ -102,18 +102,42 @@ static uint32_t color_blend(uint32_t color1, uint32_t color2, float blend) {
     return RGBW(r, g, b, w);
 }
 
-// Borrowed from WLED
-static uint32_t color_wheel(uint8_t pos) {
-    pos = 255 - pos;
-    if (pos < 85) {
-        return ((uint32_t) (255 - pos * 3) << 16) | ((uint32_t) 0 << 8) | (pos * 3);
-    } else if (pos < 170) {
-        pos -= 85;
-        return ((uint32_t) 0 << 16) | ((uint32_t) (pos * 3) << 8) | (255 - pos * 3);
+// Bhaskara cosine approximation.
+// Returns a cosine wave oscillating from 0 to 1, starting at 0, with a period of 2s:
+// (1 - cos(x)) / 2
+static float cosine_progress(float time) {
+    uint32_t rounded = lroundf(time);
+    float x = (time - rounded) * M_PI;
+    x *= x;
+    float cos = 2.5f * x / (x + M_PI * M_PI);
+    if (rounded % 2 == 1) {
+        return 1 - cos;
     } else {
-        pos -= 170;
-        return ((uint32_t) (pos * 3) << 16) | ((uint32_t) (255 - pos * 3) << 8) | 0;
+        return cos;
     }
+}
+
+// Tweaks the color channel value to make the hue more uniform.
+static float tweak_color(float x, float a) {
+    if (x < 1.0f) {
+        return 1.0f - powf(1.0f - x, a);
+    } else if (x < 2.0f) {
+        return 1.0f + powf(x - 1.0f, a);
+    }
+    return 0.0f;
+}
+
+// Returns color for hue in range [0..255].
+static uint32_t hue_to_color(uint8_t hue) {
+    float norm = (float) hue / 255.0f * 3.0f;
+    float r_norm = fmodf(norm + 0.5f, 3.0f);
+    float g_norm = fmodf(norm + 2.5f, 3.0f);
+    float b_norm = fmodf(norm + 1.5f, 3.0f);
+    float r = cosine_progress(tweak_color(r_norm, 3.2f));
+    float g = cosine_progress(tweak_color(g_norm, 2.4f));
+    float b = cosine_progress(tweak_color(b_norm, 2.2f));
+
+    return ((uint8_t) (r * 255) << 16) | ((uint8_t) (g * 255) << 8) | (uint8_t) (b * 255);
 }
 
 static void sattolo_shuffle(uint32_t seed, uint8_t *array, uint8_t length) {
@@ -190,18 +214,6 @@ static void strip_set_color(
     Leds *leds, const LedStrip *strip, uint32_t color, float brightness, float blend
 ) {
     strip_set_color_range(leds, strip, color, brightness, blend, 0, strip->length);
-}
-
-// Returns a cosine wave oscillating from 0 to 1, starting at 0, with a period of 2s.
-static float cosine_progress(float time) {
-    uint32_t rounded = lroundf(time);
-    float x = (time - rounded) * M_PI;
-    // Bhaskara cosine approximation, optimized to return: (1 - cos(x)) / 2
-    float cos = 10 * x * x / (4 * x * x + 4 * M_PI * M_PI);
-    if (rounded % 2 == 1) {
-        cos = 1 - cos;
-    }
-    return cos;
 }
 
 static void anim_fade(Leds *leds, const LedStrip *strip, const LedBar *bar, float time) {
@@ -310,6 +322,32 @@ static void anim_felony(Leds *leds, const LedStrip *strip, const LedBar *bar, fl
     }
 }
 
+static void anim_rainbow_cycle(Leds *leds, const LedStrip *strip, float time) {
+    const uint8_t count = 10;
+    const float segment = 255.0f / count;
+    uint8_t color_idx = ((uint8_t) (time * count) % count) * segment;
+    strip_set_color(leds, strip, hue_to_color(color_idx), strip->brightness, 1.0f);
+}
+
+static void anim_rainbow_fade(Leds *leds, const LedStrip *strip, float time) {
+    uint8_t offset = fmodf(time, 1.0f) * 255.0f;
+    strip_set_color(leds, strip, hue_to_color(offset), strip->brightness, 1.0f);
+}
+
+static void anim_rainbow_roll(Leds *leds, const LedStrip *strip, float time) {
+    uint8_t offset = fmodf(time, 1.0f) * 255.0f;
+    for (int i = 0; i < strip->length; ++i) {
+        led_set_color(
+            leds,
+            strip,
+            i,
+            hue_to_color(255.0f / strip->length * i + offset),
+            strip->brightness,
+            1.0f
+        );
+    }
+}
+
 static void led_strip_animate(Leds *leds, const LedStrip *strip, const LedBar *bar, float time) {
     time *= bar->speed;
 
@@ -331,6 +369,15 @@ static void led_strip_animate(Leds *leds, const LedStrip *strip, const LedBar *b
         break;
     case LED_ANIM_FELONY:
         anim_felony(leds, strip, bar, time);
+        break;
+    case LED_ANIM_RAINBOW_CYCLE:
+        anim_rainbow_cycle(leds, strip, time);
+        break;
+    case LED_ANIM_RAINBOW_FADE:
+        anim_rainbow_fade(leds, strip, time);
+        break;
+    case LED_ANIM_RAINBOW_ROLL:
+        anim_rainbow_roll(leds, strip, time);
         break;
     }
 }
@@ -606,7 +653,7 @@ static void trans_cipher(
                 } else {
                     // random fade to white
                     uint8_t wf = rnd(j + target_j + 23) % 128 + 80;
-                    color = color_wheel(r) | RGB(wf, wf, wf);
+                    color = hue_to_color(r) | RGB(wf, wf, wf);
                 }
             }
 
@@ -780,7 +827,7 @@ void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensor
         log_msg("Both sensors pressed, not initializing LEDs.");
     } else if (leds->front_strip.length + leds->rear_strip.length > LEDS_FRONT_AND_REAR_COUNT_MAX) {
         log_error("Front and rear LED counts exceed maximum.");
-    } else if (hw_cfg->mode == LED_MODE_INTERNAL && led_count > 0) {
+    } else if (hw_cfg->mode & LED_MODE_INTERNAL && led_count > 0) {
         led_data = VESC_IF->malloc(sizeof(uint32_t) * led_count);
         if (!led_data) {
             log_error("Failed to init LED data, out of memory.");
@@ -813,7 +860,7 @@ void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensor
     leds_configure(leds, cfg);
 
     if (led_data) {
-        if (led_driver_setup(&leds->led_driver, hw_cfg->pin, strip_array)) {
+        if (led_driver_setup(&leds->led_driver, hw_cfg->pin, hw_cfg->pin_config, strip_array)) {
             leds->led_data = led_data;
         } else {
             VESC_IF->free(led_data);
