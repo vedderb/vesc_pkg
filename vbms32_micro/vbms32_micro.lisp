@@ -34,6 +34,7 @@
         (soc . 0.5)
         (charge-fault . false)
         (updated . false)
+        (beeper-en . true)
 ))
 
 (def is-bal false)
@@ -84,7 +85,7 @@ loopwhile-thd
 (defun bms-current () (* (bms-get-current) -0.2))
 
 (defun beep (times dt) {
-        (if (= (bms-get-param 'beeper_enabled) 1) 
+        (if (assoc rtc-val 'beeper-en)
         {
                 (mutex-lock buz-mutex)
 
@@ -100,10 +101,21 @@ loopwhile-thd
         })
 })
 
-(def rtc-val-magic 115)
+(defun beeper-enabled (enabled) {
+        (setassoc rtc-val 'beeper-en enabled)
+})
+
+(defun send-config () {
+        (var config-string "settings ")
+        (setq config-string (str-merge config-string (if (assoc rtc-val 'beeper-en) "1" "0")))
+        (send-data config-string)
+})
+
+(def rtc-val-magic 116)
 
 ; If in deepsleep, this will return 4
 ; (bms-direct-cmd 1 0x00)
+
 
 ; Exit deepsleep
 ; (bms-subcmd-cmdonly 1 0x000e)
@@ -823,6 +835,7 @@ loopwhile-thd
                     (setq bal-ok true)
                     (setq bal-ok false)
             ))
+            ((event-data-rx ? data) (eval (read data)))
             (_ nil)
             ;((? a) (print a))
 )))
@@ -906,6 +919,7 @@ loopwhile-thd
         (event-enable 'event-bms-reset-cnt)
         (event-enable 'event-bms-force-bal)
         (event-enable 'event-bms-zero-ofs)
+        (event-enable 'event-data-rx)
 
         (set-bms-val 'bms-cell-num cell-num)
         (set-bms-val 'bms-can-id (can-local-id))
