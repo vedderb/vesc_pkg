@@ -34,7 +34,7 @@ Item {
     property ConfigParams mMcConf: VescIf.mcConfig()
     property ConfigParams mCustomConf: VescIf.customConfig(0)
 
-    Component.onVisibleChanged: {
+    onVisibleChanged: {
         mCommands.sendCustomAppData("(send-config)");
     }
     
@@ -93,6 +93,35 @@ Item {
 						font.weight: Font.Black
 					}
 				}
+                RowLayout {
+					Text {
+						text: "Build Date:"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 8
+					}
+					Text {
+						id: buildDateText
+						text: "{{BUILD_DATE}}"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 10
+						font.weight: Font.Black
+					}
+				}
+                RowLayout {
+					Text {
+						text: "Git Commit:"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 8
+					}
+					Text {
+						id: gitCommitText
+						text: "{{GIT_COMMIT}}"
+						color: Utility.getAppHexColor("lightText")
+						font.pointSize: 10
+						font.weight: Font.Black
+					}
+				}
+
             }
         }
     }
