@@ -33,6 +33,10 @@ Item {
     property Commands mCommands: VescIf.commands()
     property ConfigParams mMcConf: VescIf.mcConfig()
     property ConfigParams mCustomConf: VescIf.customConfig(0)
+
+    Component.onVisibleChanged: {
+        mCommands.sendCustomAppData("(send-config)");
+    }
     
     ColumnLayout {
         id: gaugeColumn
@@ -62,6 +66,14 @@ Item {
 					Layout.fillWidth: true
 					Layout.fillHeight: true
 				}
+                CheckBox {
+                        text: "Beeper Enabled"
+                        checkable: true
+                        checked: mainItem.state.beeperEnabled
+                        onClicked: {
+                            commands.sendDataEnableBeeper(checked);
+                        }
+                }
 				Rectangle {
 					Layout.fillWidth: true
 					Layout.preferredHeight: 2
@@ -84,4 +96,29 @@ Item {
             }
         }
     }
+
+    Connections {
+        id: commands
+        target: mCommands
+
+        function sendDataEnableBeeper(value) {
+            mCommands.sendCustomAppData("(beeper-enabled " + value + ")");
+        }
+
+        function onCustomAppDataReceived(data) {
+            var str = data.toString()
+
+            if (str.startsWith("settings")) {
+                var tokens = str.split(" ")
+                mainItem.state.beeperEnabled = (Number(tokens[1])) ? true : false
+            }
+        }
+    }
+
+    property var state: QtObject {
+        id: state
+
+        property bool beeperEnabled: true
+    }
+
 }
