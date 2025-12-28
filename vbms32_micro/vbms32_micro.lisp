@@ -835,7 +835,7 @@ loopwhile-thd
                     (setq bal-ok true)
                     (setq bal-ok false)
             ))
-            ((event-data-rx ? data) (eval (read data)))
+            ((event-data-rx ? data) (trap (eval (read data))))
             (_ nil)
             ;((? a) (print a))
 )))
