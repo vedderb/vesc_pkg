@@ -87,7 +87,7 @@ loopwhile-thd
 
 (defun led-set (state) (gpio-write 1 state))
 
-(defun bms-current () (* (bms-get-current) -2.0))
+(defun bms-current () (* (bms-get-current) -1.6))
 
 (defun beep (times dt) {
         (loopwhile (> times 0) {
