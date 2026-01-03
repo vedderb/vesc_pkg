@@ -1,6 +1,10 @@
 (import "pkg@://vesc_packages/lib_code_server/code_server.vescpkg" 'code-server)
 (read-eval-program code-server)
 
+(canmsg-recv 0 0.1)
+(canmsg-recv 0 0.1)
+(canmsg-recv 0 0.1)
+
 (start-code-server)
 
 (def buf-canid20 (array-create 8)) ; SOC, Duty, Speed, Current In

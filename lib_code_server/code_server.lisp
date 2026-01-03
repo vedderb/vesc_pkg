@@ -23,6 +23,9 @@
 }))
 
 (defun start-code-server ()
+    (canmsg-recv 0 0.01)
+    (canmsg-recv 0 0.01)
+
     (spawn 150 (fn () {
                 (var last-id 0)
                 (var respawn true)

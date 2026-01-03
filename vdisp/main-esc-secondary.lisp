@@ -6,6 +6,10 @@
 @const-start
 
 (defun main () {
+        (sleep 2)
+        (canmsg-recv 0 0.1)
+        (canmsg-recv 0 0.1)
+        (canmsg-recv 0 0.1)
         (start-code-server)
 })
 
