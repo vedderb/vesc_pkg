@@ -141,4 +141,9 @@
 
 (if config-boot-animation-enable (start-boot-animation))
 
+(loopwhile-thd 200 t {
+        (setq config-can-id-esc (can-list-devs))
+        (sleep 1.0)
+})
+
 (def init-complete true)

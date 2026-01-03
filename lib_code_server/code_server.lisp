@@ -23,7 +23,7 @@
 }))
 
 (defun start-code-server ()
-    (spawn 150 (fn () {
+    (spawn 250 (fn () {
                 (var last-id 0)
                 (var respawn true)
 
