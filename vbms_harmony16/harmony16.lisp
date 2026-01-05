@@ -283,10 +283,10 @@ loopwhile-thd
         (looprange i 0 samples {
                 (if (> i 0) (sleep 0.01))
                 (setq vchg (bms-get-vchg))
-                (if (> vchg (+ (bms-get-vstack) 1.0)) (break))
+                (if (> vchg (+ (bms-get-vstack) 0.9)) (break))
         })
 
-        (var res (> vchg (+ (bms-get-vstack) 1.0)))
+        (var res (> vchg (+ (bms-get-vstack) 0.9)))
 
         (if res (setq charge-dis-ts (systime)))
 
