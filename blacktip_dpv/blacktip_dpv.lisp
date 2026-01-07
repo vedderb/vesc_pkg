@@ -862,6 +862,7 @@
                         (debug_log "Click action: Single click after hold (Smart Cruise: speed down + timer reset)")
                         (setvar 'click_beep CLICKS_SINGLE)
                         (setvar 'timer_start (systime))
+                        (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
                         (smart_cruise_upgrade_if_needed)
                         ; Change speed down
@@ -879,6 +880,7 @@
                     ; Smart Cruise not active - normal speed down
                     (debug_log "Click action: Single click (speed down)")
                     (setvar 'click_beep CLICKS_SINGLE)
+                    (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (cond
                         ((> speed SPEED_REVERSE_THRESHOLD)
                             (set_speed_safe (- speed 1)))
@@ -891,6 +893,7 @@
             (if (= speed SPEED_OFF) {
                 (debug_log_format (str-merge "Click action: Double click (start at speed " (to-str (to-i new_start_speed)) ")"))
                 (setvar 'click_beep CLICKS_DOUBLE)
+                (setvar 'speed_set_via_jump nil) ; Normal start, allow speed to be remembered
                 (set_speed_safe new_start_speed)
             } {
                 (if (> smart_cruise SMART_CRUISE_OFF) {
@@ -900,6 +903,7 @@
                         (debug_log "Click action: Double click after hold (Smart Cruise: speed up + timer reset)")
                         (setvar 'click_beep CLICKS_DOUBLE)
                         (setvar 'timer_start (systime))
+                        (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
                         (smart_cruise_upgrade_if_needed)
                         ; Change speed up
@@ -917,6 +921,7 @@
                     ; Smart Cruise not active - normal speed up
                     (debug_log "Click action: Double click (speed up)")
                     (setvar 'click_beep CLICKS_DOUBLE)
+                    (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (if (< speed max_speed_no) {
                         (if (> speed SPEED_UNTANGLE)
                             (set_speed_safe (+ speed 1))
@@ -930,6 +935,7 @@
                 ; Stopped - jump to preset speed
                 (debug_log_format (str-merge "Click action: Triple click (jump to speed " (to-str (to-i jump_speed)) ")"))
                 (setvar 'click_beep CLICKS_TRIPLE)
+                (setvar 'speed_set_via_jump t) ; Speed set via jump, don't remember unless changed
                 (set_speed_safe jump_speed)
             } {
                 ; Running - only allow Smart Cruise toggle in forward speeds
@@ -1121,12 +1127,18 @@
                 (if (and (!= smart_cruise SMART_CRUISE_FULLY_ENABLED) (!= smart_cruise SMART_CRUISE_AUTO_ENGAGED)) { ; If Smart Cruise is enabled, don't shut down
                     (debug_log "State 3->0: Timeout, shutting down")
                     (setvar 'timer_duration TIMER_DISABLED)
-                    (cond
-                        ((and (< speed start_speed) (> speed SPEED_UNTANGLE)) ; start at old speed if less than start speed
-                            (setvar 'new_start_speed speed))
-                        ((>= speed start_speed)
-                            (setvar 'new_start_speed start_speed))
-                    )
+                    ; Only remember speed if user manually changed it (not just started via jump speed)
+                    (if (not speed_set_via_jump) {
+                        (cond
+                            ((and (< speed start_speed) (> speed SPEED_UNTANGLE)) ; start at old speed if less than start speed
+                                (setvar 'new_start_speed speed))
+                            ((>= speed start_speed)
+                                (setvar 'new_start_speed start_speed))
+                        )
+                    } {
+                        ; Speed set via jump and not changed - reset to normal start speed
+                        (setvar 'new_start_speed start_speed)
+                    })
                     (set_speed_safe SPEED_OFF)
                     (setvar 'smart_cruise SMART_CRUISE_OFF) ; turn off Smart Cruise
                     (state_transition_to STATE_OFF "timeout_shutdown" THREAD_STACK_STATE_TRANSITIONS state_handler_off)
@@ -1599,6 +1611,7 @@
     (define clicks 0)
     (define actual_batt 0)
     (define new_start_speed start_speed)
+    (define speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
     (define state_last_state STATE_UNINITIALIZED)
     (define state_last_change_time 0)
     (define state_last_reason "")
