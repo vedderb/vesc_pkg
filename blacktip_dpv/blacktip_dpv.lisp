@@ -856,8 +856,9 @@
             (if (!= speed SPEED_OFF) {
                 (if (> smart_cruise SMART_CRUISE_OFF) {
                     ; Smart Cruise is active
-                    (if (> initial_press_time TIMER_SMART_CRUISE_HOLD) {
-                        ; Long hold before click - change speed down
+                    ; Only allow speed change with long hold when NOT in warning mode (timing out)
+                    (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
+                        ; Long hold before click - change speed down (not allowed during timeout warning)
                         (debug_log "Click action: Single click after hold (Smart Cruise: speed down + timer reset)")
                         (setvar 'click_beep CLICKS_SINGLE)
                         (setvar 'timer_start (systime))
@@ -868,7 +869,7 @@
                             (set_speed_safe (- speed 1))
                         })
                     } {
-                        ; Quick tap - just reset timer
+                        ; Quick tap OR in warning mode - just reset timer (no speed change)
                         (debug_log "Click action: Single click (Smart Cruise timer reset)")
                         (setvar 'timer_start (systime))
                         ; If in warning mode, upgrade back to fully enabled
@@ -893,9 +894,9 @@
                 (set_speed_safe new_start_speed)
             } {
                 (if (> smart_cruise SMART_CRUISE_OFF) {
-                    ; Smart Cruise is active - only allow speed change after long hold
-                    (if (> initial_press_time TIMER_SMART_CRUISE_HOLD) {
-                        ; Long hold before double tap - change speed up
+                    ; Smart Cruise is active - only allow speed change after long hold, and not during timeout warning
+                    (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
+                        ; Long hold before double tap - change speed up (not allowed during timeout warning)
                         (debug_log "Click action: Double click after hold (Smart Cruise: speed up + timer reset)")
                         (setvar 'click_beep CLICKS_DOUBLE)
                         (setvar 'timer_start (systime))
@@ -906,7 +907,7 @@
                             (set_speed_safe (+ speed 1))
                         })
                     } {
-                        ; Quick double tap without hold - just reset timer
+                        ; Quick double tap without hold OR in warning mode - just reset timer (no speed change)
                         (debug_log "Click action: Double click (Smart Cruise timer reset)")
                         (setvar 'timer_start (systime))
                         ; If in warning mode, upgrade back to fully enabled
