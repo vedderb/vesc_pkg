@@ -15,7 +15,7 @@
 (define TIMER_CLICK_WINDOW 0.3)       ; Click detection window
 (define TIMER_RELEASE_WINDOW 0.5)     ; Release detection window
 (define TIMER_SMART_CRUISE_TIMEOUT 5) ; Smart Cruise half-enable timeout
-(define TIMER_SMART_CRUISE_HOLD 1.0)  ; Hold duration before Smart Cruise adjustments
+(define TIMER_SMART_CRUISE_HOLD 0.5)  ; Hold duration before Smart Cruise adjustments
 (define TIMER_DISPLAY_DURATION 5)     ; Display duration (used in calculations)
 (define TIMER_LONG_PRESS 10)          ; Long press duration for special functions
 

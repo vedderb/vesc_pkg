@@ -64,8 +64,8 @@ The headline feature of this package—Smart Cruise allows hands-free operation 
 
 **Speed Adjustments During Smart Cruise:**
 
-- **Long hold (>1s), release, then tap**: Speed down
-- **Long hold (>1s), release, then double-tap**: Speed up
+- **Long hold (>0.5s), release, then tap**: Speed down
+- **Long hold (>0.5s), release, then double-tap**: Speed up
 - **Short tap (no hold)**: Reset timer only
 - **Triple tap**: Disable Smart Cruise
 
