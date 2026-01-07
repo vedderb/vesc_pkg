@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.0.1
+**Version:** 1.1.0
 
 ## License
 
@@ -29,20 +29,22 @@ This package gives your DPV advanced features like Smart Cruise control, enhance
 
 **Scroll down for [installation instructions](#installation).**
 
+## Instructions
+
+Some videos showing the basic commands to control Smart Cruise while diving:
+
+- [basic commands](https://youtu.be/oFRCwuKf2qQ)
+- [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
+
 ---
 
-## What's New in Version 1.0.0
+## What's New in Version 1.1.0
 
-This is the **first official release** of the improved package with a complete rewrite and numerous enhancements over the original Dive Xtras software:
+Small usability improvements and bugfixes after some in-water testing:
 
-- **Smart Cruise** — Hands-free cruising with visual timer bar and configurable timeout
-- **Smart Cruise Visual Indicator** — LED countdown timer bar showing time remaining
-- **Auto-engage Smart Cruise** — Optionally enable Smart Cruise automatically after maintaining speed
-- **Improved Speed Controls** — Change your speed while in Smart Cruise mode
-- **Voltage or Ah-based Battery Calculation** — Choose the method that works best for your setup
-- **Update to run on VESC 6.06** — Smoother running with latest FOC algorithms, improved safety features
-- **Code Optimization** — Reduced memory usage and improved performance
-- **Bug Fixes** — Numerous fixes from the original software for improved reliability and less EEPROM wear
+- the hold period for speed up / speed down while in Smart Cruise mode has been reduced from 1 second to 0.5 seconds to make it easier to change speed
+- fixed a bug resulting in occasional speed changes when resetting Smart Cruise
+- fixed a bug resulting in 'sticky' jump speeds
 
 ## Features
 
