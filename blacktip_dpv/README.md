@@ -302,7 +302,15 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Choose "blacktip\_dpv.vescpkg"
 - Confirm installation
 
-5. **Verify Installation:**
+5. **Reset to defaults:**
+
+- **This absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- Make sure to check your custom settings before the reset, and then restore them
+- In the VESC Tool or Mobile App go to "Settings" / "Scooter Hardware Configuration"
+- Make sure the correct model and hardware version is selected
+- Click "Reset Defaults"
+
+6. **Verify Installation:**
 
 - The scooter should show the startup splash screen to confirm successful installation
 - Check that the custom UI appears in the app

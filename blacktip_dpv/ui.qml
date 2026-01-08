@@ -21,10 +21,10 @@ Item {
 
     readonly property var const_SCOOTER_MODELS: [
         "Blacktip series 2, with Bluetooth",
-        "Blacktip series 2, No Bluetooth",
-        "Blacktip series 1, No Bluetooth",
-        "CudaX, With Bluetooth",
-        "CudaX, No Bluetooth",
+        "Blacktip series 2, no Bluetooth",
+        "Blacktip series 1, no Bluetooth",
+        "CudaX, with Bluetooth",
+        "CudaX, no Bluetooth",
     ]
 
     readonly property int const_RELOAD_DELAY_MS: 1000
