@@ -28,3 +28,5 @@
 ; Default light state
 (def light-on-default false)
 
+; Light-on means high beam, low beam otherwise
+(def light-on-is-highbeam false)

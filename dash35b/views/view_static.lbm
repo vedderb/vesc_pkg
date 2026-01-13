@@ -63,10 +63,16 @@
 
                 ; High Beam
                 (if (or (ix update-state 2) (ix update-state 20)) {
-                        (cond
-                            ((ix state-last 2) (disp-render img-highbeam 175 14 colors-blue-icon))
-                            ((ix state-last 20) (disp-render img-lowbeam 175 14 colors-green-icon))
-                            (true (disp-render img-lowbeam 175 14 colors-dim-icon))
+                        (if light-on-is-highbeam
+                            (if (ix state-last 20)
+                                (disp-render img-highbeam 175 14 colors-blue-icon)
+                                (disp-render img-lowbeam 175 14 colors-green-icon)
+                            )
+                            (cond
+                                ((ix state-last 2) (disp-render img-highbeam 175 14 colors-blue-icon))
+                                ((ix state-last 20) (disp-render img-lowbeam 175 14 colors-green-icon))
+                                (true (disp-render img-lowbeam 175 14 colors-dim-icon))
+                            )
                         )
                 })
 
