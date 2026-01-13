@@ -536,12 +536,17 @@
                 (can-send-sid 24 canbuf)
 
                 (bufclear canbuf)
+                (bufset-i16 canbuf 0 (* val-thr 1000.0))
+                (bufset-i16 canbuf 2 (* val-brake 1000.0))
+                (can-send-sid 200 canbuf)
+
+                (bufclear canbuf)
                 (bufset-u8 canbuf 0 cruise-on)
                 (can-send-sid 202 canbuf)
 
-                (bufclear canbuf)
-                (bufset-i16 canbuf 0 (* t-ambient 10))
-                (can-send-sid 203 canbuf)
+                ;(bufclear canbuf)
+                ;(bufset-i16 canbuf 0 (* t-ambient 10))
+                ;(can-send-sid 203 canbuf)
 
                 (sleep 0.1) ; 10 Hz
         })

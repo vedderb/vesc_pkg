@@ -1,5 +1,7 @@
 ;;;; Variables
 
+(def val-thr 0.0)
+(def val-brake 0.0)
 (def val-lever1 0.0)
 (def val-lever2 0.0)
 
@@ -12,6 +14,7 @@
 (def brake-on false)
 (def drive-mode 1)
 (def hazard-on false)
+(def cruise-on false)
 
 (def battery-a-charging false)
 (def battery-a-chg-time 0.0)
@@ -39,6 +42,7 @@
 (def io-pin-sidestand 7) ; Active high, PD
 (def io-pin-park 13) ; Active low, Pu
 (def io-pin-hazard 10) ; Active low, Pu
+(def io-pin-cruise 12) ; Active low, Pu
 
 ; Persistent settings
 ; Format: (label . (offset type))
@@ -114,6 +118,11 @@
                     (setq stats-battery-ah (/ (bufget-u16 data 5) 10.0))
             })
 
+            ((= id 200) {
+                    (setq val-thr (/ (bufget-i16 data 0) 1000.0))
+                    (setq val-brake (/ (bufget-i16 data 2) 1000.0))
+            })
+
             ((= id 201) {
                     (var drive-mode-new (bufget-u8 data 0))
                     (setq light-on (bufget-u8 data 1))
@@ -153,6 +162,7 @@
         (var pu (tca9535-read-pins
                 io-pin-park
                 io-pin-hazard
+                io-pin-cruise
         ))
 
         (append pd pu)
@@ -226,6 +236,11 @@
                 (setq hb         (= (ix pins 2) 1))
                 (setq sidestand  (= (ix pins 4) 1))
                 (setq brake-on   (= (ix pins 3) 1))
+                (setq cruise-on  (= (ix pins 7) 0))
+
+                ; HACK
+                ; Use cruise input as brake light switch input
+                (gpio-write pin-brake-light (if (or cruise-on (> val-brake 0.2)) 1 0))
 
                 ; Hazard has a momentary button, but we simulate a toggle button
                 (var hazard (= (ix pins 6) 0))
