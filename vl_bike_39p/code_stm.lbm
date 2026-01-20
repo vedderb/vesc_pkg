@@ -493,10 +493,12 @@
                 (sleep 0.02)
         })
 
-        (def soc 0.0) ; Show SOC 0 until BMS boots
+        (def soc 0.0)
 
         (var canbuf (bufcreate 8))
         (loopwhile-thd ("Send CAN" 150) t {
+                (setq soc (get-batt))
+
                 (bufclear canbuf)
                 (bufset-i16 canbuf 0 (* soc 1000))
                 (bufset-i16 canbuf 2 (* (abs (get-duty)) 1000))
