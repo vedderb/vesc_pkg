@@ -24,18 +24,28 @@ Item {
     readonly property int commGetCells: 2
     readonly property int commPfailReset: 3
     property double amps: 0.0
+    property int valBtnState: 0
     property var cellVoltages: []
 
-    readonly property color colorRed: "#F44336"
-    readonly property color colorGreen: "#4CAF50"
+    readonly property color colorRed: "#FF5252"
+    readonly property color colorGreen: "#66BB6A"
     readonly property color colorAmber: "#FFC107"
+    readonly property color colorBoostedOrange: "#F0401E"
+    readonly property color colorBg: "#1D1D1D"
+    readonly property color colorPanel: "#2D2D2D"
     readonly property color colorWhite: "#ffffff"
     readonly property color colorText: "#ffffff"
     readonly property color colorLightText: "#aaaaaa"
+
+    Rectangle {
+        anchors.fill: parent
+        color: colorBg
+        z: -100 
+    }
     
     property var lastUpdateTime: new Date()
     property string timeSinceUpdate: "0"
-    property string statusText: "Status: Connecting..."
+    property string statusText: "Status: connecting..."
     property color statusColor: colorRed
 
     function getBatTypeString(type) {
@@ -43,6 +53,23 @@ Item {
         if (type === 2) return "XRB"
         if (type === 3) return "Rev"
         return "Unknown"
+    }
+
+    function getBtnStateString(s) {
+        if (s === 0x00) return "none"
+        if (s === 0x01) return "1x press"
+        if (s === 0x02) return "2x press"
+        if (s === 0x03) return "3x press"
+        if (s === 0x04) return "4x press"
+        if (s === 0x05) return "5x press"
+        if (s === 0x06) return "pressed"
+        if (s === 0x07) return "held <1s"
+        if (s === 0x08) return "held <2s"
+        if (s === 0x09) return "held >2s"
+        if (s === 0x0A) return "was held <1.5s"
+        if (s === 0x0B) return "was held <2s"
+        if (s === 0x0C) return "was held >2s"
+        return "0x" + s.toString(16).toUpperCase()
     }
 
     Timer {
@@ -60,25 +87,33 @@ Item {
     }
 
     Timer {
-        interval: 1000
+        interval: 200
         running: true
         repeat: true
         onTriggered: {
             var diff = (new Date() - lastUpdateTime) / 1000.0;
             timeSinceUpdate = diff.toFixed(0);
 
-            if (diff < 1.0) {
-                statusText = "Status: connected";
+            if (valBtnState > 0) {
+                statusText = "Button: " + getBtnStateString(valBtnState);
                 statusColor = colorWhite;
+            } else if (diff < 1.5) {
+                if (connected) {
+                    statusText = "Status: connected";
+                    statusColor = colorWhite;
+                } else {
+                    statusText = "Status: disconnected";
+                    statusColor = colorRed;
+                }
             } else {
-                statusText = "Status: connecting (" + diff.toFixed(0) + "s)";
+                statusText = "Status: connecting... (" + diff.toFixed(0) + "s)";
                 statusColor = colorAmber;
             }
         }
     }
 
     Timer {
-        interval: 500
+        interval: 250
         running: connected
         repeat: true
         onTriggered: {
@@ -97,12 +132,24 @@ Item {
         anchors.right: parent.right
         height: 60
 
-        Text {
+        RowLayout {
             anchors.centerIn: parent
-            color: colorText
-            font.pointSize: 20
-            font.bold: true
-            text: "Boosted Battery Doctor"
+            spacing: 15
+
+            Image {
+                source: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTMyLjYxMSIgaGVpZ2h0PSIxMzEiIHZpZXdCb3g9IjAgMCAxMzIuNjExIDEzMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBzdHlsZT0iZmlsbDojZjA0MDFlIiBkPSJNNjUuNzQxIDM5MC45MThjLTMuNDEtMi4wNjMtNi4yNjQtNC4yLTYuMzQtNC43NS0uMTQxLTEuMDExIDEyLjY0LTguOTU2IDIzLjY4LTE0LjcyIDUuMDE0LTIuNjE4IDcuNDE3LTMuMjA1IDE0LjYzMS0zLjU3MyA1LjQwMi0uMjc2IDEwLjA3OS4wMyAxMi41LjgxNSAzLjA1Mi45OTEgMjEuMTY1IDEwLjg0MyAyMy4zNTQgMTIuNzAyLjg2My43MzMtNC4zNSA0LjE1NC05LjYxMyA2LjMxbC01LjEyNyAyLjA5OC00Ljg5My0zLjAxYy02LjU2LTQuMDM4LTEzLjI0NC01LjQ5LTE4LjY3Mi00LjA2LTIuMy42MDUtOC4zNjggMy41NC0xMy40ODcgNi41MnMtOS40MjQgNS40MTgtOS41NjkgNS40MThjLS4xNDQgMC0zLjA1My0xLjY4OC02LjQ2NC0zLjc1bTcyLjg0LTE0Ljk0NWMtMzMuMzQzLTIwLjIzMy00Mi45NjItMjAuOTU4LTY5LjkwNy01LjI3NGwtMTAuNDA3IDYuMDU3LTMuMTEtMy4wMTRjLTEuNzEtMS42NTgtMy44NzEtNC4zMDQtNC44MDItNS44OGwtMS42OTItMi44NjQgMTIuMDIyLTYuODA3YzE1LjEyMy04LjU2MyAyMS42NTctMTEuMjAzIDMxLjI2NC0xMi42MzEgOC44Ny0xLjMyIDE5LjEzMi0uMTc0IDI3LjkzMiAzLjExOSA2LjI1NiAyLjM0IDM1LjcgMTkuNjA1IDM1LjcgMjAuOTMzIDAgMS4yMS03Ljg3NyAxMS4wNzItOC43NzQgMTAuOTg0LS40LS4wNC00LjEwMS0yLjEyLTguMjI2LTQuNjIzTTM2Ljg0IDM1Ny45N2MtMy44OTEtOS4xOTktNC43NDUtNy45MDQgMTEuNDA4LTE3LjMwMSAxNy43NDgtMTAuMzI2IDIyLjkyNy0xNC43NzggMjcuNTgtMjMuNzE1IDQuNjQ2LTguOTI1IDUuNzUyLTE0Ljc0NCA1Ljc1Mi0zMC4yODh2LTEyLjkwM2wzLjc1LTEuMDQyYzIuMDYyLS41NzMgNS40OTQtMS4wNDQgNy42MjYtMS4wNDdsMy44NzUtLjAwNi0uNTEyIDE3LjI1Yy0uNTcgMTkuMTQ2LTEuNTM3IDIzLjY0OC03LjU3NiAzNS4yNS01LjcgMTAuOTUyLTEzLjk1NyAxOC40MDgtMzEuODI3IDI4Ljc0LTguMzE0IDQuODA2LTE1Ljc3NiA4Ljk5MS0xNi41ODEgOS4zLTEuMDMuMzk1LTIuMDctLjg2Ni0zLjQ5Ni00LjIzOXptMTAxLjcwNC03LjI4Yy0xOS4xODItMTEuMzY1LTI3LjMtMjAuNDU3LTMzLjA1Ni0zNy4wMjEtMi4wMDYtNS43NzEtMi4zMDgtOC45NC0yLjY5NC0yOC4yNWwtLjQzNS0yMS43NSAyLjM2LjA5NmMxLjI5OS4wNTIgNC42MS42MTcgNy4zNiAxLjI1NGw1IDEuMTYuNjA0IDE5LjQ5NGMuMzMyIDEwLjcyMyAxLjA4MiAyMC45MzggMS42NjcgMjIuNyAyLjA2MiA2LjIxMyA3LjM5NiAxNS4wNDMgMTEuNTUgMTkuMTE5IDMuNDA2IDMuMzQzIDIzLjM4IDE2LjI0MyAyNy4wMzggMTcuNDYzIDEuMzE5LjQ0LTMuMjU2IDEzLjcxNC00LjcyNiAxMy43MTQtLjY2MiAwLTcuMjYzLTMuNTktMTQuNjY4LTcuOTc4bTE0LjAzNi0xNy41MzhjLTE0LjctOC43MDctMjEuNzMtMTUuNDczLTI0LjkxLTIzLjk3LTEuNzI2LTQuNjE0LTIuMDktNy44NDktMi4wOS0xOC41NTEgMC03LjEzLjM5OC0xMi45NjIuODg2LTEyLjk2Mi40ODcgMCAzLjYzNyAxLjgzNyA3IDQuMDgyIDYuMDg4IDQuMDY2IDYuMTE0IDQuMTAzIDYuMTE0IDguOTUxIDAgMTMuNzU3IDMuOTIgMTkuNzQ2IDE4LjUgMjguMjY2bDkgNS4yNTl2Ny44ODdjMCA0LjQwNy0uNDQyIDguMDEtMSA4LjE2NS0uNTUuMTUyLTYuNjI1LTMuMDU1LTEzLjUtNy4xMjdtLTExMy0zLjkzMnYtOC4zOGw3LjI1LTQuODM2YzEwLjIxLTYuODEgMTEuOTQyLTEwLjUxOCAxMi42OS0yNy4xNjNsLjU2LTEyLjQ4IDYtMy4zMzVjMy4zLTEuODMzIDYuMzM3LTMuMzM5IDYuNzUtMy4zNDYuNDEyLS4wMDcuNzUgNy42MjIuNzUgMTYuOTUxIDAgMTQuNzA3LS4yNzYgMTcuNjk4LTIuMDcxIDIyLjQ5Ny0yLjk0OSA3Ljg4MS05Ljg5IDE0Ljk2OC0yMS44MjIgMjIuMjhMMzkuNTgxIDMzNy42eiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTM0LjQ3IC0yNjMuNjY4KSIvPjwvc3ZnPg=="
+                sourceSize.width: 40
+                sourceSize.height: 40
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: 40
+            }
+
+            Text {
+                color: colorText
+                font.pointSize: 22
+                font.bold: true
+                text: "Boosted Battery Doctor"
+            }
         }
     }
 
@@ -121,14 +168,16 @@ Item {
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
         ColumnLayout {
-            width: scrollView.availableWidth
+            // Add padding/gutters (15px each side)
+            width: scrollView.availableWidth - 30
+            x: 15
             spacing: 20
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
                 color: {
-                    var base = connected ? colorGreen : colorRed;
+                    var base = connected ? colorPanel : colorPanel; // Always panel color
                     return statusMouseArea.pressed ? Qt.darker(base, 1.2) : base;
                 }
                 radius: 5
@@ -261,7 +310,7 @@ Item {
                             to: 1.0
                             value: {
                                 var v = modelData;
-                                var p = (v - 2.7) / (4.2 - 2.7);
+                                var p = (v - 3.0) / (3.95 - 3.0);
                                 return Math.max(0.0, Math.min(1.0, p));
                             }
                             
@@ -344,6 +393,9 @@ Item {
                 maxCellVolt = Number(tokens[9]);
                 maxCellVolt = Number(tokens[9]);
                 amps = Number(tokens[10]);
+                if (tokens.length > 11) {
+                    valBtnState = Number(tokens[11]);
+                }
             }
             else if (str.startsWith("data:cells ")) {
                 var tokens = str.split(" ");

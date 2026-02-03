@@ -27,6 +27,7 @@
 (define last-vesc-bms-tx-time 0)
 (define last-cell-req-time 0)
 (define last-ping-time 0)
+(define last-btn-time 0)
 
 ; --- UI State Variables ---
 (define val-soc 0)
@@ -39,6 +40,7 @@
 (define val-ver-minor 0)
 (define val-ver-patch 0)
 (define val-amps 0.0)
+(define val-btn-state 0)
 
 
 
@@ -186,11 +188,26 @@
           ; Store in buffer (int16 mV)
          ; Cell Num is 1-based, buffer is 0-based
          (if (and (>= cell-num 1) (<= cell-num 15)) {
-             (bufset-i16 cell-voltage-buffer (* (- cell-num 1) 2) volt)
+             (var idx (* (- cell-num 1) 2))
+             (var old-volt (bufget-i16 cell-voltage-buffer idx))
+             (var update t)
              
-             ; Update max cell count if needed
-             (if (> cell-num val-cell-count) (setq val-cell-count cell-num))
-             (setq res t) ; Success
+             (if (> old-volt 0) {
+                 (var diff (- volt old-volt))
+                 (if (< diff 0) (setq diff (* diff -1.0)))
+                 (if (> diff (/ old-volt 10.0)) {
+                     (setq update nil)
+                     (print (str-merge "Ignored outlier cell " (str-from-n cell-num) ": " (str-from-n volt "%.0f") " (prev: " (str-from-n old-volt) ")"))
+                 })
+             })
+             
+             (if update {
+                 (bufset-i16 cell-voltage-buffer idx volt)
+                 
+                 ; Update max cell count if needed
+                 (if (> cell-num val-cell-count) (setq val-cell-count cell-num))
+                 (setq res t) ; Success
+             })
          })
       })
       res
@@ -350,7 +367,8 @@
         (str-from-n val-soc) " " 
         (str-from-n val-cell-min "%.3f") " "
         (str-from-n val-cell-max "%.3f") " "
-        (str-from-n val-amps "%.2f")))
+        (str-from-n val-amps "%.2f") " "
+        (str-from-n val-btn-state)))
 })
 
 ; --- Process CAN Messages ---
@@ -522,6 +540,8 @@
             ((= btn-state 0x0C) (setq btn-str "Was Held >2s"))
             (t (setq btn-str (str-from-n btn-state "0x%02X")))
         )
+        (setq val-btn-state btn-state)
+        (setq last-btn-time (systime))
         (print (str-merge "  -> [BUTTON] " btn-str " (Pairing: " (str-from-n (bufget-u8 data 1)) ")"))
       })
     )
@@ -530,6 +550,8 @@
     ((= header 0x3B41A)
       (if (>= dlc 2) {
           (var state (bufget-u8 data 1))
+            (setq val-btn-state state)
+            (setq last-btn-time (systime))
             (print (str-merge "  -> [XRB BUTTON] State: " (str-from-n state "0x%02X")))
       })
     )
@@ -663,6 +685,13 @@
           (send-get-afe-cells)
           (setq last-cell-req-time (systime))
       })
+    })
+
+    ; Timeout Button State
+    (if (and (> val-btn-state 0) (!= val-btn-state 6)) {
+         (if (> (secs-since last-btn-time) 1.0) {
+             (setq val-btn-state 0)
+         })
     })
   })
 })
