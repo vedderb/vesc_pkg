@@ -4,10 +4,10 @@ import QtQuick.Layouts 1.3
 import Vedder.vesc.commands 1.0
 import Vedder.vesc.utility 1.0
 
-Item {
+Rectangle {
     id: container
     anchors.fill: parent
-    anchors.margins: 10
+    color: colorBg
 
     property Commands mCommands: VescIf.commands()
     property bool connected: false
@@ -37,11 +37,6 @@ Item {
     readonly property color colorText: "#ffffff"
     readonly property color colorLightText: "#aaaaaa"
 
-    Rectangle {
-        anchors.fill: parent
-        color: colorBg
-        z: -100 
-    }
     
     property var lastUpdateTime: new Date()
     property string timeSinceUpdate: "0"
@@ -130,6 +125,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.margins: 10
         height: 60
 
         RowLayout {
@@ -164,13 +160,14 @@ Item {
         clip: true
 
         // Ensure the content fills the width
+        contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.horizontal.interactive: false
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
         ColumnLayout {
-            // Add padding/gutters (15px each side)
-            width: scrollView.availableWidth - 30
-            x: 15
+            width: scrollView.availableWidth - 20
+            x: 10
             spacing: 20
 
             Rectangle {
@@ -228,6 +225,7 @@ Item {
             Text {
                 visible: !connected
                 Layout.fillWidth: true
+                Layout.maximumWidth: parent.width // Force wrap
                 text: "Battery is either disconnected or in deep sleep. Press the power button to wake and connect automatically.\n\nPlease ensure the baud rate of all VESC devices are set to 250k."
                 color: colorLightText
                 font.pointSize: 14
@@ -363,6 +361,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.margins: 10
         height: 30 // Increased height for better spacing
 
         Text {
