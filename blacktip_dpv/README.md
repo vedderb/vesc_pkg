@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## License
 
@@ -38,13 +38,12 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 
 ---
 
-## What's New in Version 1.1.0
+## What's New in Version 1.2.0
 
-Small usability improvements and bugfixes after some in-water testing:
+New features and critical bug fix:
 
-- the hold period for speed up / speed down while in Smart Cruise mode has been reduced from 1 second to 0.5 seconds to make it easier to change speed
-- fixed a bug resulting in occasional speed changes when resetting Smart Cruise
-- fixed a bug resulting in 'sticky' jump speeds
+- **Startup Sound**: Added a distinctive musical theme that plays on power-up. When battery is full (>75%, 3 bars), only the startup sound plays; otherwise it's followed by the battery level beeps
+- **Critical Smart Cruise Fix**: Fixed a bug where the motor could stop unexpectedly while in Smart Cruise mode with the timer bar still counting down. This occurred when tapping the trigger to reset the timer, due to a missing watchdog reset in the click-counting state
 
 ## Features
 
