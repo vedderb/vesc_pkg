@@ -994,6 +994,11 @@
     (loopwhile (= sw_state STATE_COUNTING_CLICKS) {
         (sleep SLEEP_STATE_MACHINE)
 
+        ; Keep motor running while in Smart Cruise mode
+        (if (> smart_cruise SMART_CRUISE_OFF)
+            (timeout-reset)
+        )
+
         ; Released
         (if (= sw_pressed 0) {
             (setvar 'disp_timer_start 0) ; Stop Display in case its running
