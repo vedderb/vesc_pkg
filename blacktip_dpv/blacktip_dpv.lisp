@@ -994,6 +994,11 @@
     (loopwhile (= sw_state STATE_COUNTING_CLICKS) {
         (sleep SLEEP_STATE_MACHINE)
 
+        ; Keep motor running while in Smart Cruise mode
+        (if (> smart_cruise SMART_CRUISE_OFF)
+            (timeout-reset)
+        )
+
         ; Released
         (if (= sw_pressed 0) {
             (setvar 'disp_timer_start 0) ; Stop Display in case its running
@@ -1524,6 +1529,61 @@
 
 (move-to-flash warbler)
 
+; ***** Imperial March Theme *****
+; Plays the first ~9 bars of the Imperial March on startup
+; Note frequencies in Hz (approximations for beeper):
+; G4=392, Eb4=311, Bb4=466, D5=587, Gb4=370
+(defun play_imperial_march ()
+{
+    (if (> beeps_vol 0) { ; Only play if volume is not zero
+        ; Bar 1-2: G G G Eb-Bb G
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        
+        ; Bar 3-4: Eb-Bb G (hold)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.7 beeps_vol)  ; G half note
+        (sleep 0.74)
+        
+        ; Bar 5-6: D D D Eb-Bb Gb
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
+        (sleep 0.37)
+        
+        ; Bar 7-8: Eb-Bb G (hold)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.7 beeps_vol)  ; G half note
+        (sleep 0.74)
+    })
+})
+
+(move-to-flash play_imperial_march)
+
 ; ***** Program that beeps trigger clicks
 (defun start_beeper_loop ()
 {
@@ -1657,7 +1717,17 @@
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 
     (setvar 'disp_num 15) ; display startup screen, change bytes if you want a different one
-    (setvar 'batt_disp_timer_start (systime)) ; turns battery display on for power on.
+    
+    ; Play Imperial March on startup in background thread to avoid blocking
+    (spawn THREAD_STACK_CLICK_BEEP play_imperial_march)
+    
+    ; Check battery level and only play battery indication if not full (3 bars)
+    ; Battery is considered "full" at > 0.75 (matching the 3-bar threshold)
+    ; Allow 6+ seconds for battery to stabilize and Imperial March to finish before beeps
+    (if (> (get_battery_level) 0.75)
+        (setvar 'batt_disp_timer_start 0) ; Skip battery beeps if battery is full
+        (setvar 'batt_disp_timer_start (systime)) ; Battery beeps after stabilization period
+    )
 
     (puts "Startup complete")
 })
