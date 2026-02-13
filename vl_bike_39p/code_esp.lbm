@@ -189,8 +189,6 @@
         (pwm-start (read-setting 'ind-freq) 0.0 1 pin-ind-r)
 
         (tca9535-init 0x20 'rate-100k 21 20)
-
-        ; Set io-0 as output high
         (tca9535-set-dir '(17 out))
         (tca9535-write-pins '(17 0))
 

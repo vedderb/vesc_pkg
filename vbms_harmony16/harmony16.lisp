@@ -413,7 +413,7 @@ loopwhile-thd
 
 (defun psw-off () {
         (comm-send-event 1)
-        (sleep 0.5)
+        (sleep 1.5)
         (bms-set-pchg 0)
         (bms-set-out 0)
         (setq psw-state false)
