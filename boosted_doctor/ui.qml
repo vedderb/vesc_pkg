@@ -144,7 +144,7 @@ Rectangle {
                 color: colorText
                 font.pointSize: 22
                 font.bold: true
-                text: "Boosted Battery Doctor"
+                text: "Boosted Doctor"
             }
         }
     }
