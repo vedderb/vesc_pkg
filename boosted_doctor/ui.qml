@@ -75,7 +75,7 @@ Rectangle {
     function getChargeStateString() {
         if (charger === 1) {
             if (amps > 0.2) return "Charging";
-            if (amps >= 0.0 && amps <= 0.2) return "Balancing";
+            if (amps >= 0.0 && amps <= 0.2) return "Balancing - Keep Charger Connected";
             return "Plugged In / Idle"; //This should theoretically not show up
         } else {
             if (amps > 0.2) return "Regen";
