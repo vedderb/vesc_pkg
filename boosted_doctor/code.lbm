@@ -502,7 +502,17 @@
                   (setq bat-type-enum BAT_TYPE_UNKNOWN)
               )
           )
+          
+          ; Assign the detected battery type
           (setq val-bat-type bat-type-enum)
+          
+          ; --- NEW CODE: Update cell count based on battery type ---
+          (cond
+              ((= bat-type-enum BAT_TYPE_XRB) (setq val-cell-count 13))
+              ((or (= bat-type-enum BAT_TYPE_SRB) (= bat-type-enum BAT_TYPE_REV)) (setq val-cell-count 12))
+          )
+          ; ---------------------------------------------------------
+
           (debug-print (str-merge "  -> [ID] Enum: " (str-from-n bat-type-enum)))
       })
     )
