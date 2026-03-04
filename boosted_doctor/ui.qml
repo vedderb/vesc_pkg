@@ -20,6 +20,11 @@ Rectangle {
     property int verMinor: 0
     property int verPatch: 0
     property string fwVersion: verMajor + "." + verMinor + "." + verPatch
+    
+    
+    property int bmsSerial: 0
+    property int charger: 0
+
     readonly property int commGetStatus: 1
     readonly property int commGetCells: 2
     readonly property int commPfailReset: 3
@@ -37,7 +42,6 @@ Rectangle {
     readonly property color colorText: "#ffffff"
     readonly property color colorLightText: "#aaaaaa"
 
-    
     property var lastUpdateTime: new Date()
     property string timeSinceUpdate: "0"
     property string statusText: "Status: connecting..."
@@ -65,6 +69,19 @@ Rectangle {
         if (s === 0x0B) return "was held <2s"
         if (s === 0x0C) return "was held >2s"
         return "0x" + s.toString(16).toUpperCase()
+    }
+
+    // Charge State Helper
+    function getChargeStateString() {
+        if (charger === 1) {
+            if (amps > 0.2) return "Charging";
+            if (amps >= 0.0 && amps <= 0.2) return "Balancing";
+            return "Plugged In / Idle"; //This should theoretically not show up
+        } else {
+            if (amps > 0.2) return "Regen";
+            if (amps < -0.2) return "Discharging";
+            return "Idle"; //This should only show when abttery is at rest
+        }
     }
 
     Timer {
@@ -159,7 +176,6 @@ Rectangle {
         anchors.margins: 0
         clip: true
 
-        // Ensure the content fills the width
         contentWidth: availableWidth
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ScrollBar.horizontal.interactive: false
@@ -168,13 +184,13 @@ Rectangle {
         ColumnLayout {
             width: scrollView.availableWidth - 20
             x: 10
-            spacing: 20
+            spacing: 10
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
                 color: {
-                    var base = connected ? colorPanel : colorPanel; // Always panel color
+                    var base = connected ? colorPanel : colorPanel;
                     return statusMouseArea.pressed ? Qt.darker(base, 1.2) : base;
                 }
                 radius: 5
@@ -206,10 +222,10 @@ Rectangle {
                 Menu {
                     id: statusMenu
                     y: parent.height
-                    width: parent.width // Match width of status bar
+                    width: parent.width
                     
                     MenuItem {
-                        text: "Clear RLOD"
+                        text: "Clear Red Light Of Death"
                         onTriggered: {
                             var buffer = new ArrayBuffer(1);
                             var dv = new DataView(buffer);
@@ -225,7 +241,7 @@ Rectangle {
             Text {
                 visible: !connected
                 Layout.fillWidth: true
-                Layout.maximumWidth: parent.width // Force wrap
+                Layout.maximumWidth: parent.width
                 text: "Battery is either disconnected or in deep sleep. Press the power button to wake and connect automatically.\n\nPlease ensure the baud rate of all VESC devices are set to 250k."
                 color: colorLightText
                 font.pointSize: 14
@@ -269,15 +285,15 @@ Rectangle {
                     font.pointSize: 16
                 }
 
-
                 Text {
                     text: "State:"
                     color: colorLightText
                     font.pointSize: 16
                 }
+                
+                // --- APPLYING THE NEW HELPER FUNCTION HERE ---
                 Text {
-                    text: (amps > 0.1 ? "Charging" : (amps < -0.1 ? "Discharging" : "Idle")) + 
-                          "  |  " + Math.abs(amps).toFixed(2) + "A"
+                    text: getChargeStateString() + "  |  " + Math.abs(amps).toFixed(2) + "A"
                     color: colorText 
                     font.pointSize: 16
                 }
@@ -285,7 +301,7 @@ Rectangle {
 
             GridLayout {
                 visible: connected
-                columns: 2
+                columns: 1
                 Layout.fillWidth: true
                 rowSpacing: 10
                 columnSpacing: 10
@@ -293,14 +309,19 @@ Rectangle {
                 Repeater {
                     model: cellVoltages
                     delegate: ColumnLayout {
+                        
+                        Layout.row: Math.floor(index / 1)
+                        Layout.column: index % 1
+                        
+
                         Layout.fillWidth: true
                         spacing: 2
                         
-                        Text {
-                            text: "Cell " + (index + 1)
-                            color: colorLightText
-                            font.pointSize: 12
-                        }
+                        // Text {
+                        //     text: "Cell " + (index + 1)
+                        //     color: colorLightText
+                        //     font.pointSize: 12
+                        // }
 
                         ProgressBar {
                             Layout.fillWidth: true
@@ -337,7 +358,7 @@ Rectangle {
                                 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: modelData.toFixed(3) + "V"
+                                    text: "Cell " + (index + 1) + "   " + modelData.toFixed(3) + "V"
                                     color: colorText
                                     font.pixelSize: 12
                                     font.bold: true
@@ -350,7 +371,6 @@ Rectangle {
                 }
             }
 
-            // Spacer to ensure content isn't flush with bottom if short
             Item { height: 20 }
         }
     }
@@ -362,7 +382,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: 10
-        height: 30 // Increased height for better spacing
+        height: 30 
 
         Text {
             anchors.centerIn: parent
@@ -380,30 +400,34 @@ Rectangle {
             if (str.startsWith("data:status ")) {
                 lastUpdateTime = new Date();
                 var tokens = str.split(" ");
-                // Order: <connected> <type> <vMaj> <vMin> <vPatch> <volt> <soc> <min> <max> <amps>
+                
+                // --- FIXED PARSING INDICES ---
+                // Expected Order from Lisp: 
+                // [0]data:status [1]<connected> [2]<type> [3]<vMaj> [4]<vMin> [5]<vPatch> 
+                // [6]<bmsSerial> [7]<volt> [8]<soc> [9]<min> [10]<max> [11]<amps> [12]<charger> [13]<btnState>
+                
                 connected = Number(tokens[1]) > 0;
                 batType = Number(tokens[2]);
                 verMajor = Number(tokens[3]);
                 verMinor = Number(tokens[4]);
                 verPatch = Number(tokens[5]);
-                packVolt = Number(tokens[6]);
-                soc = Number(tokens[7]);
-                minCellVolt = Number(tokens[8]);
-                maxCellVolt = Number(tokens[9]);
-                maxCellVolt = Number(tokens[9]);
-                amps = Number(tokens[10]);
-                if (tokens.length > 11) {
-                    valBtnState = Number(tokens[11]);
+                bmsSerial = Number(tokens[6]);
+                packVolt = Number(tokens[7]);
+                soc = Number(tokens[8]);
+                minCellVolt = Number(tokens[9]);
+                maxCellVolt = Number(tokens[10]);
+                amps = Number(tokens[11]);
+                charger = Number(tokens[12]);
+                
+                if (tokens.length > 13) {
+                    valBtnState = Number(tokens[13]);
                 }
             }
             else if (str.startsWith("data:cells ")) {
                 var tokens = str.split(" ");
-                // data:cells v1 v2 ...
-                // Slice off the first token ("data:cells")
                 var newCells = [];
                 for (var i = 1; i < tokens.length; i++) {
                     if (tokens[i].length > 0) {
-                        // incoming is mV integer, convert to Volts
                         newCells.push(Number(tokens[i]) / 1000.0);
                     }
                 }
