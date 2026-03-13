@@ -8,6 +8,7 @@ Rectangle {
     id: container
     anchors.fill: parent
     color: colorBg
+    property string tabTitle: "Boosted Doctor" 
 
     property Commands mCommands: VescIf.commands()
     property bool connected: false
@@ -209,7 +210,7 @@ Rectangle {
                     width: parent.width // Match width of status bar
                     
                     MenuItem {
-                        text: "Clear RLOD"
+                        text: "Clear Red Light of Death"
                         onTriggered: {
                             var buffer = new ArrayBuffer(1);
                             var dv = new DataView(buffer);
