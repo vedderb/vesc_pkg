@@ -17,4 +17,5 @@ $RECYCLE.BIN/
 *.swo
 
 # Build artifacts
+*.code-workspace
 *.vescpkg
