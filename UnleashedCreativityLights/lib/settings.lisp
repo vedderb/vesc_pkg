@@ -1,7 +1,7 @@
 ;@const-symbol-strings
 @const-start
 ; Magic header
-(def magic-header 543i32)
+(def magic-header 544i32)
 ; Persistent settings
 
 ; Format: (label . (offset type default-value current-value))
@@ -9,7 +9,7 @@
     (magic                     . (0 i magic-header))
     (crc                       . (1 i 61381))
     (can-id                    . (2  i -1))  ; if can-id < 0 then it will scan for one and pick the first.
-    (accept-tos                . (3 b 0))
+    (reserved-slot-3           . (3 b 0))
     (led-enabled               . (4 b 1))
     (reserved-slot-5               . (5 b 2))
     (led-on                    . (6 b 1))
@@ -85,6 +85,58 @@
     (node-role                 . (76 i 1))   ; 0=master, 1=slave
     (master-can-id             . (77 i -1))  ; slave: who I obey
     (peers-cache               . (78 i 0))   ; optional: bump when peer list changes (UI refresh hint)
+))
+(def ui-config-keys '(
+    magic
+    led-enabled
+    led-on
+    led-highbeam-on
+    led-mode
+    led-mode-idle
+    led-mode-status
+    led-mode-startup
+    led-mall-grab-enabled
+    led-brake-light-enabled
+    led-brake-light-min-amps
+    idle-timeout
+    idle-timeout-shutoff
+    led-brightness
+    led-brightness-highbeam
+    led-brightness-idle
+    led-brightness-status
+    led-status-pin
+    led-status-num
+    led-status-type
+    led-status-reversed
+    led-front-pin
+    led-front-num
+    led-front-type
+    led-front-reversed
+    led-front-strip-type
+    led-rear-pin
+    led-rear-num
+    led-rear-type
+    led-rear-reversed
+    led-rear-strip-type
+    led-loop-delay
+    can-loop-delay
+    led-max-blend-count
+    led-startup-timeout
+    led-dim-on-highbeam-ratio
+    led-status-strip-type
+    led-fix
+    led-front-highbeam-pin
+    led-rear-highbeam-pin
+    led-max-brightness
+    cell-type
+    led-update-not-running
+    series-cells
+    front-target-id
+    rear-target-id
+    status-target-id
+    node-role
+    master-can-id
+    peers-cache
 ))
 (def runtime-vals)
 (setq runtime-vals (mklist (length eeprom-addrs) -1))
@@ -400,33 +452,21 @@
     (save-config)
 })
 
-(defun accept-tos() {
-    (atomic {
-        (set-config 'accept-tos 1)
-        (write-val-eeprom 'accept-tos 1)
-        (write-val-eeprom 'crc (config-crc cfg-len))
-    })
-})
-
 (defun send-config () {
 
     (var config-string "settings ")
 
-    (loopforeach setting eeprom-addrs {
-        (let
-            ((name (first setting)) (type (third setting))) {
-                (var value (read-val-eeprom name))
-
-                (setq config-string
-                    (str-merge config-string
-                        (cond
-                            ((eq type 'b) (str-from-n value "%d "))
-                            ((eq type 'i) (str-from-n value "%d "))
-                            ((eq type 'f) (str-from-n value "%.2f "))
-                        )
-                    )
+    (loopforeach name ui-config-keys {
+        (var type (second (assoc eeprom-addrs name)))
+        (var value (read-val-eeprom name))
+        (setq config-string
+            (str-merge config-string
+                (cond
+                    ((eq type 'b) (str-from-n value "%d "))
+                    ((eq type 'i) (str-from-n value "%d "))
+                    ((eq type 'f) (str-from-n value "%.2f "))
                 )
-            }
+            )
         )
     })
 

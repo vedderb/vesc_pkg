@@ -65,7 +65,7 @@
 
 (def ucl-config-spec '(
   ;; addr 3..75 (minus anything you choose to exclude)
-  (3  accept-tos                UCL_T_BOOL)
+  (3  reserved-slot-3           UCL_T_BOOL)
   (4  led-enabled               UCL_T_BOOL)
   (5  reserved-slot-5               UCL_T_BOOL)
   (6  led-on                    UCL_T_BOOL)
@@ -212,6 +212,7 @@
 (defun ucl-config-push-eligible (name) {
   (and (not-eq name 'magic)
        (not-eq name 'crc)
+       (not-eq name 'reserved-slot-3)
        (not-eq name 'reserved-slot-5)
        (not-eq name 'reserved-slot-38)
        (not-eq name 'reserved-slot-39)

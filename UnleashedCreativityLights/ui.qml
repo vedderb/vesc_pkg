@@ -68,7 +68,6 @@ Item {
     property int remainingTime: 30  // Initialize with the full 30 seconds
     property Commands mCommands: VescIf.commands()
     property int floatAccessoriesMagic: 102
-    property bool acceptTOS: false
     property int lastStatusTime: 0
     property bool statusTimeout: false
     property bool readConfig: false
@@ -78,6 +77,10 @@ Item {
 	property int uclEffectiveRole: 1          // 0 master, 1 slave
 	property int refloatFwdConnected: 0       // 1 if forwarded frames are fresh
 	property real refloatFwdAge: 9999         // seconds since last forwarded frame
+    property real cfgLedBrightness: 0.6
+    property real cfgLedBrightnessHighbeam: 0.5
+    property real cfgLedBrightnessIdle: 0.3
+    property real cfgLedBrightnessStatus: 0.6
     property int devBuildMagic: -1
     property var targetCanOptions: [ { text: "SELF (-1)", value: -1 } ]
 
@@ -124,83 +127,6 @@ Item {
         ProgressBar {
             anchors.fill: parent
             indeterminate: visible
-        }
-    }
-
-    Popup {
-        id: termsPopup
-        modal: true
-        focus: true
-        visible: false
-        width: parent.width * 0.8
-        height: parent.height * 0.6
-        anchors.centerIn: parent
-
-        background: Rectangle {
-            color: "black"
-            radius: 10
-        }
-
-        contentItem: Item {
-            anchors.fill: parent
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 20
-                spacing: 10
-                ScrollView {
-                    clip: true
-                    width: parent.width
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                    TextArea {
-                        id: termsText
-                        textFormat: Text.RichText
-                        text: "<p>WARNING NOTICE:</p>" +
-                            "<p>This package is provided for interoperability, diagnostics, repair, and customization of supported lighting accessories.</p>" +
-                            "<p>Use at your own risk. You are responsible for safe installation, legal compliance in your region, and any changes to vehicle behavior.</p>" +
-                            "<p>By continuing, you confirm you understand these conditions and accept responsibility for operation and testing.</p>"
-                        color: "white"
-                        wrapMode: Text.Wrap
-                        onLinkActivated: function(url) {
-                            Qt.openUrlExternally(url)
-                        }
-                    }
-                }
-
-                CheckBox {
-                    id: acceptCheckBox
-                    text: "I have read and accept the Terms of Service."
-                    checked: false
-                    onCheckedChanged: {
-                        acceptButton.enabled = checked
-                    }
-                }
-
-                RowLayout {
-                    Layout.alignment: Qt.AlignRight
-                    spacing: 10
-
-                    Button {
-                        text: "Cancel"
-                        onClicked: {
-                            termsPopup.close()
-                            VescIf.emitMessageDialog("UnleashedCreativity Lights", "You must accept the Terms of Service to continue.", false, false)
-                        }
-                    }
-
-                    Button {
-                        id: acceptButton
-                        text: "Accept"
-                        enabled: acceptCheckBox.checked
-                        onClicked: {
-                            acceptTOS = true
-                            termsPopup.close()
-                            sendCode(String.fromCharCode(floatAccessoriesMagic) + String.fromCharCode(1) + "(accept-tos)")
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -372,7 +298,7 @@ Item {
                                     onLoaded: {
                                         item.from = 0.0
                                         item.to = getLedMaxBrightnessCap()
-                                        item.value = 0.6
+                                        item.value = cfgLedBrightness
                                         item.asPercent = true
                                         item.valueChanged.connect(function() {
                                                 handleDebouncedChange()
@@ -392,7 +318,7 @@ Item {
                                     onLoaded: {
                                         item.from = 0.0
                                         item.to = getLedMaxBrightnessCap()
-                                        item.value = 0.3
+                                        item.value = cfgLedBrightnessIdle
                                         item.asPercent = true
                                         item.valueChanged.connect(function() {
                                                 handleDebouncedChange()
@@ -417,7 +343,7 @@ Item {
                                         onLoaded: {
                                             item.from = 0.0
                                             item.to = getLedMaxBrightnessCap()
-                                            item.value = 0.6
+                                            item.value = cfgLedBrightnessStatus
                                             item.asPercent = true
                                             item.valueChanged.connect(function() {
                                                     handleDebouncedChange()
@@ -447,7 +373,7 @@ Item {
                                     onLoaded: {
                                         item.from = 0.0
                                         item.to = getLedMaxBrightnessCap()
-                                        item.value = 0.5
+                                        item.value = cfgLedBrightnessHighbeam
                                         item.asPercent = true
                                         item.valueChanged.connect(function() {
                                                 handleDebouncedChange()
@@ -1516,7 +1442,7 @@ Item {
                             "</ul>" +
                             "<p>Website: <a href='https://www.UnleashedCreativity.com.au'>https://www.UnleashedCreativity.com.au</a></p>" +
                             "<p><b>Thanks:</b> Built on the original Float Accessories work by Relys: <a href='https://github.com/Relys/vesc_pkg/tree/float-accessories'>https://github.com/Relys/vesc_pkg/tree/float-accessories</a></p>" +
-                            "<p><b>BUILD INFO</b><br/>Version 2026.03<br/></p>"
+                            "<p><b>BUILD INFO</b><br/>Version 2026.04<br/></p>"
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Utility.getAppHexColor("lightText")
@@ -1819,10 +1745,10 @@ Item {
         return [
             1,
             1,
-            parseFloat(ledBrightnessLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessHighbeamLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessIdleLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessStatusLoader.item.value).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessLoader, cfgLedBrightness)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessHighbeamLoader, cfgLedBrightnessHighbeam)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessIdleLoader, cfgLedBrightnessIdle)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessStatusLoader, cfgLedBrightnessStatus)).toFixed(2),
             0
         ].join(" ");
     }
@@ -1851,10 +1777,10 @@ Item {
             parseFloat(ledBrakeLightMinAmps.value).toFixed(2),
             idleTimeout.value,
             idleTimeoutShutoff.value,
-            parseFloat(ledBrightnessLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessHighbeamLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessIdleLoader.item.value).toFixed(2),
-            parseFloat(ledBrightnessStatusLoader.item.value).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessLoader, cfgLedBrightness)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessHighbeamLoader, cfgLedBrightnessHighbeam)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessIdleLoader, cfgLedBrightnessIdle)).toFixed(2),
+            parseFloat(getSliderValue(ledBrightnessStatusLoader, cfgLedBrightnessStatus)).toFixed(2),
             ledStatusPin.value,
             ledStatusNum.value,
             ledStatusType.currentIndex,
@@ -1889,7 +1815,7 @@ Item {
             ledFrontHighbeamPin.value,
             ledRearHighbeamPin.value,
             128,
-            parseFloat(ledMaxBrightnessLoader.item.value).toFixed(2),
+            parseFloat(getSliderValue(ledMaxBrightnessLoader, 0.8)).toFixed(2),
             1,
             cellType.value,
             ledUpdateNotRunning.checked * 1,
@@ -1930,6 +1856,35 @@ Item {
         mCommands.sendCustomAppData(str + '\0')
     }
 
+    function getSliderValue(loader, fallbackValue) {
+        if (loader && loader.item) {
+            return loader.item.value
+        }
+        return fallbackValue
+    }
+
+    function syncBrightnessSliders() {
+        if (ledBrightnessLoader && ledBrightnessLoader.item) {
+            ledBrightnessLoader.item.value = cfgLedBrightness
+        }
+        if (ledBrightnessHighbeamLoader && ledBrightnessHighbeamLoader.item) {
+            ledBrightnessHighbeamLoader.item.value = cfgLedBrightnessHighbeam
+        }
+        if (ledBrightnessIdleLoader && ledBrightnessIdleLoader.item) {
+            ledBrightnessIdleLoader.item.value = cfgLedBrightnessIdle
+        }
+        if (ledBrightnessStatusLoader && ledBrightnessStatusLoader.item) {
+            ledBrightnessStatusLoader.item.value = cfgLedBrightnessStatus
+        }
+    }
+
+    function parseConfigToken(tokens, idx) {
+        if (idx < tokens.length && tokens[idx] !== "") {
+            return Number(tokens[idx])
+        }
+        return 0
+    }
+
 
     Connections {
         target: mCommands
@@ -1948,65 +1903,60 @@ Item {
             if (str.startsWith("settings")) {
                 var firstConfigLoad = !readConfig
                 var tokens = str.split(" ")
-                if (tokens.length > 1 && tokens[1] !== "") {
-                    devBuildMagic = Number(tokens[1])
-                }
-                acceptTOS = (Number(tokens[4])) ? true : false
-                ledEnabled.checked = true
-                ledOn.checked = Number(tokens[7])
-                ledHighbeamOn.checked = Number(tokens[8])
-                ledMode.currentIndex = Number(tokens[9])
-                ledModeIdle.currentIndex = Number(tokens[10])
-                ledModeStatus.currentIndex = Number(tokens[11])
-                ledModeStartup.currentIndex = Number(tokens[12])
-                ledMallGrabEnabled.checked = Number(tokens[13])
-                ledBrakeLightEnabled.checked = Number(tokens[14])
-                ledBrakeLightMinAmps.value = Number(tokens[15])
-                idleTimeout.value = Number(tokens[16])
-                idleTimeoutShutoff.value = Number(tokens[17])
-                ledBrightnessLoader.item.value = Number(tokens[18])
-                ledBrightnessHighbeamLoader.item.value = Number(tokens[19])
-                ledBrightnessIdleLoader.item.value = Number(tokens[20])
-                ledBrightnessStatusLoader.item.value = Number(tokens[21])
-                ledStatusPin.value = Number(tokens[22])
-                ledStatusNum.value = Number(tokens[23])
-                ledStatusType.currentIndex = Number(tokens[24])
-                ledStatusReversed.checked = Number(tokens[25])
-                ledFrontPin.value = Number(tokens[26])
-                ledFrontNum.value = Number(tokens[27])
-                ledFrontType.currentIndex = Number(tokens[28])
-                ledFrontReversed.checked = Number(tokens[29])
-                ledFrontStripType.currentIndex = Number(tokens[30])
-                ledRearPin.value = Number(tokens[31])
-                ledRearNum.value = Number(tokens[32])
-                ledRearType.currentIndex = Number(tokens[33])
-                ledRearReversed.checked = Number(tokens[34])
-                ledRearStripType.currentIndex = Number(tokens[35])
-                // Reserved compatibility slots 35-37 are intentionally ignored.
-
-                //Reserved compatibility slots stay in the protocol to avoid shifting persisted config indices.
-                                                                                                                                                ledLoopDelay.value = Number(tokens[53])
-                canLoopDelay.value = Number(tokens[55])
-                ledMaxBlendCount.value = Number(tokens[56])
-                ledStartupTimeout.value = Number(tokens[57])
-                ledDimOnHighbeamRatioLoader.item.value = Number(tokens[58])
-                ledStatusStripType.currentIndex = Number(tokens[60])
-                ledFix.value = Number(tokens[62])
-                ledShowBatteryCharging.checked = false
-                ledFrontHighbeamPin.value = Number(tokens[64])
-                ledRearHighbeamPin.value = Number(tokens[65])
-                ledMaxBrightnessLoader.item.value = Number(tokens[67])
+                var i = 1
+                devBuildMagic = parseConfigToken(tokens, i); i++
+                ledEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                ledOn.checked = parseConfigToken(tokens, i) > 0; i++
+                ledHighbeamOn.checked = parseConfigToken(tokens, i) > 0; i++
+                ledMode.currentIndex = parseConfigToken(tokens, i); i++
+                ledModeIdle.currentIndex = parseConfigToken(tokens, i); i++
+                ledModeStatus.currentIndex = parseConfigToken(tokens, i); i++
+                ledModeStartup.currentIndex = parseConfigToken(tokens, i); i++
+                ledMallGrabEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                ledBrakeLightEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                ledBrakeLightMinAmps.value = parseConfigToken(tokens, i); i++
+                idleTimeout.value = parseConfigToken(tokens, i); i++
+                idleTimeoutShutoff.value = parseConfigToken(tokens, i); i++
+                cfgLedBrightness = parseConfigToken(tokens, i); i++
+                cfgLedBrightnessHighbeam = parseConfigToken(tokens, i); i++
+                cfgLedBrightnessIdle = parseConfigToken(tokens, i); i++
+                cfgLedBrightnessStatus = parseConfigToken(tokens, i); i++
+                ledStatusPin.value = parseConfigToken(tokens, i); i++
+                ledStatusNum.value = parseConfigToken(tokens, i); i++
+                ledStatusType.currentIndex = parseConfigToken(tokens, i); i++
+                ledStatusReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                ledFrontPin.value = parseConfigToken(tokens, i); i++
+                ledFrontNum.value = parseConfigToken(tokens, i); i++
+                ledFrontType.currentIndex = parseConfigToken(tokens, i); i++
+                ledFrontReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                ledFrontStripType.currentIndex = parseConfigToken(tokens, i); i++
+                ledRearPin.value = parseConfigToken(tokens, i); i++
+                ledRearNum.value = parseConfigToken(tokens, i); i++
+                ledRearType.currentIndex = parseConfigToken(tokens, i); i++
+                ledRearReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                ledRearStripType.currentIndex = parseConfigToken(tokens, i); i++
+                ledLoopDelay.value = parseConfigToken(tokens, i); i++
+                canLoopDelay.value = parseConfigToken(tokens, i); i++
+                ledMaxBlendCount.value = parseConfigToken(tokens, i); i++
+                ledStartupTimeout.value = parseConfigToken(tokens, i); i++
+                ledDimOnHighbeamRatioLoader.item.value = parseConfigToken(tokens, i); i++
+                ledStatusStripType.currentIndex = parseConfigToken(tokens, i); i++
+                ledFix.value = parseConfigToken(tokens, i); i++
+                ledFrontHighbeamPin.value = parseConfigToken(tokens, i); i++
+                ledRearHighbeamPin.value = parseConfigToken(tokens, i); i++
+                ledMaxBrightnessLoader.item.value = parseConfigToken(tokens, i); i++
                 applyLedControlBrightnessCap()
-                cellType.currentIndex = Number(tokens[69])
-                ledUpdateNotRunning.checked = Number(tokens[70])
-                seriesCells.value = Number(tokens[72])
-                frontTargetID.value = Number(tokens[74])
-                rearTargetID.value = Number(tokens[75])
-                statusTargetID.value = Number(tokens[76])
-                nodeRole.value = Number(tokens[77])
+                cellType.currentIndex = parseConfigToken(tokens, i); i++
+                ledUpdateNotRunning.checked = parseConfigToken(tokens, i) > 0; i++
+                seriesCells.value = parseConfigToken(tokens, i); i++
+                frontTargetID.value = parseConfigToken(tokens, i); i++
+                rearTargetID.value = parseConfigToken(tokens, i); i++
+                statusTargetID.value = parseConfigToken(tokens, i); i++
+                nodeRole.value = parseConfigToken(tokens, i); i++
                 uclEffectiveRole = nodeRole.value
-				masterCanID.value = Number(tokens[78])
-				peersCache.value = Number(tokens[79])
+				masterCanID.value = parseConfigToken(tokens, i); i++
+				peersCache.value = parseConfigToken(tokens, i); i++
+                syncBrightnessSliders()
                 refreshTargetCanOptions([frontTargetID.value, rearTargetID.value, statusTargetID.value])
 
                 readConfig = true;
@@ -2065,10 +2015,11 @@ Item {
                 var tokens = str.split(" ")
                 ledOn.checked = Number(tokens[1])
                 ledHighbeamOn.checked = Number(tokens[2])
-                ledBrightnessLoader.item.value = Number(tokens[3])
-                ledBrightnessHighbeamLoader.item.value = parseFloat(Number(tokens[4]))
-                ledBrightnessIdleLoader.item.value = Number(tokens[5])
-                ledBrightnessStatusLoader.item.value = Number(tokens[6])
+                cfgLedBrightness = Number(tokens[3])
+                cfgLedBrightnessHighbeam = parseFloat(Number(tokens[4]))
+                cfgLedBrightnessIdle = Number(tokens[5])
+                cfgLedBrightnessStatus = Number(tokens[6])
+                syncBrightnessSliders()
                 applyLedControlBrightnessCap()
             } else if (str.startsWith("status Settings Read")) {
                 sendCode(String.fromCharCode(floatAccessoriesMagic) + String.fromCharCode(1) + "(send-control)")
