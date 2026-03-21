@@ -27,6 +27,7 @@
         <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
         <file>lib_bq27441/bq27441.vescpkg</file>
         <file>boosted_doctor/boosted_doctor.vescpkg</file>
+        <file>dash16/dash16_test.vescpkg</file>
    </qresource>
 </RCC>
 
