@@ -12,7 +12,6 @@
 (def led-mode)
 (def led-mode-idle)
 (def led-mode-status)
-(def led-mode-startup)
 (def led-mall-grab-enabled)
 (def led-brake-light-enabled)
 (def led-brake-light-min-amps)
@@ -39,7 +38,6 @@
 (def led-update-not-running)
 
 (def led-max-blend-count 0.0)  ; how many times to blend before new led buffer
-(def led-startup-timeout)
 (def led-dim-on-highbeam-ratio 0.0)
 (def led-status-strip-type)
 ;runtime vars
@@ -166,7 +164,6 @@
     (setq led-mode (get-config 'led-mode))
     (setq led-mode-idle (get-config 'led-mode-idle))
     (setq led-mode-status (get-config 'led-mode-status))
-    (setq led-mode-startup (get-config 'led-mode-startup))
     (setq led-mall-grab-enabled (get-config 'led-mall-grab-enabled))
     (setq led-brake-light-enabled (get-config 'led-brake-light-enabled))
     (setq led-brake-light-min-amps (get-config 'led-brake-light-min-amps))
@@ -194,7 +191,6 @@
     (setq led-rear-target-id (get-config 'rear-target-id))
     (setq led-status-target-id (get-config 'status-target-id))
     (setq led-max-blend-count (get-config 'led-max-blend-count))
-    (setq led-startup-timeout (get-config 'led-startup-timeout))
     (setq led-dim-on-highbeam-ratio (get-config 'led-dim-on-highbeam-ratio))
     (setq led-status-strip-type (get-config 'led-status-strip-type))
     (setq led-loop-delay (get-config 'led-loop-delay))
@@ -951,7 +947,7 @@
                 })
                 ((or (= current-led-mode 0)
                      (and (> can-last-activity-time-sec can-loss-fallback-timeout)
-                          (> (secs-since 0) led-startup-timeout))
+                          (running-state))
                      (and (running-state) (= led-update-not-running 1))) {
                     ; Keep white as explicit RGB value to avoid signed-color edge cases.
                     (set-led-strip-color (if (> direction 0) led-front-color led-rear-color) 0x00FFFFFF)
@@ -1000,18 +996,20 @@
             (set-led-strip-color led-status-color 0x00)
         })
     })
-    (var current-led-mode led-mode)
+    (var current-led-mode led-mode-idle)
     (setq led-current-brightness (min led-brightness led-brightness led-max-brightness))
     (if (= led-mall-grab 1) {
         (setq led-current-brightness (min led-brightness-status led-max-brightness))
     })
-    (if (or (and (>= last-activity-sec idle-timeout) (<= can-last-activity-time-sec 1)) (= state 5)) {
-        (setq current-led-mode led-mode-idle)
-        (setq led-current-brightness (min led-brightness-idle led-max-brightness))
+    (if (running-state) {
+        (setq current-led-mode led-mode)
     })
 
-    (if (and (<= (secs-since 0) led-startup-timeout) (not (running-state))) {
-        (setq current-led-mode led-mode-startup)
+    (if (or (and (>= last-activity-sec idle-timeout) (<= can-last-activity-time-sec 1))
+            (= state 5)
+            (not (running-state))) {
+        (setq current-led-mode led-mode-idle)
+        (setq led-current-brightness (min led-brightness-idle led-max-brightness))
     })
     (setq led-rendered-main-mode 0)
     (var blend-limit (if (led-main-mode-animated current-led-mode) 1.0 led-max-blend-count))

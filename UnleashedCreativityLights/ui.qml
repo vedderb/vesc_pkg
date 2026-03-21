@@ -81,6 +81,8 @@ Item {
     property real cfgLedBrightnessHighbeam: 0.5
     property real cfgLedBrightnessIdle: 0.3
     property real cfgLedBrightnessStatus: 0.6
+    property int localCanId: -1
+    property bool settingsScrollKeepBottom: false
     property int devBuildMagic: -1
     property var targetCanOptions: [ { text: "SELF (-1)", value: -1 } ]
 
@@ -108,6 +110,29 @@ Item {
             }
             if (lastStatusTime > 60) {
                 wasConnected = false
+            }
+        }
+    }
+
+    Timer {
+        id: settingsBottomStickTimerShort
+        interval: 1
+        repeat: false
+        onTriggered: {
+            if (settingsScrollKeepBottom) {
+                scrollSettingsToBottom()
+            }
+        }
+    }
+
+    Timer {
+        id: settingsBottomStickTimerLong
+        interval: 120
+        repeat: false
+        onTriggered: {
+            if (settingsScrollKeepBottom) {
+                scrollSettingsToBottom()
+                settingsScrollKeepBottom = false
             }
         }
     }
@@ -435,6 +460,7 @@ Item {
 
             // LED Configuration Tab
             ScrollView {
+                id: configScroll
                 clip: true
                 ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
@@ -581,23 +607,6 @@ Item {
 
                                 Text {
                                     color: Utility.getAppHexColor("lightText")
-                                    text: "Startup Mode"
-                                }
-
-                                ComboBox {
-                                    id: ledModeStartup
-                                    Layout.fillWidth: true
-                                    model: ledMode.model
-                                    textRole: "text"
-                                    valueRole: "value"
-                                    onCurrentIndexChanged: {
-                                        value = model[currentIndex].value
-                                    }
-                                    property int value: 5
-                                }
-
-                                Text {
-                                    color: Utility.getAppHexColor("lightText")
                                     text: "Status Mode"
                                 }
 
@@ -680,18 +689,6 @@ Item {
                                     editable: true
                                 }
 
-                                Text {
-                                    color: Utility.getAppHexColor("lightText")
-                                    text: "Startup Timeout (s)"
-                                }
-
-                                SpinBox {
-                                    id: ledStartupTimeout
-                                    from: 10
-                                    to: 60
-                                    value: 20
-                                    editable: true
-                                }
                             }
                         }
 
@@ -853,6 +850,7 @@ Item {
                                     textRole: "text"
                                     valueRole: "value"
                                     onCurrentIndexChanged: {
+                                        preserveSettingsBottomIfNeeded()
                                         value = model[currentIndex].value
                                         updateFrontLEDSettings()
                                     }
@@ -1019,6 +1017,7 @@ Item {
                                     textRole: "text"
                                     valueRole: "value"
                                     onCurrentIndexChanged: {
+                                        preserveSettingsBottomIfNeeded()
                                         value = model[currentIndex].value
                                         updateRearLEDSettings()
                                     }
@@ -1173,6 +1172,15 @@ Item {
                 ScrollBar.vertical.policy: ScrollBar.AsNeeded
                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 contentWidth: availableWidth
+
+                Connections {
+                    target: settingsScroll.contentItem
+                    function onContentHeightChanged() {
+                        if (settingsScrollKeepBottom) {
+                            scrollSettingsToBottom()
+                        }
+                    }
+                }
 
                 ColumnLayout {
                     width: settingsScroll.availableWidth
@@ -1393,6 +1401,36 @@ Item {
                                 font.pointSize: 20
                                 text: "Master CAN-ID: " + masterCanID.value
                             }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: Utility.getAppHexColor("lightText")
+                                font.bold: true
+                                font.pointSize: 18
+                                visible: isSlaveOutputEnabledForNode(ledFrontStripType.currentIndex, frontTargetID.value)
+                                text: slaveOutputLine("Front", ledFrontPin.value, ledFrontReversed.checked, stripTypeLabel(ledFrontStripType.currentIndex))
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: Utility.getAppHexColor("lightText")
+                                font.bold: true
+                                font.pointSize: 18
+                                visible: isSlaveOutputEnabledForNode(ledRearStripType.currentIndex, rearTargetID.value)
+                                text: slaveOutputLine("Rear", ledRearPin.value, ledRearReversed.checked, stripTypeLabel(ledRearStripType.currentIndex))
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: Utility.getAppHexColor("lightText")
+                                font.bold: true
+                                font.pointSize: 18
+                                visible: isSlaveOutputEnabledForNode(ledStatusStripType.currentIndex, statusTargetID.value)
+                                text: slaveOutputLine("Status", ledStatusPin.value, ledStatusReversed.checked, statusStripTypeLabel(ledStatusStripType.currentIndex))
+                            }
                         }
                     }
 
@@ -1437,8 +1475,20 @@ Item {
                             "<li>Master is the sole source of configuration.</li>" +
                             "<li>Slave stores pushed configuration with CRC-checked persistence.</li>" +
                             "<li>Targeted LED outputs using SELF (-1) or peer CAN-ID for daisy-chain layouts.</li>" +
-                            "<li>Advanced lighting behavior and patterns: status/startup, run/reverse white-red, battery, Cylon, rainbow, brake and highbeam.</li>" +
+                            "<li>Slave diagnostics tab with per-output details for node-targeted channels.</li>" +
+                            "<li>Runtime config refresh improvements for UI (Read Config and status-driven target updates).</li>" +
+                            "<li>Reduced CAN chatter defaults for better app link stability.</li>" +
+                            "<li>Advanced lighting behavior and patterns: status, run/reverse white-red, battery, Cylon, rainbow, brake and highbeam.</li>" +
                             "<li>Optimized for minimal CAN traffic during normal operation.</li>" +
+                            "</ul>" +
+                            "<p><b>What's Changed Since 2026.03</b></p>" +
+                            "<ul>" +
+                            "<li>Removed Terms of Service flow and related protocol hooks.</li>" +
+                            "<li>Removed startup mode/startup timeout controls; non-running behavior now defaults to idle mode.</li>" +
+                            "<li>Compressed UI settings payload to used parameters only.</li>" +
+                            "<li>Updated CAN timing defaults: refloat poll 0.75s, peer poke 2.0s, announce 3.0s, quiet grace 15s, fwd freshness 2.0s.</li>" +
+                            "<li>Forwarded lights replay tied to CAN loop frequency.</li>" +
+                            "<li>Improved LED loop restart handling on Save Config to prevent duplicate overlays.</li>" +
                             "</ul>" +
                             "<p>Website: <a href='https://www.UnleashedCreativity.com.au'>https://www.UnleashedCreativity.com.au</a></p>" +
                             "<p><b>Thanks:</b> Built on the original Float Accessories work by Relys: <a href='https://github.com/Relys/vesc_pkg/tree/float-accessories'>https://github.com/Relys/vesc_pkg/tree/float-accessories</a></p>" +
@@ -1718,6 +1768,74 @@ Item {
         return Math.max(0.0, Math.min(1.0, cap))
     }
 
+    function isSettingsScrollAtBottom() {
+        if (!configScroll || !configScroll.contentItem) {
+            return false
+        }
+        var flick = configScroll.contentItem
+        return (flick.contentY + flick.height) >= (flick.contentHeight - 6)
+    }
+
+    function scrollSettingsToBottom() {
+        if (!configScroll || !configScroll.contentItem) {
+            return
+        }
+        var flick = configScroll.contentItem
+        flick.contentY = Math.max(0, flick.contentHeight - flick.height)
+    }
+
+    function preserveSettingsBottomIfNeeded() {
+        settingsScrollKeepBottom = isSettingsScrollAtBottom()
+        if (settingsScrollKeepBottom) {
+            Qt.callLater(scrollSettingsToBottom)
+            settingsBottomStickTimerShort.restart()
+            settingsBottomStickTimerLong.restart()
+        }
+    }
+
+    function yesNo(v) {
+        return v ? "Yes" : "No"
+    }
+
+    function slaveOutputLine(name, pin, reversed, typeLabel) {
+        return name + ", Pin:" + pin + "  Rev:" + yesNo(reversed) + "  Type:" + typeLabel
+    }
+
+    function isSlaveOutputEnabledForNode(stripType, targetId) {
+        var t = Number(targetId)
+        return Number(stripType) > 0
+            && (
+                (localCanId >= 0 && t === Number(localCanId))
+                || (localCanId < 0 && t >= 0)
+            )
+    }
+
+    function statusStripTypeLabel(stripType) {
+        var t = Number(stripType)
+        switch (t) {
+        case 1: return "Custom"
+        default: return "Off"
+        }
+    }
+
+    function stripTypeLabel(stripType) {
+        var t = Number(stripType)
+        switch (t) {
+        case 1: return "Custom"
+        case 2: return "Avaspark Laserbeam"
+        case 3: return "Avaspark Laserbeam Pint"
+        case 4: return "JetFleet H4"
+        case 5: return "JetFleet H4 (no limit)"
+        case 6: return "JetFleet GT"
+        case 7: return "Stock GT"
+        case 8: return "Avaspark Laserbeam V3"
+        case 9: return "Avaspark Laserbeam V3 Pint"
+        case 10: return "Light-shutka Flashfires"
+        case 11: return "Fungineers GTFO"
+        default: return "Off"
+        }
+    }
+
     function applyLedControlBrightnessCap() {
         var cap = getLedMaxBrightnessCap()
         var sliders = [
@@ -1771,7 +1889,6 @@ Item {
             ledMode.currentIndex,
             ledModeIdle.currentIndex,
             ledModeStatus.currentIndex,
-            ledModeStartup.currentIndex,
             ledMallGrabEnabled.checked * 1,
             ledBrakeLightEnabled.checked * 1,
             parseFloat(ledBrakeLightMinAmps.value).toFixed(2),
@@ -1805,7 +1922,6 @@ Item {
             8,
             canLoopDelay.value,
             ledMaxBlendCount.value,
-            ledStartupTimeout.value,
             parseFloat(ledDimOnHighbeamRatioLoader.item.value).toFixed(2),
             0,
             ledStatusStripType.currentIndex,
@@ -1911,7 +2027,6 @@ Item {
                 ledMode.currentIndex = parseConfigToken(tokens, i); i++
                 ledModeIdle.currentIndex = parseConfigToken(tokens, i); i++
                 ledModeStatus.currentIndex = parseConfigToken(tokens, i); i++
-                ledModeStartup.currentIndex = parseConfigToken(tokens, i); i++
                 ledMallGrabEnabled.checked = parseConfigToken(tokens, i) > 0; i++
                 ledBrakeLightEnabled.checked = parseConfigToken(tokens, i) > 0; i++
                 ledBrakeLightMinAmps.value = parseConfigToken(tokens, i); i++
@@ -1938,7 +2053,6 @@ Item {
                 ledLoopDelay.value = parseConfigToken(tokens, i); i++
                 canLoopDelay.value = parseConfigToken(tokens, i); i++
                 ledMaxBlendCount.value = parseConfigToken(tokens, i); i++
-                ledStartupTimeout.value = parseConfigToken(tokens, i); i++
                 ledDimOnHighbeamRatioLoader.item.value = parseConfigToken(tokens, i); i++
                 ledStatusStripType.currentIndex = parseConfigToken(tokens, i); i++
                 ledFix.value = parseConfigToken(tokens, i); i++
@@ -1956,6 +2070,9 @@ Item {
                 uclEffectiveRole = nodeRole.value
 				masterCanID.value = parseConfigToken(tokens, i); i++
 				peersCache.value = parseConfigToken(tokens, i); i++
+                if (i < tokens.length) {
+                    localCanId = parseConfigToken(tokens, i)
+                }
                 syncBrightnessSliders()
                 refreshTargetCanOptions([frontTargetID.value, rearTargetID.value, statusTargetID.value])
 
@@ -1975,32 +2092,76 @@ Item {
                     floatPackageLastStatusTime = 0
                 }
 
+                // Support both status payload formats:
+                // New: local, role, fwdConnected, fwdAge, peerCount, peerIds..., buildMagic
+                // Old: role, fwdConnected, fwdAge, peerCount, peerIds..., buildMagic
+                var peerCountNew = (tokens.length > 15) ? Number(tokens[15]) : NaN
+                var buildIxNew = 16 + (isNaN(peerCountNew) ? 0 : peerCountNew)
+                var hasNewFormat = (!isNaN(peerCountNew)
+                                    && peerCountNew >= 0
+                                    && buildIxNew < tokens.length
+                                    && Number(tokens[buildIxNew]) === devBuildMagic)
 
-                if (tokens.length > 11) {
-                    uclEffectiveRole = Number(tokens[11])
-                }
-                if (tokens.length > 12) {
-                    refloatFwdConnected = Number(tokens[12])
-                }
-                if (tokens.length > 13) {
-                    refloatFwdAge = parseFloat(tokens[13])
-                }
-                if (tokens.length > 14) {
-                    var peerCount = Number(tokens[14])
-                    var peerIds = []
-                    for (var p = 0; p < peerCount; p++) {
-                        var peerIx = 15 + p
-                        if (peerIx < tokens.length) {
-                            peerIds.push(Number(tokens[peerIx]))
+                var peerIds = []
+                if (hasNewFormat) {
+                    if (tokens.length > 11) {
+                        localCanId = Number(tokens[11])
+                    }
+                    if (tokens.length > 12) {
+                        uclEffectiveRole = Number(tokens[12])
+                    }
+                    if (tokens.length > 13) {
+                        refloatFwdConnected = Number(tokens[13])
+                    }
+                    if (tokens.length > 14) {
+                        refloatFwdAge = parseFloat(tokens[14])
+                    }
+                    for (var pn = 0; pn < peerCountNew; pn++) {
+                        var peerIxNew = 16 + pn
+                        if (peerIxNew < tokens.length) {
+                            peerIds.push(Number(tokens[peerIxNew]))
                         }
                     }
-                    refreshTargetCanOptions(peerIds)
-
-                    var buildIx = 15 + peerCount
-                    if (buildIx < tokens.length && tokens[buildIx] !== "") {
-                        devBuildMagic = Number(tokens[buildIx])
+                    if (buildIxNew < tokens.length && tokens[buildIxNew] !== "") {
+                        devBuildMagic = Number(tokens[buildIxNew])
+                    }
+                    var tailIxNew = buildIxNew + 1
+                    if (tailIxNew + 2 < tokens.length) {
+                        frontTargetID.value = Number(tokens[tailIxNew])
+                        rearTargetID.value = Number(tokens[tailIxNew + 1])
+                        statusTargetID.value = Number(tokens[tailIxNew + 2])
+                    }
+                } else {
+                    if (tokens.length > 11) {
+                        uclEffectiveRole = Number(tokens[11])
+                    }
+                    if (tokens.length > 12) {
+                        refloatFwdConnected = Number(tokens[12])
+                    }
+                    if (tokens.length > 13) {
+                        refloatFwdAge = parseFloat(tokens[13])
+                    }
+                    if (tokens.length > 14) {
+                        var peerCountOld = Number(tokens[14])
+                        for (var po = 0; po < peerCountOld; po++) {
+                            var peerIxOld = 15 + po
+                            if (peerIxOld < tokens.length) {
+                                peerIds.push(Number(tokens[peerIxOld]))
+                            }
+                        }
+                        var buildIxOld = 15 + peerCountOld
+                        if (buildIxOld < tokens.length && tokens[buildIxOld] !== "") {
+                            devBuildMagic = Number(tokens[buildIxOld])
+                        }
+                        var tailIxOld = buildIxOld + 1
+                        if (tailIxOld + 2 < tokens.length) {
+                            frontTargetID.value = Number(tokens[tailIxOld])
+                            rearTargetID.value = Number(tokens[tailIxOld + 1])
+                            statusTargetID.value = Number(tokens[tailIxOld + 2])
+                        }
                     }
                 }
+                refreshTargetCanOptions(peerIds)
 
                 // Update status flags
                 lastStatusTime = 0  // Reset the timer when status is received

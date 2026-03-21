@@ -94,7 +94,6 @@
     led-mode
     led-mode-idle
     led-mode-status
-    led-mode-startup
     led-mall-grab-enabled
     led-brake-light-enabled
     led-brake-light-min-amps
@@ -121,7 +120,6 @@
     led-loop-delay
     can-loop-delay
     led-max-blend-count
-    led-startup-timeout
     led-dim-on-highbeam-ratio
     led-status-strip-type
     led-fix
@@ -225,12 +223,12 @@
 })
 
 (defun recv-config (in-led-enabled in-reserved-slot-5 in-led-on in-led-highbeam-on in-led-mode in-led-mode-idle in-led-mode-status
-    in-led-mode-startup in-led-mall-grab-enabled in-led-brake-light-enabled in-led-brake-light-min-amps
+    in-led-mall-grab-enabled in-led-brake-light-enabled in-led-brake-light-min-amps
     in-idle-timeout in-idle-timeout-shutoff in-led-brightness in-led-brightness-highbeam in-led-brightness-idle in-led-brightness-status
     in-led-status-pin in-led-status-num in-led-status-type in-led-status-reversed in-led-front-pin in-led-front-num in-led-front-type
     in-led-front-reversed in-led-front-strip-type in-led-rear-pin in-led-rear-num in-led-rear-type in-led-rear-reversed in-led-rear-strip-type
     in-reserved-slot-38 in-reserved-slot-39 in-reserved-slot-40 in-reserved-slot-41 in-reserved-slot-42 in-reserved-slot-43
-    in-led-loop-delay in-reserved-slot-53 in-can-loop-delay in-led-max-blend-count in-led-startup-timeout
+    in-led-loop-delay in-reserved-slot-53 in-can-loop-delay in-led-max-blend-count
     in-led-dim-on-highbeam-ratio in-reserved-slot-58 in-led-status-strip-type in-reserved-slot-60 in-led-fix in-led-show-battery-charging
     in-led-front-highbeam-pin in-led-rear-highbeam-pin in-reserved-slot-65 in-led-max-brightness in-soc-type in-cell-type in-led-update-not-running
     in-reserved-slot-70 in-series-cells in-reserved-slot-72 in-front-target-id in-rear-target-id in-status-target-id
@@ -274,7 +272,6 @@
     (set-config 'led-mode (to-i in-led-mode))
     (set-config 'led-mode-idle (to-i in-led-mode-idle))
     (set-config 'led-mode-status (to-i in-led-mode-status))
-    (set-config 'led-mode-startup (to-i in-led-mode-startup))
     (set-config 'led-mall-grab-enabled (to-i in-led-mall-grab-enabled))
     (set-config 'led-brake-light-enabled (to-i in-led-brake-light-enabled))
     (set-config 'led-brake-light-min-amps (to-float in-led-brake-light-min-amps))
@@ -310,7 +307,6 @@
     (set-config 'reserved-slot-53 (to-i in-reserved-slot-53))
     (set-config 'can-loop-delay (to-i in-can-loop-delay))
     (set-config 'led-max-blend-count (to-i in-led-max-blend-count))
-    (set-config 'led-startup-timeout (to-i in-led-startup-timeout))
     (set-config 'led-dim-on-highbeam-ratio (to-float in-led-dim-on-highbeam-ratio))
 
     (set-config 'reserved-slot-58 0)
@@ -360,6 +356,12 @@
     (set-config 'led-front-highbeam-pin (to-i in-led-front-highbeam-pin))
     (set-config 'led-rear-highbeam-pin (to-i in-led-rear-highbeam-pin))
 
+    ; Force-stop any stale loop context before re-spawn to avoid duplicate loops.
+    (if (>= led-context-id 0) {
+        (trap (kill led-context-id nil))
+        (setq led-context-id -1)
+    })
+    (setq led-exit-flag nil)
     (if (not reboot-now) (setq led-context-id (if (= (get-config 'led-enabled) 1) (spawn led-loop) -1)))
 
     (save-config)
@@ -378,7 +380,6 @@
         (get-config 'led-mode)
         (get-config 'led-mode-idle)
         (get-config 'led-mode-status)
-        (get-config 'led-mode-startup)
         (get-config 'led-mall-grab-enabled)
         (get-config 'led-brake-light-enabled)
         (get-config 'led-brake-light-min-amps)
@@ -412,7 +413,6 @@
         (get-config 'reserved-slot-53)
         (get-config 'can-loop-delay)
         (get-config 'led-max-blend-count)
-        (get-config 'led-startup-timeout)
         (get-config 'led-dim-on-highbeam-ratio)
         (get-config 'reserved-slot-58)
         (get-config 'led-status-strip-type)
@@ -469,6 +469,8 @@
             )
         )
     })
+    ; Runtime local CAN-ID as trailing token (keeps existing key order stable).
+    (setq config-string (str-merge config-string (str-from-n (can-local-id) "%d ")))
 
         (send-data config-string)
         (send-status "Settings loaded")
@@ -607,6 +609,7 @@
     (setq status-string (str-merge status-string (str-from-n 0 "%.0f ")))
 
     ; --- UCL forwarding status (optional trailing tokens) ---
+    (setq status-string (str-merge status-string (str-from-n (can-local-id) "%d ")))
     (setq status-string (str-merge status-string (str-from-n ucl-effective-role "%d ")))
     (setq status-string (str-merge status-string (str-from-n (if (ucl-fwd-connected) 1 0) "%d ")))
     (setq status-string (str-merge status-string (str-from-n (ucl-fwd-age) "%.2f ")))
@@ -623,6 +626,10 @@
 
     ; Build marker for UI visibility
     (setq status-string (str-merge status-string (str-from-n magic-header "%d ")))
+    ; Runtime target IDs for slave-tab visibility/debug (optional trailing tokens).
+    (setq status-string (str-merge status-string (str-from-n (to-i (get-config 'front-target-id)) "%d ")))
+    (setq status-string (str-merge status-string (str-from-n (to-i (get-config 'rear-target-id)) "%d ")))
+    (setq status-string (str-merge status-string (str-from-n (to-i (get-config 'status-target-id)) "%d ")))
 
     (send-data status-string)
 })

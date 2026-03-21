@@ -32,9 +32,9 @@
 (def discover-next-retry-time 0)
 (def discover-last-log-time 0)
 (def discover-log-interval 0.5)
-(def refloat-quiet-grace 10.0)
+(def refloat-quiet-grace 15.0)
 (def refloat-stable-since 0)
-(def refloat-poll-interval 0.5)
+(def refloat-poll-interval 0.75)
 (def refloat-last-poll-time 0)
 (def refloat-last-poll-log-time 0)
 (def refloat-poll-log-interval 5.0)
@@ -81,7 +81,7 @@
 (def ucl-peer-scan-stable-hold 30.0)
 
 (def ucl-last-peer-poke 0)
-(def ucl-peer-poke-interval 1.0)
+(def ucl-peer-poke-interval 2.0)
 
 (def ucl-effective-role 1)       ; 0 master, 1 slave
 (def ucl-effective-master -1)
@@ -97,14 +97,14 @@
 (def ucl-conflict-detected nil)
 
 (def ucl-last-announce-time 0)
-(def ucl-announce-interval 2.0)
+(def ucl-announce-interval 3.0)
 
 ; forward cache (keep, but lean)
 (def ucl-last-refloat-alldata nil)
 (def ucl-last-refloat-lights nil)
 (def ucl-fwd-refresh-last 0)
-(def ucl-fwd-refresh-interval 0.3)
-(def ucl-fwd-source-freshness 1.0)
+(def ucl-fwd-refresh-interval 0.5)
+(def ucl-fwd-source-freshness 2.0)
 (def ucl-last-refloat-alldata-rx 0)
 (def ucl-last-refloat-lights-rx 0)
 (def ucl-last-refloat-alldata-fwd 0)
@@ -1110,6 +1110,10 @@
 (defun can-loop () {
   (setq ucl-role-ready nil)
   (setq can-loop-delay (get-config 'can-loop-delay))
+  (if (< can-loop-delay 1) { (setq can-loop-delay 1) })
+  ; Tie forward lights replay cadence to CAN loop frequency.
+  ; Example: can-loop-delay=2 => 0.5s, can-loop-delay=4 => 0.25s.
+  (setq ucl-fwd-refresh-interval (/ 1.0 can-loop-delay))
   (setq ucl-boot-time (secs-since 0))
   (setq ucl-boot-nonce (bitwise-and (systime) 0xFFFF))
   ; Fresh runtime markers at real boot/parse start.
