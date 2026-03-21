@@ -2,6 +2,11 @@
 
 A VESC Express package for ESP32-C3 lighting accessories over CAN bus, integrated with the Refloat package.
 
+[![Unleashed Creativity](https://i0.wp.com/unleashedcreativity.com.au/wp-content/uploads/2024/06/cropped-UC-Logo-no-background.png)](https://unleashedcreativity.com.au/index.php/product/led-vescexpress/)
+
+Looking for VESC Express controllers and accessories:
+[Unleashed Creativity VESC Controller Range](https://unleashedcreativity.com.au/index.php/product-category/vesc/)
+
 ## Major Features
 - New Refloat RT API integration.
 - Lighting control now from Refloat.
