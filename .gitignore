@@ -2,6 +2,7 @@
 *.vescpkg
 confxml.c
 confxml.h
+.DS_Store
 
 *.elf
 *.o
