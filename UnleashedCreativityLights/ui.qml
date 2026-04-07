@@ -432,13 +432,6 @@ Item {
                             }
 
                             Text {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                color: Utility.getAppHexColor("lightText")
-                                text: "Package Version: V2026.041"
-                            }
-
-                            Text {
                                 id: floatPackageStatus
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
@@ -1532,7 +1525,6 @@ Item {
                             "</ul>" +
                             "<p><b>What's Changed Since 2026.04</b></p>" +
                             "<ul>" +
-                            "<li>Release V2026.041.</li>" +
                             "<li>Target CAN-ID selectors no longer get overwritten by live status while user edits are pending Save Config.</li>" +
                             "<li>Added an explicit diagnostics line when target CAN-ID changes are unsaved.</li>" +
                             "</ul>" +
