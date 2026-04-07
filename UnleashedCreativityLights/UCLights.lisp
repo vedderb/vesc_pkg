@@ -1,6 +1,6 @@
 ; UCLights.lisp
 ; Smart LED Control with remote CANBUS nodes for VESC Express
-; Version 2026.04
+; Version 2026.041
 ; Initially a cut down version of Float Accessories 3.2.2
 
 @const-start

@@ -31,18 +31,9 @@ Looking for VESC Express controllers and accessories:
   - Brake and highbeam support
 - Optimized for minimal CAN traffic during normal operation.
 
-## What's Changed Since 2026.03
-- Removed Terms of Service flow and related protocol hooks.
-- Removed startup mode and startup timeout controls; non-running behavior now defaults to idle mode.
-- Compressed UI settings payload to used parameters only.
-- Updated CAN timing defaults:
-  - `refloat-poll-interval` -> `0.75`
-  - `ucl-peer-poke-interval` -> `2.0`
-  - `ucl-announce-interval` -> `3.0`
-  - `refloat-quiet-grace` -> `15.0`
-  - `ucl-fwd-source-freshness` -> `2.0`
-- Forwarded lights replay tied to CAN loop frequency.
-- Improved LED loop restart handling on `Save Config` to prevent duplicate loop overlays.
+## What's Changed Since 2026.04
+- Target CAN-ID selectors no longer get overwritten by live status while edits are pending `Save Config`.
+- Added a diagnostics status line to clearly show when target CAN-ID edits are unsaved.
 
 ## Acknowledgements
 Thanks to the original Float Accessories codebase by Relys:

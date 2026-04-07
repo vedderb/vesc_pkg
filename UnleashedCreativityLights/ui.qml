@@ -85,6 +85,10 @@ Item {
     property bool settingsScrollKeepBottom: false
     property int devBuildMagic: -1
     property var targetCanOptions: [ { text: "SELF (-1)", value: -1 } ]
+    property int settingsRxCount: 0
+    property int settingsParseErrorCount: 0
+    property string lastSettingsParseError: ""
+    property bool targetSelectionDirty: false
 
     Component.onCompleted: {
         if (VescIf.getLastFwRxParams().hwTypeStr() !== "Custom Module") {
@@ -428,6 +432,13 @@ Item {
                             }
 
                             Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: Utility.getAppHexColor("lightText")
+                                text: "Package Version: V2026.041"
+                            }
+
+                            Text {
                                 id: floatPackageStatus
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
@@ -450,6 +461,35 @@ Item {
                                         : ((floatPackageConnected === 1 && !statusTimeout)
                                             ? ("Refloat: Connected")
                                             : ("Refloat: Connecting (" + effectiveTime + "s)")))
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: "#ffcc66"
+                                visible: targetSelectionDirty
+                                text: "Diagnostics: target CAN-ID changes are pending Save Config."
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                visible: (!readConfig || settingsParseErrorCount > 0 || statusTimeout)
+                                color: Utility.getAppHexColor("lightText")
+                                text: (!readConfig
+                                       ? "Diagnostics: waiting for settings sync. Save Config will stay hidden until settings load completes."
+                                       : (mainLayout.isSlaveUi
+                                          ? "Diagnostics: this node is in Slave mode, so Save Config is intentionally hidden."
+                                          : "Diagnostics: settings loaded and Master UI active."))
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                visible: (settingsParseErrorCount > 0)
+                                color: "#ffcc66"
+                                text: "Diagnostics: settings parse issues=" + settingsParseErrorCount
+                                      + ", last=\"" + lastSettingsParseError + "\""
                             }
 
                         }
@@ -754,6 +794,9 @@ Item {
                                                 value = model[currentIndex].value
                                             }
                                         }
+                                        onActivated: {
+                                            targetSelectionDirty = true
+                                        }
                                         onValueChanged: syncIndexFromValue()
                                         onModelChanged: syncIndexFromValue()
                                         Component.onCompleted: syncIndexFromValue()
@@ -889,6 +932,9 @@ Item {
                                             if (currentIndex >= 0 && currentIndex < model.length) {
                                                 value = model[currentIndex].value
                                             }
+                                        }
+                                        onActivated: {
+                                            targetSelectionDirty = true
                                         }
                                         onValueChanged: syncIndexFromValue()
                                         onModelChanged: syncIndexFromValue()
@@ -1056,6 +1102,9 @@ Item {
                                             if (currentIndex >= 0 && currentIndex < model.length) {
                                                 value = model[currentIndex].value
                                             }
+                                        }
+                                        onActivated: {
+                                            targetSelectionDirty = true
                                         }
                                         onValueChanged: syncIndexFromValue()
                                         onModelChanged: syncIndexFromValue()
@@ -1481,18 +1530,15 @@ Item {
                             "<li>Advanced lighting behavior and patterns: status, run/reverse white-red, battery, Cylon, rainbow, brake and highbeam.</li>" +
                             "<li>Optimized for minimal CAN traffic during normal operation.</li>" +
                             "</ul>" +
-                            "<p><b>What's Changed Since 2026.03</b></p>" +
+                            "<p><b>What's Changed Since 2026.04</b></p>" +
                             "<ul>" +
-                            "<li>Removed Terms of Service flow and related protocol hooks.</li>" +
-                            "<li>Removed startup mode/startup timeout controls; non-running behavior now defaults to idle mode.</li>" +
-                            "<li>Compressed UI settings payload to used parameters only.</li>" +
-                            "<li>Updated CAN timing defaults: refloat poll 0.75s, peer poke 2.0s, announce 3.0s, quiet grace 15s, fwd freshness 2.0s.</li>" +
-                            "<li>Forwarded lights replay tied to CAN loop frequency.</li>" +
-                            "<li>Improved LED loop restart handling on Save Config to prevent duplicate overlays.</li>" +
+                            "<li>Release V2026.041.</li>" +
+                            "<li>Target CAN-ID selectors no longer get overwritten by live status while user edits are pending Save Config.</li>" +
+                            "<li>Added an explicit diagnostics line when target CAN-ID changes are unsaved.</li>" +
                             "</ul>" +
                             "<p>Website: <a href='https://www.UnleashedCreativity.com.au'>https://www.UnleashedCreativity.com.au</a></p>" +
                             "<p><b>Thanks:</b> Built on the original Float Accessories work by Relys: <a href='https://github.com/Relys/vesc_pkg/tree/float-accessories'>https://github.com/Relys/vesc_pkg/tree/float-accessories</a></p>" +
-                            "<p><b>BUILD INFO</b><br/>Version 2026.04<br/></p>"
+                            "<p><b>BUILD INFO</b><br/>Version 2026.041<br/></p>"
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Utility.getAppHexColor("lightText")
@@ -1517,12 +1563,14 @@ Item {
             Item { Layout.fillWidth: true }
 
             Button {
+                id: saveConfigButton
                 text: "Save Config"
                 enabled: readConfig && lastStatusTime < 2
                 visible: !mainLayout.isSlaveUi
                 onClicked: {
                     console.log(makeArgStr())
                     sendCode(String.fromCharCode(floatAccessoriesMagic) + String.fromCharCode(1) + "(recv-config " + makeArgStr() + " )")
+                    targetSelectionDirty = false
                 }
             }
 
@@ -1979,6 +2027,12 @@ Item {
         return fallbackValue
     }
 
+    function setLoaderValue(loader, value) {
+        if (loader && loader.item) {
+            loader.item.value = value
+        }
+    }
+
     function syncBrightnessSliders() {
         if (ledBrightnessLoader && ledBrightnessLoader.item) {
             ledBrightnessLoader.item.value = cfgLedBrightness
@@ -2017,68 +2071,76 @@ Item {
             }
 
             if (str.startsWith("settings")) {
-                var firstConfigLoad = !readConfig
-                var tokens = str.split(" ")
-                var i = 1
-                devBuildMagic = parseConfigToken(tokens, i); i++
-                ledEnabled.checked = parseConfigToken(tokens, i) > 0; i++
-                ledOn.checked = parseConfigToken(tokens, i) > 0; i++
-                ledHighbeamOn.checked = parseConfigToken(tokens, i) > 0; i++
-                ledMode.currentIndex = parseConfigToken(tokens, i); i++
-                ledModeIdle.currentIndex = parseConfigToken(tokens, i); i++
-                ledModeStatus.currentIndex = parseConfigToken(tokens, i); i++
-                ledMallGrabEnabled.checked = parseConfigToken(tokens, i) > 0; i++
-                ledBrakeLightEnabled.checked = parseConfigToken(tokens, i) > 0; i++
-                ledBrakeLightMinAmps.value = parseConfigToken(tokens, i); i++
-                idleTimeout.value = parseConfigToken(tokens, i); i++
-                idleTimeoutShutoff.value = parseConfigToken(tokens, i); i++
-                cfgLedBrightness = parseConfigToken(tokens, i); i++
-                cfgLedBrightnessHighbeam = parseConfigToken(tokens, i); i++
-                cfgLedBrightnessIdle = parseConfigToken(tokens, i); i++
-                cfgLedBrightnessStatus = parseConfigToken(tokens, i); i++
-                ledStatusPin.value = parseConfigToken(tokens, i); i++
-                ledStatusNum.value = parseConfigToken(tokens, i); i++
-                ledStatusType.currentIndex = parseConfigToken(tokens, i); i++
-                ledStatusReversed.checked = parseConfigToken(tokens, i) > 0; i++
-                ledFrontPin.value = parseConfigToken(tokens, i); i++
-                ledFrontNum.value = parseConfigToken(tokens, i); i++
-                ledFrontType.currentIndex = parseConfigToken(tokens, i); i++
-                ledFrontReversed.checked = parseConfigToken(tokens, i) > 0; i++
-                ledFrontStripType.currentIndex = parseConfigToken(tokens, i); i++
-                ledRearPin.value = parseConfigToken(tokens, i); i++
-                ledRearNum.value = parseConfigToken(tokens, i); i++
-                ledRearType.currentIndex = parseConfigToken(tokens, i); i++
-                ledRearReversed.checked = parseConfigToken(tokens, i) > 0; i++
-                ledRearStripType.currentIndex = parseConfigToken(tokens, i); i++
-                ledLoopDelay.value = parseConfigToken(tokens, i); i++
-                canLoopDelay.value = parseConfigToken(tokens, i); i++
-                ledMaxBlendCount.value = parseConfigToken(tokens, i); i++
-                ledDimOnHighbeamRatioLoader.item.value = parseConfigToken(tokens, i); i++
-                ledStatusStripType.currentIndex = parseConfigToken(tokens, i); i++
-                ledFix.value = parseConfigToken(tokens, i); i++
-                ledFrontHighbeamPin.value = parseConfigToken(tokens, i); i++
-                ledRearHighbeamPin.value = parseConfigToken(tokens, i); i++
-                ledMaxBrightnessLoader.item.value = parseConfigToken(tokens, i); i++
-                applyLedControlBrightnessCap()
-                cellType.currentIndex = parseConfigToken(tokens, i); i++
-                ledUpdateNotRunning.checked = parseConfigToken(tokens, i) > 0; i++
-                seriesCells.value = parseConfigToken(tokens, i); i++
-                frontTargetID.value = parseConfigToken(tokens, i); i++
-                rearTargetID.value = parseConfigToken(tokens, i); i++
-                statusTargetID.value = parseConfigToken(tokens, i); i++
-                nodeRole.value = parseConfigToken(tokens, i); i++
-                uclEffectiveRole = nodeRole.value
-				masterCanID.value = parseConfigToken(tokens, i); i++
-				peersCache.value = parseConfigToken(tokens, i); i++
-                if (i < tokens.length) {
-                    localCanId = parseConfigToken(tokens, i)
-                }
-                syncBrightnessSliders()
-                refreshTargetCanOptions([frontTargetID.value, rearTargetID.value, statusTargetID.value])
+                try {
+                    settingsRxCount++
+                    var firstConfigLoad = !readConfig
+                    var tokens = str.split(" ")
+                    var i = 1
+                    devBuildMagic = parseConfigToken(tokens, i); i++
+                    ledEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledOn.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledHighbeamOn.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledMode.currentIndex = parseConfigToken(tokens, i); i++
+                    ledModeIdle.currentIndex = parseConfigToken(tokens, i); i++
+                    ledModeStatus.currentIndex = parseConfigToken(tokens, i); i++
+                    ledMallGrabEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledBrakeLightEnabled.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledBrakeLightMinAmps.value = parseConfigToken(tokens, i); i++
+                    idleTimeout.value = parseConfigToken(tokens, i); i++
+                    idleTimeoutShutoff.value = parseConfigToken(tokens, i); i++
+                    cfgLedBrightness = parseConfigToken(tokens, i); i++
+                    cfgLedBrightnessHighbeam = parseConfigToken(tokens, i); i++
+                    cfgLedBrightnessIdle = parseConfigToken(tokens, i); i++
+                    cfgLedBrightnessStatus = parseConfigToken(tokens, i); i++
+                    ledStatusPin.value = parseConfigToken(tokens, i); i++
+                    ledStatusNum.value = parseConfigToken(tokens, i); i++
+                    ledStatusType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledStatusReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledFrontPin.value = parseConfigToken(tokens, i); i++
+                    ledFrontNum.value = parseConfigToken(tokens, i); i++
+                    ledFrontType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledFrontReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledFrontStripType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledRearPin.value = parseConfigToken(tokens, i); i++
+                    ledRearNum.value = parseConfigToken(tokens, i); i++
+                    ledRearType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledRearReversed.checked = parseConfigToken(tokens, i) > 0; i++
+                    ledRearStripType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledLoopDelay.value = parseConfigToken(tokens, i); i++
+                    canLoopDelay.value = parseConfigToken(tokens, i); i++
+                    ledMaxBlendCount.value = parseConfigToken(tokens, i); i++
+                    setLoaderValue(ledDimOnHighbeamRatioLoader, parseConfigToken(tokens, i)); i++
+                    ledStatusStripType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledFix.value = parseConfigToken(tokens, i); i++
+                    ledFrontHighbeamPin.value = parseConfigToken(tokens, i); i++
+                    ledRearHighbeamPin.value = parseConfigToken(tokens, i); i++
+                    setLoaderValue(ledMaxBrightnessLoader, parseConfigToken(tokens, i)); i++
+                    applyLedControlBrightnessCap()
+                    cellType.currentIndex = parseConfigToken(tokens, i); i++
+                    ledUpdateNotRunning.checked = parseConfigToken(tokens, i) > 0; i++
+                    seriesCells.value = parseConfigToken(tokens, i); i++
+                    frontTargetID.value = parseConfigToken(tokens, i); i++
+                    rearTargetID.value = parseConfigToken(tokens, i); i++
+                    statusTargetID.value = parseConfigToken(tokens, i); i++
+                    targetSelectionDirty = false
+                    nodeRole.value = parseConfigToken(tokens, i); i++
+                    uclEffectiveRole = nodeRole.value
+                    masterCanID.value = parseConfigToken(tokens, i); i++
+                    peersCache.value = parseConfigToken(tokens, i); i++
+                    if (i < tokens.length) {
+                        localCanId = parseConfigToken(tokens, i)
+                    }
+                    syncBrightnessSliders()
+                    refreshTargetCanOptions([frontTargetID.value, rearTargetID.value, statusTargetID.value])
 
-                readConfig = true;
-                if (firstConfigLoad) {
-                    tabBar.currentIndex = (nodeRole.value === 1) ? 3 : 0
+                    readConfig = true;
+                    if (firstConfigLoad) {
+                        tabBar.currentIndex = (nodeRole.value === 1) ? 3 : 0
+                    }
+                } catch (e) {
+                    settingsParseErrorCount++
+                    lastSettingsParseError = e
+                    console.log("settings parse failed:", e)
                 }
             } else if (str.startsWith("msg")) {
                 var msg = str.substring(4)
@@ -2126,7 +2188,7 @@ Item {
                         devBuildMagic = Number(tokens[buildIxNew])
                     }
                     var tailIxNew = buildIxNew + 1
-                    if (tailIxNew + 2 < tokens.length) {
+                    if (!targetSelectionDirty && tailIxNew + 2 < tokens.length) {
                         frontTargetID.value = Number(tokens[tailIxNew])
                         rearTargetID.value = Number(tokens[tailIxNew + 1])
                         statusTargetID.value = Number(tokens[tailIxNew + 2])
@@ -2154,7 +2216,7 @@ Item {
                             devBuildMagic = Number(tokens[buildIxOld])
                         }
                         var tailIxOld = buildIxOld + 1
-                        if (tailIxOld + 2 < tokens.length) {
+                        if (!targetSelectionDirty && tailIxOld + 2 < tokens.length) {
                             frontTargetID.value = Number(tokens[tailIxOld])
                             rearTargetID.value = Number(tokens[tailIxOld + 1])
                             statusTargetID.value = Number(tokens[tailIxOld + 2])
