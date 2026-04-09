@@ -1,10 +1,10 @@
-@const-start
-
 (def tca9534-regs '(
         (addr . 0x20) ; Device address
         (out0 . 0xFF)
         (conf0 . 0xFF)
 ))
+
+@const-start
 
 (defun tca9534-write-regs () {
         (loopforeach i (rest-args) {
