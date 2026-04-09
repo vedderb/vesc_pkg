@@ -28,6 +28,7 @@
         <file>lib_bq27441/bq27441.vescpkg</file>
         <file>boosted_doctor/boosted_doctor.vescpkg</file>
         <file>dash16/dash16_test.vescpkg</file>
+        <file>lib_tca9534/tca9534.vescpkg</file>
    </qresource>
 </RCC>
 

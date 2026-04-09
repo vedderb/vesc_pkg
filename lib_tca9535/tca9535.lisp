@@ -1,3 +1,4 @@
+@const-start
 
 (def tca9535-regs '(
         (addr . 0x20) ; Device address
@@ -104,9 +105,6 @@
                         (setix res i (bits-dec-int (bufget-u8 reg1 0) (- pin 10) 1))
                 })
         })
-
-        (free reg0)
-        (free reg1)
 
         (if (= (length (rest-args)) 1) (first res) res)
 })
