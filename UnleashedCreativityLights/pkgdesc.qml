@@ -9,24 +9,11 @@ Item {
     property string pkgOutput: "UCLights.vescpkg"
 
     // Return true only when this package is compatible
-    // with the connected VESC-based device.
+    // with the connected device running VESC(R) software.
     function isCompatible(fwRxParams) {
-        var hwName = fwRxParams.hw.toLowerCase()
         var hwType = fwRxParams.hwTypeStr().toLowerCase()
 
-        if (hwType == "vesc bms") {
-            return false
-        }
-
-        if (hwName != "vesc express t") {
-            return false
-        }
-
-        if (fwRxParams.major < 6) {
-            return false
-        }
-
-        if (fwRxParams.major == 6 && fwRxParams.minor <= 6) {
+        if (hwType != "custom module") {
             return false
         }
 

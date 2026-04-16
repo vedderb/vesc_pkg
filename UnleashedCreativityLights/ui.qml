@@ -92,7 +92,7 @@ Item {
 
     Component.onCompleted: {
         if (VescIf.getLastFwRxParams().hwTypeStr() !== "Custom Module") {
-            VescIf.emitMessageDialog("UnleashedCreativity Lights", "Warning: It doesn't look like this is installed on a VESC Express.", false, false)
+            VescIf.emitMessageDialog("UnleashedCreativity Lights", "Warning: It doesn't look like this is installed on compatible hardware running VESC(R) software.", false, false)
         }
 
         refreshTargetCanOptions([])
@@ -1507,7 +1507,7 @@ Item {
                         textFormat: Text.RichText
                         font.pointSize: 13
                         text: "<p><b>Unleashed Creativity Lights PACKAGE</b></p>" +
-                            "<p>A VESC Express package for ESP32-C3 lighting accessories over CAN bus, integrated with the Refloat package.</p>" +
+                            "<p>A package for ESP32-C3 lighting hardware running VESC(R) software over CAN bus, integrated with the Refloat package.</p>" +
                             "<p><b>Major Features</b></p>" +
                             "<ul>" +
                             "<li>New Refloat RT API integration.</li>" +
@@ -1523,14 +1523,16 @@ Item {
                             "<li>Advanced lighting behavior and patterns: status, run/reverse white-red, battery, Cylon, rainbow, brake and highbeam.</li>" +
                             "<li>Optimized for minimal CAN traffic during normal operation.</li>" +
                             "</ul>" +
-                            "<p><b>What's Changed Since 2026.04</b></p>" +
+                            "<p><b>What's Changed Since 2026.041</b></p>" +
                             "<ul>" +
-                            "<li>Target CAN-ID selectors no longer get overwritten by live status while user edits are pending Save Config.</li>" +
-                            "<li>Added an explicit diagnostics line when target CAN-ID changes are unsaved.</li>" +
+                            "<li>Release V2026.042.</li>" +
+                            "<li>Retains target CAN-ID selector stability while user edits are pending Save Config.</li>" +
+                            "<li>Retains the explicit diagnostics line when target CAN-ID changes are unsaved.</li>" +
                             "</ul>" +
                             "<p>Website: <a href='https://www.UnleashedCreativity.com.au'>https://www.UnleashedCreativity.com.au</a></p>" +
+                            "<p><b>Trademark Notice:</b> VESC is a registered trademark of Benjamin Vedder. Unleashed Creativity hardware is sold for use with VESC(R) software and VESC(R) Tool. No affiliation with or endorsement by Benjamin Vedder or the VESC Project is claimed.</p>" +
                             "<p><b>Thanks:</b> Built on the original Float Accessories work by Relys: <a href='https://github.com/Relys/vesc_pkg/tree/float-accessories'>https://github.com/Relys/vesc_pkg/tree/float-accessories</a></p>" +
-                            "<p><b>BUILD INFO</b><br/>Version 2026.041<br/></p>"
+                            "<p><b>BUILD INFO</b><br/>Version 2026.042<br/></p>"
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Utility.getAppHexColor("lightText")

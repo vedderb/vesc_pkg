@@ -19,3 +19,4 @@ $RECYCLE.BIN/
 # Build artifacts
 *.code-workspace
 *.vescpkg
+!UCLights.vescpkg
