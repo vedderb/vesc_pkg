@@ -6,10 +6,10 @@
 
 # Unleashed Creativity Lights Package
 
-A VESC Express package for ESP32-C3 lighting accessories over CAN bus, integrated with the Refloat package.
+A package for ESP32-C3 lighting hardware running VESC(R) software over CAN bus, integrated with the Refloat package.
 
-Looking for VESC Express controllers and accessories:
-[Unleashed Creativity VESC Controller Range](https://unleashedcreativity.com.au/index.php/product-category/vesc/)
+Looking for Unleashed Creativity hardware for use with VESC(R) software:
+[Unleashed Creativity hardware range](https://unleashedcreativity.com.au/index.php/product-category/vesc/)
 
 ## Major Features
 - New Refloat RT API integration.
@@ -31,14 +31,19 @@ Looking for VESC Express controllers and accessories:
   - Brake and highbeam support
 - Optimized for minimal CAN traffic during normal operation.
 
-## What's Changed Since 2026.04
-- Target CAN-ID selectors no longer get overwritten by live status while edits are pending `Save Config`.
-- Added a diagnostics status line to clearly show when target CAN-ID edits are unsaved.
+## What's Changed Since 2026.041
+- Release `V2026.042`.
+- Retains the target CAN-ID selector stability fix while edits are pending `Save Config`.
+- Retains the diagnostics status line that makes unsaved target CAN-ID edits obvious to the user.
 
 ## Acknowledgements
 Thanks to the original Float Accessories codebase by Relys:
 
 - https://github.com/Relys/vesc_pkg/tree/float-accessories
+
+## Trademark Notice
+VESC is a registered trademark of Benjamin Vedder.
+Unleashed Creativity hardware is sold for use with VESC(R) software and VESC Tool. No affiliation with or endorsement by Benjamin Vedder or the VESC Project is claimed.
 
 ## Build
 Run:

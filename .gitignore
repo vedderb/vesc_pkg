@@ -1,5 +1,6 @@
 *.list
 *.vescpkg
+!UnleashedCreativityLights/UCLights.vescpkg
 confxml.c
 confxml.h
 

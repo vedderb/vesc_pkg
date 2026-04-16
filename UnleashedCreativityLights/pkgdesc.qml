@@ -9,7 +9,7 @@ Item {
     property string pkgOutput: "UCLights.vescpkg"
 
     // Return true only when this package is compatible
-    // with the connected VESC-based device.
+    // with the connected device running VESC(R) software.
     function isCompatible(fwRxParams) {
         var hwType = fwRxParams.hwTypeStr().toLowerCase()
 
