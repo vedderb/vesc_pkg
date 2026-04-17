@@ -1,16 +1,6 @@
 ; Boosted Board CAN Protocol Implementation
 
-; --- Constants ---
-(define COMM_GET_STATUS       1)
-(define COMM_GET_CELLS        2)
-(define COMM_PFAIL_RESET      3)
-
-(define BAT_TYPE_UNKNOWN      0)
-(define BAT_TYPE_SRB          1)
-(define BAT_TYPE_XRB          2)
-(define BAT_TYPE_REV          3)
-
-; --- State Variables ---
+; --- Mutable State Variables ---
 (define val-cell-count 12) ; Default to 12
 (define cell-voltage-buffer (bufcreate 30))
 (define AFE_RX_BUF_SIZE 256)
@@ -23,6 +13,27 @@
 (define debug-enable nil)
 (define tx-counter 0)
 
+; --- Pre-allocated TX Buffers ---
+; GETAFECELLS
+(define afe-cells-payload1 (bufcreate 8))
+(bufset-u8 afe-cells-payload1 0 0x47) ; G
+(bufset-u8 afe-cells-payload1 1 0x45) ; E
+(bufset-u8 afe-cells-payload1 2 0x54) ; T
+(bufset-u8 afe-cells-payload1 3 0x41) ; A
+(bufset-u8 afe-cells-payload1 4 0x46) ; F
+(bufset-u8 afe-cells-payload1 5 0x45) ; E
+(bufset-u8 afe-cells-payload1 6 0x43) ; C
+(bufset-u8 afe-cells-payload1 7 0x45) ; E
+(define afe-cells-payload2 (bufcreate 5))
+(bufset-u8 afe-cells-payload2 0 0x4C) ; L
+(bufset-u8 afe-cells-payload2 1 0x4C) ; L
+(bufset-u8 afe-cells-payload2 2 0x53) ; S
+(bufset-u8 afe-cells-payload2 3 0x0D) ; \r
+(bufset-u8 afe-cells-payload2 4 0x0A) ; \n
+; PING
+(define ping-payload (bufcreate 8))
+(bufclear ping-payload)
+
 (define last-boosted-bms-rx-time 0)
 (define last-vesc-bms-tx-time 0)
 (define last-cell-req-time 0)
@@ -33,7 +44,7 @@
 (define val-soc 0)
 (define val-pack-volt 0.0)
 
-(define val-bat-type BAT_TYPE_UNKNOWN)
+(define val-bat-type 0) ; BAT_TYPE_UNKNOWN
 (define val-cell-min 0.0)
 (define val-cell-max 0.0)
 (define val-ver-major 0)
@@ -42,12 +53,23 @@
 (define val-amps 0.0)
 (define val-btn-state 0)
 
-
-
-; --- Parsing Helpers ---
+; --- Parsing Result Globals ---
 (define parse-res-val 0)
 (define parse-res-idx 0)
 
+@const-start
+
+; --- Constants ---
+(define COMM_GET_STATUS       1)
+(define COMM_GET_CELLS        2)
+(define COMM_PFAIL_RESET      3)
+
+(define BAT_TYPE_UNKNOWN      0)
+(define BAT_TYPE_SRB          1)
+(define BAT_TYPE_XRB          2)
+(define BAT_TYPE_REV          3)
+
+; --- Parsing Helpers ---
 (defun is-digit (c) (and (>= c 48) (<= c 57)))
 
 (defun parse-int-buf (buf idx limit) {
@@ -253,28 +275,8 @@
 })
 
 (defun send-get-afe-cells () {
-  ; Msg 1: GETAFECE
-  (var payload1 (bufcreate 8))
-  (bufset-u8 payload1 0 0x47) ; G
-  (bufset-u8 payload1 1 0x45) ; E
-  (bufset-u8 payload1 2 0x54) ; T
-  (bufset-u8 payload1 3 0x41) ; A
-  (bufset-u8 payload1 4 0x46) ; F
-  (bufset-u8 payload1 5 0x45) ; E
-  (bufset-u8 payload1 6 0x43) ; C
-  (bufset-u8 payload1 7 0x45) ; E
-  
-  ; Msg 2: LLS\r\n
-  (var payload2 (bufcreate 5))
-  (bufset-u8 payload2 0 0x4C) ; L
-  (bufset-u8 payload2 1 0x4C) ; L
-  (bufset-u8 payload2 2 0x53) ; S
-  (bufset-u8 payload2 3 0x0D) ; \r
-  (bufset-u8 payload2 4 0x0A) ; \n
-
-  (can-send-eid 0x10246110u32 payload1)
-  (can-send-eid 0x10146111u32 payload2)
-    
+  (can-send-eid 0x10246110u32 afe-cells-payload1)
+  (can-send-eid 0x10146111u32 afe-cells-payload2)
   (if debug-enable {
       (debug-print "TX: GETAFECELLS")
   })
@@ -304,6 +306,24 @@
     
   (print "TX: PFAILRESET")
 })
+
+(defun send-reboot () {
+  ; Msg 1: REBOOT\r\n
+  (var payload1 (bufcreate 8))
+  (bufset-u8 payload1 0 0x52) ; R
+  (bufset-u8 payload1 1 0x45) ; E
+  (bufset-u8 payload1 2 0x42) ; B
+  (bufset-u8 payload1 3 0x4F) ; O
+  (bufset-u8 payload1 4 0x4F) ; O
+  (bufset-u8 payload1 5 0x54) ; T
+  (bufset-u8 payload1 6 0x0D) ; \r
+  (bufset-u8 payload1 7 0x0A) ; \n
+  
+  (can-send-eid 0x10346110u32 payload1) 
+    
+  (print "TX: REBOOT")
+})
+
 
 (defun process-afe-buffer () {
      ; Main Loop Processing of Ring Buffer
@@ -372,8 +392,6 @@
 })
 
 ; --- Process CAN Messages ---
-
-
 (defun process-can-frame (id data) {
   (var header (bitwise-and (shr id 4) 0xFFFFF))
   (var dlc (buflen data))
@@ -484,7 +502,6 @@
     ((= header 0x33443)
       (if (>= dlc 8) {
           (setq last-boosted-bms-rx-time (systime))
-          ; Use let for local variables instead of define
           (var bat-type (bufget-u8 data 0))
           (var bat-ext (bufget-u8 data 4))
           (var bat-type-enum BAT_TYPE_UNKNOWN)
@@ -632,6 +649,7 @@
           })
           (if (= cmd COMM_PFAIL_RESET) {
               (send-pfail-reset)
+              (send-reboot)
           })
         })
       })
@@ -641,15 +659,13 @@
 )
 
 (defun send-ping () {
-  (var payload (bufcreate 8))
-  (bufclear payload) ; Ensure zeros  
   ; Construct ID: 0x10 << 24 | ID_ESC_PING_BASE << 4 | counter (4 bits)
   (var base-id 0x103434B0u32)
   (var ping-id (+ base-id (bitwise-and tx-counter 0xF)))
 
   ; Send Extended ID
   (debug-print (str-merge "TX Ping ID: " (str-from-n ping-id "0x%X")))
-  (can-send-eid ping-id payload)
+  (can-send-eid ping-id ping-payload)
 
   ; Increment Counter
   (setq tx-counter (+ tx-counter 1))
@@ -695,6 +711,8 @@
     })
   })
 })
+
+@const-end
 
 ; --- Main Entry ---
 (print "Starting Boosted VESC Driver...")
