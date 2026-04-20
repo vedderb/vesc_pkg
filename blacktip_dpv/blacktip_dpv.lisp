@@ -131,6 +131,8 @@
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
 
+; Settle time after startup before allowing more beeper indications (e.g. thirds warning)
+(define STARTUP_TUNE_SETTLE 1.0)
 
 ; Display LUT binary format helpers (init-only, not moved to flash)
 (defun validate_lut_header (data magic expected_version)
@@ -1412,6 +1414,14 @@
 
 (move-to-flash start_display_output_loop)
 
+; Returns true once the startup tune has finished AND 1 second has elapsed,
+; giving a clear gap between the tune and the battery status beeps.
+(defun tune-settled ()
+    (and (> startup_tune_done_time 0) (> (secs-since startup_tune_done_time) STARTUP_TUNE_SETTLE))
+)
+
+(move-to-flash tune-settled)
+
 ; **** Program that triggers the display to show battery status ****
 (defun start_display_battery_loop ()
 {
@@ -1431,19 +1441,19 @@
                 (cond
                     ((> actual_batt 0.75) {
                         (setvar 'disp_num 3)
-                        (spawn beeper 4)
+                        (if (tune-settled) (spawn beeper 4) (setvar 'batt_beeps_pending 4))
                     })
                     ((> actual_batt 0.5) {
                         (setvar 'disp_num 2)
-                        (spawn beeper 3)
+                        (if (tune-settled) (spawn beeper 3) (setvar 'batt_beeps_pending 3))
                     })
                     ((> actual_batt 0.25) {
                         (setvar 'disp_num 1)
-                        (spawn beeper 2)
+                        (if (tune-settled) (spawn beeper 2) (setvar 'batt_beeps_pending 2))
                     })
                     (t {
                         (setvar 'disp_num 0)
-                        (spawn beeper 1)
+                        (if (tune-settled) (spawn beeper 1) (setvar 'batt_beeps_pending 1))
                     })
                 )
 
@@ -1502,6 +1512,13 @@
             )
             (setvar 'batt_disp_state 0)
             (setvar 'batt_disp_timer_start 0)
+        })
+
+        ; Play battery beeps that were deferred while the startup tune was playing
+        (if (and (> batt_beeps_pending 0) (tune-settled)) {
+            (setvar 'disp_num last_batt_disp_num) ; Re-show battery level while deferred beeps play
+            (spawn beeper batt_beeps_pending)
+            (setvar 'batt_beeps_pending 0)
         })
     })
 })
@@ -1580,6 +1597,7 @@
         (foc-beep 392 0.7 beeps_vol)  ; G half note
         (sleep 0.74)
     })
+    (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
 })
 
 (move-to-flash play_imperial_march)
@@ -1703,6 +1721,8 @@
 
     (define batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
     (define last_batt_disp_num 3) ; variable used to track last display screen show
+    (define startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (define batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
 
