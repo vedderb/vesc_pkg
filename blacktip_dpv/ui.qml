@@ -388,9 +388,11 @@ Item {
                                     mMcConf.updateParamDouble("s_pid_ramp_erpms_s", ramp_rate.realValue, null)
                                     mCommands.setMcconf(false)
 
-                                    write_settings()
-
                                     settingsScroll.has_changes = false
+
+                                    delay(2000, function() {
+                                        write_settings()
+                                    })
                                 }
                             }
                         }
@@ -1349,9 +1351,11 @@ Item {
                 mMcConf.updateParamDouble("si_battery_ah", battery_ah.realValue, null)
                 mCommands.setMcconf(false)
 
-                write_settings()
-
                 has_changes = false
+
+                delay(2000, function() {
+                    write_settings()
+                })
             }
 	    }
 

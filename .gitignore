@@ -20,3 +20,4 @@ blacktip_dpv/.git_branch_cache
 **/__pycache__/
 .DS_Store
 **/.DS_Store
+**/.vscode/

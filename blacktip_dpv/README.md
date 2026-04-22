@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.2.0
+**Version:** 1.2.1
 
 ## License
 
@@ -37,6 +37,11 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.2.1
+
+- Patch fix for startup sound/battery beep overlap: When the battery is not full, the battery status beeps now wait until the startup tune has finished playing, so the two sounds no longer overlap
+- Fix for a bug in the Battery Settings dialog, preventing settings from being updated when saving
 
 ## What's New in Version 1.2.0
 
