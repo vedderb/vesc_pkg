@@ -5,6 +5,7 @@
         <file>refloat/refloat.vescpkg</file>
         <file>logui/logui.vescpkg</file>
         <file>tnt/tnt.vescpkg</file>
+        <file>x1_unlocker/x1_unlocker.vescpkg</file>
         <file>vbms32/vbms32.vescpkg</file>
         <file>vbms32_micro/vbms32_micro.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
