@@ -4,7 +4,7 @@ Item {
     property string pkgName: "Dash35B ESC"
     property string pkgDescriptionMd: "README_ESC-gen.md"
     property string pkgLisp: "main-esc.lisp"
-    property string pkgQml: ""
+    property string pkgQml: "logui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "dash35b_esc.vescpkg"
 
