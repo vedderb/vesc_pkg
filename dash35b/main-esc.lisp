@@ -169,6 +169,7 @@
         ("vq" "V"                       (get-vq 1))
         ("vd" "V"                       (get-vd 1))
         ("Fault"                        (get-fault))
+        ("Drive Mode"                   (+ drive-mode 0))
 ))
 
 ; CAN-data template. Same format as above, but all %d in strings will
