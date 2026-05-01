@@ -8,4 +8,4 @@ boosted_doctor.vescpkg:
 clean:
 	rm -f boosted_doctor.vescpkg
 
-.PHONY: all clean
+.PHONY: all clean boosted_doctor.vescpkg
