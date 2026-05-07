@@ -3,7 +3,7 @@ import QtQuick 2.15
 Item {
     property string pkgName: "E-Bike Pkg"
     property string pkgDescriptionMd: "README.dist.md"
-    property string pkgLisp: "ebike.lisp"
+    property string pkgLisp: "ebike.lbm"
     property string pkgQml: "ui.dist.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "ebike.vescpkg"

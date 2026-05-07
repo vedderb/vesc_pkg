@@ -35,7 +35,7 @@ def assert_near(actual, expected, tolerance, test_name):
         print(f"  Actual:   {actual}")
 
 # =============================================================================
-# Pure Function Implementations (mirroring ebike.lisp)
+# Pure Function Implementations (mirroring ebike.lbm)
 # =============================================================================
 
 SPEED_REVERSE_THRESHOLD = 5
