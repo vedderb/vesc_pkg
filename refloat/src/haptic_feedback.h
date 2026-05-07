@@ -25,10 +25,11 @@
 
 typedef enum {
     HAPTIC_FEEDBACK_NONE = 0,
-    HAPTIC_FEEDBACK_DUTY,
+    HAPTIC_FEEDBACK_DUTY_SPEED,
     HAPTIC_FEEDBACK_DUTY_CONTINUOUS,
     HAPTIC_FEEDBACK_ERROR_TEMPERATURE,
     HAPTIC_FEEDBACK_ERROR_VOLTAGE,
+    HAPTIC_FEEDBACK_ERROR_FATAL,
 } HapticFeedbackType;
 
 typedef struct {
@@ -40,6 +41,7 @@ typedef struct {
     HapticFeedbackType type_playing;
     time_t tone_timer;
     bool is_playing;
+    bool can_change_type;
 } HapticFeedback;
 
 void haptic_feedback_init(HapticFeedback *hf);
@@ -47,5 +49,10 @@ void haptic_feedback_init(HapticFeedback *hf);
 void haptic_feedback_configure(HapticFeedback *hf, const RefloatConfig *cfg);
 
 void haptic_feedback_update(
-    HapticFeedback *hf, MotorControl *mc, const State *state, const MotorData *md, const Time *time
+    HapticFeedback *hf,
+    MotorControl *mc,
+    const State *state,
+    const MotorData *md,
+    const AlertTracker *at,
+    const Time *time
 );

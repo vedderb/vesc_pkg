@@ -23,9 +23,45 @@
 
 #include <math.h>
 
+void motor_data_init(MotorData *m) {
+    m->erpm = 0.0f;
+    m->abs_erpm = 0.0f;
+    m->abs_erpm_smooth = 0.0f;
+    m->last_erpm = 0.0f;
+    m->erpm_sign = 1;
+
+    m->speed = 0.0f;
+
+    m->current = 0.0f;
+    m->dir_current = 0.0f;
+    m->filt_current = 0.0f;
+    m->braking = false;
+
+    m->duty_raw = 0.0f;
+
+    m->batt_current = 0.0f;
+    m->batt_voltage = 0.0f;
+
+    m->mosfet_temp = 0.0f;
+    m->motor_temp = 0.0f;
+
+    m->current_min = 0.0f;
+    m->current_max = 0.0f;
+    m->battery_current_min = 0.0f;
+    m->battery_current_max = 0.0f;
+    m->mosfet_temp_max = 0.0f;
+    m->motor_temp_max = 0.0f;
+    m->duty_max_with_margin = 0.0f;
+    m->lv_threshold = 0.0f;
+    m->hv_threshold = 0.0f;
+
+    m->current_filter_enabled = false;
+
+    motor_data_reset(m);
+}
+
 void motor_data_reset(MotorData *m) {
-    m->abs_erpm_smooth = 0;
-    m->duty_raw = 0;
+    m->duty_cycle = 0;
 
     m->acceleration = 0;
     m->accel_idx = 0;
@@ -36,6 +72,30 @@ void motor_data_reset(MotorData *m) {
     biquad_reset(&m->current_biquad);
 }
 
+void motor_data_refresh_motor_config(MotorData *m, float lv_threshold, float hv_threshold) {
+    uint8_t battery_cells = VESC_IF->get_cfg_int(CFG_PARAM_si_battery_cells);
+    if (battery_cells > 0) {
+        if (lv_threshold < 10) {
+            lv_threshold *= battery_cells;
+        }
+        if (hv_threshold < 10) {
+            hv_threshold *= battery_cells;
+        }
+    }
+
+    m->lv_threshold = lv_threshold;
+    m->hv_threshold = hv_threshold;
+
+    // min motor current is a positive value here!
+    m->current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
+    m->current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
+    m->battery_current_min = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_min);
+    m->battery_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_max);
+    m->mosfet_temp_max = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
+    m->motor_temp_max = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
+    m->duty_max_with_margin = VESC_IF->get_cfg_float(CFG_PARAM_l_max_duty) - 0.05;
+}
+
 void motor_data_configure(MotorData *m, float frequency) {
     if (frequency > 0) {
         biquad_configure(&m->current_biquad, BQ_LOWPASS, frequency);
@@ -43,12 +103,6 @@ void motor_data_configure(MotorData *m, float frequency) {
     } else {
         m->current_filter_enabled = false;
     }
-
-    // min motor current is a positive value here!
-    m->current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));
-    m->current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max);
-    m->battery_current_min = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_min);
-    m->battery_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_in_current_max);
 }
 
 void motor_data_update(MotorData *m) {
@@ -61,6 +115,7 @@ void motor_data_update(MotorData *m) {
     // including four divisions. In theory multiplying by a single constant is
     // enough, we just need to calculate the constant (and keep it up to date
     // when motor config changes, there's no way to know, we'll have to poll).
+    // And it's only possible on 6.05+.
     m->speed = VESC_IF->mc_get_speed() * 3.6;
 
     m->current = VESC_IF->mc_get_tot_current_filtered();
@@ -88,6 +143,15 @@ void motor_data_update(MotorData *m) {
 
     m->mosfet_temp = VESC_IF->mc_temp_fet_filtered();
     m->motor_temp = VESC_IF->mc_temp_motor_filtered();
+}
+
+void motor_data_evaluate_alerts(const MotorData *m, AlertTracker *at, const Time *time) {
+    unused(m);
+
+    mc_fault_code fault_code = VESC_IF->mc_get_fault();
+    if (fault_code != FAULT_CODE_NONE) {
+        alert_tracker_add(at, time, ALERT_FW_FAULT, fault_code);
+    }
 }
 
 float motor_data_get_current_saturation(const MotorData *m) {

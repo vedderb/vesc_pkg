@@ -26,6 +26,11 @@
         <file>dash35b/dash35b_esc.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_stm.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
+        <file>lib_bq27441/bq27441.vescpkg</file>
+        <file>boosted_doctor/boosted_doctor.vescpkg</file>
+        <file>dash16/dash16_test.vescpkg</file>
+        <file>lib_tca9534/tca9534.vescpkg</file>
+        <file>UnleashedCreativityLights/UCLights.vescpkg</file>
    </qresource>
 </RCC>
 

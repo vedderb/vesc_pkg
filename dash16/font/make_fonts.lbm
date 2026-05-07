@@ -1,0 +1,37 @@
+(def f-roboto (fopen "Roboto-Bold.ttf" "r"))
+(def roboto (load-file f-roboto))
+(fclose f-roboto)
+
+(def all-chars (bufcreate 96))
+(looprange i 0 96 (bufset-u8 all-chars i (+ i 32)))
+(bufset-u8 all-chars 95 0)
+
+(define roboto-bold-16-4c (ttf-prepare roboto 16 'indexed4 all-chars))
+(def f (fopen "roboto-bold-16-4c.bin" "w"))
+(fwrite f roboto-bold-16-4c)
+(fclose f)
+
+(define roboto-bold-16-2c (ttf-prepare roboto 16 'indexed2 all-chars))
+(def f (fopen "roboto-bold-16-2c.bin" "w"))
+(fwrite f roboto-bold-16-2c)
+(fclose f)
+
+(define roboto-bold-12-4c (ttf-prepare roboto 12 'indexed4 all-chars))
+(def f (fopen "roboto-bold-12-4c.bin" "w"))
+(fwrite f roboto-bold-12-4c)
+(fclose f)
+
+(define roboto-bold-48-4c (ttf-prepare roboto 48 'indexed4 "NPRD12345"))
+(def f (fopen "roboto-bold-48-4c.bin" "w"))
+(fwrite f roboto-bold-48-4c)
+(fclose f)
+
+(define roboto-bold-90-2c (ttf-prepare roboto 90 'indexed2 "D0123456789."))
+(def f (fopen "roboto-bold-90-2c.bin" "w"))
+(fwrite f roboto-bold-90-2c)
+(fclose f)
+
+(define roboto-bold-32-4c (ttf-prepare roboto 32 'indexed4 "D0123456789."))
+(def f (fopen "roboto-bold-32-4c.bin" "w"))
+(fwrite f roboto-bold-32-4c)
+(fclose f)

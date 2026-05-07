@@ -92,11 +92,15 @@ Item {
             implicitWidth: 0
             clip: true
 
-            property int buttons: 4
+            property int buttons: 5
             property int buttonWidth: 120
 
             TabButton {
-                text: qsTr("Detect Motor")
+                text: qsTr("Start")
+                width: Math.max(tabBar.buttonWidth, tabBar.width / tabBar.buttons)
+            }
+            TabButton {
+                text: qsTr("Detect")
                 width: Math.max(tabBar.buttonWidth, tabBar.width / tabBar.buttons)
             }
             TabButton {
@@ -119,6 +123,35 @@ Item {
             Layout.fillHeight: true
             Layout.fillWidth: true
             clip: true
+
+            Page {
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    Button {
+                        text: "Start Logging"
+                        Layout.fillWidth: true
+
+                        onClicked: {
+                            sendCode("(start-log-defaults)")
+                        }
+                    }
+
+                    Button {
+                        text: "Stop Logging"
+                        Layout.fillWidth: true
+
+                        onClicked: {
+                            sendCode("(stop-log last-can-id)")
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                    }
+                }
+            }
 
             Page {
                 ColumnLayout {

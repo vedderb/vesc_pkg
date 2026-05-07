@@ -29,6 +29,7 @@ void haptic_feedback_init(HapticFeedback *hf) {
     hf->type_playing = HAPTIC_FEEDBACK_NONE;
     hf->tone_timer = 0;
     hf->is_playing = false;
+    hf->can_change_type = true;
 }
 
 void haptic_feedback_configure(HapticFeedback *hf, const RefloatConfig *cfg) {
@@ -43,11 +44,15 @@ void haptic_feedback_configure(HapticFeedback *hf, const RefloatConfig *cfg) {
 }
 
 static HapticFeedbackType haptic_feedback_get_type(
-    const HapticFeedback *hf, const State *state, const MotorData *md
+    const HapticFeedback *hf, const State *state, const MotorData *md, const AlertTracker *at
 ) {
     // TODO: Ideally we don't even do pushback in handtest, as it can be confusing
     if (state->state != STATE_RUNNING || state->mode == MODE_HANDTEST) {
         return HAPTIC_FEEDBACK_NONE;
+    }
+
+    if (at->fatal_error) {
+        return HAPTIC_FEEDBACK_ERROR_FATAL;
     }
 
     switch (state->sat) {
@@ -55,12 +60,15 @@ static HapticFeedbackType haptic_feedback_get_type(
         if (md->duty_cycle > hf->duty_solid_threshold) {
             return HAPTIC_FEEDBACK_DUTY_CONTINUOUS;
         } else {
-            return HAPTIC_FEEDBACK_DUTY;
+            return HAPTIC_FEEDBACK_DUTY_SPEED;
         }
+    case SAT_PB_SPEED:
+        return HAPTIC_FEEDBACK_DUTY_SPEED;
     case SAT_PB_TEMPERATURE:
         return HAPTIC_FEEDBACK_ERROR_TEMPERATURE;
     case SAT_PB_LOW_VOLTAGE:
     case SAT_PB_HIGH_VOLTAGE:
+    case SAT_PB_ERROR:
         return HAPTIC_FEEDBACK_ERROR_VOLTAGE;
     default:
         break;
@@ -79,7 +87,7 @@ static HapticFeedbackType haptic_feedback_get_type(
 // skipped, giving a certain number of "beeps" followed by a pause.
 static uint8_t get_beats(HapticFeedbackType type) {
     switch (type) {
-    case HAPTIC_FEEDBACK_DUTY:
+    case HAPTIC_FEEDBACK_DUTY_SPEED:
         return 2;
     case HAPTIC_FEEDBACK_DUTY_CONTINUOUS:
         return 0;
@@ -87,6 +95,8 @@ static uint8_t get_beats(HapticFeedbackType type) {
         return 6;
     case HAPTIC_FEEDBACK_ERROR_VOLTAGE:
         return 8;
+    case HAPTIC_FEEDBACK_ERROR_FATAL:
+        return 10;
     case HAPTIC_FEEDBACK_NONE:
         break;
     }
@@ -96,11 +106,12 @@ static uint8_t get_beats(HapticFeedbackType type) {
 
 static const CfgHapticTone *get_haptic_tone(const HapticFeedback *hf) {
     switch (hf->type_playing) {
-    case HAPTIC_FEEDBACK_DUTY:
+    case HAPTIC_FEEDBACK_DUTY_SPEED:
     case HAPTIC_FEEDBACK_DUTY_CONTINUOUS:
         return &hf->cfg->duty;
     case HAPTIC_FEEDBACK_ERROR_TEMPERATURE:
     case HAPTIC_FEEDBACK_ERROR_VOLTAGE:
+    case HAPTIC_FEEDBACK_ERROR_FATAL:
         return &hf->cfg->error;
     case HAPTIC_FEEDBACK_NONE:
         break;
@@ -122,11 +133,16 @@ static inline void foc_play_tone(int channel, float freq, float voltage) {
 }
 
 void haptic_feedback_update(
-    HapticFeedback *hf, MotorControl *mc, const State *state, const MotorData *md, const Time *time
+    HapticFeedback *hf,
+    MotorControl *mc,
+    const State *state,
+    const MotorData *md,
+    const AlertTracker *at,
+    const Time *time
 ) {
-    HapticFeedbackType type_to_play = haptic_feedback_get_type(hf, state, md);
+    HapticFeedbackType type_to_play = haptic_feedback_get_type(hf, state, md, at);
 
-    if (type_to_play != hf->type_playing && timer_older(time, hf->tone_timer, TONE_LENGTH)) {
+    if (type_to_play != hf->type_playing && hf->can_change_type) {
         hf->type_playing = type_to_play;
         timer_refresh(time, &hf->tone_timer);
     }
@@ -136,6 +152,7 @@ void haptic_feedback_update(
         uint8_t beats = get_beats(hf->type_playing);
         if (beats == 0) {
             should_be_playing = true;
+            hf->can_change_type = true;
         } else {
             float period = TONE_LENGTH * beats;
             float tone_time = fmodf(timer_age(time, hf->tone_timer), period);
@@ -143,7 +160,12 @@ void haptic_feedback_update(
             uint8_t off_beat = beats > 2 ? beats - 2 : 0;
 
             should_be_playing = beat % 2 == 0 && (off_beat == 0 || beat != off_beat);
+            // Only allow changing type (another pattern or stop alerting)
+            // if we just finished a period
+            hf->can_change_type = !hf->is_playing && beat == 0;
         }
+    } else {
+        hf->can_change_type = true;
     }
 
     if (hf->is_playing && !should_be_playing) {

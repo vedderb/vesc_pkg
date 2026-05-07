@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.0.1
+**Version:** 1.2.1
 
 ## License
 
@@ -29,20 +29,26 @@ This package gives your DPV advanced features like Smart Cruise control, enhance
 
 **Scroll down for [installation instructions](#installation).**
 
+## Instructions
+
+Some videos showing the basic commands to control Smart Cruise while diving:
+
+- [basic commands](https://youtu.be/oFRCwuKf2qQ)
+- [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
+
 ---
 
-## What's New in Version 1.0.0
+## What's New in Version 1.2.1
 
-This is the **first official release** of the improved package with a complete rewrite and numerous enhancements over the original Dive Xtras software:
+- Patch fix for startup sound/battery beep overlap: When the battery is not full, the battery status beeps now wait until the startup tune has finished playing, so the two sounds no longer overlap
+- Fix for a bug in the Battery Settings dialog, preventing settings from being updated when saving
 
-- **Smart Cruise** — Hands-free cruising with visual timer bar and configurable timeout
-- **Smart Cruise Visual Indicator** — LED countdown timer bar showing time remaining
-- **Auto-engage Smart Cruise** — Optionally enable Smart Cruise automatically after maintaining speed
-- **Improved Speed Controls** — Change your speed while in Smart Cruise mode
-- **Voltage or Ah-based Battery Calculation** — Choose the method that works best for your setup
-- **Update to run on VESC 6.06** — Smoother running with latest FOC algorithms, improved safety features
-- **Code Optimization** — Reduced memory usage and improved performance
-- **Bug Fixes** — Numerous fixes from the original software for improved reliability and less EEPROM wear
+## What's New in Version 1.2.0
+
+New features and critical bug fix:
+
+- **Startup Sound**: Added a distinctive musical theme that plays on power-up. When battery is full (>75%, 3 bars), only the startup sound plays; otherwise it's followed by the battery level beeps
+- **Critical Smart Cruise Fix**: Fixed a bug where the motor could stop unexpectedly while in Smart Cruise mode with the timer bar still counting down. This occurred when tapping the trigger to reset the timer, due to a missing watchdog reset in the click-counting state
 
 ## Features
 
@@ -64,8 +70,8 @@ The headline feature of this package—Smart Cruise allows hands-free operation 
 
 **Speed Adjustments During Smart Cruise:**
 
-- **Long hold (>1s), release, then tap**: Speed down
-- **Long hold (>1s), release, then double-tap**: Speed up
+- **Long hold (>0.5s), release, then tap**: Speed down
+- **Long hold (>0.5s), release, then double-tap**: Speed up
 - **Short tap (no hold)**: Reset timer only
 - **Triple tap**: Disable Smart Cruise
 
@@ -119,6 +125,15 @@ Audio feedback for battery level when visibility is poor:
 - Helpful in dark or murky water conditions
 - Adjustable volume levels (0-5)
 - Can be enabled/disabled independently
+
+### Startup Sound
+
+A distinctive musical theme plays on power-up to confirm successful initialization:
+
+- Plays automatically when the scooter is turned on
+- When battery is full (3 bars, >75%), only the startup sound plays
+- When battery is not full (<75%), the startup sound is followed by battery level beeps
+- Volume matches your configured beep volume setting
 
 ### Trigger Click Beeps
 
@@ -300,7 +315,15 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Choose "blacktip\_dpv.vescpkg"
 - Confirm installation
 
-5. **Verify Installation:**
+5. **Reset to defaults:**
+
+- **This absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- Make sure to check your custom settings before the reset, and then restore them
+- In the VESC Tool or Mobile App go to "Settings" / "Scooter Hardware Configuration"
+- Make sure the correct model and hardware version is selected
+- Click "Reset Defaults"
+
+6. **Verify Installation:**
 
 - The scooter should show the startup splash screen to confirm successful installation
 - Check that the custom UI appears in the app

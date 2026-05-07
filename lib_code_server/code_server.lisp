@@ -22,31 +22,35 @@
             )
 }))
 
-(defun start-code-server ()
-    (spawn 150 (fn () {
-                (var last-id 0)
-                (var respawn true)
+(defun start-code-server () {
+        (canmsg-recv 0 0.01)
+        (canmsg-recv 0 0.01)
 
-                (loopwhile t {
-                        (if respawn {
-                                (spawn-trap "CodeSrv" code-server-worker (self))
-                                (setq respawn false)
-                        })
+        (spawn 150 (fn () {
+                    (var last-id 0)
+                    (var respawn true)
 
-                        (recv
-                            ((exit-error (? tid) (? v)) {
-                                    (setq respawn true)
-                                    (if (>= last-id 0)
-                                        (canmsg-send last-id 1 (flatten 'eerror))
-                                    )
+                    (loopwhile t {
+                            (if respawn {
+                                    (spawn-trap "CodeSrv" code-server-worker (self))
+                                    (setq respawn false)
                             })
 
-                            ((can-id (? id)) {
-                                    (setq last-id id)
-                            })
-                        )
-                })
-})))
+                            (recv
+                                ((exit-error (? tid) (? v)) {
+                                        (setq respawn true)
+                                        (if (>= last-id 0)
+                                            (canmsg-send last-id 1 (flatten 'eerror))
+                                        )
+                                })
+
+                                ((can-id (? id)) {
+                                        (setq last-id id)
+                                })
+                            )
+                    })
+        }))
+})
 
 (defun rcode-run (id tout code) {
         (mutex-lock code-server-mutex)

@@ -17,13 +17,13 @@
 
 #pragma once
 
-#include "atr.h"
 #include "conf/datatypes.h"
 #include "imu.h"
 #include "motor_data.h"
 
 typedef struct {
     float step_size;
+    float ramped_step_size;
     float boost_per_erpm;
 
     float last_yaw_angle;
@@ -36,17 +36,14 @@ typedef struct {
     float setpoint;
 } TurnTilt;
 
+void turn_tilt_init(TurnTilt *tt);
+
 void turn_tilt_reset(TurnTilt *tt);
 
 void turn_tilt_configure(TurnTilt *tt, const RefloatConfig *config);
 
 void turn_tilt_aggregate(TurnTilt *tt, const IMU *imu);
 
-void turn_tilt_update(
-    TurnTilt *tt,
-    const MotorData *md,
-    const ATR *atr,
-    float balance_pitch,
-    float noseangling,
-    const RefloatConfig *config
-);
+void turn_tilt_update(TurnTilt *tt, const MotorData *md, const RefloatConfig *config);
+
+void turn_tilt_winddown(TurnTilt *tt);

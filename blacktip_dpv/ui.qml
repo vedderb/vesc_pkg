@@ -21,10 +21,10 @@ Item {
 
     readonly property var const_SCOOTER_MODELS: [
         "Blacktip series 2, with Bluetooth",
-        "Blacktip series 2, No Bluetooth",
-        "Blacktip series 1, No Bluetooth",
-        "CudaX, With Bluetooth",
-        "CudaX, No Bluetooth",
+        "Blacktip series 2, no Bluetooth",
+        "Blacktip series 1, no Bluetooth",
+        "CudaX, with Bluetooth",
+        "CudaX, no Bluetooth",
     ]
 
     readonly property int const_RELOAD_DELAY_MS: 1000
@@ -388,9 +388,11 @@ Item {
                                     mMcConf.updateParamDouble("s_pid_ramp_erpms_s", ramp_rate.realValue, null)
                                     mCommands.setMcconf(false)
 
-                                    write_settings()
-
                                     settingsScroll.has_changes = false
+
+                                    delay(2000, function() {
+                                        write_settings()
+                                    })
                                 }
                             }
                         }
@@ -1250,7 +1252,7 @@ Item {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     topPadding:10
-                    text: "While Smart Cruise is active: short trigger taps reset the timeout timer. To adjust speed, hold the trigger for >1 second, release, then do 1 click (speed down) or 2 clicks (speed up). To disable Smart Cruise, do another triple (3) click after a long hold."
+                    text: "While Smart Cruise is active: short trigger taps reset the timeout timer. To adjust speed, hold the trigger for >0.5 second, release, then do 1 click (speed down) or 2 clicks (speed up). To disable Smart Cruise, do another triple (3) click after a long hold."
                 }
 
                 Text {
@@ -1349,9 +1351,11 @@ Item {
                 mMcConf.updateParamDouble("si_battery_ah", battery_ah.realValue, null)
                 mCommands.setMcconf(false)
 
-                write_settings()
-
                 has_changes = false
+
+                delay(2000, function() {
+                    write_settings()
+                })
             }
 	    }
 

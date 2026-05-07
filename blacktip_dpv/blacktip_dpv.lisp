@@ -15,7 +15,7 @@
 (define TIMER_CLICK_WINDOW 0.3)       ; Click detection window
 (define TIMER_RELEASE_WINDOW 0.5)     ; Release detection window
 (define TIMER_SMART_CRUISE_TIMEOUT 5) ; Smart Cruise half-enable timeout
-(define TIMER_SMART_CRUISE_HOLD 1.0)  ; Hold duration before Smart Cruise adjustments
+(define TIMER_SMART_CRUISE_HOLD 0.5)  ; Hold duration before Smart Cruise adjustments
 (define TIMER_DISPLAY_DURATION 5)     ; Display duration (used in calculations)
 (define TIMER_LONG_PRESS 10)          ; Long press duration for special functions
 
@@ -131,6 +131,8 @@
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
 
+; Settle time after startup before allowing more beeper indications (e.g. thirds warning)
+(define STARTUP_TUNE_SETTLE 1.0)
 
 ; Display LUT binary format helpers (init-only, not moved to flash)
 (defun validate_lut_header (data magic expected_version)
@@ -856,11 +858,13 @@
             (if (!= speed SPEED_OFF) {
                 (if (> smart_cruise SMART_CRUISE_OFF) {
                     ; Smart Cruise is active
-                    (if (> initial_press_time TIMER_SMART_CRUISE_HOLD) {
-                        ; Long hold before click - change speed down
+                    ; Only allow speed change with long hold when NOT in warning mode (timing out)
+                    (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
+                        ; Long hold before click - change speed down (not allowed during timeout warning)
                         (debug_log "Click action: Single click after hold (Smart Cruise: speed down + timer reset)")
                         (setvar 'click_beep CLICKS_SINGLE)
                         (setvar 'timer_start (systime))
+                        (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
                         (smart_cruise_upgrade_if_needed)
                         ; Change speed down
@@ -868,7 +872,7 @@
                             (set_speed_safe (- speed 1))
                         })
                     } {
-                        ; Quick tap - just reset timer
+                        ; Quick tap OR in warning mode - just reset timer (no speed change)
                         (debug_log "Click action: Single click (Smart Cruise timer reset)")
                         (setvar 'timer_start (systime))
                         ; If in warning mode, upgrade back to fully enabled
@@ -878,6 +882,7 @@
                     ; Smart Cruise not active - normal speed down
                     (debug_log "Click action: Single click (speed down)")
                     (setvar 'click_beep CLICKS_SINGLE)
+                    (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (cond
                         ((> speed SPEED_REVERSE_THRESHOLD)
                             (set_speed_safe (- speed 1)))
@@ -890,15 +895,17 @@
             (if (= speed SPEED_OFF) {
                 (debug_log_format (str-merge "Click action: Double click (start at speed " (to-str (to-i new_start_speed)) ")"))
                 (setvar 'click_beep CLICKS_DOUBLE)
+                (setvar 'speed_set_via_jump nil) ; Normal start, allow speed to be remembered
                 (set_speed_safe new_start_speed)
             } {
                 (if (> smart_cruise SMART_CRUISE_OFF) {
-                    ; Smart Cruise is active - only allow speed change after long hold
-                    (if (> initial_press_time TIMER_SMART_CRUISE_HOLD) {
-                        ; Long hold before double tap - change speed up
+                    ; Smart Cruise is active - only allow speed change after long hold, and not during timeout warning
+                    (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
+                        ; Long hold before double tap - change speed up (not allowed during timeout warning)
                         (debug_log "Click action: Double click after hold (Smart Cruise: speed up + timer reset)")
                         (setvar 'click_beep CLICKS_DOUBLE)
                         (setvar 'timer_start (systime))
+                        (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
                         (smart_cruise_upgrade_if_needed)
                         ; Change speed up
@@ -906,7 +913,7 @@
                             (set_speed_safe (+ speed 1))
                         })
                     } {
-                        ; Quick double tap without hold - just reset timer
+                        ; Quick double tap without hold OR in warning mode - just reset timer (no speed change)
                         (debug_log "Click action: Double click (Smart Cruise timer reset)")
                         (setvar 'timer_start (systime))
                         ; If in warning mode, upgrade back to fully enabled
@@ -916,6 +923,7 @@
                     ; Smart Cruise not active - normal speed up
                     (debug_log "Click action: Double click (speed up)")
                     (setvar 'click_beep CLICKS_DOUBLE)
+                    (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (if (< speed max_speed_no) {
                         (if (> speed SPEED_UNTANGLE)
                             (set_speed_safe (+ speed 1))
@@ -929,6 +937,7 @@
                 ; Stopped - jump to preset speed
                 (debug_log_format (str-merge "Click action: Triple click (jump to speed " (to-str (to-i jump_speed)) ")"))
                 (setvar 'click_beep CLICKS_TRIPLE)
+                (setvar 'speed_set_via_jump t) ; Speed set via jump, don't remember unless changed
                 (set_speed_safe jump_speed)
             } {
                 ; Running - only allow Smart Cruise toggle in forward speeds
@@ -986,6 +995,11 @@
     (debug_log_format (str-merge "State 1: Counting clicks=" (to-str clicks)))
     (loopwhile (= sw_state STATE_COUNTING_CLICKS) {
         (sleep SLEEP_STATE_MACHINE)
+
+        ; Keep motor running while in Smart Cruise mode
+        (if (> smart_cruise SMART_CRUISE_OFF)
+            (timeout-reset)
+        )
 
         ; Released
         (if (= sw_pressed 0) {
@@ -1120,12 +1134,18 @@
                 (if (and (!= smart_cruise SMART_CRUISE_FULLY_ENABLED) (!= smart_cruise SMART_CRUISE_AUTO_ENGAGED)) { ; If Smart Cruise is enabled, don't shut down
                     (debug_log "State 3->0: Timeout, shutting down")
                     (setvar 'timer_duration TIMER_DISABLED)
-                    (cond
-                        ((and (< speed start_speed) (> speed SPEED_UNTANGLE)) ; start at old speed if less than start speed
-                            (setvar 'new_start_speed speed))
-                        ((>= speed start_speed)
-                            (setvar 'new_start_speed start_speed))
-                    )
+                    ; Only remember speed if user manually changed it (not just started via jump speed)
+                    (if (not speed_set_via_jump) {
+                        (cond
+                            ((and (< speed start_speed) (> speed SPEED_UNTANGLE)) ; start at old speed if less than start speed
+                                (setvar 'new_start_speed speed))
+                            ((>= speed start_speed)
+                                (setvar 'new_start_speed start_speed))
+                        )
+                    } {
+                        ; Speed set via jump and not changed - reset to normal start speed
+                        (setvar 'new_start_speed start_speed)
+                    })
                     (set_speed_safe SPEED_OFF)
                     (setvar 'smart_cruise SMART_CRUISE_OFF) ; turn off Smart Cruise
                     (state_transition_to STATE_OFF "timeout_shutdown" THREAD_STACK_STATE_TRANSITIONS state_handler_off)
@@ -1394,6 +1414,14 @@
 
 (move-to-flash start_display_output_loop)
 
+; Returns true once the startup tune has finished AND 1 second has elapsed,
+; giving a clear gap between the tune and the battery status beeps.
+(defun tune-settled ()
+    (and (> startup_tune_done_time 0) (> (secs-since startup_tune_done_time) STARTUP_TUNE_SETTLE))
+)
+
+(move-to-flash tune-settled)
+
 ; **** Program that triggers the display to show battery status ****
 (defun start_display_battery_loop ()
 {
@@ -1413,19 +1441,19 @@
                 (cond
                     ((> actual_batt 0.75) {
                         (setvar 'disp_num 3)
-                        (spawn beeper 4)
+                        (if (tune-settled) (spawn beeper 4) (setvar 'batt_beeps_pending 4))
                     })
                     ((> actual_batt 0.5) {
                         (setvar 'disp_num 2)
-                        (spawn beeper 3)
+                        (if (tune-settled) (spawn beeper 3) (setvar 'batt_beeps_pending 3))
                     })
                     ((> actual_batt 0.25) {
                         (setvar 'disp_num 1)
-                        (spawn beeper 2)
+                        (if (tune-settled) (spawn beeper 2) (setvar 'batt_beeps_pending 2))
                     })
                     (t {
                         (setvar 'disp_num 0)
-                        (spawn beeper 1)
+                        (if (tune-settled) (spawn beeper 1) (setvar 'batt_beeps_pending 1))
                     })
                 )
 
@@ -1485,6 +1513,13 @@
             (setvar 'batt_disp_state 0)
             (setvar 'batt_disp_timer_start 0)
         })
+
+        ; Play battery beeps that were deferred while the startup tune was playing
+        (if (and (> batt_beeps_pending 0) (tune-settled)) {
+            (setvar 'disp_num last_batt_disp_num) ; Re-show battery level while deferred beeps play
+            (spawn beeper batt_beeps_pending)
+            (setvar 'batt_beeps_pending 0)
+        })
     })
 })
 
@@ -1510,6 +1545,62 @@
 })
 
 (move-to-flash warbler)
+
+; ***** Imperial March Theme *****
+; Plays the first ~9 bars of the Imperial March on startup
+; Note frequencies in Hz (approximations for beeper):
+; G4=392, Eb4=311, Bb4=466, D5=587, Gb4=370
+(defun play_imperial_march ()
+{
+    (if (> beeps_vol 0) { ; Only play if volume is not zero
+        ; Bar 1-2: G G G Eb-Bb G
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.35 beeps_vol)  ; G quarter
+        (sleep 0.37)
+        
+        ; Bar 3-4: Eb-Bb G (hold)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.7 beeps_vol)  ; G half note
+        (sleep 0.74)
+        
+        ; Bar 5-6: D D D Eb-Bb Gb
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 587 0.35 beeps_vol)  ; D quarter
+        (sleep 0.37)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
+        (sleep 0.37)
+        
+        ; Bar 7-8: Eb-Bb G (hold)
+        (foc-beep 311 0.25 beeps_vol) ; Eb short
+        (sleep 0.27)
+        (foc-beep 466 0.12 beeps_vol) ; Bb very short
+        (sleep 0.14)
+        (foc-beep 392 0.7 beeps_vol)  ; G half note
+        (sleep 0.74)
+    })
+    (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
+})
+
+(move-to-flash play_imperial_march)
 
 ; ***** Program that beeps trigger clicks
 (defun start_beeper_loop ()
@@ -1598,6 +1689,7 @@
     (define clicks 0)
     (define actual_batt 0)
     (define new_start_speed start_speed)
+    (define speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
     (define state_last_state STATE_UNINITIALIZED)
     (define state_last_change_time 0)
     (define state_last_reason "")
@@ -1629,6 +1721,8 @@
 
     (define batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
     (define last_batt_disp_num 3) ; variable used to track last display screen show
+    (define startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (define batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
 
@@ -1643,7 +1737,17 @@
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 
     (setvar 'disp_num 15) ; display startup screen, change bytes if you want a different one
-    (setvar 'batt_disp_timer_start (systime)) ; turns battery display on for power on.
+    
+    ; Play Imperial March on startup in background thread to avoid blocking
+    (spawn THREAD_STACK_CLICK_BEEP play_imperial_march)
+    
+    ; Check battery level and only play battery indication if not full (3 bars)
+    ; Battery is considered "full" at > 0.75 (matching the 3-bar threshold)
+    ; Allow 6+ seconds for battery to stabilize and Imperial March to finish before beeps
+    (if (> (get_battery_level) 0.75)
+        (setvar 'batt_disp_timer_start 0) ; Skip battery beeps if battery is full
+        (setvar 'batt_disp_timer_start (systime)) ; Battery beeps after stabilization period
+    )
 
     (puts "Startup complete")
 })

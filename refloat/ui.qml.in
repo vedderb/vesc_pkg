@@ -25,6 +25,7 @@ import QtQuick.Window 2.2
 import QtGraphicalEffects 1.15
 
 import Vedder.vesc.vescinterface 1.0
+import Vedder.vesc.codeloader 1.0
 import Vedder.vesc.commands 1.0
 import Vedder.vesc.configparams 1.0
 import Vedder.vesc.utility 1.0
@@ -82,6 +83,45 @@ Item {
 
     function dist(a, b) {
         return Math.abs(a - b);
+    }
+
+    function parseVersion(ver) {
+        var dotSplit = ver.split(".");
+        if (dotSplit.length < 3) {
+            return [0, 0, 0, ""];
+        }
+
+        var lastPart = dotSplit[2];
+        var dashPos = lastPart.search("-");
+        var patch = lastPart;
+        var suffix = "";
+        if (dashPos > 0) {
+            patch = lastPart.substring(0, dashPos);
+            suffix = lastPart.substring(dashPos + 1);
+        }
+
+        return [Number(dotSplit[0]), Number(dotSplit[1]), Number(patch), suffix];
+    }
+
+    function versionMajorMinor(ver) {
+        var arr = ver.split(".");
+        if (arr.length < 2) {
+            return [0, 0];
+        }
+
+        return [Number(arr[0]), Number(arr[1])];
+    }
+
+    // Expects arrays containing 3 numbers, returns -1 if a < b, 1 if a > b and 0 if a == b
+    function cmpVersion(a, b) {
+        for (var i = 0; i < 3; i++) {
+            if (a[i] < b[i]) {
+                return -1;
+            } else if (a[i] > b[i]) {
+                return 1;
+            }
+        }
+        return 0;
     }
 
     function getDarkThemeColor(name) {
@@ -212,6 +252,11 @@ Item {
         function setName(name) {
             VescIf.storeBleName(VescIf.getLastBleAddr(), name);
             VescIf.storeSettings();
+        }
+
+        function getFwVersion() {
+            var params = VescIf.getLastFwRxParams();
+            return [params.major, params.minor];
         }
     }
 
@@ -404,34 +449,40 @@ Item {
             writeConfig();
         }
 
-        function paramNameToObject(name) {
-            var obj = {
-                "name": name
-            };
-
+        function getParamValue(name) {
             if (pkgConfig.isParamDouble(name)) {
-                obj.type = "Double";
-                obj.value = pkgConfig.getParamDouble(name);
+                return pkgConfig.getParamDouble(name);
             } else if (pkgConfig.isParamInt(name)) {
-                obj.type = "Int";
-                obj.value = pkgConfig.getParamInt(name);
+                return pkgConfig.getParamInt(name);
             } else if (pkgConfig.isParamEnum(name)) {
-                obj.type = "Enum";
-                obj.value = pkgConfig.getParamEnum(name);
+                return pkgConfig.getParamEnum(name);
             } else if (pkgConfig.isParamBool(name)) {
-                obj.type = "Bool";
-                obj.value = pkgConfig.getParamBool(name);
+                return pkgConfig.getParamBool(name);
             } else if (pkgConfig.isParamQString(name)) {
-                obj.type = "String";
-                obj.value = pkgConfig.getParamQString(name);
+                return pkgConfig.getParamQString(name);
             } else if (pkgConfig.isParamBitfield(name)) {
-                obj.type = "Bitfield";
-                obj.value = pkgConfig.getParamInt(name);
-            } else {
-                return null;
+                return pkgConfig.getParamInt(name);
             }
 
-            return obj;
+            return null;
+        }
+
+        function getParamType(name) {
+            if (pkgConfig.isParamDouble(name)) {
+                return "Double";
+            } else if (pkgConfig.isParamInt(name)) {
+                return "Int";
+            } else if (pkgConfig.isParamEnum(name)) {
+                return "Enum";
+            } else if (pkgConfig.isParamBool(name)) {
+                return "Bool";
+            } else if (pkgConfig.isParamQString(name)) {
+                return "String";
+            } else if (pkgConfig.isParamBitfield(name)) {
+                return "Bitfield";
+            }
+
+            return null;
         }
 
         function getDisplayName(name) {
@@ -463,6 +514,7 @@ Item {
                 "is_beeper_enabled",
                 "tiltback_hv",
                 "tiltback_lv",
+                "tiltback_speed",
             ];
 
             return !name.startsWith("haptic.") && !name.startsWith("hardware.") && !tuneBlacklist.includes(name);
@@ -471,17 +523,16 @@ Item {
         function fetchConfig(tuneOnly) {
             if (!checkConfig()) return null;
 
-            var settings = [];
+            var settings = {};
             for (let subGroup of pkgConfig.getParamSubgroups("General")) {
                 for (let param of pkgConfig.getParamsFromSubgroup("General", subGroup)) {
                     if (tuneOnly && !paramIsTune(param)) {
                         continue;
                     }
 
-                    var item = paramNameToObject(param);
-
-                    if (item) {
-                        settings.push(item);
+                    var value = getParamValue(param);
+                    if (value !== null) {
+                        settings[param] = getParamValue(param);
                     }
                 }
             }
@@ -490,9 +541,7 @@ Item {
         }
 
         function versionCompatible(config) {
-            var verArray = config.version.split(".");
-            var major = Number(verArray[0]);
-            var minor = Number(verArray[1]);
+            var [major, minor] = versionMajorMinor(config.version);
             if (major !== tuneManager.formatVersionMajor || minor > tuneManager.formatVersionMinor) {
                 VescIf.emitStatusMessage("Error: Incompatible version: %1".arg(config.version), false);
                 return false;
@@ -508,19 +557,19 @@ Item {
                 return;
             }
 
-            for (let item of config.settings) {
-                if (item.type === "Double") {
-                    pkgConfig.updateParamDouble(item.name, item.value);
-                } else if (item.type === "Int") {
-                    pkgConfig.updateParamInt(item.name, item.value);
-                } else if (item.type === "Bool") {
-                    pkgConfig.updateParamBool(item.name, item.value);
-                } else if (item.type === "Enum") {
-                    pkgConfig.updateParamEnum(item.name, item.value);
-                } else if (item.type === "String") {
-                    pkgConfig.updateParamString(item.name, item.value);
-                } else if (item.type === "Bitfield") {
-                    pkgConfig.updateParamInt(item.name, item.value);
+            for (let [key, value] of Object.entries(config.settings)) {
+                if (pkgConfig.isParamDouble(key)) {
+                    pkgConfig.updateParamDouble(key, value);
+                } else if (pkgConfig.isParamInt(key)) {
+                    pkgConfig.updateParamInt(key, value);
+                } else if (pkgConfig.isParamBool(key)) {
+                    pkgConfig.updateParamBool(key, value);
+                } else if (pkgConfig.isParamEnum(key)) {
+                    pkgConfig.updateParamEnum(key, value);
+                } else if (pkgConfig.isParamQString(key)) {
+                    pkgConfig.updateParamString(key, value);
+                } else if (pkgConfig.isParamBitfield(key)) {
+                    pkgConfig.updateParamInt(key, value);
                 }
             }
 
@@ -528,35 +577,32 @@ Item {
         }
 
         function diffConfig(other) {
-            var typeDiffers = [];
             var differs = [];
             var otherMissing = [];
+            var otherSettings = {};
 
             if (other && other.settings) {
-                var otherSettings = {};
-                for (let item of other.settings) {
-                    otherSettings[item.name] = item;
-                }
+                otherSettings = Object.assign({}, other.settings);
                 if (VescIf.customConfigsLoaded()) {
                     for (let subGroup of pkgConfig.getParamSubgroups("General")) {
                         for (let paramName of pkgConfig.getParamsFromSubgroup("General", subGroup)) {
-                            var param = paramNameToObject(paramName);
-                            if (!param) {
+                            var value = getParamValue(paramName);
+                            if (value === null) {
                                 continue;
                             }
 
                             if (otherSettings.hasOwnProperty(paramName)) {
-                                var otherParam = otherSettings[paramName];
-                                if (param.type !== otherParam.type) {
-                                    param.otherType = otherParam.type;
-                                    typeDiffers.push(param);
-                                } else if (param.value !== otherParam.value) {
-                                    param.otherValue = otherParam.value;
-                                    differs.push(param);
+                                var otherValue = otherSettings[paramName];
+                                if (value !== otherValue) {
+                                    differs.push({
+                                        "name": paramName,
+                                        "value": value,
+                                        "otherValue": otherValue
+                                    });
                                 }
                                 delete otherSettings[paramName];
                             } else {
-                                otherMissing.push(param);
+                                otherMissing.push(paramName);
                             }
                         }
                     }
@@ -565,7 +611,7 @@ Item {
 
             return {
                 "differs": differs,
-                "missing": otherSettings,
+                "missing": Object.values(otherSettings),
                 "otherMissing": otherMissing,
             }
         }
@@ -588,10 +634,12 @@ Item {
         readonly property int c_INFO: 0
         readonly property int c_RC_MOVE: 7
         readonly property int c_HANDTEST: 13
+        readonly property int c_LIGHTS_CONTROL: 20
         readonly property int c_FLYWHEEL: 22
         readonly property int c_REALTIME_DATA: 31
         readonly property int c_REALTIME_DATA_IDS: 32
-        readonly property int c_LIGHTS_CONTROL: 202
+        readonly property int c_ALERTS_LIST: 35
+        readonly property int c_ALERTS_CONTROL: 36
         readonly property int c_DATA_RECORD_REQUEST: 41
         readonly property int c_DATA_RECORD_HEADER: 42
         readonly property int c_DATA_RECORD_DATA: 43
@@ -658,7 +706,7 @@ Item {
         }
 
         function sendLightsControl(on, headlightsOn) {
-            var data = createData(4, c_LIGHTS_CONTROL);
+            var data = createData(7, c_LIGHTS_CONTROL);
 
             var mask = 0;
             var value = 0;
@@ -676,8 +724,26 @@ Item {
                     value |= 0b10;
                 }
             }
-            data.setUint8(2, mask);
-            data.setUint8(3, value);
+            data.setUint32(2, mask);
+            data.setUint8(6, value);
+
+            vescCommands.sendCustomAppData(data.buffer);
+        }
+
+        function sendAlertsList(startTime) {
+            var data = createData(6, c_ALERTS_LIST);
+
+            if (startTime !== undefined && startTime !== null) {
+                data.setUint32(2, startTime);
+            }
+
+            vescCommands.sendCustomAppData(data.buffer);
+        }
+
+        function sendAlertsClearFatal() {
+            var data = createData(3, c_ALERTS_CONTROL);
+
+            data.setUint8(2, 0x1);  // clear the fatal error flag
 
             vescCommands.sendCustomAppData(data.buffer);
         }
@@ -747,10 +813,6 @@ Item {
         }
 
         function onValuesSetupReceived(values, mask) {
-            var fault = values.fault_str;
-            fault = fault.replace("FAULT_CODE_", "");
-            state.vescFault = fault != "NONE" ? fault : "";
-
             batteryBar.value = values.battery_level * 100;
 
             odometer.value = values.odometer * 0.001 * vescConfig.imperialFactor;
@@ -786,6 +848,8 @@ Item {
                 var values = dv.getUint8(ind++);
                 lights.on = values & 0b01;
                 lights.headlightsOn = values & 0b10;
+            } else if (msgtype === c_ALERTS_LIST) {
+                alerts.receiveAlertsList(dv, ind);
             } else if (msgtype === c_REALTIME_DATA) {
                 if (state.commsState !== state.comms_Initialized) {
                     // rt data came because another client app requested them,
@@ -796,13 +860,16 @@ Item {
                 var mask = dv.getUint8(ind++);
                 var hasRuntime = !!(mask & 0x1);
                 var hasCharging = !!(mask & 0x2);
+                var hasAlerts = !!(mask & 0x4);
 
                 var extraFlags = dv.getUint8(ind++);
                 state.extraRecording = extraFlags & 0x1;
                 state.extraRecAutostart = extraFlags & 0x2;
                 state.extraRecAutostop = extraFlags & 0x4;
+                state.fatalError = extraFlags & 0x8;
 
                 var time = dv.getUint32(ind); ind += 4;
+                state.setTimeReference(time);
 
                 var modeAndState = dv.getUint8(ind++);
                 state.pkgMode = modeAndState >> 4;
@@ -845,8 +912,12 @@ Item {
                 state.rtData = state.newRtData(newRt);
 
                 if (hasCharging) {
-                    chargingInfo.current = dv.getFloat32(ind); ind += 4;
-                    chargingInfo.voltage = dv.getFloat32(ind); ind += 4;
+                    chargingInfo.current = getFloat16(dv, ind); ind += 2;
+                    chargingInfo.voltage = getFloat16(dv, ind); ind += 2;
+                }
+
+                if (hasAlerts) {
+                    ind += 9; // unused here
                 }
 
                 var running = +(state.pkgState === state.s_Running);
@@ -871,26 +942,366 @@ Item {
         }
     }
 
-    // Old Float package settings, used to retrieve quicksaves
-    Settings {
-        id: floatSettings
-    }
-
     Settings {
         id: preferences
         category: "preferences"
 
         property int speedDialMax: vescConfig.useImperial ? 30 : 40
-        property alias swapAdcs: prefSwapAdcs.checked
         property alias showBattVoltage: prefShowBattVoltage.checked
         property alias showBattVoltagePerCell: prefShowBattVoltagePerCell.checked
         property alias battCurrentLog: prefBattCurrentLog.checked
         property int tempWarningOffset: 10
         property alias tuneSlotCount: prefTuneSlotCount.value
         property alias showTuneDiffCount: prefShowTuneDiffCount.checked
-        property alias showRTPlotByDefault: prefShowRTPlotByDefault.checked
         property int plotMaxWindowMinutes: 30
         property alias showWelcomeDialog: prefShowWelcomeDialog.checked
+        property alias checkForNewVersions: prefCheckForNewVersions.checked
+    }
+
+    Settings {
+        id: persistentData
+        category: "persistentData"
+
+        property var lastPackageUpdateCheck
+        property var packageUpdateSnooze
+    }
+
+    QtObject {
+        id: updateChecker
+
+        property CodeLoader packageLoader: CodeLoader {
+            id: packageLoader
+
+            function getPackageVersion(pkgName) {
+                var pkgs = reloadPackageArchive();
+
+                for (var pkg of pkgs) {
+                    if (!pkg.isLibrary && shouldShowPackage(pkg) && pkg.name === pkgName) {
+                        // HTML text
+                        var li = pkg.description.match(/<li>Version: [a-zA-Z0-9._-]+<\/li>/g);
+                        if (li) {
+                            var version = li[0];
+                            return version.substring(13, version.length - 5);
+                        }
+
+                        // markdown text
+                        var md_bullet = pkg.description.match(/\n- Version: [a-zA-Z0-9._-]+\n/g);
+                        if (md_bullet) {
+                            var version = md_bullet[0];
+                            return version.substring(11, version.length);
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            Component.onCompleted: {
+                setVesc(VescIf)
+            }
+        }
+
+        function check() {
+            if (!preferences.checkForNewVersions) {
+                return;
+            }
+
+            var pkgName = "{{PACKAGE_NAME}}";
+            var pkgVersion = "{{VERSION}}";
+            if (pkgName.includes("PACKAGE_NAME")) {
+                // Don't run when loading the teplate itself for development/debugging
+                return;
+            }
+
+            var now = Date.now();
+            var oneDayMs = 24 * 60 * 60 * 1000;
+
+            var lpuc = persistentData.lastPackageUpdateCheck;
+            if (!lpuc || now - lpuc > oneDayMs) {
+                packageLoader.downloadPackageArchive();
+                persistentData.lastPackageUpdateCheck = Date.now();
+            }
+
+            var pus = persistentData.packageUpdateSnooze;
+            if (pus && now - pus < 30 * oneDayMs) {
+                return;
+            }
+
+            var version = packageLoader.getPackageVersion(pkgName);
+            if (!version) {
+                print("{{PACKAGE_NAME}}: Failed to retrieve package version");
+                return;
+            }
+
+            if (cmpVersion(parseVersion(version), parseVersion(pkgVersion)) == 1) {
+                newPackageVersionDialog.show(version);
+            }
+        }
+    }
+
+    component UIHint : Item {
+        id: hint
+        property var target
+        property real targetX
+        property real targetY
+        property real targetWidth
+        property real targetHeight
+
+        property Settings settings
+        property string settingName
+        property bool shown
+
+        function updateTarget() {
+            if (target !== null) {
+                var p = mapFromItem(target, 0, 0);
+                targetX = p.x;
+                targetY = p.y;
+            }
+        }
+
+        onTargetChanged: {
+            targetWidth = target.width;
+            targetHeight = target.height;
+            updateTarget();
+        }
+
+        Connections {
+            target: hint.target
+
+            function onXChanged() {
+                hint.updateTarget();
+            }
+
+            function onYChanged() {
+                hint.updateTarget();
+            }
+
+            function onWidthChanged() {
+                hint.targetWidth = target.width;
+                hint.updateTarget();
+            }
+
+            function onHeightChanged() {
+                hint.targetHeight = target.height;
+                hint.updateTarget();
+            }
+        }
+
+        Component.onCompleted: {
+            shown = settings[settingName];
+        }
+
+        onShownChanged: {
+            settings[settingName] = shown;
+        }
+
+        MouseArea {
+            z: 10
+            anchors.fill: parent
+        }
+    }
+
+    component UIHintText : NText {
+        anchors.margins: 50
+        width: parent.width - 50
+        font.pointSize: 15
+        horizontalAlignment: TextInput.AlignHCenter
+        wrapMode: Text.WordWrap
+    }
+
+    component UIHintFrame : Rectangle {
+        anchors.fill: parent
+        anchors.margins: -5
+        color: "transparent"
+        border.color: Utility.getAppHexColor("lightAccent")
+        border.width: 1
+        radius: 8
+        opacity: 0.7
+    }
+
+    component UIHintUnderline : Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        width: unit * 0.8
+        height: 3
+        color: Utility.getAppHexColor("lightAccent")
+        opacity: 0.7
+    }
+
+    // Workaround for `state` getting resolved to all kinds of different things in different contexts
+    property var gState: state
+    Component {
+        id: statusTextComp
+
+        UIHint {
+            target: statusText
+
+            StatusText {
+                id: statusTextSubject
+                x: parent.targetX
+                y: parent.targetY
+                width: parent.targetWidth
+                height: parent.targetHeight
+                globState: gState
+
+                UIHintFrame {}
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: statusTextSubject.horizontalCenter
+                anchors.bottom: statusTextSubject.top
+                text: "Tap the state text to show more board state details like Stop Condition, Last Beep Reason, errors and faults."
+            }
+        }
+    }
+
+    Component {
+        id: plotComp
+
+        UIHint {
+            target: rtPlot
+
+            property int stage: settingName === "plotCursor" ? 0 : settingName === "drGeneral" ? 1 : settingName === "drStartStop" ? 2 : 3
+
+            Plot {
+                id: subject
+                x: parent.targetX
+                y: parent.targetY
+                width: parent.targetWidth
+                height: parent.targetHeight
+
+                showRecordDownload: gState.capDataRecord
+                dotsEnabled: false
+
+                plotData: PlotData {
+                    id: pd
+                    seriesMetaData: plotSeriesMetaData
+                }
+
+                Component.onCompleted: {
+                    pd.init(["motor.current"], 1);
+                    subject.init(1);
+                    pd.addSample([0, 0,0,0,0, 10], 0);
+                    pd.addSample([2,0,0,0,0, 22], 1);
+                    pd.addSample([4,0,0,0,0, 15], 2);
+                    pd.addSample([9,0,0,0,0, 30], 3);
+                    pd.makeReady();
+                    if (stage === 0) {
+                        subject.spawnCursor(4);
+                    }
+                }
+
+                UIHintFrame {}
+
+                UIHintUnderline {
+                    anchors.topMargin: unit
+                    anchors.leftMargin: unit
+                    width: unit * 1.7
+                    visible: stage === 1
+                }
+
+                UIHintUnderline {
+                    anchors.topMargin: unit
+                    anchors.leftMargin: 1.9 * unit
+                    visible: stage === 2
+                }
+
+                UIHintUnderline {
+                    anchors.topMargin: unit
+                    anchors.leftMargin: unit
+                    visible: stage === 3
+                }
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: subject.horizontalCenter
+                anchors.bottom: subject.top
+                text: "View a plot of realtime data (log) from the package on the Data tab.\n\nLong press anywhere in the plot area to spawn a cursor.\n\nYou can dismiss the cursor by a swipe up gesture on it."
+                visible: stage === 0
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: subject.horizontalCenter
+                anchors.bottom: subject.top
+                text: "Congratulations, you have the Data Record firmware installed. You are now part of the secret Data Recording society.\n\nYour board has the ability to store a short detailed data \"log\" by itself, you don't need to be connected.\n\nIt's controlled by these two buttons."
+                visible: stage === 1
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: subject.horizontalCenter
+                anchors.bottom: subject.top
+                text: "This button indicates whether the board is recording. You can use it to start and stop the recording manually.\n\nThe board automatically starts recording when engaged and stops recording on disengage. You can disable the autostart and autostop functionality by long-pressing the button.\n\nIf you nosedive, check the recording before engaging again!"
+                visible: stage == 2
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: subject.horizontalCenter
+                anchors.bottom: subject.top
+                text: "You can download the stored data using this button. It automatically stops recording. Do not start it while you're downloading, or you'll corrupt your data."
+                visible: stage == 3
+            }
+        }
+    }
+
+    QtObject {
+        id: uiHints
+
+        property Settings uiHintsSettings: Settings {
+            id: uiHintsSettings
+            category: "uiHints"
+
+            property bool statusText
+            property bool plotCursor
+
+            property bool drGeneral
+            property bool drStartStop
+            property bool drDownload
+        }
+
+        readonly property var hints: new Map([
+            ["statusText", statusTextComp],
+            ["plotCursor", plotComp],
+        ])
+
+        readonly property var dataRecordHints: new Map([
+            ["drGeneral", plotComp],
+            ["drStartStop", plotComp],
+            ["drDownload", plotComp],
+        ])
+
+        function fill(container) {
+            for (let [key, value] of hints) {
+                if (!uiHintsSettings[key]) {
+                    if (key == "plotCursor") {
+                        bottomStackTabs.currentIndex = 2;
+                    }
+                    value.createObject(container, {settings: uiHintsSettings, settingName: key});
+                }
+            }
+        }
+
+        function fillDataRecord(container) {
+            if (state.capDataRecord) {
+                for (let [key, value] of dataRecordHints) {
+                    if (!uiHintsSettings[key]) {
+                        bottomStackTabs.currentIndex = 2;
+                        value.createObject(container, {settings: uiHintsSettings, settingName: key});
+                    }
+                }
+            }
+        }
+
+        function reset(container) {
+            for (let key of hints.keys()) {
+                uiHintsSettings[key] = false;
+            }
+
+            if (state.capDataRecord) {
+                for (let key of dataRecordHints.keys()) {
+                    uiHintsSettings[key] = false;
+                }
+            }
+        }
     }
 
     Connections {
@@ -915,11 +1326,6 @@ Item {
             property var tuneArchive
             property var tuneArchiveDownloadDate
 
-            // An array storing Float tune names that have been converted for
-            // each slot. Prevents converting tunes over and over again, until
-            // the name changes for the Float tune.
-            property var floatTunesConverted: Array(6)
-
             property var fullBackup
         }
 
@@ -935,6 +1341,24 @@ Item {
             return tunes;
         }
 
+        // Major package versions require a migration, minor don't.
+        // Migration functions should return: [tuneObject, [newMajor, newMinor]]
+        property var migrations: {
+            "1.1": function(tune) {
+                var [fwMajor, fwMinor] = board.getFwVersion();
+                if (fwMajor > 6 || (fwMajor == 6 && fwMinor >= 5) && motorConfig.batteryCells > 0) {
+                    if (tune.settings["tiltback_hv"] > 10) {
+                        tune.settings["tiltback_hv"] /= motorConfig.batteryCells;
+                    }
+                    if (tune.settings["tiltback_lv"] > 10) {
+                        tune.settings["tiltback_lv"] /= motorConfig.batteryCells;
+                    }
+                }
+
+                return [tune, [1, 2]];
+            },
+        }
+
         function onUpdate() {
             triggerAutoRestore();
             // force recalculation of dependent variables
@@ -942,6 +1366,36 @@ Item {
         }
 
         property alias fullBackup: tuneStorage.fullBackup
+
+        function convertToOldFormat(tune) {
+            if (Array.isArray(tune.settings)) {
+                return tune;
+            }
+
+            var res = Object.assign({}, tune);
+            res.settings = [];
+            for (let [name, value] of Object.entries(tune.settings)) {
+                res.settings.push({
+                    "name": name,
+                    "value": value,
+                    "type": packageConfig.getParamType(name)
+                });
+            }
+            return res;
+        }
+
+        function convertFromOldFormat(tune) {
+            if (!Array.isArray(tune.settings)) {
+                return tune;
+            }
+
+            var res = Object.assign({}, tune);
+            res.settings = {};
+            for (let item of tune.settings) {
+                res.settings[item.name] = item.value;
+            }
+            return res;
+        }
 
         function tuneId(slot) {
             return "tune_slot_" + slot;
@@ -992,12 +1446,45 @@ Item {
             return true;
         }
 
+        function migrateTune(tune) {
+            var [major, minor] = versionMajorMinor(tune.package.version);
+            // Zero or NaN
+            if (!major) {
+                return tune;
+            }
+
+            var [pMajor, pMinor] = versionMajorMinor(packageVersion);
+
+            while (major < pMajor || (major == pMajor && minor < pMinor)) {
+                var versionKey = [major, minor].join(".");
+                if (migrations.hasOwnProperty(versionKey)) {
+                    [tune, [major, minor]] = migrations[versionKey](tune);
+                } else {
+                    minor++;
+                }
+            }
+            return tune;
+        }
+
         function createBackup() {
             var config = packageConfig.fetchConfig(false);
             if (!config) {
                 return null;
             }
             return createTune("Full Backup", "", config);
+        }
+
+        function loadBackup(name) {
+            var backup = tuneStorage.value(name);
+            if (!backup) {
+                return null;
+            }
+
+            return migrateTune(convertFromOldFormat(backup));
+        }
+
+        function saveBackup(name, backup) {
+            tuneStorage.setValue(name, convertToOldFormat(backup));
         }
 
         function globalBackup() {
@@ -1009,10 +1496,11 @@ Item {
         }
 
         function globalRestore() {
-            if (!fullBackup) {
+            var backup = loadBackup("fullBackup");
+            if (!backup) {
                 return;
             }
-            applyConfigDialog.show(fullBackup);
+            applyConfigDialog.show(backup, false, false);
         }
 
         function idBackup() {
@@ -1020,16 +1508,16 @@ Item {
             if (!backup) {
                 return;
             }
-            tuneStorage.setValue("backup_" + board.getId(), backup);
+            saveBackup("backup_" + board.getId(), backup);
             idBackupFinished(backup);
         }
 
         function idRestore() {
-            var backup = tuneStorage.value("backup_" + board.getId());
+            var backup = loadBackup("backup_" + board.getId());
             if (!backup) {
                 return;
             }
-            applyConfigDialog.show(backup);
+            applyConfigDialog.show(backup, false, false);
         }
 
         function autoBackup() {
@@ -1038,16 +1526,16 @@ Item {
                 return;
             }
 
-            tuneStorage.setValue("auto_backup_" + board.getId(), backup);
+            saveBackup("auto_backup_" + board.getId(), backup);
             autoBackupFinished(backup);
         }
 
         function autoRestore() {
-            var backup = tuneStorage.value("auto_backup_" + board.getId());
+            var backup = loadBackup("auto_backup_" + board.getId());
             if (!backup) {
                 return;
             }
-            applyConfigDialog.show(backup);
+            applyConfigDialog.show(backup, false, false);
         }
 
         function triggerAutoRestore() {
@@ -1056,10 +1544,10 @@ Item {
             }
 
             if (packageConfig.isDefault()) {
-                var backup = tuneStorage.value("auto_backup_" + board.getId());
+                var backup = loadBackup("auto_backup_" + board.getId());
                 if (backup) {
                     print("Refloat: Automatic backup restore.");
-                    applyConfigDialog.show(backup, true);
+                    applyConfigDialog.show(backup, true, false);
                 } else {
                     print("Refloat: No automatic backup to restore.");
                 }
@@ -1071,8 +1559,7 @@ Item {
 
         function saveTune(slot, tune) {
             var id = tuneId(slot);
-
-            tuneStorage.setValue(id, JSON.stringify(tune));
+            tuneStorage.setValue(id, JSON.stringify(convertToOldFormat(tune)));
 
             tunes[slot] = tune;
             // workaround needed so that the change is written through to the storage
@@ -1080,9 +1567,12 @@ Item {
         }
 
         function loadTune(slot) {
-            var tuneJson = tuneStorage.value(tuneId(slot), "");
-            if (tuneJson) {
-                return JSON.parse(tuneJson);
+            var tune = tuneStorage.value(tuneId(slot));
+            if (tune) {
+                if (typeof tune === "string") {
+                    tune = JSON.parse(tune);
+                }
+                return migrateTune(convertFromOldFormat(tune));
             }
             return null;
         }
@@ -1105,47 +1595,17 @@ Item {
 
         function loadTuneArchive() {
             if (tuneStorage.tuneArchive) {
-                return JSON.parse(tuneStorage.tuneArchive);
+                if (typeof tuneStorage.tuneArchive === "string") {
+                    return JSON.parse(tuneStorage.tuneArchive);
+                } else {
+                    return tuneStorage.tuneArchive;
+                }
             }
             return null;
         }
 
         function getTuneArchiveDate() {
             return Qt.formatDateTime(tuneStorage.tuneArchiveDownloadDate);
-        }
-
-        function convertFloatQuicksaves() {
-            var namesJson = floatSettings.value("quicksave_names", null);
-            if (namesJson) {
-                var names = JSON.parse(namesJson);
-                for (var slotName in names) {
-                    if (!slotName.startsWith("Float Quicksave ")) {
-                        continue;
-                    }
-
-                    var tuneSettingsJson = floatSettings.value(slotName, null);
-                    if (!tuneSettingsJson) {
-                        continue;
-                    }
-
-                    var slot = Number(slotName.replace("Float Quicksave ", ""));
-                    // skipping if the tune has been converted before
-                    if (tuneStorage.floatTunesConverted[slot - 1] === names[slotName]) {
-                        continue;
-                    }
-
-                    // at this stage mark slot as converted, if target slot is not empty,
-                    // we don't want it converted at the moment it gets emptied
-                    tuneStorage.floatTunesConverted[slot - 1] = names[slotName];
-                    // workaround needed so that the change is written through to the storage
-                    tuneStorage.floatTunesConverted = tuneStorage.floatTunesConverted;
-
-                    if (slotEmpty(slot)) {
-                        var tuneSettings = JSON.parse(tuneSettingsJson);
-                        tuneManager.saveTune(slot, tuneManager.createTune(names[slotName], "", tuneSettings));
-                    }
-                }
-            }
         }
 
         function parseCsv(csv) {
@@ -1155,7 +1615,7 @@ Item {
             var result = [];
             for (var i = 0; i < tuneCount; i++) {
                 // set the version to the current one to always pass the version check
-                result.push({"version": formatVersion, "settings": []});
+                result.push({"version": formatVersion, "settings": {}});
             }
 
             for (var i in lines) {
@@ -1166,30 +1626,29 @@ Item {
                     if (value) {
                         var key = currentLine[0];
                         var name;
-                        var type;
 
                         if (key === "_name") {
                             result[j].name = value;
                             continue;
                         } else if (key.startsWith("double_")) {
                             name = key.substring(7);
-                            type = "Double";
+                            value = parseFloat(value);
                         } else if (key.startsWith("int_")) {
                             name = key.substring(4);
-                            type = "Int";
+                            value = parseInt(value);
                         } else if (key.startsWith("bool_")) {
                             name = key.substring(5);
-                            type = "Bool";
+                            value = !!parseInt(value);
                         } else if (key.startsWith("enum_")) {
                             name = key.substring(5);
-                            type = "Enum";
+                            value = parseInt(value);
                         }
 
-                        result[j].settings.push({
-                            "name": name,
-                            "type": type,
-                            "value": value
-                        });
+                        if (Number.isNaN(value)) {
+                            continue;
+                        }
+
+                        result[j].settings[name] = value;
                     }
                 }
             }
@@ -1198,12 +1657,11 @@ Item {
         }
 
         Component.onCompleted: {
-            convertFloatQuicksaves();
-            var idBackup = tuneStorage.value("backup_" + board.getId());
+            var idBackup = loadBackup("backup_" + board.getId());
             if (idBackup) {
                 idBackupFinished(idBackup);
             }
-            var autoBackup = tuneStorage.value("auto_backup_" + board.getId());
+            var autoBackup = loadBackup("auto_backup_" + board.getId());
             if (autoBackup) {
                 autoBackupFinished(autoBackup);
             }
@@ -1270,10 +1728,6 @@ Item {
         property int pkgState: s_Connecting
         property string pkgStateString: pkgStateToString.get(pkgState) ?? "UNKNOWN (%1)".arg(pkgState)
 
-        onPkgStateChanged: {
-            updateErrorStrings();
-        }
-
         // package mode
         readonly property int m_Normal: 0
         readonly property int m_Handtest: 1
@@ -1312,18 +1766,15 @@ Item {
             if (fpState & fs_Right) {
                 rightSensor.on = true;
             }
-
-            if (preferences.swapAdcs && leftSensor.on !== rightSensor.on) {
-                leftSensor.on = !leftSensor.on;
-                rightSensor.on = !rightSensor.on;
-            }
         }
 
         // setpoint adjustment type
         readonly property int sat_None: 0
         readonly property int sat_Centering: 1
         readonly property int sat_ReverseStop: 2
+        readonly property int sat_Speed: 5
         readonly property int sat_Duty: 6
+        readonly property int sat_PushbackError: 7
         readonly property int sat_HighVoltage: 10
         readonly property int sat_LowVoltage: 11
         readonly property int sat_Temperature: 12
@@ -1337,7 +1788,9 @@ Item {
             [sat_None, ""],
             [sat_Centering, "centering"],
             [sat_ReverseStop, "reverse stop"],
+            [sat_Speed, "pushback: speed"],
             [sat_Duty, "pushback: duty"],
+            [sat_PushbackError, "pushback: error"],
             [sat_HighVoltage, "pushback: high voltage"],
             [sat_LowVoltage, "pushback: low voltage"],
             [sat_Temperature, "pushback: temperature"],
@@ -1348,7 +1801,7 @@ Item {
         property int setpointAdjustmentClass
         onSetpointAdjustmentTypeChanged: {
             // do these in one function to keep them consistent, order is important to display and fade correctly in pitchPushbackText
-            setpointAdjustmentClass = setpointAdjustmentType >= sat_HighVoltage ? sac_Error : setpointAdjustmentType >= sat_Duty ? sac_Warning : sac_Normal;
+            setpointAdjustmentClass = setpointAdjustmentType >= sat_HighVoltage ? sac_Error : setpointAdjustmentType >= sat_Speed ? sac_Warning : sac_Normal;
             setpointAdjustmentTypeString = setpointAdjustmentTypeToString.get(setpointAdjustmentType) ?? "unknown (%1)".arg(setpointAdjustmentType);
         }
 
@@ -1390,42 +1843,44 @@ Item {
             [8, "Low Battery"],
             [9, "Board Idle"],
             [10, "Other"],
+            [11, "Speed"],
+            [12, "BMS: Cell Under Temp"],
+            [13, "BMS: Cell Over Temp"],
+            [14, "BMS: Cell Low Voltage"],
+            [15, "BMS: Cell High Voltage"],
+            [16, "BMS: Cell Balance"],
+            [17, "BMS: Connection Error"],
+            [18, "BMS: BMS Temp"],
+            [19, "Firmware Fault"],
         ])
 
         property int beepReason: 0
         property string beepReasonString: beepReasonToString.get(beepReason) ?? "unknown (%1)".arg(beepReason)
 
         property bool pkgStateIsError: ![s_Startup, s_Ready, s_Running, s_Connecting].includes(pkgState)
-        property string vescFault: ""
         property bool configLoadingError: false
+        property bool fatalError: false
 
-        property bool isError: pkgStateIsError || !!vescFault || configLoadingError
+        property bool isError: pkgStateIsError || configLoadingError || fatalError
 
-        onVescFaultChanged: updateErrorStrings()
-        onConfigLoadingErrorChanged: updateErrorStrings()
+        property var timeReference
 
-        property string errorText: ""
-        property string errorDescription: ""
+        function ticksToMsSinceEpoch(t) {
+            if (timeReference === undefined) {
+                return undefined;
+            }
 
-        function updateErrorStrings() {
-            if (!!vescFault) {
-                errorText = "VESC fault: %1".arg(vescFault);
-                errorDescription = "VESC reported a fault. Be very careful. You should not continue riding before you fix the root cause."
-            } else if (configLoadingError) {
-                errorText = "Error: Refloat Cfg failed to load.";
-                errorDescription = "Reconnecting to the board usually fixes this. If problem persists, try reinstalling the package.";
-            } else if (pkgState == s_Disconnected) {
-                errorText = "";
-                errorDescription = "Package is not responding. May occur temporarily with spotty connection. If board doesn't engage, the package is dead. Restart the board, if problem persists, try reinstalling the package.";
-            } else if (pkgState == s_Disabled) {
-                errorText = "";
-                errorDescription = "Refloat package is disabled. After you're done with board setup, You can re-enable it in Settings > Setup."
-            } else if (![s_Startup, s_Ready, s_Running, s_Connecting].includes(pkgState)) {
-                errorText = "";
-                errorDescription = "Your Refloat package state is unknown. This should never happen.";
-            } else {
-                errorText = "";
-                errorDescription = "";
+            return timeReference + t * 1000 / ticksPerSecond;
+        }
+
+        function setTimeReference(t) {
+            var timeRef = ticksToMsSinceEpoch(t);
+            var now = Date.now();
+
+            // if time is in the past, it's either a board reboot or the ticks have overflown
+            // reset the time reference either way
+            if (timeRef === undefined || timeRef < now - 8000) {
+                timeReference = now - t * 1000 / ticksPerSecond;
             }
         }
 
@@ -1451,6 +1906,138 @@ Item {
                 newData[names[i]] = values[i];
             }
             return newData;
+        }
+    }
+
+    QtObject {
+        id: alerts
+
+        property int activeAlertsMask: 0
+        property int activeAlertHighlight: 0
+        property int activeAlertCount: 0
+        property bool isFatalActive: false
+        property var activeAlerts: []
+        property int activeFwFaultCode: 0
+        property string activeFwFaultName: ""
+        property var alertsLog: new Map()
+        property int lastAlertsLogTicks: 0
+
+        signal alertAdded(var alert)
+
+        property Connections connections: Connections {
+            target: state
+
+            function onTimeReferenceChanged() {
+                alerts.lastAlertsLogTicks = 0;
+            }
+        }
+
+        readonly property int alert_fwFault: 1
+
+        readonly property var alertData: new Map([
+            [0, {
+                "name": "None",
+                "severity": "WARNING",
+            }],
+            [alert_fwFault, {
+                "name": "Fault",
+                "severity": "FATAL",
+            }],
+        ])
+
+        readonly property var severityColors: new Map([
+            ["FATAL", Utility.getAppHexColor("red")],
+            ["ERROR", Utility.getAppHexColor("orange")],
+            ["WARNING", Utility.getAppHexColor("lightText")],
+        ])
+
+        property Timer alertsListPollTimer: Timer {
+            running: state.commsState === state.comms_Initialized
+            repeat: true
+            interval: 500
+            triggeredOnStart: true
+            onTriggered: {
+                commands.sendAlertsList(alerts.lastAlertsLogTicks ? alerts.lastAlertsLogTicks : undefined);
+            }
+        }
+
+        function getActiveAlertData(alertId) {
+            if (alertId == alert_fwFault) {
+                var data = Object.assign({}, alertData.get(alertId));
+                data.name = data.name + ": " + activeFwFaultName;
+                return data;
+            } else {
+                return alertData.get(alertId);
+            }
+        }
+
+        function getAlertLogData(alertId, data) {
+            return alertData.get(alertId);
+        }
+
+        function updateActiveAlerts() {
+            if (activeAlertsMask & alert_fwFault) {
+                activeAlertHighlight = alert_fwFault;
+                activeAlertCount = 1;
+                isFatalActive = true;
+                activeAlerts = [
+                    alert_fwFault,
+                ];
+            } else {
+                activeAlertHighlight = 0;
+                activeAlertCount = 0;
+                isFatalActive = false;
+                activeAlerts = [];
+            }
+        }
+
+        function receiveAlertsList(dv, ind) {
+            activeAlertsMask = dv.getUint32(ind); ind += 4;
+            ind += 4;  // skip unused 4 bytes
+            activeFwFaultCode = dv.getUint8(ind++);
+            if (activeFwFaultCode > 0) {
+                [activeFwFaultName, ind] = commands.getString(dv, ind);
+            } else {
+                activeFwFaultName = "";
+            }
+            updateActiveAlerts();
+
+            var count = dv.getUint8(ind++);
+
+            var ids = [];
+            for (var i = 0; i < count; i++) {
+                var ticks = dv.getUint32(ind); ind += 4;
+                var record = {
+                    "ticks": ticks,
+                    "id": dv.getUint8(ind++),
+                    "active": dv.getUint8(ind++) & 0x1,
+                    "code": dv.getUint8(ind++),
+                };
+
+                if (record.code > 0) {
+                    [record.text, ind] = commands.getString(dv, ind);
+                }
+
+                var realTime = state.ticksToMsSinceEpoch(ticks);
+                if (realTime === undefined) {
+                    break;
+                }
+
+                record.time = realTime;
+
+                var key = "%1_%2_%3".arg(ticks).arg(record.id).arg(record.active);
+                if (alertsLog.has(key) && Math.abs(realTime - alertsLog.get(key).time) < 5000) {
+                    continue;
+                }
+
+                alertsLog.set(key, record);
+                lastAlertsLogTicks = ticks;
+                alertAdded(record);
+            }
+        }
+
+        function clearFatalError() {
+            commands.sendAlertsClearFatal();
         }
     }
 
@@ -1877,7 +2464,7 @@ Item {
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape
-        parent: ApplicationWindow.overlay
+        parent: mainItem
 
         Overlay.modal: Rectangle {
             color: "#AA000000"
@@ -2223,6 +2810,7 @@ Item {
 
         property bool showRecordDownload: false
         property int maxWindowMinutes
+        property bool dotsEnabled: true
 
         function init(ticksPerSec) {
             ticksPerSecond = ticksPerSec;
@@ -2233,6 +2821,14 @@ Item {
 
         function reset() {
             plotCanvas.reset();
+        }
+
+        function spawnCursor(cursorPos) {
+            plotCanvas.spawnCursor(cursorPos);
+        }
+
+        function hideCursor() {
+            plotCanvas.fadeCursor();
         }
 
         onVisibleChanged: {
@@ -2470,7 +3066,6 @@ Item {
             MouseArea {
                 id: plotMouse
                 anchors.fill: parent
-                propagateComposedEvents: true
                 preventStealing: true
 
                 property real initialX
@@ -2535,7 +3130,7 @@ Item {
                     var d = initialX - x(mouse);
                     if (holdCursor) {
                         if (moveCursor) {
-                            plotCanvas.spawnCursor(x(mouse));
+                            plotCanvas.spawnCursorCoord(x(mouse));
                         } else {
                             var yd = initialY - mouse.y;
                             var dist = Math.sqrt(yd * yd + d * d);
@@ -2574,7 +3169,7 @@ Item {
                     if (!moving && (dist2d(mouse) < snap || !holdCursor)) {
                         holdCursor = true;
                         moveCursor = true;
-                        plotCanvas.spawnCursor(x(mouse));
+                        plotCanvas.spawnCursorCoord(x(mouse));
                     }
                 }
             }
@@ -2923,9 +3518,11 @@ Item {
                     return true;
                 }
 
-                function spawnCursor(x) {
-                    var cursorPos = toPlotPos(position, x);
+                function spawnCursorCoord(x) {
+                    spawnCursor(toPlotPos(position, x));
+                }
 
+                function spawnCursor(cursorPos) {
                     if (!isCursorPosValid(cursorPos)) {
                         return;
                     }
@@ -2961,7 +3558,7 @@ Item {
                     return toCanvasPos(pos);
                 }
 
-                function fadeCursor(a) {
+                function fadeCursor(a=0) {
                     a = a * a * a;
                     if (a <= 0.05) {
                         cursor = null;
@@ -3187,6 +3784,7 @@ Item {
                     var pos = position;
                     var win = window;
                     var xLen = xLength;
+                    var dotsEnbld = plot.dotsEnabled;
 
                     // calculate start and end indices according to window
                     var start = 0;
@@ -3336,7 +3934,7 @@ Item {
                             }
 
                             if (!minMaxMode) {
-                                if (origX - lastX > halfASecondPixels) {
+                                if (dotsEnbld && origX - lastX > halfASecondPixels) {
                                     ctx.moveTo(x, y);
                                 } else {
                                     ctx.lineTo(x, y);
@@ -3348,7 +3946,7 @@ Item {
                                 justOutOfMinMax = false;
                             }
 
-                            if (i > start && origX >= 0 && (paintDots || x - lastSampleX > dotDistThreshold || origX - lastSampleX > halfASecondPixels)) {
+                            if (dotsEnbld && i > start && origX >= 0 && (paintDots || x - lastSampleX > dotDistThreshold || origX - lastSampleX > halfASecondPixels)) {
                                 ctx.stroke();
                                 ctx.beginPath();
                                 if (!drawnLastDot && lastX >= 0) {
@@ -3438,6 +4036,109 @@ Item {
         }
     }
 
+    component StatusText : Item {
+        property var globState
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: alertsDialog.show()
+        }
+
+        states: [
+            State {
+                name: "specialMode"
+                when: statusTextMode.visible || statusTextAlert.visible
+                AnchorChanges {target: statusTextState; anchors.top: parent.top; anchors.verticalCenter: undefined;}
+            }
+        ]
+
+        LText {
+            id: statusTextState
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width
+            font.pixelSize: (statusTextMode.visible && statusTextAlert.visible ? 0.3 : globState.pkgStateString.length >= 10 ? 0.42 : 0.55) * unit
+            font.family: "Exan"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            text: globState.pkgStateString
+        }
+
+        Glow {
+            property bool red: globState.isError
+            property bool dark: globState.darkride
+            property bool blue: globState.pkgState == globState.s_Running
+
+            anchors.fill: statusTextState
+            radius: Math.round((dark ? 0.2 : 0.12) * unit)
+            samples: radius * 2 + 1
+            spread: red ? 0.6 : (dark ? 0.7 : 0.5)
+            opacity: red || dark || blue ? 0.8 : 0.3
+
+            color: {
+                if (red) {
+                    return Utility.getAppHexColor("red");
+                } else if (dark) {
+                    return Utility.isDarkMode() ? Utility.getAppHexColor("black") : Utility.getAppHexColor("disabledText");
+                } else if (blue) {
+                    return Utility.getAppHexColor("lightAccent");
+                } else {
+                    return Utility.getAppHexColor("lightText");
+                }
+            }
+            source: statusTextState
+        }
+
+        Text {
+            id: statusTextMode
+            anchors.top: statusTextState.bottom
+            width: parent.width
+            color: globState.pkgMode == globState.m_Flywheel ? Utility.getAppHexColor("lightAccent") : Utility.getAppHexColor("lightText")
+            font.pixelSize: statusTextAlert.visible ? fontSizeSuperSmall : fontSizeSmall
+            font.family: "Exan"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            visible: globState.pkgMode != globState.m_Normal
+            text: globState.pkgModeString
+        }
+
+        Glow {
+            anchors.fill: statusTextMode
+            radius: Math.round(0.12 * unit)
+            samples: radius * 2 + 1
+            opacity: 0.3
+            color: statusTextMode.color
+            visible: globState.pkgMode != globState.m_Normal
+            source: statusTextMode
+        }
+
+        Text {
+            id: statusTextAlert
+
+            property var alert: alerts.getActiveAlertData(alerts.activeAlertHighlight)
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: statusTextMode.visible ? statusTextMode.bottom : statusTextState.bottom
+            width: parent.width * 1.2
+            color: alerts.severityColors.get(alert.severity)
+            font.pixelSize: fontSizeSuperSmall
+            font.family: "Mono"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideMiddle
+            visible: alerts.activeAlertCount > 0
+            text: alert.name
+        }
+
+        Glow {
+            anchors.fill: statusTextAlert
+            radius: Math.round(0.12 * unit)
+            samples: radius * 2 + 1
+            opacity: 0.3
+            color: statusTextAlert.color
+            visible: statusTextAlert.visible
+            source: statusTextAlert
+        }
+    }
+
     function locateButton(comp, name) {
         for (var i = 0; i < comp.children.length; i++) {
             var child = comp.children[i];
@@ -3451,6 +4152,15 @@ Item {
         }
 
         return null;
+    }
+
+    Timer {
+        id: onStartupTimer
+        interval: 10
+
+        onTriggered: {
+            updateChecker.check();
+        }
     }
 
     property var customConfigWriteButton: null
@@ -3472,6 +4182,8 @@ Item {
         if (preferences.showWelcomeDialog) {
             welcomeDialog.show();
         }
+
+        onStartupTimer.start();
     }
 
     Component.onDestruction: {
@@ -3936,16 +4648,6 @@ Item {
                         }
 
                         RightSwitch {
-                            id: prefSwapAdcs
-                            label: "Swap Footpad Sensor ADCs"
-                        }
-
-                        OptionDescription {
-                            visible: prefSwapAdcs.checked
-                            text: "Note: This swaps only the sensor visualization. You should swap your ADC1/2 physical connection, as this way, for example, your Konamies (sensor tap codes that control the board) will be reversed as well."
-                        }
-
-                        RightSwitch {
                             id: prefShowBattVoltage
                             checked: true
                             label: "Show battery voltage"
@@ -4005,12 +4707,6 @@ Item {
                             label: "Show changed options count on tunes"
                         }
 
-                        RightSwitch {
-                            id: prefShowRTPlotByDefault
-                            checked: false
-                            label: "Show RT plot on Data tab by default"
-                        }
-
                         IntTextField {
                             label: "Realtime plot maximum window"
                             valueUnit: "minutes"
@@ -4027,9 +4723,56 @@ Item {
                             checked: true
                             label: "Show Welcome dialog"
                         }
+
+                        RightSwitch {
+                            id: prefCheckForNewVersions
+                            checked: true
+                            label: "Check for new package versions"
+                        }
+
+                        Button {
+                            Layout.alignment: Qt.AlignHCenter
+
+                            text: "Show Tips && Tricks"
+
+                            onClicked: {
+                                uiHints.reset();
+                                uiHintsRect.fill(true);
+                                settingsDialog.close();
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+
+    BaseDialog {
+        id: newPackageVersionDialog
+        parent: ApplicationWindow.overlay
+
+        title: "New Package Version"
+        standardButtons: Dialog.Ok | Dialog.Abort
+
+        property string version
+
+        function show(newVersion) {
+            version = newVersion;
+            standardButton(Dialog.Abort).text = "Snooze for one month"
+
+            open();
+        }
+
+        onRejected: {
+            persistentData.packageUpdateSnooze = Date.now();
+        }
+
+        NText {
+            width: newPackageVersionDialog.availableWidth
+            font.pointSize: 12
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: TextEdit.WordWrap
+            text: "New {{PACKAGE_NAME}} package version available: %1\n\nIt's recommended you update it in the Package Store.\n\nYour package configuration will be migrated automatically, no extra steps needed unless mentioned in package description. Having a manual XML or Start Page \"Backup Configs\" backup is still recommended.".arg(newPackageVersionDialog.version)
         }
     }
 
@@ -4199,7 +4942,8 @@ Item {
             open();
 
             var tuneArchive = tuneManager.loadTuneArchive();
-            if (tuneArchive) {
+            // backwards compatibility: Check for the first item settings not being an array (if it is, redownload)
+            if (tuneArchive && tuneArchive.length > 0 && !Array.isArray(tuneArchive[0].settings)) {
                 downloadedTunesModel.setTunes(tuneArchive);
                 tuneArchiveDownloadStatus.text = "Tunes downloaded on %1".arg(tuneManager.getTuneArchiveDate());
             } else {
@@ -4255,8 +4999,247 @@ Item {
                     width: tuneArchiveTunesList.width
                     text: tune.name
                     onClicked: {
-                        applyConfigDialog.show(tune);
+                        applyConfigDialog.show(tune, false, true);
                     }
+                }
+            }
+        }
+    }
+
+    BaseDialog {
+        id: alertsDialog
+
+        title: "Alerts"
+        standardButtons: Dialog.Close
+
+        function show() {
+            alertsDialogListModel.set(alerts.alertsLog);
+            activeAlertsItem.visible = alerts.activeAlertCount > 0;
+            open();
+        }
+
+        Connections {
+            target: alerts
+
+            function onAlertAdded(alert) {
+                if (alertsDialog.visible) {
+                    alertsDialogListModel.add(alert);
+                }
+            }
+
+            function onActiveAlertCountChanged() {
+                if (alerts.activeAlertCount > 0) {
+                    activeAlertsItem.visible = true;
+                }
+            }
+        }
+
+        ScrollView {
+            anchors.fill: parent
+            contentWidth: alertsDialog.availableWidth
+            clip: true
+
+            ColumnLayout {
+                anchors.fill: parent
+
+                component ErrHeader : NText {
+                    Layout.fillWidth: true
+                    font.pixelSize: 16
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                component ErrText : NText {
+                    Layout.fillWidth: true
+                    font.pixelSize: 12
+                    font.family: "Mono"
+                    color: Utility.getAppHexColor("red")
+                }
+
+                component ErrDesc : NText {
+                    Layout.fillWidth: true
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
+
+                ErrHeader {
+                    text: "Package Disabled"
+                    visible: state.pkgState === state.s_Disabled
+                }
+
+                ErrDesc {
+                    text: "Refloat package is disabled. After you're done with board setup, re-enable it."
+                    visible: state.pkgState === state.s_Disabled
+                }
+
+                Button {
+                    Layout.alignment: Qt.AlignHCenter
+
+                    text: "Enable Refloat"
+                    visible: state.pkgState === state.s_Disabled
+
+                    onClicked: {
+                        packageConfig.setDisabled(false);
+                    }
+                }
+
+                ErrHeader {
+                    text: "Connection Errors"
+                    visible: state.configLoadingError || state.pkgState === state.s_Disconnected
+                }
+
+                ErrText {
+                    text: "Refloat Cfg failed to load"
+                    visible: state.configLoadingError
+                }
+
+                ErrDesc {
+                    text: "Reconnecting to the board usually fixes this. If problem persists, try reinstalling the package."
+                    visible: state.configLoadingError
+                }
+
+                ErrText {
+                    text: "Package disconnected"
+                    visible: state.pkgState === state.s_Disconnected
+                }
+
+                ErrDesc {
+                    text: "Package is not responding. May occur temporarily with spotty connection. If board doesn't engage, the package is dead. Restart the board, if problem persists, try reinstalling the package.";
+                    visible: state.pkgState === state.s_Disconnected
+                }
+
+                Item {
+                    id: activeAlertsItem
+                    Layout.fillWidth: true
+
+                    Column {
+                        id: activeAlertsColumn
+                        width: parent.width
+                        property bool resetHeight: true
+
+                        ErrHeader {
+                            width: parent.width
+                            text: "Active Alerts"
+                        }
+
+                        Item {
+                            width: parent.width
+                            height: 5
+                        }
+
+                        Repeater {
+                            model: alerts.activeAlerts
+
+                            ErrText {
+                                property var alert: alerts.getActiveAlertData(modelData)
+                                text: alert.name
+                                color: alerts.severityColors.get(alert.severity)
+                            }
+                        }
+
+                        onHeightChanged: {
+                            if (resetHeight || !activeAlertsItem.visible || activeAlertsItem.implicitHeight < height) {
+                                activeAlertsItem.implicitHeight = height;
+                                resetHeight = false;
+                            }
+                        }
+                    }
+
+                    onVisibleChanged: {
+                        activeAlertsColumn.resetHeight = true;
+                    }
+                }
+
+                ErrHeader {
+                    text: "Fatal Error"
+                    visible: state.fatalError
+                }
+
+                // Fatal Error is so far only used for FW Fault
+                ErrDesc {
+                    text: "VESC reported a fault. Be very careful. You should not continue riding before you fix the root cause. " + (alerts.isFatalActive ? "The Fault is still active, you need to resolve the fault and then clear the error." : "The package will stay in an error state until you clear the error.")
+                    visible: state.fatalError
+                }
+
+                Button {
+                    Layout.alignment: Qt.AlignHCenter
+
+                    text: "Clear Fatal Error"
+                    visible: state.fatalError
+                    enabled: !alerts.isFatalActive
+
+                    onClicked: {
+                        alerts.clearFatalError();
+                    }
+                }
+
+                ErrHeader {
+                    text: "Alert Log"
+                }
+
+                Rectangle {
+                    color: Utility.getAppHexColor("darkBackground")
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 200
+
+                    ListView {
+                        id: alertsDialogList
+                        anchors.fill: parent
+                        anchors.margins: 6
+                        clip: true
+
+                        model: ListModel {
+                            id: alertsDialogListModel
+
+                            function add(alert) {
+                                var wasAtEnd = alertsDialogList.atYEnd;
+
+                                var model = Object.assign({}, alert);
+                                Object.assign(model, alerts.getAlertLogData(alert.id));
+                                if (!alert.active) {
+                                    model.name = model.name + " ended";
+                                } else {
+                                    if (alert.id === alerts.alert_fwFault) {
+                                        model.name = model.name + ": %1 (%2)".arg(model.text).arg(model.code);
+                                    }
+                                }
+                                append(model);
+
+                                if (wasAtEnd) {
+                                    alertsDialogList.positionViewAtEnd();
+                                }
+                            }
+
+                            function set(alertList) {
+                                clear();
+                                for (var alert of alertList.values()) {
+                                    add(alert);
+                                }
+                            }
+                        }
+
+                        delegate: NText {
+                            id: alertRecordText
+                            width: alertsDialogList.width
+
+                            font.pixelSize: 12
+                            font.family: "Mono"
+                            wrapMode: Text.WordWrap
+                            text: "%1: [<font color=\"%2\">%3</font>] <font color=\"%4\">%5</font>".arg(Qt.formatTime(new Date(time), "hh:mm:ss.zzz")).arg(alerts.severityColors.get(severity)).arg(severity).arg(active ? Utility.getAppHexColor("lightText") : Utility.getAppHexColor("disabledText")).arg(name)
+                        }
+                    }
+                }
+
+                ErrText {
+                    text: "Stop Condition: <font color=\"%1\">%2</font>".arg(Utility.getAppHexColor("lightText")).arg(state.stopConditionString)
+                    visible: state.stopConditionString
+                    color: Utility.getAppHexColor("normalText")
+                }
+
+                ErrText {
+                    text: "Last Beep Reason: <font color=\"%1\">%2</font>".arg(Utility.getAppHexColor("lightText")).arg(state.beepReasonString)
+                    visible: state.beepReasonString
+                    color: Utility.getAppHexColor("normalText")
                 }
             }
         }
@@ -4301,15 +5284,16 @@ Item {
         }
 
         function displayValue(item, value) {
-            if (item.type === "Double" || item.type === "Int") {
+            var type = packageConfig.getParamType(item.name);
+            if (type === "Double" || type === "Int") {
                 return value.toString();
-            } else if (item.type === "Bool") {
+            } else if (type === "Bool") {
                 return value ? "On" : "Off";
-            } else if (item.type === "Enum") {
+            } else if (type === "Enum") {
                 return packageConfig.getEnumNames(item.name)[value];
-            } else if (item.type === "String") {
+            } else if (type === "String") {
                 return value;
-            } else if (item.type === "Bitfield") {
+            } else if (type === "Bitfield") {
                 return "[option set]";
             }
 
@@ -4479,8 +5463,8 @@ Item {
         NText {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            visible: isEmpty && !isTune
-            text: "Current config is the same as this backup."
+            visible: isEmpty
+            text: "There are no differences to your current config."
         }
 
         Item {
@@ -4490,11 +5474,13 @@ Item {
 
     BaseDialog {
         id: applyConfigDialog
+        parent: ApplicationWindow.overlay
 
-        title: "Restore Config"
+        title: isTune ? "Apply Tune" : "Restore Config"
 
         property var config
         property bool automatic: false
+        property bool isTune: false
 
         property var name: config ? config.name : "(Unknown)"
         property var date: config && config.date ? Qt.formatDateTime(new Date(config.date)) : ""
@@ -4506,11 +5492,13 @@ Item {
             applyConfigDiff.setModel(diff);
         }
 
-        function show(cfg, autoRestore) {
+        function show(cfg, auto, tune) {
             config = cfg;
-            automatic = !!autoRestore;
+            automatic = !!auto;
+            isTune = !!tune;
             applyConfigDiff.reset();
-            if (!applyConfigDiff.isEmpty) {
+            applyConfigDiff.isTune = isTune;
+            if (!applyConfigDiff.isEmpty && !isTune) {
                 standardButton(Dialog.Apply).text = "Restore";
             }
             open();
@@ -4595,7 +5583,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
-                visible: !applyConfigDiff.isEmpty
+                visible: !applyConfigDiff.isEmpty && !applyConfigDialog.isTune
                 text: "Restoring this backup will overwrite your current config."
             }
         }
@@ -4662,6 +5650,113 @@ Item {
                         preferences.showWelcomeDialog = !checked
                     }
                 }
+            }
+        }
+    }
+
+    Rectangle {
+        id: uiHintsRect
+        anchors.fill: parent
+        z: 90
+        visible: uiHintsSwipe.count > 0
+
+        color: "#CC000000"
+
+        SwipeView {
+            id: uiHintsSwipe
+            anchors.fill: parent
+            clip: true
+
+            property bool seenAll
+
+            onCurrentIndexChanged: {
+                if (currentIndex > 0) {
+                    itemAt(currentIndex - 1).shown = true;
+                }
+
+                if (currentIndex == count - 1) {
+                    seenAll = true;
+                }
+            }
+
+            function clear() {
+                for (let i = count - 1; i >= 0; i--) {
+                    takeItem(i);
+                }
+            }
+
+            function markAllShown() {
+                for (let i = 0; i < count; i++) {
+                    itemAt(i).shown = true;
+                }
+            }
+        }
+
+        NText {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.margins: 20
+            font.pixelSize: 24
+            text: "Tips & Tricks"
+        }
+
+        PageIndicator {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: uiHintsClose.top
+            anchors.bottomMargin: 10
+
+            currentIndex: uiHintsSwipe.currentIndex
+            count: uiHintsSwipe.count
+        }
+
+        Button {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 20
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: -parent.width * 0.25
+            visible: !uiHintsSwipe.seenAll
+            text: "Skip now"
+            onClicked: {
+                uiHintsSwipe.clear();
+            }
+        }
+
+        Button {
+            id: uiHintsClose
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 20
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: uiHintsSwipe.seenAll ? 0 : parent.width * 0.25
+            text: uiHintsSwipe.seenAll ? "Close" : "Don't show again"
+            onClicked: {
+                uiHintsSwipe.markAllShown();
+                uiHintsSwipe.clear();
+            }
+        }
+
+        function fill(doDataRecord=false) {
+            uiHints.fill(uiHintsSwipe);
+            if (doDataRecord) {
+                uiHints.fillDataRecord(uiHintsSwipe);
+            }
+
+            uiHintsSwipe.seenAll = uiHintsSwipe.currentIndex == uiHintsSwipe.count - 1;
+        }
+
+        function fillDataRecord() {
+            uiHints.fillDataRecord(uiHintsSwipe);
+            uiHintsSwipe.seenAll = uiHintsSwipe.currentIndex == uiHintsSwipe.count - 1;
+        }
+
+        Component.onCompleted: {
+            fill();
+        }
+
+        Connections {
+            target: state
+
+            function onCommsInitialized() {
+                uiHintsRect.fillDataRecord();
             }
         }
     }
@@ -5273,8 +6368,8 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real leftVoltage: preferences.swapAdcs ? state.rtData["footpad.adc2"] : state.rtData["footpad.adc1"]
-                            property real rightVoltage: preferences.swapAdcs ? state.rtData["footpad.adc1"] : state.rtData["footpad.adc2"]
+                            property real leftVoltage: state.rtData["footpad.adc1"]
+                            property real rightVoltage: state.rtData["footpad.adc2"]
 
                             property real canvasWidth: width * 0.85
                             property real scale: canvasWidth / footpadPath.width
@@ -5404,10 +6499,22 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real value: state.rtData["imu.roll"]
+                            property real newValue: state.rtData["imu.roll"]
+                            property real preValue: newValue
+                            onNewValueChanged: {
+                                if (Math.abs(newValue - preValue) > 180) {
+                                    rollEasingBehavior.enabled = false;
+                                    value += newValue > 0 ? 360 : -360;
+                                    rollEasingBehavior.enabled = true;
+                                }
+                                value = newValue;
+                                preValue = newValue;
+                            }
+                            property real value: newValue
                             onValueChanged: rollCanvas.requestPaint();
 
                             Behavior on value {
+                                id: rollEasingBehavior
                                 NumberAnimation {
                                     easing.type: Easing.OutCirc
                                     duration: 100
@@ -5738,79 +6845,13 @@ Item {
                     value: state.rtData["motor.mosfet_temp"]
                 }
 
-                Item {
+                StatusText {
                     id: statusText
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: parent.width - 4 * parent.verticalValueItemWidth
                     height: parent.height * 0.83
-
-                    property bool red: state.pkgStateIsError
-                    property bool dark: state.darkride
-                    property bool blue: state.pkgState == state.s_Running
-
-                    states: [
-                        State {
-                            name: "specialMode"
-                            when: state.pkgMode != state.m_Normal
-                            AnchorChanges {target: statusTextState; anchors.top: parent.top; anchors.verticalCenter: undefined;}
-                        }
-                    ]
-
-                    LText {
-                        id: statusTextState
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width
-                        font.pixelSize: (state.pkgStateString.length >= 10 ? 0.42 : 0.55) * unit
-                        font.family: "Exan"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        text: state.pkgStateString
-                    }
-
-                    Glow {
-                        anchors.fill: statusTextState
-                        radius: Math.round((parent.dark ? 0.2 : 0.12) * unit)
-                        samples: radius * 2 + 1
-                        spread: parent.red ? 0.6 : (parent.dark ? 0.7 : 0.5)
-                        opacity: parent.red || parent.dark || parent.blue ? 0.8 : 0.3
-                        color: {
-                            if (parent.red) {
-                                return Utility.getAppHexColor("red");
-                            } else if (parent.dark) {
-                                return Utility.isDarkMode() ? Utility.getAppHexColor("black") : Utility.getAppHexColor("disabledText");
-                            } else if (parent.blue) {
-                                return Utility.getAppHexColor("lightAccent");
-                            } else {
-                                return Utility.getAppHexColor("lightText");
-                            }
-                        }
-                        source: statusTextState
-                    }
-
-                    Text {
-                        id: statusTextMode
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        color: state.pkgMode == state.m_Flywheel ? Utility.getAppHexColor("lightAccent") : Utility.getAppHexColor("lightText")
-                        font.pixelSize: fontSizeSmall
-                        font.family: "Exan"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        visible: state.pkgMode != state.m_Normal
-                        text: state.pkgModeString
-
-                    }
-
-                    Glow {
-                        anchors.fill: statusTextMode
-                        radius: Math.round(0.12 * unit)
-                        samples: radius * 2 + 1
-                        opacity: 0.3
-                        color: statusTextMode.color
-                        visible: state.pkgMode != state.m_Normal
-                        source: statusTextMode
-                    }
+                    globState: state
                 }
 
                 VerticalValue {
@@ -5828,53 +6869,16 @@ Item {
                     unit: vescConfig.distanceUnit
                 }
             }
-
-            Text {
-                Layout.fillWidth: true
-                property string fault
-
-                color: Utility.getAppHexColor("red")
-                font.pixelSize: fontSizeNormal
-                horizontalAlignment: Text.AlignHCenter
-                visible: state.isError && !state.pkgStateIsError
-                text: state.errorText
-            }
         }
 
         TabBar {
+            id: bottomStackTabs
             Layout.fillWidth: true
             clip: true
 
             TabButton {text: "Tunes"}
-
             TabButton {text: "Control"}
-
-            TabButton {
-                id: tabBarDebugButton
-                text: "Data"
-
-                property bool isError: state.isError
-                property bool glowVisible: false
-
-                onIsErrorChanged: {
-                    glowVisible = isError && !checked
-                }
-
-                onToggled: {
-                    glowVisible = false
-                }
-
-                Glow {
-                    anchors.fill: tabBarDebugButton.contentItem
-                    radius: Math.round(0.12 * unit)
-                    samples: radius * 2 + 1
-                    spread: 0.8
-                    opacity: 0.8
-                    visible: parent.glowVisible
-                    color: Utility.getAppHexColor("red")
-                    source: tabBarDebugButton.contentItem
-                }
-            }
+            TabButton {text: "Data"}
 
             background: Rectangle {
                 color: Utility.getAppHexColor("lightBackground");
@@ -6192,6 +7196,7 @@ Item {
                     width: 0.8 * unit
                     height: 0.8 * unit
                     z: 1
+                    value: true
 
                     trueIconPath: Path {
                         PathSvg {path: "M 6 13 L 31 13 M 6 21 L 21 21 M 6 29 L 21 29 M 6 37 L 21 37 M 29 21 L 44 21 M 29 29 L 44 29 M 29 37 L 44 37"}
@@ -6199,10 +7204,6 @@ Item {
 
                     falseIconPath: Path {
                         PathSvg {path: "M 10 12 L 10 38 L 42 38 M 10 30 L 22 22 L 32 28 L 39 18"}
-                    }
-
-                    Component.onCompleted: {
-                        value = preferences.showRTPlotByDefault;
                     }
                 }
 
@@ -6251,28 +7252,6 @@ Item {
                             width: parent.width
                             height: 0.1 * unit
                         }
-
-                        LText {
-                            width: parent.width
-
-                            font.pixelSize: fontSizeBig
-                            horizontalAlignment: Text.AlignHCenter
-                            visible: state.isError
-                            text: "Error"
-                        }
-
-                        LText {
-                            width: parent.width
-
-                            font.pixelSize: fontSizeNormal
-                            horizontalAlignment: Text.AlignHCenter
-                            visible: state.isError
-                            wrapMode: Text.WordWrap
-                            text: state.errorDescription
-                        }
-
-                        Value {id: debugStopReason; label: "Stop Condition"; value: state.stopConditionString}
-                        Value {id: debugLastBeepReason; label: "Last Beep Reason"; value: state.beepReasonString}
 
                         Item {
                             width: parent.width

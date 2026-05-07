@@ -87,7 +87,7 @@ loopwhile-thd
 
 (defun led-set (state) (gpio-write 1 state))
 
-(defun bms-current () (* (bms-get-current) -2.0))
+(defun bms-current () (* (bms-get-current) -1.6))
 
 (defun beep (times dt) {
         (loopwhile (> times 0) {
@@ -283,10 +283,10 @@ loopwhile-thd
         (looprange i 0 samples {
                 (if (> i 0) (sleep 0.01))
                 (setq vchg (bms-get-vchg))
-                (if (> vchg (+ (bms-get-vstack) 1.0)) (break))
+                (if (> vchg (+ (bms-get-vstack) 0.7)) (break))
         })
 
-        (var res (> vchg (+ (bms-get-vstack) 1.0)))
+        (var res (> vchg (+ (bms-get-vstack) 0.7)))
 
         (if res (setq charge-dis-ts (systime)))
 
@@ -413,7 +413,7 @@ loopwhile-thd
 
 (defun psw-off () {
         (comm-send-event 1)
-        (sleep 0.5)
+        (sleep 1.5)
         (bms-set-pchg 0)
         (bms-set-out 0)
         (setq psw-state false)

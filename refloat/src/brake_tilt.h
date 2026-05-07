@@ -25,8 +25,11 @@
 typedef struct {
     float factor;
     float target;
+    float ramped_step_size;
     float setpoint;
 } BrakeTilt;
+
+void brake_tilt_init(BrakeTilt *bt);
 
 void brake_tilt_reset(BrakeTilt *bt);
 
