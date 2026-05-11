@@ -123,6 +123,11 @@
 
                 (var ofs 30.0)
 
+                (if (= bt1 0)
+                    (pwm-set-duty 0.2 0)
+                    (pwm-set-duty 0.8 0)
+                )
+
                 (ttf-text imgbuf 0 (+ ofs 0) '(0 1 2 3) font-16 "Button 1")
                 (ttf-text imgbuf 0 (+ ofs 32) '(0 1 2 3) font-32 (if (= bt1 0) "1" "0"))
                 (setq ofs (+ ofs 62))
@@ -147,6 +152,16 @@
         (loopwhile-thd 200 t {
                 (draw)
                 (sleep 0.05)
+        })
+
+        (var buf-can (array-create 8))
+        (loopwhile-thd 200 t {
+                (looprange i 10 20 {
+                        (bufclear buf-can)
+                        (bufset-u16 buf-can 0 (* i 10))
+                        (can-send-sid 24 buf-can)
+                        (sleep 0.5)
+                })
         })
 
         (event-register-handler (spawn event-handler))
