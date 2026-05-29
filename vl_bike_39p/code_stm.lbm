@@ -23,6 +23,11 @@
 (def log-running false)
 (def last-can-id -1)
 
+(def whl-active 0)
+(def whl-start 20.0)
+(def whl-end 43.0)
+(def whl-kd 0.005)
+
 (import "lib/motorconf.lbm" 'code-motorcfg)
 (read-eval-program code-motorcfg)
 
@@ -33,6 +38,13 @@
     (cond
         ((< v 0.0) 0.0)
         ((> v 1.0) 1.0)
+        (t v)
+))
+
+(defun clamp (v min max)
+    (cond
+        ((< v min) min)
+        ((> v max) max)
         (t v)
 ))
 
@@ -99,6 +111,13 @@
                                 (conf-set 'max-speed (/ 200.0 3.6))
                         })
                     )
+            })
+
+            ((= id 202) {
+                    (setq whl-active (bufget-i8 data 0))
+                    (setq whl-start (/ (bufget-i16 data 2) 10.0))
+                    (setq whl-end (/ (bufget-i16 data 4) 10.0))
+                    (setq whl-kd (/ (bufget-i16 data 6) 10000.0))
             })
 
             ; Event
@@ -446,6 +465,10 @@
                 (sleep 1.0)
         })
 
+        (var wrk-t-last (systime))
+        (var pitch-deg-last (rad2deg (ix (get-imu-rpy) 1)))
+        (sleep 0.01)
+
         (loopwhile-thd ("Worker" 150) t {
                 (setq adc-thr (get-adc 0))
                 (setq adc-brake (get-adc 1))
@@ -486,11 +509,39 @@
                         (setq cruise-on 0)
                 })
 
-                (set-remote-state (- val-thr val-brake) 0 cruise-on 0 (if (= drive-mode 0) 1 0))
+                (var dt (secs-since wrk-t-last))
+                (var pitch-deg (rad2deg (ix (get-imu-rpy) 1)))
+                (var pitch-rate (/ (- pitch-deg-last pitch-deg) dt))
+
+                (setq pitch-deg-last pitch-deg)
+                (setq wrk-t-last (systime))
+
+                (var whl-gain (clamp (- 1.0 (/ (- pitch-deg whl-start) (- whl-end whl-start))) -1.0 1.0))
+                (def pitch-damper (clamp (* pitch-rate whl-kd) -1.0 1.0))
+
+                (if (or (< pitch-deg whl-start) (= whl-active 0) (<= drive-mode 1))
+                    {
+                        (if (!= (conf-get 'vr-ctrl-type) 1) {
+                                (conf-set 'vr-ctrl-type 1)
+                        })
+
+                        (setq pitch-damper 0.0)
+                        (setq whl-gain 1.0)
+                    }
+                    {
+                        (if (!= (conf-get 'vr-ctrl-type) 3) {
+                                (conf-set 'vr-ctrl-type 3)
+                        })
+                    }
+                )
+
+                (var whl-thr (+ (* val-thr whl-gain) pitch-damper))
+
+                (set-remote-state (- whl-thr val-brake) 0 cruise-on 0 (if (= drive-mode 0) 1 0))
 
                 (setq t-ambient (lpf t-ambient (get-temp-ambient) 0.002))
 
-                (sleep 0.02)
+                (sleep 0.01)
         })
 
         (def soc 0.0)

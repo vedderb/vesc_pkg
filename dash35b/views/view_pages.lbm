@@ -19,20 +19,26 @@
 ;; Given an image buffer draw a right aligned text in there and
 ;; then stuff the image buffer onto display at pos x y
 (defun ttf-txt-right (imgbuf x y str) {
+        (var color colors-text-aa)
+        (if (rest-args) (setq color (rest-args 0)))
+
         (var (w-txt h-txt) (ttf-text-dims font-16 str))
         (var (w-img h-img) (img-dims imgbuf))
         (var render-x (- w-img w-txt))
         (img-clear imgbuf)
         (ttf-text imgbuf render-x 16 '(0 1 2 3) font-16 str)
-        (disp-render imgbuf x y colors-text-aa)
+        (disp-render imgbuf x y color)
 })
 
 ;; Given an image buffer draw a left aligned text in there and
 ;; then stuff the image buffer onto display at pos x y
 (defun ttf-txt-left (imgbuf x y str) {
+        (var color colors-text-aa)
+        (if (rest-args) (setq color (rest-args 0)))
+
         (img-clear imgbuf)
         (ttf-text imgbuf 0 16 '(0 1 2 3) font-16 str)
-        (disp-render imgbuf x y colors-text-aa)
+        (disp-render imgbuf x y color)
 })
 
 (defun trunc01 (x)
@@ -325,10 +331,71 @@
         (setq page-3-state curr-state)
 })
 
+(defun get-page-4-state () (list
+        (read-setting 'whl-active)
+        (read-setting 'whl-start)
+        (read-setting 'whl-end)
+        (read-setting 'whl-kd)
+        setting-now
+))
+
+(def page-4-state (get-page-4-state))
+(defun page-4 (s) {
+        (var cat-col-x 50)
+        (var val-col-x 200)
+
+        (var curr-state (get-page-4-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-4-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state)) ; Update all fields on page switch
+
+                (setq page-resources
+                    (list
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 90 20))
+                ))
+
+                (disp-render img-page-clear page-x page-y (list 0 0))
+
+                (var textimg (assoc page-resources 'text-img))
+
+                ; Draw static labels
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 20) "Wheelie EN")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 40) "Angle Start")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 60) "Angle End")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 80) "Dampening")
+        })
+
+        (var textimg (assoc page-resources 'text-img))
+
+        (if (or (ix update-state 0) (ix update-state 4))
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 20) (str-from-n (ix curr-state 0) "%d")
+                (if (= (ix curr-state 4) 0) colors-text-sel-aa colors-text-aa)
+        ))
+
+        (if (or (ix update-state 1) (ix update-state 4))
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 40) (str-from-n (ix curr-state 1) "%.1f deg")
+                (if (= (ix curr-state 4) 1) colors-text-sel-aa colors-text-aa)
+        ))
+
+        (if (or (ix update-state 2) (ix update-state 4))
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 60) (str-from-n (ix curr-state 2) "%.1f deg")
+                (if (= (ix curr-state 4) 2) colors-text-sel-aa colors-text-aa)
+        ))
+
+        (if (or (ix update-state 3) (ix update-state 4))
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 80) (str-from-n (ix curr-state 3) "%.3f")
+                (if (= (ix curr-state 4) 3) colors-text-sel-aa colors-text-aa)
+        ))
+
+        (setq page-4-state curr-state)
+})
+
 (def pages (list
         page-1
         page-2
         page-3
+        page-4
 ))
 
 (defun view-pages-thread () {

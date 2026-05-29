@@ -23,6 +23,7 @@
 (def colors-purple-icon (colors-make-aa 0x000000 0x9f20f1 4))
 
 (def colors-text-aa (colors-make-aa 0x000000 0xfbfcfc 4))
+(def colors-text-sel-aa (colors-make-aa 0x000000 0x00FF00 4))
 (def colors-white-aa (colors-make-aa 0x000000 0xffffff 4))
 
 @const-end
