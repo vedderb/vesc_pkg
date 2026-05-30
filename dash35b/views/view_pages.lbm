@@ -341,8 +341,8 @@
 
 (def page-4-state (get-page-4-state))
 (defun page-4 (s) {
-        (var cat-col-x 50)
-        (var val-col-x 200)
+        (var cat-col-x 70)
+        (var val-col-x 180)
 
         (var curr-state (get-page-4-state))
         (var update-state (zipwith (fn (x y) (not-eq x y)) page-4-state curr-state))
@@ -353,38 +353,42 @@
                 (setq page-resources
                     (list
                         (cons 'text-img (img-buffer dm-pool 'indexed4 90 20))
+                        (cons 'title-img (img-buffer dm-pool 'indexed4 (- 480 page-x page-x) 20))
                 ))
 
                 (disp-render img-page-clear page-x page-y (list 0 0))
 
                 (var textimg (assoc page-resources 'text-img))
+                (var titleimg (assoc page-resources 'title-img))
 
                 ; Draw static labels
-                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 20) "Wheelie EN")
-                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 40) "Angle Start")
-                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 60) "Angle End")
-                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 80) "Dampening")
+                (ttf-txt-center "Wheelie Control Settings" font-16 titleimg)
+                (disp-render titleimg page-x (+ page-y 10) colors-text-aa)
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 40) "Wheelie EN")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 60) "Angle Start")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 80) "Angle End")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 100) "Damping")
         })
 
         (var textimg (assoc page-resources 'text-img))
 
         (if (or (ix update-state 0) (ix update-state 4))
-            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 20) (str-from-n (ix curr-state 0) "%d")
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 40) (str-from-n (ix curr-state 0) "%d")
                 (if (= (ix curr-state 4) 0) colors-text-sel-aa colors-text-aa)
         ))
 
         (if (or (ix update-state 1) (ix update-state 4))
-            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 40) (str-from-n (ix curr-state 1) "%.1f deg")
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 60) (str-from-n (ix curr-state 1) "%.1f deg")
                 (if (= (ix curr-state 4) 1) colors-text-sel-aa colors-text-aa)
         ))
 
         (if (or (ix update-state 2) (ix update-state 4))
-            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 60) (str-from-n (ix curr-state 2) "%.1f deg")
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 80) (str-from-n (ix curr-state 2) "%.1f deg")
                 (if (= (ix curr-state 4) 2) colors-text-sel-aa colors-text-aa)
         ))
 
         (if (or (ix update-state 3) (ix update-state 4))
-            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 80) (str-from-n (ix curr-state 3) "%.3f")
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 100) (str-from-n (ix curr-state 3) "%.3f")
                 (if (= (ix curr-state 4) 3) colors-text-sel-aa colors-text-aa)
         ))
 
