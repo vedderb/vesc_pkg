@@ -459,8 +459,6 @@ loopwhile-thd
 
         (init-hw)
 
-        (beep 2 0.1)
-
         (if (can-active) (setq do-sleep false))
 
         (var soc -2.0)
@@ -1109,6 +1107,8 @@ loopwhile-thd
         (def tres-scd-before (bms-get-param 'psw_scd_tres))
         (def scd-before false)
 
+        (beep 2 0.1)
+
         (loopwhile-thd ("main-ctrl" 200) t {
                 (trap (main-ctrl))
                 (setq did-crash true)
@@ -1155,8 +1155,6 @@ loopwhile-thd
                         (bms-set-param 'block_sleep 0)
                         (bms-store-cfg)
                         (print "Block sleep disabled")
-                        (beep 4 0.2)
-
                 })
         })
 
