@@ -235,8 +235,8 @@
 ; default values will be used if they are left out.
 (def loglist-local '(
         ("Input Voltage" "V"            (get-vin))
-        ("Current" "A"                  (get-current))
-        ("Current In" "A"               (get-current-in))
+        ("Current" "A"                  (get-current 1))
+        ("Current In" "A"               (get-current-in 1))
         ("Duty"                         (get-duty))
         ("RPM"                          (get-rpm))
         ("Temp Fet" "degC" 1            (get-temp-fet))
@@ -255,8 +255,12 @@
         ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
         ("ADC1" "V"                     (get-adc 0))
         ("ADC2" "V"                     (get-adc 1))
-        ("iq" "A"                       (get-iq))
-        ("id" "A"                       (get-id))
+        ("iq" "A"                       (get-iq 1))
+        ("id" "A"                       (get-id 1))
+        ("iq-target" "A"                (get-iq-target))
+        ("id-target" "A"                (get-id-target))
+        ("vq" "A"                       (get-vq 1))
+        ("vd" "A"                       (get-vd 1))
         ("Fault"                        (get-fault))
 ))
 
@@ -521,7 +525,7 @@
 
                 (if (or (< pitch-deg whl-start) (= whl-active 0) (<= drive-mode 1))
                     {
-                        (if (!= (conf-get 'vr-ctrl-type) 1) {
+                        (if (and (= whl-active 1) (!= (conf-get 'vr-ctrl-type) 1)) {
                                 (conf-set 'vr-ctrl-type 1)
                         })
 
