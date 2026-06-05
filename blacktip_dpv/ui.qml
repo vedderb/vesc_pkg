@@ -47,6 +47,9 @@ Item {
 
     property string firmwareVersion: "&lt;unknown$gt;"
 
+    property int receivedAdcMultiplierX10: 150  // round-tripped from device; balance-wire ADC multiplier in 0.1x units (default 150 = 15.0x)
+    property int calibStep1Pending: 0  // set when lisp has a stage 1 capture in EEPROM awaiting stage 2 (e.g. after power cycle during swap)
+
     property string detectedHardwareModel: "<unknown>"
     property string possibleScooterModels: ""
 
@@ -785,7 +788,7 @@ Item {
             return
         }
 
-        var buffer = new ArrayBuffer(30)
+        var buffer = new ArrayBuffer(32)
         var da = new DataView(buffer)
 
         da.setUint8(0, reverse_speed.realValue)
@@ -818,13 +821,15 @@ Item {
         da.setUint8(27, enable_thirds_warning_startup.checked ? 1 : 0)
         da.setUint8(28, use_ah_battery_calculation.checked ? 1 : 0)
         da.setUint8(29, debug_enabled.checked ? 1 : 0)
+        da.setUint8(30, enable_battery_imbalance_detection.checked ? Math.round(battery_imbalance_threshold.realValue * 100) : 0)
+        da.setUint8(31, receivedAdcMultiplierX10) // Balance wire ADC multiplier x10 (round-tripped from device; updated via Auto-Calibrate)
         mCommands.sendCustomAppData(buffer)
 
         console.log("Sent values")
     }
 
     function reset_defaults_blacktip() {
-        var buffer1 = new ArrayBuffer(30)
+        var buffer1 = new ArrayBuffer(32)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
         da1.setUint8(1, 20)
@@ -856,6 +861,8 @@ Item {
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
         da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         da1.setUint8(29, 0) // Debug enabled default: off
+        da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
+        da1.setUint8(31, 150) // Balance wire ADC multiplier x10 default: 150 = 15.0x (141k/10k divider)
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/master/datatypes.h
@@ -930,7 +937,7 @@ Item {
     }
 
     function reset_defaults_cudax() {
-        var buffer1 = new ArrayBuffer(30)
+        var buffer1 = new ArrayBuffer(32)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
         da1.setUint8(1, 10)
@@ -962,6 +969,8 @@ Item {
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
         da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         da1.setUint8(29, 0) // Debug enabled default: off
+        da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
+        da1.setUint8(31, 150) // Balance wire ADC multiplier x10 default: 150 = 15.0x (141k/10k divider)
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
@@ -1078,6 +1087,14 @@ Item {
             enable_thirds_warning_startup.checked =  dv.getUint8(27) == 1
             use_ah_battery_calculation.checked =  dv.getUint8(28) == 1
             debug_enabled.checked =  dv.getUint8(29) == 1
+            var imb_val = dv.getUint8(30)
+            enable_battery_imbalance_detection.checked = imb_val > 0
+            battery_imbalance_threshold.realValue = imb_val > 0 ? imb_val / 100.0 : 2.00
+            if (dv.byteLength > 31) receivedAdcMultiplierX10 = dv.getUint8(31)
+            // Byte 32 (when present): balance-wire calibration stage-1 pending flag.
+            // Set by the lisp runtime when a previous stage 1 capture is still stored
+            // in EEPROM and the user needs to complete the swap procedure.
+            calibStep1Pending = (dv.byteLength > 32) ? dv.getUint8(32) : 0
 
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
@@ -1086,6 +1103,12 @@ Item {
             readSettingsDone = true
 
             rebootDialog.close()
+
+            // If a balance-wire calibration is in progress, advance its state machine
+            // now that the (possibly updated) settings buffer has been applied.
+            if (autoCalibrateDialog.visible) {
+                autoCalibrateDialog.onCalibrationResponse()
+            }
 
             console.log("Values received")
         }
@@ -1415,6 +1438,235 @@ Item {
                     onClicked: {
                         batteryDialog.valuesChanged()
                     }
+                }
+
+                CheckBox {
+                    id: enable_battery_imbalance_detection
+                    Layout.fillWidth: true
+                    text: "Enable battery imbalance detection"
+                    checked: true
+                    onClicked: {
+                        if (checked && battery_imbalance_threshold.realValue < 0.25) {
+                            battery_imbalance_threshold.realValue = 2.00
+                        }
+                        batteryDialog.valuesChanged()
+                    }
+                }
+
+                DoubleSpinBox {
+                    id: battery_imbalance_threshold
+                    Layout.fillWidth: true
+                    enabled: enable_battery_imbalance_detection.checked
+                    decimals: 2
+                    prefix: "Imbalance warning threshold: "
+                    suffix: " V"
+                    realFrom: 0.25
+                    realTo: 2.00
+                    realValue: 2.00
+                    realStepSize: 0.25
+                    onRealValueChanged: {
+                        if (!loading_values) {
+                            batteryDialog.valuesChanged()
+                        }
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    text: "Disable imbalance detection only when using a custom battery pack with an on-board BMS that manages cell balancing independently."
+                    visible: !enable_battery_imbalance_detection.checked
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    wrapMode: Text.WordWrap
+                    text: "Balance-wire ADC multiplier: " + (receivedAdcMultiplierX10 / 10.0).toFixed(1) + "x"
+                    visible: enable_battery_imbalance_detection.checked
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    text: "The multiplier converts the balance-wire pin voltage to the lower-pack voltage. Auto-Calibrate uses a swap procedure that does NOT require equal battery voltages: it cancels pack imbalance mathematically."
+                    visible: enable_battery_imbalance_detection.checked
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    text: calibStep1Pending ? "Resume Auto-Calibrate (step 2)..." : "Auto-Calibrate balance-wire ADC..."
+                    visible: enable_battery_imbalance_detection.checked
+                    onClicked: {
+                        autoCalibrateDialog.startCalibration()
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: autoCalibrateDialog
+        modal: true
+        focus: true
+        width: big.width - 20
+        closePolicy: Popup.NoAutoClose
+        title: "Auto-Calibrate balance-wire ADC"
+        standardButtons: Dialog.NoButton
+
+        // States: "intro" -> "wait_step1" -> "swap_prompt" -> "wait_step2" -> "done_ok" / "done_fail"
+        // If a stage 1 capture is pending in EEPROM (calibStep1Pending != 0), startCalibration
+        // jumps directly to "swap_prompt" so the user can resume after a power cycle.
+        property string calibState: "intro"
+        property int multiplierBeforeX10: 0
+        property int responseCount: 0
+
+        function startCalibration() {
+            multiplierBeforeX10 = receivedAdcMultiplierX10
+            responseCount = 0
+            if (calibStep1Pending) {
+                calibState = "resume_prompt"
+            } else {
+                calibState = "intro"
+            }
+            open()
+        }
+
+        function sendStage(stage) {
+            var buffer = new ArrayBuffer(2)
+            var da = new DataView(buffer)
+            da.setUint8(0, 254) // AUTO_CALIBRATE_BALANCE_CODE
+            da.setUint8(1, stage)
+            mCommands.sendCustomAppData(buffer)
+            console.log("Sent balance-wire auto-calibrate stage " + stage)
+        }
+
+        // Called from onCustomAppDataReceived when a settings buffer arrives during calibration.
+        function onCalibrationResponse() {
+            if (calibState === "wait_step1") {
+                calibState = "swap_prompt"
+            } else if (calibState === "wait_step2") {
+                if (receivedAdcMultiplierX10 !== multiplierBeforeX10) {
+                    calibState = "done_ok"
+                } else {
+                    calibState = "done_fail"
+                }
+            }
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "intro"
+                text: "This procedure measures the balance-wire resistor-divider ratio used to detect battery imbalance.\n\n" +
+                      "It works in two steps with a battery swap between them. Pack voltages do NOT need to be equal — the math cancels imbalance out.\n\n" +
+                      "Before you start, make sure both batteries are installed and the scooter is powered on. The motor must remain off throughout.\n\n" +
+                      "Click 'Capture step 1' to begin."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "resume_prompt"
+                text: "A previously captured step 1 reading was found.\n\n" +
+                      "If you have already swapped the two batteries between slots 1 and 2 since then, click 'Capture step 2' to finish calibration.\n\n" +
+                      "If you want to start over (for example because the swap did not happen, or to recalibrate from scratch), click 'Restart' to discard the saved step 1 and begin again."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "wait_step1"
+                text: "Capturing step 1 readings..."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "swap_prompt"
+                text: "Step 1 captured.\n\n" +
+                      "Now power off the scooter, swap the two batteries between slots 1 and 2, and power the scooter back on.\n\n" +
+                      "When ready, click 'Capture step 2'."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "wait_step2"
+                text: "Capturing step 2 readings..."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "done_ok"
+                text: "Calibration complete.\n\n" +
+                      "Multiplier was " + (autoCalibrateDialog.multiplierBeforeX10 / 10.0).toFixed(1) + "x, " +
+                      "now " + (receivedAdcMultiplierX10 / 10.0).toFixed(1) + "x."
+            }
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                visible: autoCalibrateDialog.calibState === "done_fail"
+                text: "Calibration did not complete.\n\n" +
+                      "The captured readings were rejected (typically because the pack voltage was too low or the balance wire is not connected). " +
+                      "Check the connections and try again. See the VESC Tool debug log for details."
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignRight
+                spacing: 8
+
+                Button {
+                    text: "Cancel"
+                    visible: autoCalibrateDialog.calibState === "intro" ||
+                             autoCalibrateDialog.calibState === "swap_prompt" ||
+                             autoCalibrateDialog.calibState === "resume_prompt"
+                    onClicked: autoCalibrateDialog.close()
+                }
+
+                Button {
+                    text: "Restart"
+                    visible: autoCalibrateDialog.calibState === "resume_prompt"
+                    onClicked: {
+                        autoCalibrateDialog.sendStage(0) // clear pending stage 1 in EEPROM
+                        autoCalibrateDialog.calibState = "intro"
+                    }
+                }
+
+                Button {
+                    text: "Capture step 1"
+                    visible: autoCalibrateDialog.calibState === "intro"
+                    onClicked: {
+                        autoCalibrateDialog.calibState = "wait_step1"
+                        autoCalibrateDialog.sendStage(1)
+                    }
+                }
+
+                Button {
+                    text: "Capture step 2"
+                    visible: autoCalibrateDialog.calibState === "swap_prompt" ||
+                             autoCalibrateDialog.calibState === "resume_prompt"
+                    onClicked: {
+                        autoCalibrateDialog.calibState = "wait_step2"
+                        autoCalibrateDialog.sendStage(2)
+                    }
+                }
+
+                Button {
+                    text: "Close"
+                    visible: autoCalibrateDialog.calibState === "done_ok" ||
+                             autoCalibrateDialog.calibState === "done_fail"
+                    onClicked: autoCalibrateDialog.close()
                 }
             }
         }
