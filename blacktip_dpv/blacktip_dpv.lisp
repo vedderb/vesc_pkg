@@ -135,30 +135,14 @@
 ; Data receive handshake code
 (define HANDSHAKE_CODE 255)
 
-; Data receive opcode: trigger swap-based auto-calibration of the balance-wire
-; ADC multiplier. Sent by the UI as a 2-byte buffer: [opcode, stage].
-; Stage 1 captures readings with original battery orientation; stage 2 captures
-; readings after the user has swapped the two packs between slots. The math
-; cancels out battery imbalance, so equal pack voltages are NOT required.
-(define AUTO_CALIBRATE_BALANCE_CODE 254)
-
 ; Bounds for the balance-wire ADC multiplier (stored as multiplier * 10 in EEPROM slot 31).
-; Range chosen to cover plausible resistor-divider values; default 150 = 15.0x (e.g. 141k/10k divider).
+; Default 161 = 16.1x was measured empirically on a reference Blacktip; users with
+; slightly different resistor tolerances can fine-tune via the UI spin box (see
+; the periodic debug log of total/upper/lower pack voltages emitted by
+; log_balance_voltages_throttled).
 (define ADC_BAL_MULT_X10_MIN 50)   ; 5.0x
 (define ADC_BAL_MULT_X10_MAX 255)  ; 25.5x (uint8 max)
-(define ADC_BAL_MULT_X10_DEFAULT 150) ; 15.0x
-
-; EEPROM slots used to persist balance-wire calibration state between stages
-; (the controller loses power when the user swaps batteries, so the stage 1
-; capture must survive a reboot).
-;   slot 124: calib_total_step1 * 1000 (mV)        as i32
-;   slot 125: calib_pin_step1   * 100000 (10 uV)   as i32
-;   slot 126: calib_step1_valid (0 or 1)           as i32
-(define EEPROM_SLOT_CALIB_TOTAL 124)
-(define EEPROM_SLOT_CALIB_PIN 125)
-(define EEPROM_SLOT_CALIB_VALID 126)
-(define CALIB_TOTAL_SCALE 1000.0)
-(define CALIB_PIN_SCALE 100000.0)
+(define ADC_BAL_MULT_X10_DEFAULT 161) ; 16.1x
 
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
@@ -248,7 +232,7 @@
     (if (not-eq (eeprom-read-i 127) (to-i32 2)) {
         (puts "EEPROM: Initializing defaults for 1.1.0")
         (eeprom_store_i_if_changed 30 200) ; Battery imbalance threshold in 0.01V units (200=2.00V, 0=disabled)
-        (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 150 = 15.0x)
+        (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 161 = 16.1x)
         (eeprom_store_i_if_changed 127 2)
     })
 })
@@ -585,10 +569,10 @@
     ; The balance wire is connected through a resistor divider (default 141k/10k => 15.0x).
     ; get-adc returns pin voltage (0-3.3V); multiply by (ratio+1) to recover pack voltage.
     (var adc_pin_voltage (get-adc 0))
-    ; multiplier = adc_balance_wire_multiplier_x10 / 10 (default 150 = 15.0x for a 141k/10k divider).
-    ; Stored in 0.1x units so the UI Auto-Calibrate can dial in the actual multiplier
-    ; precisely; an integer multiplier was too coarse (1 step ~= 1.3V on the lower pack,
-    ; which doubles to ~2.6V on the imbalance signal and triggered false warnings).
+    ; multiplier = adc_balance_wire_multiplier_x10 / 10 (default 161 = 16.1x, measured on a reference
+    ; Blacktip). The value is user-adjustable from the VESC Tool UI in 0.1x steps; the periodic
+    ; balance-voltage log (log_balance_voltages_throttled, gated on debug_enabled) emits the
+    ; current total/upper/lower readings so the user can dial it in against a multimeter.
     (var adc_voltage (* adc_pin_voltage (/ adc_balance_wire_multiplier_x10 10.0)))
     (if (and (> total_voltage 1.0) (> adc_pin_voltage 0.1) (< adc_voltage total_voltage)) {
         (if (= lower_voltage_smooth 0.0) {
@@ -604,6 +588,29 @@
 })
 
 (move-to-flash update_lower_voltage_smooth)
+
+; Periodic debug log of pack voltages. Lets the user check the configured
+; balance-wire ADC multiplier against a multimeter and adjust it from the UI
+; if needed. Gated on debug_enabled (no output and no string-building when off).
+; Called from the display loop (4 Hz); interval ~15 s.
+(define BALANCE_LOG_INTERVAL 60)
+(define balance_log_counter 0)
+
+(defun log_balance_voltages_throttled ()
+{
+    (setvar 'balance_log_counter (+ balance_log_counter 1))
+    (if (>= balance_log_counter BALANCE_LOG_INTERVAL) {
+        (setvar 'balance_log_counter 0)
+        (when-debug {
+            (var total (get-vin))
+            (var lower (get_lower_battery_voltage))
+            (var upper (- total lower))
+            (str-merge "Balance: total=" (to-str total) "V upper(slot1)="
+                (to-str upper) "V lower(slot2)=" (to-str lower)
+                "V mult=" (to-str (/ adc_balance_wire_multiplier_x10 10.0)) "x")
+        })
+    })
+})
 
 (defun get_display_pack_voltage ()
 {
@@ -704,147 +711,11 @@
 
 (move-to-flash get_battery_level)
 
-; Two-stage swap-based auto-calibration of the balance-wire ADC multiplier.
-;
-; Mathematical basis:
-;   Let V1 = upper-slot pack voltage, V2 = lower-slot pack voltage, m = multiplier.
-;   ADC pin only sees the lower (slot 2) pack: pin = V2 / m. get-vin sees V1 + V2.
-;   Step 1 (original orientation): total1 = V1 + V2, pin1 = V2 / m.
-;   Step 2 (after swap):            total2 = V1 + V2, pin2 = V1 / m.
-;   => pin1 + pin2 = (V1 + V2) / m = total / m
-;   => m = total_avg / (pin1 + pin2)   -- independent of pack imbalance.
-;
-; This is robust to unequal pack voltages, so users do not need a precisely
-; balanced pair to calibrate. They only need the packs to hold their voltage
-; across the swap (seconds-to-minutes), which any healthy battery does.
-;
-; State is held in volatile globals (not persisted across reboots). If the user
-; abandons the flow between stages, the partial state is harmless; stage 2 simply
-; refuses to run until a fresh stage 1 is captured.
-
-(define calib_total_step1 0.0)
-(define calib_pin_step1 0.0)
-(define calib_step1_valid 0)
-
-(defun load_calib_state_from_eeprom ()
-{
-    ; Restore stage 1 capture (if any) after a reboot, so the user can complete
-    ; the swap-based calibration across a power cycle.
-    (var v (eeprom-read-i EEPROM_SLOT_CALIB_VALID))
-    (if (and (not-eq v nil) (= v 1)) {
-        (var t_raw (eeprom-read-i EEPROM_SLOT_CALIB_TOTAL))
-        (var p_raw (eeprom-read-i EEPROM_SLOT_CALIB_PIN))
-        (if (and (not-eq t_raw nil) (not-eq p_raw nil) (> t_raw 0) (> p_raw 0)) {
-            (setvar 'calib_total_step1 (/ (to-float t_raw) CALIB_TOTAL_SCALE))
-            (setvar 'calib_pin_step1 (/ (to-float p_raw) CALIB_PIN_SCALE))
-            (setvar 'calib_step1_valid 1)
-            (debug_log_format (str-merge "Balance calibrate: restored stage 1 from EEPROM total="
-                (to-str calib_total_step1) "V pin=" (to-str calib_pin_step1) "V"))
-        } {
-            ; Flag set but values invalid: clear it.
-            (eeprom_store_i_if_changed EEPROM_SLOT_CALIB_VALID 0)
-            (setvar 'calib_step1_valid 0)
-        })
-    } {
-        (setvar 'calib_step1_valid 0)
-    })
-})
-
-(defun clear_calib_state ()
-{
-    (setvar 'calib_step1_valid 0)
-    (setvar 'calib_total_step1 0.0)
-    (setvar 'calib_pin_step1 0.0)
-    (eeprom_store_i_if_changed EEPROM_SLOT_CALIB_VALID 0)
-})
-
-(defun sample_balance_wire (sample_count)
-{
-    ; Average sample_count readings of get-vin and get-adc 0, ~10 ms apart, to
-    ; suppress ADC noise. Returns a (total_avg . pin_avg) cons.
-    (var total_acc 0.0)
-    (var pin_acc 0.0)
-    (looprange i 0 sample_count {
-        (setvar 'total_acc (+ total_acc (get-vin)))
-        (setvar 'pin_acc (+ pin_acc (get-adc 0)))
-        (sleep 0.01)
-    })
-    (cons (/ total_acc sample_count) (/ pin_acc sample_count))
-})
-
-(defun balance_calibrate_stage1 ()
-{
-    (var samples (sample_balance_wire 8))
-    (var total (car samples))
-    (var pin (cdr samples))
-    (if (and (> total 5.0) (> pin 0.3)) {
-        (setvar 'calib_total_step1 total)
-        (setvar 'calib_pin_step1 pin)
-        (setvar 'calib_step1_valid 1)
-        ; Persist to EEPROM so the user can complete the swap across a power cycle.
-        (eeprom_store_i_if_changed EEPROM_SLOT_CALIB_TOTAL (to-i (+ (* total CALIB_TOTAL_SCALE) 0.5)))
-        (eeprom_store_i_if_changed EEPROM_SLOT_CALIB_PIN (to-i (+ (* pin CALIB_PIN_SCALE) 0.5)))
-        (eeprom_store_i_if_changed EEPROM_SLOT_CALIB_VALID 1)
-        (debug_log_format (str-merge "Balance calibrate stage 1 captured: total=" (to-str total)
-            "V pin=" (to-str pin) "V"))
-        1
-    } {
-        (clear_calib_state)
-        (debug_log_format (str-merge "Balance calibrate stage 1 FAILED: total=" (to-str total)
-            "V pin=" (to-str pin) "V (need total>5V, pin>0.3V)"))
-        0
-    })
-})
-
-(defun balance_calibrate_stage2 ()
-{
-    (if (= calib_step1_valid 1) {
-        (var samples (sample_balance_wire 8))
-        (var total2 (car samples))
-        (var pin2 (cdr samples))
-        (if (and (> total2 5.0) (> pin2 0.3)) {
-            (var total_avg (/ (+ calib_total_step1 total2) 2.0))
-            (var pin_sum (+ calib_pin_step1 pin2))
-            (var multiplier (/ total_avg pin_sum))
-            (var mult_x10 (to-i (+ (* multiplier 10.0) 0.5))) ; round to nearest 0.1x
-            (var mult_x10_clamped (clamp mult_x10 ADC_BAL_MULT_X10_MIN ADC_BAL_MULT_X10_MAX))
-            (eeprom_store_i_if_changed 31 mult_x10_clamped)
-            (setvar 'adc_balance_wire_multiplier_x10 mult_x10_clamped)
-            ; Reset smoothed readings so the new calibration takes effect immediately.
-            (setvar 'lower_voltage_smooth 0.0)
-            (setvar 'total_voltage_smooth 0.0)
-            (clear_calib_state)
-            (debug_log_format (str-merge "Balance calibrate stage 2: total_avg=" (to-str total_avg)
-                "V pin_sum=" (to-str pin_sum)
-                "V -> multiplier=" (to-str multiplier)
-                " stored_x10=" (to-str (to-i mult_x10_clamped))))
-            mult_x10_clamped
-        } {
-            (debug_log_format (str-merge "Balance calibrate stage 2 FAILED: total=" (to-str total2)
-                "V pin=" (to-str pin2) "V (need total>5V, pin>0.3V)"))
-            0
-        })
-    } {
-        (debug_log "Balance calibrate stage 2 rejected: stage 1 not captured")
-        0
-    })
-})
-
-(move-to-flash sample_balance_wire)
-(move-to-flash balance_calibrate_stage1)
-(move-to-flash balance_calibrate_stage2)
-(move-to-flash clear_calib_state)
-
 (defun send_current_settings ()
 {
-    ; Buffer layout: bytes 0..EEPROM_SETTINGS_COUNT-1 mirror EEPROM slots 0..31,
-    ; followed by one extra byte (index EEPROM_SETTINGS_COUNT) carrying the
-    ; balance-wire calibration "stage 1 pending" flag (0 or 1) so the UI can
-    ; resume the swap procedure after a power cycle.
-    (var setbuf (array-create (+ EEPROM_SETTINGS_COUNT 1)))
+    (var setbuf (array-create EEPROM_SETTINGS_COUNT))
     (looprange i 0 EEPROM_SETTINGS_COUNT
         (bufset-i8 setbuf i (or (eeprom-read-i i) 0)))
-    (bufset-i8 setbuf EEPROM_SETTINGS_COUNT calib_step1_valid)
     (send-data setbuf)
 })
 
@@ -852,19 +723,6 @@
 {
     (if (= (bufget-u8 data 0) HANDSHAKE_CODE) {
         ; Handshake to trigger data send if not yet received.
-        (send_current_settings)
-    } (if (and (= (buflen data) 2) (= (bufget-u8 data 0) AUTO_CALIBRATE_BALANCE_CODE)) {
-        ; Two-stage swap calibration. Byte 1 is the stage (1 or 2).
-        ; Both stages echo the (possibly updated) settings buffer so the UI
-        ; refreshes its displayed multiplier on stage 2 completion.
-        (var stage (bufget-u8 data 1))
-        (if (= stage 0)
-            (clear_calib_state)
-            (if (= stage 1)
-                (balance_calibrate_stage1)
-                (if (= stage 2)
-                    (balance_calibrate_stage2)
-                    (debug_log_format (str-merge "Balance calibrate: unknown stage " (to-str (to-i stage)))))))
         (send_current_settings)
     } {
         ; For non-handshake messages, validate buffer size
@@ -877,7 +735,7 @@
             (update_settings_from_eeprom) ; updates actual settings in lisp
             (debug_log "Settings updated")
         })
-    }))
+    })
 })
 
 (move-to-flash send_current_settings)
@@ -1664,6 +1522,7 @@
     (loopwhile-thd THREAD_STACK_DISPLAY t {
         (sleep SLEEP_UI_UPDATE)
         (update_lower_voltage_smooth)
+        (log_balance_voltages_throttled)
         ; Normal display timeout logic - clear display content but keep timer bar visible
         (if (and
                 (> disp_timer_start 1)
@@ -2037,7 +1896,6 @@
 (defun main ()
 {
     (update_settings_from_eeprom)
-    (load_calib_state_from_eeprom)
 
     (log_startup)
 
