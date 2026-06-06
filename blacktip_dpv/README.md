@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.2.1
+**Version:** 1.3.0
 
 ## License
 
@@ -37,6 +37,10 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.3.0
+
+- Updates to work with the latest VESC firmware (7.00).
 
 ## What's New in Version 1.2.1
 
