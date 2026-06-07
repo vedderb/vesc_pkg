@@ -144,6 +144,12 @@
 (define ADC_BAL_MULT_X10_MAX 255)  ; 25.5x (uint8 max)
 (define ADC_BAL_MULT_X10_DEFAULT 161) ; 16.1x
 
+; Motor current threshold (amps) below which the balance-wire ADC reading is
+; considered trustworthy. Above this, motor-driven ground bounce on the shared
+; negative wire makes the midpoint appear artificially high, so we freeze the
+; smoothed lower-pack voltage at the last idle value instead of polluting it.
+(define MOTOR_CURRENT_IDLE_THRESHOLD 2.0)
+
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
 
@@ -563,26 +569,35 @@
     ; iteration. α = 0.05 gives a ~5 s time constant at 4 Hz (SLEEP_UI_UPDATE = 0.25 s),
     ; matching the legacy 200-sample / 5-second averaging window.
     ; Always runs regardless of detection status so the value is pre-warmed on enable.
+    ; Skipped while the motor is loaded - ground bounce on the shared negative wire
+    ; pushes the apparent midpoint up and would cause spurious imbalance warnings.
+    ; balance_smoothing_held mirrors whether this iteration accepted or skipped
+    ; the new sample (1 = held / frozen, 0 = smoothing active).
     ; Note: no when-debug here - this function is move-to-flash'd and macros don't resolve in flash.
-    (var total_voltage (get-vin))
-    ; Scale the raw ADC pin voltage by the multiplier to get actual pack voltage.
-    ; The balance wire is connected through a resistor divider (default 141k/10k => 15.0x).
-    ; get-adc returns pin voltage (0-3.3V); multiply by (ratio+1) to recover pack voltage.
-    (var adc_pin_voltage (get-adc 0))
-    ; multiplier = adc_balance_wire_multiplier_x10 / 10 (default 161 = 16.1x, measured on a reference
-    ; Blacktip). The value is user-adjustable from the VESC Tool UI in 0.1x steps; the periodic
-    ; balance-voltage log (log_balance_voltages_throttled, gated on debug_enabled) emits the
-    ; current total/upper/lower readings so the user can dial it in against a multimeter.
-    (var adc_voltage (* adc_pin_voltage (/ adc_balance_wire_multiplier_x10 10.0)))
-    (if (and (> total_voltage 1.0) (> adc_pin_voltage 0.1) (< adc_voltage total_voltage)) {
-        (if (= lower_voltage_smooth 0.0) {
-            (setvar 'lower_voltage_smooth adc_voltage)
-            (setvar 'total_voltage_smooth total_voltage)
-        } {
-            (setvar 'lower_voltage_smooth
-                (+ (* 0.05 adc_voltage) (* 0.95 lower_voltage_smooth)))
-            (setvar 'total_voltage_smooth
-                (+ (* 0.05 total_voltage) (* 0.95 total_voltage_smooth)))
+    (if (>= (abs (get-current)) MOTOR_CURRENT_IDLE_THRESHOLD) {
+        (setvar 'balance_smoothing_held 1)
+    } {
+        (setvar 'balance_smoothing_held 0)
+        (var total_voltage (get-vin))
+        ; Scale the raw ADC pin voltage by the multiplier to get actual pack voltage.
+        ; The balance wire is connected through a resistor divider (default 141k/10k => 15.0x).
+        ; get-adc returns pin voltage (0-3.3V); multiply by (ratio+1) to recover pack voltage.
+        (var adc_pin_voltage (get-adc 0))
+        ; multiplier = adc_balance_wire_multiplier_x10 / 10 (default 161 = 16.1x, measured on a reference
+        ; Blacktip). The value is user-adjustable from the VESC Tool UI in 0.1x steps; the periodic
+        ; balance-voltage log (log_balance_voltages_throttled, gated on debug_enabled) emits the
+        ; current total/upper/lower readings so the user can dial it in against a multimeter.
+        (var adc_voltage (* adc_pin_voltage (/ adc_balance_wire_multiplier_x10 10.0)))
+        (if (and (> total_voltage 1.0) (> adc_pin_voltage 0.1) (< adc_voltage total_voltage)) {
+            (if (= lower_voltage_smooth 0.0) {
+                (setvar 'lower_voltage_smooth adc_voltage)
+                (setvar 'total_voltage_smooth total_voltage)
+            } {
+                (setvar 'lower_voltage_smooth
+                    (+ (* 0.05 adc_voltage) (* 0.95 lower_voltage_smooth)))
+                (setvar 'total_voltage_smooth
+                    (+ (* 0.05 total_voltage) (* 0.95 total_voltage_smooth)))
+            })
         })
     })
 })
@@ -605,9 +620,11 @@
             (var total (get-vin))
             (var lower (get_lower_battery_voltage))
             (var upper (- total lower))
-            (str-merge "Balance: total=" (to-str total) "V upper(slot1)="
-                (to-str upper) "V lower(slot2)=" (to-str lower)
-                "V mult=" (to-str (/ adc_balance_wire_multiplier_x10 10.0)) "x")
+            (str-merge "Balance: total=" (str-from-n total "%.2f")
+                "V upper(slot1)=" (str-from-n upper "%.2f")
+                "V lower(slot2)=" (str-from-n lower "%.2f")
+                "V mult=" (str-from-n (/ adc_balance_wire_multiplier_x10 10.0) "%.1f") "x"
+                (if (= balance_smoothing_held 1) " (held: motor under load)" ""))
         })
     })
 })
@@ -1607,9 +1624,9 @@
                     (when-debug (str-merge "Battery imbalance detected: pack "
                         (to-str (if (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_1) 1 2))
                         " low (imbalance="
-                        (to-str (get_battery_imbalance_voltage))
+                        (str-from-n (get_battery_imbalance_voltage) "%.2f")
                         "V, lower="
-                        (to-str lower_voltage_smooth)
+                        (str-from-n lower_voltage_smooth "%.2f")
                         "V)"))
                 })
                 (if (and (or (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_1)
@@ -1861,6 +1878,15 @@
 
 (move-to-flash start_beeper_loop)
 
+; HT16K33 power-on settling time (seconds). On a cold battery connect the
+; display IC and the VESC come up together; if the lisp runtime resumes from
+; the saved image faster than the IC is ready to accept I2C, the one-shot
+; "start oscillator" (0x21) command below is silently dropped and the display
+; stays dark until the package is reinstalled. Datasheet says the chip is
+; ready in <5 ms but real boards with slow supply rise can need ~50 ms; 150 ms
+; is generous and is only paid once per boot.
+(define DISPLAY_BOOT_SETTLE 0.15)
+
 ; Init-only function (not moved to flash)
 (defun peripherals_setup ()
 {
@@ -1871,6 +1897,11 @@
                 (if ( = 2 hardware_configuration)
                     (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
                     (nil))))
+
+    ; Wait for the HT16K33 to finish its internal power-on reset before
+    ; sending the oscillator-on command, otherwise it can be missed on a
+    ; cold boot and the display will stay dark until the package is reinstalled.
+    (sleep DISPLAY_BOOT_SETTLE)
 
     (i2c-tx-rx 0x70 (list 0x21)) ; start the oscillator
     ; Set brightness using BRIGHTNESS_LUT (six discrete levels, indices 0..5)
@@ -2014,6 +2045,7 @@
 (define adc_balance_wire_multiplier_x10 ADC_BAL_MULT_X10_DEFAULT)
 (define lower_voltage_smooth 0.0)
 (define total_voltage_smooth 0.0)
+(define balance_smoothing_held 0) ; 1 when update_lower_voltage_smooth last skipped a sample due to motor load
 
 (init)
 
