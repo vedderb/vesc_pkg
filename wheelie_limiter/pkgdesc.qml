@@ -9,13 +9,16 @@ Item {
     property string pkgOutput: "wheelie_limiter.vescpkg"
 
     // Return true when this package is compatible with the connected
-    // VESC-based device. Requires an IMU and an ADC throttle; those cannot
-    // be detected reliably here, so we only exclude the classic VESC BMS
-    // (which does not support packages).
+    // VESC-based device. This package drives the motor and needs an IMU and
+    // an ADC throttle, so it only makes sense on a motor controller. The
+    // IMU/throttle cannot be detected reliably here, but requiring the "vesc"
+    // hardware type keeps it off the VESC BMS and VESC Express (which reports
+    // as a custom module) so it only runs on motor controllers.
     function isCompatible (fwRxParams) {
         var hwType = fwRxParams.hwTypeStr().toLowerCase();
 
-        if (hwType == "vesc bms") {
+        // Only run on motor controllers (excludes VESC BMS and VESC Express)
+        if (hwType != "vesc") {
             return false;
         }
 
