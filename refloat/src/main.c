@@ -103,13 +103,13 @@ const VESC_PIN beeper_pin = VESC_PIN_PPM;
 
 void beeper_init() {
     VESC_IF->io_set_mode(beeper_pin, VESC_PIN_MODE_OUTPUT);
+    VESC_IF->io_write(beeper_pin, 0);
 }
 
 void beeper_update(Data *d) {
     if (d->beeper_enabled && (d->beep_num_left > 0)) {
-        d->beep_countdown--;
-        if (d->beep_countdown <= 0) {
-            d->beep_countdown = d->beep_duration;
+        if (timer_older(&d->time, d->beeper_timer, d->beep_duration)) {
+            timer_refresh(&d->time, &d->beeper_timer);
             d->beep_num_left--;
             if (d->beep_num_left & 0x1) {
                 EXT_BEEPER_ON();
@@ -120,21 +120,14 @@ void beeper_update(Data *d) {
     }
 }
 
-void beeper_enable(Data *d, bool enable) {
-    d->beeper_enabled = enable;
-    if (!enable) {
-        EXT_BEEPER_OFF();
-    }
-}
-
 void beep_alert(Data *d, int num_beeps, bool longbeep) {
     if (!d->beeper_enabled) {
         return;
     }
     if (d->beep_num_left == 0) {
         d->beep_num_left = num_beeps * 2 + 1;
-        d->beep_duration = longbeep ? 300 : 80;
-        d->beep_countdown = d->beep_duration;
+        d->beep_duration = longbeep ? 0.25f : 0.05f;
+        timer_refresh(&d->time, &d->beeper_timer);
     }
 }
 
@@ -185,8 +178,6 @@ static void reconfigure(Data *d) {
 static void configure(Data *d) {
     state_set_disabled(&d->state, d->float_conf.disabled);
 
-    lcm_configure(&d->lcm, &d->float_conf.leds);
-
     // Loop time in microseconds
     d->loop_time_us = 1e6 / d->float_conf.hertz;
 
@@ -221,16 +212,18 @@ static void configure(Data *d) {
 
     reconfigure(d);
 
+    lcm_configure(&d->lcm, &d->leds);
+
     if (d->state.state == STATE_DISABLED) {
         beep_alert(d, 3, false);
-    } else {
+    } else if (d->state.state != STATE_STARTUP) {
         beep_alert(d, 1, false);
     }
 }
 
-static void leds_headlights_switch(CfgLeds *cfg_leds, LcmData *lcm, bool headlights_on) {
-    cfg_leds->headlights_on = headlights_on;
-    lcm_configure(lcm, cfg_leds);
+static void leds_headlights_switch(Leds *leds, LcmData *lcm, bool headlights_on) {
+    leds_set_headlights_enabled(leds, headlights_on);
+    lcm_configure(lcm, leds);
 }
 
 static void reset_runtime_vars(Data *d) {
@@ -971,14 +964,15 @@ static void refloat_thd(void *arg) {
             }
 
             if (d->float_conf.hardware.leds.mode != LED_MODE_OFF) {
-                if (!d->leds.cfg->headlights_on &&
+                const LedsRuntimeStatus *led_status = leds_get_runtime_status(&d->leds);
+                if (!led_status->headlights_enabled &&
                     konami_check(&d->headlights_on_konami, &d->leds, &d->footpad, &d->time)) {
-                    leds_headlights_switch(&d->float_conf.leds, &d->lcm, true);
+                    leds_headlights_switch(&d->leds, &d->lcm, true);
                 }
 
-                if (d->leds.cfg->headlights_on &&
+                if (led_status->headlights_enabled &&
                     konami_check(&d->headlights_off_konami, &d->leds, &d->footpad, &d->time)) {
-                    leds_headlights_switch(&d->float_conf.leds, &d->lcm, false);
+                    leds_headlights_switch(&d->leds, &d->lcm, false);
                 }
             }
 
@@ -1232,6 +1226,10 @@ static void data_init(Data *d) {
     );
 
     d->odometer = VESC_IF->mc_get_odometer();
+
+    d->beep_num_left = 0;
+    d->beep_duration = 0.0f;
+    d->beeper_timer = 0;
 }
 
 // See also:
@@ -1339,7 +1337,6 @@ static void cmd_send_all_data(Data *d, unsigned char mode) {
             state |= 0x8;
         }
         buffer[ind++] = (state & 0xF) + (d->beep_reason << 4);
-        d->beep_reason = BEEP_NONE;
 
         buffer[ind++] = d->footpad.adc1 * 50;
         buffer[ind++] = d->footpad.adc2 * 50;
@@ -1541,8 +1538,12 @@ static void cmd_runtime_tune(Data *d, unsigned char *cfg, int len) {
 
         split(cfg[7], &h1, &h2);
         d->float_conf.atr_angle_limit = h1 + 5;
-        d->float_conf.atr_on_speed = (h2 & 0x3) + 3;
-        d->float_conf.atr_off_speed = (h2 >> 2) + 2;
+        if (h2 > 0) {
+            // kept for compatibility reasons
+            // wider ranges can be set with byte[18]
+            d->float_conf.atr_on_speed = (h2 & 0x3) + 3;
+            d->float_conf.atr_off_speed = (h2 >> 2) + 2;
+        }
 
         split(cfg[8], &h1, &h2);
         d->float_conf.atr_response_boost = ((float) h1) / 10 + 1;
@@ -1579,7 +1580,12 @@ static void cmd_runtime_tune(Data *d, unsigned char *cfg, int len) {
         split(cfg[15], &h1, &h2);
         float onspd = h1;
         float offspd = h2;
-        d->float_conf.torquetilt_on_speed = onspd / 2;
+        if (len >= 19) {
+            // use message length to identify apps that support the newer protocol
+            d->float_conf.torquetilt_on_speed = onspd + 3;
+        } else {
+            d->float_conf.torquetilt_on_speed = onspd / 2;
+        }
         d->float_conf.torquetilt_off_speed = offspd + 3;
     }
     if (len >= 17) {
@@ -1587,6 +1593,20 @@ static void cmd_runtime_tune(Data *d, unsigned char *cfg, int len) {
         d->float_conf.kp_brake = ((float) h1 + 1) / 10;
         d->float_conf.kp2_brake = ((float) h2) / 10;
         beep_alert(d, 1, 1);
+    }
+    if (len >= 19) {
+        split(cfg[17], &h1, &h2);
+        if (h1 > 0) {
+            d->float_conf.mahony_kp_roll = ((float) h1) / 10 + 1.0;
+        }
+        if (h2 > 0) {
+            d->float_conf.turntilt_start_angle = h2;
+        }
+        split(cfg[18], &h1, &h2);
+        if ((h1 > 0) && (h2 > 0)) {
+            d->float_conf.atr_on_speed = h1 * 2;
+            d->float_conf.atr_off_speed = h2 * 2;
+        }
     }
 
     reconfigure(d);
@@ -1665,6 +1685,9 @@ static void cmd_runtime_tune_tilt(Data *d, unsigned char *cfg, int len) {
     d->float_conf.tiltback_duty = (float) cfg[2] / 100.0;
     d->float_conf.tiltback_duty_angle = (float) cfg[3] / 10.0;
     d->float_conf.tiltback_duty_speed = (float) cfg[4] / 10.0;
+    if (len >= 6) {
+        d->float_conf.tiltback_speed = (float) cfg[5];
+    }
 
     beep_alert(d, 3, 0);
 }
@@ -1713,7 +1736,12 @@ static void cmd_runtime_tune_other(Data *d, unsigned char *cfg, int len) {
             d->float_conf.noseangling_speed = tiltspeed / 10;
         }
         d->float_conf.tiltback_variable = tiltvarrate / 100;
-        d->float_conf.tiltback_variable_max = tiltvarmax / 10;
+        if (tiltvarmax > 100) {
+            // numbers above 100 are negative
+            d->float_conf.tiltback_variable_max = (tiltvarmax - 100) / (-10);
+        } else {
+            d->float_conf.tiltback_variable_max = tiltvarmax / 10;
+        }
         d->float_conf.tiltback_variable_erpm = cfg[11] * 100;
     }
 
@@ -1726,6 +1754,17 @@ static void cmd_runtime_tune_other(Data *d, unsigned char *cfg, int len) {
                 d->float_conf.inputtilt_speed = cfg[13];
             }
         }
+    }
+
+    if (len >= 15) {
+        int flags2 = cfg[14];
+        // bits 0 & 1:
+        d->float_conf.fault_moving_fault_disabled = ((flags2 & 0x1) == 0x1);
+        d->float_conf.is_footbeep_enabled = ((flags2 & 0x2) == 0x2);
+        d->switch_warn_beep_erpm = d->float_conf.is_footbeep_enabled ? 2000 : 100000;
+        // bits 2 & 3:
+        int pbmode = (flags2 >> 2) & 0x3;
+        d->float_conf.parking_brake_mode = pbmode;
     }
 
     reconfigure(d);
@@ -2032,7 +2071,7 @@ static void cmd_alerts_control(AlertTracker *at, uint8_t *buf, size_t len) {
     }
 }
 
-static void lights_control_request(CfgLeds *leds, uint8_t *buffer, size_t len, LcmData *lcm) {
+static void lights_control_request(Leds *leds, uint8_t *buffer, size_t len, LcmData *lcm) {
     if (len < 5) {
         return;
     }
@@ -2044,25 +2083,27 @@ static void lights_control_request(CfgLeds *leds, uint8_t *buffer, size_t len, L
         uint8_t value = buffer[ind++];
 
         if (mask & 0x1) {
-            leds->on = value & 0x1;
+            leds_set_enabled(leds, value & 0x1);
         }
 
         if (mask & 0x2) {
-            leds->headlights_on = value & 0x2;
+            leds_set_headlights_enabled(leds, value & 0x2);
         }
 
         lcm_configure(lcm, leds);
     }
 }
 
-static void lights_control_response(const CfgLeds *leds) {
+static void lights_control_response(const Leds *leds) {
     static const int bufsize = 3;
     uint8_t buffer[bufsize];
     int32_t ind = 0;
 
     buffer[ind++] = 101;  // Package ID
     buffer[ind++] = COMMAND_LIGHTS_CONTROL;
-    buffer[ind++] = leds->headlights_on << 1 | leds->on;
+
+    const LedsRuntimeStatus *status = leds_get_runtime_status(leds);
+    buffer[ind++] = status->headlights_enabled << 1 | status->enabled;
 
     SEND_APP_DATA(buffer, bufsize, ind);
 }
@@ -2277,8 +2318,8 @@ static void on_command_received(unsigned char *buffer, unsigned int len) {
         return;
     }
     case COMMAND_LIGHTS_CONTROL: {
-        lights_control_request(&d->float_conf.leds, &buffer[2], len - 2, &d->lcm);
-        lights_control_response(&d->float_conf.leds);
+        lights_control_request(&d->leds, &buffer[2], len - 2, &d->lcm);
+        lights_control_response(&d->leds);
         return;
     }
     case COMMAND_DATA_RECORD_REQUEST: {
@@ -2450,7 +2491,7 @@ INIT_FUN(lib_info *info) {
     }
 
     footpad_sensor_update(&d->footpad, &d->float_conf);
-    leds_setup(&d->leds, &d->float_conf.hardware.leds, &d->float_conf.leds, d->footpad.state);
+    leds_setup(&d->leds, &d->float_conf.hardware.leds, &d->float_conf.leds);
 
     VESC_IF->imu_set_read_callback(imu_ref_callback);
     VESC_IF->conf_custom_add_config(get_cfg, set_cfg, get_cfg_xml);
