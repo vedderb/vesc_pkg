@@ -27,8 +27,9 @@
 (define THREAD_STACK_STATE_TRANSITIONS 80) ; States 0, 3 - reduced
 (define THREAD_STACK_STATE_COUNTING 80) ; State 1 (counting clicks) - reduced
 (define THREAD_STACK_MOTOR 150)       ; Motor control - reduced but still largest
-(define THREAD_STACK_DISPLAY 100)     ; Display updates - reduced
+(define THREAD_STACK_DISPLAY 100)     ; Display updates
 (define THREAD_STACK_BATTERY 100)     ; Battery display - reduced
+(define THREAD_STACK_BALANCE 100)     ; Balance-wire EMA + periodic log - isolated from display
 (define THREAD_STACK_CLICK_BEEP 80)   ; Click beep playback - reduced
 
 ; State values
@@ -144,11 +145,18 @@
 (define ADC_BAL_MULT_X10_MAX 255)  ; 25.5x (uint8 max)
 (define ADC_BAL_MULT_X10_DEFAULT 161) ; 16.1x
 
-; Motor current threshold (amps) below which the balance-wire ADC reading is
-; considered trustworthy. Above this, motor-driven ground bounce on the shared
-; negative wire makes the midpoint appear artificially high, so we freeze the
-; smoothed lower-pack voltage at the last idle value instead of polluting it.
-(define MOTOR_CURRENT_IDLE_THRESHOLD 2.0)
+; Balance-wire sampling is paused for a fixed settle window after every motor
+; speed change (start, stop, or speed adjustment). The instability that
+; corrupts the lower-pack reading is concentrated around transients (the
+; battery and wiring need time to recover from a current step), while a motor
+; running at a stable commanded duty is fine to sample from - this matches the
+; original Sikorski C app, which never gated on motor state at all.
+;
+; We track the commanded duty cycle. When it moves by more than DUTY_CHANGE_THRESHOLD
+; we restart the settle counter; the EMA only resumes once we see the duty hold
+; steady for the full BALANCE_SETTLE_SAMPLES window.
+(define DUTY_CHANGE_THRESHOLD 0.02)             ; 2% commanded-duty step counts as a transient
+(define BALANCE_SETTLE_SAMPLES 20)              ; 20 samples * 0.25 s = 5 s settle window
 
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
@@ -186,11 +194,28 @@
 })
 
 ; EEPROM initialization (init-only, not moved to flash)
+; Migration uses a monotonically increasing version marker in slot 127. Each
+; migration block runs only when the stored version is BELOW the block's target,
+; so once we have migrated to v2 the v1 block will not re-run on subsequent boots.
+; The previous code used (not-eq stored target) which caused the v1 block to fire
+; again after the v2 block had run, silently resetting any user changes to slots
+; 25-29 on every boot (and also resetting hardware_configuration in slot 19
+; whenever there was no prior 150-era install, which could kill the display).
 (defun eeprom_set_defaults ()
 {
-    (if (not-eq (eeprom-read-i 127) (to-i32 1)) {
+    (var stored_version (eeprom-read-i 127))
+    (if (eq stored_version nil) (setq stored_version 0))
+
+    ; Normalize the pre-1.0.0 Poseidon marker (150 in slot 127). Poseidon already
+    ; populated slots 0-24, so we should run the 1.0.0 migration to add 25-29 but
+    ; NOT the fresh-install block that overwrites 0-24. Remember this for later
+    ; and collapse the version to 0 so the < 1 check below fires.
+    (var came_from_poseidon (= stored_version 150))
+    (if came_from_poseidon (setq stored_version 0))
+
+    ; Migration for 1.0.0: baseline settings added in this release.
+    (if (< stored_version 1) {
         (puts "EEPROM: Initializing defaults for 1.0.0")
-        ; Check for current version marker (blacktip_dpv release 1.0.0)
         ; New settings added in version 1.0.0
         (eeprom_store_i_if_changed 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
         (eeprom_store_i_if_changed 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
@@ -198,9 +223,10 @@
         (eeprom_store_i_if_changed 28 0) ; Battery calculation method: 0=Voltage-based, 1=Ampere-hour based
         (eeprom_store_i_if_changed 29 0) ; Enable Debug Logging. 1=On 0=Off
 
-        (if (not-eq (eeprom-read-i 127) (to-i32 150)) {
+        ; Only do a full fresh-install reset of slots 0-24 if there is no prior
+        ; marker at all (neither current schema nor the Poseidon 150 marker).
+        (if (not came_from_poseidon) {
             (puts "EEPROM: No previous version detected, setting all defaults")
-            ; Check for previous version marker (Dive Xtras V1.50 'Poseidon')
             ; User speeds, ie 1 thru 8 are only used in the GUI, this lisp code uses speeds 0-9 with 0 & 1 being the 2 reverse speeds.
             ; 99 is used as the "off" speed
             (eeprom_store_i_if_changed 0 45) ; Reverse Speed 2 %
@@ -229,18 +255,20 @@
             (eeprom_store_i_if_changed 23 0) ; 2nd Screen rotation of Display, 0-3 . Each number rotates display 90 deg.
             (eeprom_store_i_if_changed 24 0) ; Trigger Click Beeps
         })
-        ; Mark as initialised for 1.0.0
-        (eeprom_store_i_if_changed 127 1) ; indicate that the defaults have been applied
         (puts "EEPROM: Defaults initialized successfully")
     })
 
     ; Migration for 1.1.0: battery imbalance detection settings
-    (if (not-eq (eeprom-read-i 127) (to-i32 2)) {
+    (if (< stored_version 2) {
         (puts "EEPROM: Initializing defaults for 1.1.0")
         (eeprom_store_i_if_changed 30 200) ; Battery imbalance threshold in 0.01V units (200=2.00V, 0=disabled)
         (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 161 = 16.1x)
-        (eeprom_store_i_if_changed 127 2)
     })
+
+    ; Always advance the marker to the latest schema version. Doing this once at
+    ; the end (instead of per-block) keeps the migration idempotent even if a
+    ; future block is added in the middle.
+    (eeprom_store_i_if_changed 127 2)
 })
 
 
@@ -565,17 +593,32 @@
 
 (defun update_lower_voltage_smooth ()
 {
-    ; Update the EMA-smoothed lower pack ADC voltage. Call once per display loop
+    ; Update the EMA-smoothed lower pack ADC voltage. Call once per balance loop
     ; iteration. α = 0.05 gives a ~5 s time constant at 4 Hz (SLEEP_UI_UPDATE = 0.25 s),
     ; matching the legacy 200-sample / 5-second averaging window.
     ; Always runs regardless of detection status so the value is pre-warmed on enable.
-    ; Skipped while the motor is loaded - ground bounce on the shared negative wire
-    ; pushes the apparent midpoint up and would cause spurious imbalance warnings.
-    ; balance_smoothing_held mirrors whether this iteration accepted or skipped
-    ; the new sample (1 = held / frozen, 0 = smoothing active).
-    ; Note: no when-debug here - this function is move-to-flash'd and macros don't resolve in flash.
-    (if (>= (abs (get-current)) MOTOR_CURRENT_IDLE_THRESHOLD) {
+    ;
+    ; Sampling is paused for BALANCE_SETTLE_SAMPLES after the commanded duty
+    ; cycle changes by more than DUTY_CHANGE_THRESHOLD. A steady duty (including
+    ; "off") is considered settled and is sampled normally. This catches both
+    ; start/stop transients and speed-step transients without losing data while
+    ; the motor is cruising at a fixed speed.
+    ;
+    ; Defensive: get-duty can return nil very early in boot before the motor
+    ; controller is ready; treat that as a transient to avoid touching the EMA
+    ; with garbage. Note: no when-debug here - this function is move-to-flash'd
+    ; and macros don't resolve in flash.
+    (var duty (get-duty))
+    (var duty_ok (and (not-eq duty nil) (= duty duty)))
+    (var duty_changed (or
+        (not duty_ok)
+        (> (abs (- duty balance_last_duty)) DUTY_CHANGE_THRESHOLD)))
+    (if duty_ok (setvar 'balance_last_duty duty))
+    (if duty_changed
+        (setvar 'balance_settle_counter BALANCE_SETTLE_SAMPLES))
+    (if (> balance_settle_counter 0) {
         (setvar 'balance_smoothing_held 1)
+        (setvar 'balance_settle_counter (- balance_settle_counter 1))
     } {
         (setvar 'balance_smoothing_held 0)
         (var total_voltage (get-vin))
@@ -624,10 +667,12 @@
                 "V upper(slot1)=" (str-from-n upper "%.2f")
                 "V lower(slot2)=" (str-from-n lower "%.2f")
                 "V mult=" (str-from-n (/ adc_balance_wire_multiplier_x10 10.0) "%.1f") "x"
-                (if (= balance_smoothing_held 1) " (held: motor under load)" ""))
+                (if (= balance_smoothing_held 1) " (held: motor speed changing)" ""))
         })
     })
 })
+
+(move-to-flash log_balance_voltages_throttled)
 
 (defun get_display_pack_voltage ()
 {
@@ -1538,8 +1583,6 @@
     (var last_timer_bar_leds -1) ; Cache for Smart Cruise timer bar LED count to minimize I2C updates
     (loopwhile-thd THREAD_STACK_DISPLAY t {
         (sleep SLEEP_UI_UPDATE)
-        (update_lower_voltage_smooth)
-        (log_balance_voltages_throttled)
         ; Normal display timeout logic - clear display content but keep timer bar visible
         (if (and
                 (> disp_timer_start 1)
@@ -1808,7 +1851,7 @@
         (sleep 0.14)
         (foc-beep 392 0.35 beeps_vol)  ; G quarter
         (sleep 0.37)
-        
+
         ; Bar 3-4: Eb-Bb G (hold)
         (foc-beep 311 0.25 beeps_vol) ; Eb short
         (sleep 0.27)
@@ -1816,7 +1859,7 @@
         (sleep 0.14)
         (foc-beep 392 0.7 beeps_vol)  ; G half note
         (sleep 0.74)
-        
+
         ; Bar 5-6: D D D Eb-Bb Gb
         (foc-beep 587 0.35 beeps_vol)  ; D quarter
         (sleep 0.37)
@@ -1830,7 +1873,7 @@
         (sleep 0.14)
         (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
         (sleep 0.37)
-        
+
         ; Bar 7-8: Eb-Bb G (hold)
         (foc-beep 311 0.25 beeps_vol) ; Eb short
         (sleep 0.27)
@@ -1878,39 +1921,57 @@
 
 (move-to-flash start_beeper_loop)
 
-; HT16K33 power-on settling time (seconds). On a cold battery connect the
-; display IC and the VESC come up together; if the lisp runtime resumes from
-; the saved image faster than the IC is ready to accept I2C, the one-shot
-; "start oscillator" (0x21) command below is silently dropped and the display
-; stays dark until the package is reinstalled. Datasheet says the chip is
-; ready in <5 ms but real boards with slow supply rise can need ~50 ms; 150 ms
-; is generous and is only paid once per boot.
-(define DISPLAY_BOOT_SETTLE 0.15)
+; Dedicated thread for the balance-wire EMA + periodic log. Kept off the
+; display thread so any fault in the balance code (or the periodic puts of a
+; long string) cannot interfere with the screen update loop.
+(defun start_balance_loop ()
+{
+    (loopwhile-thd THREAD_STACK_BALANCE t {
+        (sleep SLEEP_UI_UPDATE)
+        ; Trap so early-boot nils from get-duty/get-adc cannot kill the thread.
+        (trap (update_lower_voltage_smooth))
+        (trap (log_balance_voltages_throttled))
+    })
+})
+
+(move-to-flash start_balance_loop)
 
 ; Init-only function (not moved to flash)
 (defun peripherals_setup ()
 {
-    (if (or (= 0 hardware_configuration) (= 3 hardware_configuration)) ; turn on i2c for the screen based on wiring. 0 = Blacktip with Bluetooth, 3 = CudaX with Bluetooth
-            (i2c-start 'rate-400k 'pin-swdio 'pin-swclk) ; Works HW 60 with screen on SWD Connector. Screen SDA pin to Vesc SWDIO (2), Screen SCL pin to Vesc SWCLK (4)
-            (if (or (= 1 hardware_configuration) ( = 4 hardware_configuration)) ; 1 = Blacktip without Bluetooth, 4 = CudaX without Bluetooth
-                (i2c-start 'rate-400k 'pin-rx 'pin-tx) ; Works HW 60 with screen on Comm Connector. Screen SDA pin to Vesc RX/SDA (5), Screen SCL pin to Vesc TX/SCL (6)
-                (if ( = 2 hardware_configuration)
-                    (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
-                    (nil))))
+    ; Diagnostic logging is unconditional (NOT gated on debug_enabled) so that
+    ; when the display fails to come up on warm boot we can see exactly which
+    ; step is reached. Remove once the warm-boot display issue is resolved.
+    (puts (str-merge "peripherals_setup: start, hardware_configuration=" (to-str hardware_configuration)
+        " scooter_type=" (to-str scooter_type) " disp_brightness=" (to-str disp_brightness)))
 
-    ; Wait for the HT16K33 to finish its internal power-on reset before
-    ; sending the oscillator-on command, otherwise it can be missed on a
-    ; cold boot and the display will stay dark until the package is reinstalled.
-    (sleep DISPLAY_BOOT_SETTLE)
+    (puts "peripherals_setup: i2c-start")
+    (var i2c_result
+        (if (or (= 0 hardware_configuration) (= 3 hardware_configuration)) ; turn on i2c for the screen based on wiring. 0 = Blacktip with Bluetooth, 3 = CudaX with Bluetooth
+                (i2c-start 'rate-400k 'pin-swdio 'pin-swclk) ; Works HW 60 with screen on SWD Connector. Screen SDA pin to Vesc SWDIO (2), Screen SCL pin to Vesc SWCLK (4)
+                (if (or (= 1 hardware_configuration) ( = 4 hardware_configuration)) ; 1 = Blacktip without Bluetooth, 4 = CudaX without Bluetooth
+                    (i2c-start 'rate-400k 'pin-rx 'pin-tx) ; Works HW 60 with screen on Comm Connector. Screen SDA pin to Vesc RX/SDA (5), Screen SCL pin to Vesc TX/SCL (6)
+                    (if ( = 2 hardware_configuration)
+                        (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
+                        (nil)))))
+    (puts (str-merge "peripherals_setup: i2c-start returned " (to-str i2c_result)))
 
-    (i2c-tx-rx 0x70 (list 0x21)) ; start the oscillator
+    (puts "peripherals_setup: 0x70 oscillator on")
+    (puts (str-merge "peripherals_setup: 0x70 osc result=" (to-str (i2c-tx-rx 0x70 (list 0x21))))) ; start the oscillator
     ; Set brightness using BRIGHTNESS_LUT (six discrete levels, indices 0..5)
-    (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
+    (puts "peripherals_setup: 0x70 brightness")
+    (puts (str-merge "peripherals_setup: 0x70 bright result=" (to-str
+        (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1)))))))) ; set brightness safely
 
     (if (= scooter_type 1) { ; For cuda X setup second screen
-            (i2c-tx-rx 0x71 (list 0x21)) ; start the oscillator
-            (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
+            (puts "peripherals_setup: 0x71 oscillator on")
+            (puts (str-merge "peripherals_setup: 0x71 osc result=" (to-str (i2c-tx-rx 0x71 (list 0x21))))) ; start the oscillator
+            (puts "peripherals_setup: 0x71 brightness")
+            (puts (str-merge "peripherals_setup: 0x71 bright result=" (to-str
+                (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))))))
     })
+
+    (puts "peripherals_setup: done")
 })
 
 (defun init ()
@@ -1982,6 +2043,8 @@
 
     (start_display_battery_loop)
 
+    (start_balance_loop)
+
     (define smart_cruise SMART_CRUISE_OFF)
 
     (start_smart_cruise_loop)
@@ -1993,19 +2056,9 @@
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 
     (setvar 'disp_num 15) ; display startup screen, change bytes if you want a different one
-    
+
     ; Play Imperial March on startup in background thread to avoid blocking
     (spawn THREAD_STACK_CLICK_BEEP play_imperial_march)
-    
-    ; Pre-warm EMA so the imbalance correction applies to the startup battery level check.
-    ; The display loop thread hasn't had a chance to run yet (no yield between spawn and here),
-    ; so lower_voltage_smooth is still 0.0 without this call.
-    (update_lower_voltage_smooth)
-    (when-debug (str-merge "Imbalance startup: adc_pin=" (to-str (get-adc 0))
-        "V adc_scaled=" (to-str (* (get-adc 0) (/ adc_balance_wire_multiplier_x10 10.0)))
-        "V mult_x10=" (to-str (to-i adc_balance_wire_multiplier_x10))
-        " lower_smooth=" (to-str lower_voltage_smooth)
-        "V total_smooth=" (to-str total_voltage_smooth) "V total_live=" (to-str (get-vin)) "V"))
 
     ; Check battery level and only play battery indication if not full (3 bars)
     ; Battery is considered "full" at > 0.75 (matching the 3-bar threshold)
@@ -2045,7 +2098,9 @@
 (define adc_balance_wire_multiplier_x10 ADC_BAL_MULT_X10_DEFAULT)
 (define lower_voltage_smooth 0.0)
 (define total_voltage_smooth 0.0)
-(define balance_smoothing_held 0) ; 1 when update_lower_voltage_smooth last skipped a sample due to motor load
+(define balance_smoothing_held 0)   ; 1 when update_lower_voltage_smooth is currently inside the post-transient settle window
+(define balance_settle_counter 0)   ; samples remaining in the settle window after a duty-cycle change
+(define balance_last_duty 0.0)      ; last sampled commanded duty cycle (for transient detection)
 
 (init)
 
