@@ -533,9 +533,17 @@
                         (setq whl-gain 1.0)
                     }
                     {
-                        (if (!= (conf-get 'vr-ctrl-type) 3) {
-                                (conf-set 'vr-ctrl-type 3)
-                        })
+                        (if (!= (conf-get 'vr-ctrl-type) 3)
+                            (conf-set 'vr-ctrl-type 3)
+                        )
+
+                        (if (> (conf-get 'vr-ramp-time-pos) 0.01)
+                            (conf-set 'vr-ramp-time-pos 0.0)
+                        )
+
+                        (if (> (conf-get 'vr-ramp-time-neg) 0.01)
+                            (conf-set 'vr-ramp-time-neg 0.0)
+                        )
                     }
                 )
 
