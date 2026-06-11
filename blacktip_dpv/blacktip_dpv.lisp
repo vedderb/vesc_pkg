@@ -1962,6 +1962,8 @@
     (puts "peripherals_setup: 0x70 brightness")
     (puts (str-merge "peripherals_setup: 0x70 bright result=" (to-str
         (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1)))))))) ; set brightness safely
+    (puts "peripherals_setup: 0x70 display on")
+    (puts (str-merge "peripherals_setup: 0x70 disp-on result=" (to-str (i2c-tx-rx 0x70 (list 0x81)))))
 
     (if (= scooter_type 1) { ; For cuda X setup second screen
             (puts "peripherals_setup: 0x71 oscillator on")
@@ -1969,6 +1971,8 @@
             (puts "peripherals_setup: 0x71 brightness")
             (puts (str-merge "peripherals_setup: 0x71 bright result=" (to-str
                 (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))))))
+            (puts "peripherals_setup: 0x71 display on")
+            (puts (str-merge "peripherals_setup: 0x71 disp-on result=" (to-str (i2c-tx-rx 0x71 (list 0x81)))))
     })
 
     (puts "peripherals_setup: done")
