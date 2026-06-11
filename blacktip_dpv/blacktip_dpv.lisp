@@ -1690,6 +1690,7 @@
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
             (apply_smart_cruise_timer_bar pixbuf)
+            (i2c-tx-rx display_mpu_addr (list 0x81)) ; re-enable display before frame write
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
             (setvar 'last_disp_num eff_disp)
