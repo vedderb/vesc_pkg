@@ -281,7 +281,7 @@
     )
 })
 
-(move-to-flash eeprom_store_i_if_changed)
+(trap (move-to-flash eeprom_store_i_if_changed))
 
 
 ; =============================================================================
@@ -306,7 +306,7 @@
     })
 })
 
-(move-to-flash safe_start_set_status)
+(trap (move-to-flash safe_start_set_status))
 
 ; Helper to set soft_start_active (silent - no logging to reduce noise)
 (defun soft_start_set_active (val)
@@ -314,7 +314,7 @@
     (setvar 'soft_start_active val)
 })
 
-(move-to-flash soft_start_set_active)
+(trap (move-to-flash soft_start_set_active))
 
 (defun safe_start_reset_state ()
 {
@@ -325,7 +325,7 @@
     (soft_start_set_active 0)
 })
 
-(move-to-flash safe_start_reset_state)
+(trap (move-to-flash safe_start_reset_state))
 
 (defun safe_start_begin (target_speed)
 {
@@ -343,7 +343,7 @@
     })
 })
 
-(move-to-flash safe_start_begin)
+(trap (move-to-flash safe_start_begin))
 
 (defun safe_start_success ()
 {
@@ -353,7 +353,7 @@
     (safe_start_set_status 'success)
 })
 
-(move-to-flash safe_start_success)
+(trap (move-to-flash safe_start_success))
 
 (defun safe_start_increment_failure (reason)
 {
@@ -364,14 +364,14 @@
     })
 })
 
-(move-to-flash safe_start_increment_failure)
+(trap (move-to-flash safe_start_increment_failure))
 
 (defun safe_start_should_retry ()
 {
     (< safe_start_failures SAFE_START_MAX_RETRIES)
 })
 
-(move-to-flash safe_start_should_retry)
+(trap (move-to-flash safe_start_should_retry))
 
 (defun safe_start_abort_with_reason (reason)
 {
@@ -390,14 +390,14 @@
     })
 })
 
-(move-to-flash safe_start_abort_with_reason)
+(trap (move-to-flash safe_start_abort_with_reason))
 
 (defun safe_start_value_valid (value max_abs)
 {
     (and (= value value) (< (abs value) max_abs))
 })
 
-(move-to-flash safe_start_value_valid)
+(trap (move-to-flash safe_start_value_valid))
 
 (defun safe_start_telemetry_valid (rpm duty current)
 {
@@ -406,7 +406,7 @@
          (safe_start_value_valid current 200))
 })
 
-(move-to-flash safe_start_telemetry_valid)
+(trap (move-to-flash safe_start_telemetry_valid))
 
 (defun safe_start_met_success_criteria (rpm duty current)
 {
@@ -415,7 +415,7 @@
          (< (abs current) SAFE_START_MAX_CURRENT))
 })
 
-(move-to-flash safe_start_met_success_criteria)
+(trap (move-to-flash safe_start_met_success_criteria))
 
 ; Settings initialization (init-only, not moved to flash)
 (defun update_settings_from_eeprom ()
@@ -543,7 +543,7 @@
     )
 })
 
-(move-to-flash debug_log)
+(trap (move-to-flash debug_log))
 
 ; Lightweight macro to conditionally evaluate debug logging expressions
 ; Only evaluates the logging expression when debug_enabled is 1
@@ -567,14 +567,14 @@
     (> battery_imbalance_threshold_centi 0)
 })
 
-(move-to-flash imbalance_detection_enabled)
+(trap (move-to-flash imbalance_detection_enabled))
 
 (defun battery_imbalance_threshold_voltage ()
 {
     (/ battery_imbalance_threshold_centi 100.0)
 })
 
-(move-to-flash battery_imbalance_threshold_voltage)
+(trap (move-to-flash battery_imbalance_threshold_voltage))
 
 (defun get_lower_battery_voltage ()
 {
@@ -589,7 +589,7 @@
     )
 })
 
-(move-to-flash get_lower_battery_voltage)
+(trap (move-to-flash get_lower_battery_voltage))
 
 (defun update_lower_voltage_smooth ()
 {
@@ -645,7 +645,7 @@
     })
 })
 
-(move-to-flash update_lower_voltage_smooth)
+(trap (move-to-flash update_lower_voltage_smooth))
 
 ; Periodic debug log of pack voltages. Lets the user check the configured
 ; balance-wire ADC multiplier against a multimeter and adjust it from the UI
@@ -672,7 +672,7 @@
     })
 })
 
-(move-to-flash log_balance_voltages_throttled)
+(trap (move-to-flash log_balance_voltages_throttled))
 
 (defun get_display_pack_voltage ()
 {
@@ -682,7 +682,7 @@
     (* 2.0 (get_lower_battery_voltage))
 })
 
-(move-to-flash get_display_pack_voltage)
+(trap (move-to-flash get_display_pack_voltage))
 
 (defun get_battery_imbalance_voltage ()
 {
@@ -698,7 +698,7 @@
     })
 })
 
-(move-to-flash get_battery_imbalance_voltage)
+(trap (move-to-flash get_battery_imbalance_voltage))
 
 (defun get_battery_imbalance_warning ()
 {
@@ -720,7 +720,7 @@
     })
 })
 
-(move-to-flash get_battery_imbalance_warning)
+(trap (move-to-flash get_battery_imbalance_warning))
 
 (defun calculate_corrected_battery ()
 {
@@ -747,7 +747,7 @@
     )
 })
 
-(move-to-flash calculate_corrected_battery)
+(trap (move-to-flash calculate_corrected_battery))
 
 (defun calculate_ah_based_battery ()
 {
@@ -761,7 +761,7 @@
     )
 })
 
-(move-to-flash calculate_ah_based_battery)
+(trap (move-to-flash calculate_ah_based_battery))
 
 (defun get_battery_level ()
     ; Get battery level using the configured calculation method
@@ -771,7 +771,7 @@
     )
 )
 
-(move-to-flash get_battery_level)
+(trap (move-to-flash get_battery_level))
 
 (defun send_current_settings ()
 {
@@ -800,9 +800,9 @@
     })
 })
 
-(move-to-flash send_current_settings)
+(trap (move-to-flash send_current_settings))
 
-(move-to-flash receive_data)
+(trap (move-to-flash receive_data))
 
 ; Setup functions (init-only, not moved to flash)
 (defun setup_event_handler ()
@@ -897,9 +897,9 @@
     (spawn thread_stack handler)
 })
 
-(move-to-flash state_metrics_reset)
-(move-to-flash state_record_transition)
-(move-to-flash state_transition_to)
+(trap (move-to-flash state_metrics_reset))
+(trap (move-to-flash state_record_transition))
+(trap (move-to-flash state_transition_to))
 
 ; =============================================================================
 ; RPM Calculation Helper
@@ -914,7 +914,7 @@
     )
 })
 
-(move-to-flash clamp)
+(trap (move-to-flash clamp))
 
 (defun speed_percentage_at (speed_index)
 {
@@ -936,7 +936,7 @@
     })
 })
 
-(move-to-flash speed_percentage_at)
+(trap (move-to-flash speed_percentage_at))
 
 (defun calculate_rpm (speed_index divisor)
 {
@@ -953,7 +953,7 @@
     )
 })
 
-(move-to-flash calculate_rpm)
+(trap (move-to-flash calculate_rpm))
 
 ; =============================================================================
 ; State Machine Design Notes:
@@ -1001,7 +1001,7 @@
     clamped_speed
 })
 
-(move-to-flash set_speed_safe)
+(trap (move-to-flash set_speed_safe))
 
 ; =============================================================================
 ; Smart Cruise Timeout Helper
@@ -1026,7 +1026,7 @@
     )
 })
 
-(move-to-flash check_smart_cruise_timeout)
+(trap (move-to-flash check_smart_cruise_timeout))
 
 
 (defun smart_cruise_leds_count ()
@@ -1059,7 +1059,7 @@
     })
 })
 
-(move-to-flash smart_cruise_leds_count)
+(trap (move-to-flash smart_cruise_leds_count))
 
 
 (defun state_handler_off ()
@@ -1085,7 +1085,7 @@
     })
 })
 
-(move-to-flash state_handler_off)
+(trap (move-to-flash state_handler_off))
 
 
 (defun smart_cruise_upgrade_if_needed ()
@@ -1098,7 +1098,7 @@
     })
 })
 
-(move-to-flash smart_cruise_upgrade_if_needed)
+(trap (move-to-flash smart_cruise_upgrade_if_needed))
 
 
 ; Encapsulated click action handler
@@ -1238,7 +1238,7 @@
     )
 })
 
-(move-to-flash apply_click_action)
+(trap (move-to-flash apply_click_action))
 
 ; xxxx STATE 1 Counting clicks
 (defun state_handler_counting_clicks ()
@@ -1287,7 +1287,7 @@
     })
 })
 
-(move-to-flash state_handler_counting_clicks)
+(trap (move-to-flash state_handler_counting_clicks))
 
 ; xxxx State 2 "Pressed"
 (defun state_handler_pressed ()
@@ -1335,7 +1335,7 @@
     })
 })
 
-(move-to-flash state_handler_pressed)
+(trap (move-to-flash state_handler_pressed))
 
 ; xxxx State 3 "Going Off"
 (defun state_handler_going_off ()
@@ -1410,7 +1410,7 @@
     }) ; end state
 })
 
-(move-to-flash state_handler_going_off)
+(trap (move-to-flash state_handler_going_off))
 
 (defun start_motor_speed_loop ()
 {
@@ -1529,7 +1529,7 @@
     })
 })
 
-(move-to-flash start_motor_speed_loop)
+(trap (move-to-flash start_motor_speed_loop))
 
 ; Init-only function (not moved to flash)
 (defun thirds_warning_startup ()
@@ -1572,7 +1572,7 @@
     leds_lit ; Return the LED count or -1
 })
 
-(move-to-flash apply_smart_cruise_timer_bar)
+(trap (move-to-flash apply_smart_cruise_timer_bar))
 
 
 (defun start_display_output_loop ()
@@ -1699,7 +1699,7 @@
     })
 })
 
-(move-to-flash start_display_output_loop)
+(trap (move-to-flash start_display_output_loop))
 
 ; Returns true once the startup tune has finished AND 1 second has elapsed,
 ; giving a clear gap between the tune and the battery status beeps.
@@ -1707,7 +1707,7 @@
     (and (> startup_tune_done_time 0) (> (secs-since startup_tune_done_time) STARTUP_TUNE_SETTLE))
 )
 
-(move-to-flash tune-settled)
+(trap (move-to-flash tune-settled))
 
 ; **** Program that triggers the display to show battery status ****
 (defun start_display_battery_loop ()
@@ -1810,7 +1810,7 @@
     })
 })
 
-(move-to-flash start_display_battery_loop)
+(trap (move-to-flash start_display_battery_loop))
 
 (defun beeper (beeps)
 (loopwhile (and (= enable_battery_beeps 1) (> batt_disp_timer_start 0) (> beeps 0)) {
@@ -1819,7 +1819,7 @@
       (setvar 'beeps (- beeps 1))
     }))
 
-(move-to-flash beeper)
+(trap (move-to-flash beeper))
 
 ; xxxx warbler Program xxxx"
 (defun warbler (Tone Time Delay)
@@ -1831,7 +1831,7 @@
     (foc-beep (- Tone 200) Time beeps_vol)
 })
 
-(move-to-flash warbler)
+(trap (move-to-flash warbler))
 
 ; ***** Imperial March Theme *****
 ; Plays the first ~9 bars of the Imperial March on startup
@@ -1887,7 +1887,7 @@
     (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
 })
 
-(move-to-flash play_imperial_march)
+(trap (move-to-flash play_imperial_march))
 
 ; ***** Program that beeps trigger clicks
 (defun start_beeper_loop ()
@@ -1921,7 +1921,7 @@
     })
 })
 
-(move-to-flash start_beeper_loop)
+(trap (move-to-flash start_beeper_loop))
 
 ; Dedicated thread for the balance-wire EMA + periodic log. Kept off the
 ; display thread so any fault in the balance code (or the periodic puts of a
@@ -1936,7 +1936,7 @@
     })
 })
 
-(move-to-flash start_balance_loop)
+(trap (move-to-flash start_balance_loop))
 
 ; Init-only function (not moved to flash)
 (defun peripherals_setup ()
