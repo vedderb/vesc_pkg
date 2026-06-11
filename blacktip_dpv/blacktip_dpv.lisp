@@ -1617,6 +1617,7 @@
         ; AFTER any user-triggered frame (speed indicator, battery bar, smart cruise bar)
         ; has completed its normal timer duration.
         (var eff_disp disp_num)
+        (if (= eff_disp DISPLAY_SENTINEL) (setq eff_disp DISPLAY_OFF))
         (if (= eff_disp DISPLAY_SENTINEL) {
             (var imb_warn (get_battery_imbalance_warning))
             (if (= imb_warn BATTERY_IMBALANCE_WARN_PACK_1)
@@ -2037,7 +2038,7 @@
     (peripherals_setup)
 
     (define disp_num 1) ; variable used to define the display screen you are accesing 0-X
-    (define last_disp_num 1) ; variable used to track last display screen show
+    (define last_disp_num -1) ; variable used to track last display screen show
 
     (start_display_output_loop)
 
