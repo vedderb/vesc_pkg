@@ -24,6 +24,9 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Configuration and EEPROM:**
   * Settings are stored in EEPROM and loaded at startup; configuration is managed via QML UI in VESC Tool.
   * Battery calculation supports voltage-based or ampere-hour-based methods.
+* **Battery Imbalance Detection:**
+  * Dedicated balance-wire thread monitors the midpoint between the two series battery packs.
+  * At-rest-only sampling with a settle window, EMA smoothing, latched warnings, and SOC scaling — see [Battery Imbalance Detection](#battery-imbalance-detection) below for the algorithm.
 
 For more details, see the sections below and refer to `blacktip_dpv.lisp` for implementation specifics.
 
@@ -97,6 +100,72 @@ On VESC firmware 7.00, the first `i2c-tx-rx` call issued after `i2c-start` — i
 ```
 
 This bug only affects the first transaction on a freshly muxed bus. Subsequent commands on the same bus configuration are delivered normally. The second display controller (`0x71` on CudaX) does not need the doubled command because by the time it is initialised the bus is already exercised by the `0x70` sequence.
+
+## Battery Imbalance Detection
+
+The runtime monitors the midpoint balance wire (ADC1, exposed as `(get-adc 0)`) and warns when one of the two series battery packs becomes significantly more depleted than the other. The detection logic is implemented in `blacktip_dpv.lisp` as a small set of helpers (`update_lower_voltage_smooth`, `update_imbalance_latch`, `get_battery_imbalance_warning`, `log_balance_voltages_throttled`) driven by a dedicated balance loop thread.
+
+### Hardware Path
+
+* The balance wire is brought out through a resistor divider (default 141k / 10k → 15.0x). With the stock ADC reference this gives a calibrated multiplier of **16.2x** (`ADC_BAL_MULT_X10_DEFAULT = 162`), measured empirically on a reference Blacktip.
+* `get-adc 0` returns the raw pin voltage (0 – 3.3 V); the lower-pack voltage is `pin × multiplier`.
+* The multiplier is user-tunable from the UI in 0.1x steps (`5.0` – `25.5x`) to compensate for resistor tolerances; the periodic balance log (see below) emits the running readings so the user can dial it in against a multimeter.
+
+### At-Rest-Only Sampling
+
+The midpoint balance-wire reading is **skewed HIGH under load**. The IR drop across the pack and wiring lifts the measured midpoint, so the lower-pack reading runs ~1.3 V above its true resting value while the motor is running (observed ~21.2 – 21.8 V under load vs a true resting ~19.9 V). This offset is a permanent property of running, not a transient that settles — confirmed by swapping the two batteries between slots and observing the skew stay in the SAME direction (lower-slot reads high) regardless of which physical battery is where.
+
+Consequently, **live imbalance readings while running are meaningless** and must never be fed into the EMA. The runtime enforces this with two mechanisms:
+
+1. **Hold while running.** `update_lower_voltage_smooth` evaluates "running" as `(commanded speed != OFF)` OR `(|measured duty| > DUTY_AT_REST_THRESHOLD)`. A `nil` duty (very early boot) is treated as running so the EMA cannot be poisoned with garbage. While running, the smoothing is held — the EMA retains its last good at-rest value.
+2. **Post-stop settle window.** After the motor stops, the hold is extended for `BALANCE_SETTLE_SAMPLES` (32 samples × 0.25 s = 8 s) so the post-stop recovery transient is skipped. The settle counter is re-armed every iteration while running, so the quiet-down period only starts after the motor has actually been at rest.
+
+At-rest readings feed an EMA with `alpha = 0.05` (~5 s time constant at the 4 Hz balance-loop rate). Both `lower_voltage_smooth` and `total_voltage_smooth` are tracked so the imbalance can be derived consistently from smoothed values, preventing motor sag (which hits `get-vin` instantly but `lower_voltage_smooth` only slowly) from flipping the sign or inflating the magnitude.
+
+### Latch Hysteresis
+
+Because the imbalance can only be measured reliably at rest, it is sampled on every stop and then **latched** (`battery_imbalance_latched`). Once a warning is detected, it keeps showing even if the user sets off again and stops once more — a depleting pack cannot be "driven away from" unnoticed.
+
+The latch state machine in `update_imbalance_latch`:
+
+* Acts only on a settled, at-rest reading (`balance_smoothing_held = 0` and the EMA initialised), so a load-corrupted or transient sample can never latch.
+* **Set / refresh:** a settled reading over the warn threshold latches the warning. If the imbalance direction flips (e.g. `PACK_1` → `PACK_2`), the latch is updated.
+* **Clear (hysteresis):** the latch only releases once a settled reading shows `|imbalance|` below `BATTERY_IMBALANCE_CLEAR_FRACTION` (currently `0.5`) of the warn threshold — i.e. the pack has actually been re-balanced or charged, not just nudged under the boundary. The gap between clear and warn thresholds also debounces the boundary.
+
+Direction convention: `imbalance = upper_smooth − lower_smooth` (upper = slot 1 top pack, lower = slot 2 / ADC pack). Positive imbalance → slot 2 depleted → `BATTERY_IMBALANCE_WARN_PACK_2`. Negative imbalance → slot 1 depleted → `BATTERY_IMBALANCE_WARN_PACK_1`.
+
+### Display Integration
+
+The imbalance warning replaces only the `DISPLAY_SENTINEL` (idle) frame, so it appears AFTER any user-triggered frame (speed indicator, battery bar, smart-cruise bar) has completed its normal timer duration. The displayed warning comes from `battery_imbalance_latched`, NOT the live reading, so it persists across motor restarts.
+
+* **At rest** (`speed = SPEED_OFF`): the warning is shown continuously.
+* **While running:** the warning flashes on for `IMBALANCE_RUN_FLASH_ON` (1 s) out of every `IMBALANCE_RUN_FLASH_PERIOD` (5 s). This keeps reminding the rider mid-ride without permanently clobbering the smart-cruise timer bar / speed display.
+
+Two display frames are reserved for the warning (`BATTERY_IMBALANCE_DISPLAY_PACK_1 = 31`, `BATTERY_IMBALANCE_DISPLAY_PACK_2 = 32`). Frames 124 – 131 in `assets/display_lut.csv` ("Display Battery 1 Low" / "Display Battery 2 Low", 4 rotations each) provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
+
+### SOC Correction
+
+`calculate_corrected_battery` scales the raw battery percentage by `display_pack_voltage / total_voltage` (where `display_pack_voltage = 2 × lower_voltage_smooth`) when imbalance detection is active. The result is clamped to `[0.0, 1.0]`. This makes the displayed SOC, the bar graph, and the capacity beeps track the weaker pack rather than the pack average — so an imbalanced scooter does not over-report remaining capacity. When detection is disabled (`battery_imbalance_threshold_centi = 0`), the scaling is skipped and behaviour matches the pre-1.4.0 voltage-based calculation.
+
+### Dedicated Thread
+
+`start_balance_loop` runs `update_lower_voltage_smooth`, `update_imbalance_latch`, and `log_balance_voltages_throttled` at 4 Hz on a dedicated thread (`THREAD_STACK_BALANCE = 100` words). Keeping the balance work off the display thread isolates any fault in the balance code (or the periodic `puts` of a long log string) from the screen update loop. Each helper is invoked through `trap` so early-boot nils from `get-duty` / `get-adc` cannot kill the thread.
+
+### Tuning Aid: Periodic Balance Log
+
+`log_balance_voltages_throttled` emits a `Balance:` line every ~15 s when `debug_enabled = 1`, showing `total`, `upper(slot1)`, `lower(slot2)`, the active multiplier, and whether the EMA is currently held. The string is gated by the `when-debug` macro, so when debug is off there is no string-building work and no allocation. This is the primary tool for verifying or fine-tuning the balance-wire ADC multiplier in the field.
+
+### EEPROM Schema (v2)
+
+The balance-detection feature added two settings in EEPROM slots 30 and 31, and bumped the `EEPROM_SETTINGS_COUNT` from 30 to 32. The migration in `eeprom_set_defaults` is layered on top of the existing v1 (1.0.0) baseline:
+
+| Slot | Setting | Default | Notes |
+|------|---------|---------|-------|
+| 30 | `battery_imbalance_threshold_centi` | `200` | Threshold in 0.01 V units (200 = 2.00 V). `0` disables imbalance detection entirely. |
+| 31 | `adc_balance_wire_multiplier_x10` | `162` (`ADC_BAL_MULT_X10_DEFAULT`) | Balance-wire multiplier × 10 (162 = 16.2x). Bounded `ADC_BAL_MULT_X10_MIN..MAX` (`50..255`, i.e. 5.0x – 25.5x). |
+| 127 | Schema version marker | `2` | Advanced once at the end of the migration so each block is idempotent. |
+
+The migration uses `(< stored_version N)` rather than `(not-eq stored_version N)` so that older blocks do not re-fire after a later block has run. A fresh install on a Poseidon-era device (marker `150` in slot 127) is collapsed to `0` so the 1.0.0 block adds slots 25 – 29 without overwriting the user's existing slots 0 – 24, then the 1.1.0 block adds slots 30 – 31, then the marker is set to `2`.
 
 ## Build System
 
