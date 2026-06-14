@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.3.0
+**Version:** 1.3.1
 
 ## License
 
@@ -37,6 +37,13 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.3.1
+
+Compatibility fix release for VESC firmware 7.00:
+
+- **Fix: Cold-boot dark display** — The display stayed completely dark after power-cycling the scooter. Root cause: VESC firmware 7.00 has a bug where the first I2C message sent after the bus is initialised on a cold boot is silently dropped. The HT16K33 display controller never received its oscillator-enable command and stayed dormant. Fixed by sending the oscillator-enable command twice at startup; the first write is absorbed by the firmware bug, the second reaches the controller.
+- **Fix: Package crash on second and subsequent boots** — VESC 7.00 re-evaluates package source on every boot but persists the flash heap from the previous session. The previous `move-to-flash` approach conflicted with this and caused an abort before any threads were spawned, leaving the display dark and the motor unresponsive. Switched to the `@const-start` / `@const-end` block syntax, which is the correct mechanism for VESC 7.00 and later.
 
 ## What's New in Version 1.3.0
 
@@ -181,9 +188,9 @@ Full access to all features via the VESC mobile app on iOS or Android devices:
 - Visual interface for speed configuration and feature toggles
 - Save settings directly to the scooter
 
-### Latest VESC Firmware (6.06) Compatibility
+### Latest VESC Firmware (7.00) Compatibility
 
-- Always compatible with the latest VESC firmware releases
+- Compatible with VESC firmware 7.00 and later
 - Benefits from continuous VESC ecosystem improvements
 - Ensures optimal motor control and efficiency
 - Silent, smooth operation with latest FOC algorithms
@@ -233,7 +240,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 
 ### General Improvements
 
-- ✅ **Runs on the latest (6.06) VESC release** — Smoother running with latest FOC algorithms, improved safety features
+- ✅ **Runs on the latest (7.00) VESC release** — Smoother running with latest FOC algorithms, improved safety features
 
 ---
 
@@ -243,7 +250,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 
 - Dive Xtras Blacktip or CudaX scooter
 - the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases) or the latest official Package Store in VESC Tool
-- VESC Tool (PC) or VESC mobile app (iOS/Android), version 6.06 or higher from [VESC Project](https://vesc-project.com/vesc_tool)
+- VESC Tool (PC) or VESC mobile app (iOS/Android), version 7.00 or higher from [VESC Project](https://vesc-project.com/vesc_tool)
 - USB cable (for models without Bluetooth)
 
 ### Installation Steps
@@ -291,7 +298,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 
 3. **Update the VESC firmware:**
 
-(only needed if the firmware version shown in the VESC Tool or VESC mobile app is below 6.06)
+(only needed if the firmware version shown in the VESC Tool or VESC mobile app is below 7.00)
 
 - **VESC Tool (PC):**
 
@@ -429,7 +436,7 @@ For issues, questions, or feature requests:
 ### Before Reporting Issues
 
 1. Ensure you're running the latest version
-2. Check that your VESC firmware is version 6.06 or higher
+2. Check that your VESC firmware is version 7.00 or higher
 3. Verify your settings are properly saved
 4. Try resetting to default settings to isolate the issue
 5. Enable the debug log and check it in VESC Tool (LispBM Scripting tab)
