@@ -1,9 +1,6 @@
-; For architecture notes and VESC 7.00 porting details, see DEVELOPMENT.md.
-
 ; =============================================================================
-; CONST BLOCK 1 - constants and the debug-logging macro (flashed, immutable)
+; Constants
 ; =============================================================================
-@const-start
 
 ; Sleep intervals (seconds) - controls loop frequencies
 (define SLEEP_STATE_MACHINE 0.02)     ; 50Hz - button state polling
@@ -30,8 +27,9 @@
 (define THREAD_STACK_STATE_TRANSITIONS 80) ; States 0, 3 - reduced
 (define THREAD_STACK_STATE_COUNTING 80) ; State 1 (counting clicks) - reduced
 (define THREAD_STACK_MOTOR 150)       ; Motor control - reduced but still largest
-(define THREAD_STACK_DISPLAY 100)     ; Display updates - reduced
+(define THREAD_STACK_DISPLAY 100)     ; Display updates
 (define THREAD_STACK_BATTERY 100)     ; Battery display - reduced
+(define THREAD_STACK_BALANCE 100)     ; Balance-wire EMA + periodic log - isolated from display
 (define THREAD_STACK_CLICK_BEEP 80)   ; Click beep playback - reduced
 
 ; State values
@@ -120,7 +118,7 @@
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
 
 ; EEPROM settings buffer size
-(define EEPROM_SETTINGS_COUNT 30)
+(define EEPROM_SETTINGS_COUNT 32)
 
 ; Battery polynomial coefficients (for voltage-based calculation)
 (define BATTERY_COEFF_4 4.3867)
@@ -128,8 +126,37 @@
 (define BATTERY_COEFF_2 2.4021)
 (define BATTERY_COEFF_1 1.3619)
 
+; Battery imbalance warning constants
+(define BATTERY_IMBALANCE_WARN_NONE 0)
+(define BATTERY_IMBALANCE_WARN_PACK_1 1)
+(define BATTERY_IMBALANCE_WARN_PACK_2 2)
+(define BATTERY_IMBALANCE_DISPLAY_PACK_1 31)
+(define BATTERY_IMBALANCE_DISPLAY_PACK_2 32)
+
 ; Data receive handshake code
 (define HANDSHAKE_CODE 255)
+
+; Bounds for the balance-wire ADC multiplier (stored as multiplier * 10 in EEPROM slot 31).
+; Default 161 = 16.1x was measured empirically on a reference Blacktip; users with
+; slightly different resistor tolerances can fine-tune via the UI spin box (see
+; the periodic debug log of total/upper/lower pack voltages emitted by
+; log_balance_voltages_throttled).
+(define ADC_BAL_MULT_X10_MIN 50)   ; 5.0x
+(define ADC_BAL_MULT_X10_MAX 255)  ; 25.5x (uint8 max)
+(define ADC_BAL_MULT_X10_DEFAULT 161) ; 16.1x
+
+; Balance-wire sampling is paused for a fixed settle window after every motor
+; speed change (start, stop, or speed adjustment). The instability that
+; corrupts the lower-pack reading is concentrated around transients (the
+; battery and wiring need time to recover from a current step), while a motor
+; running at a stable commanded duty is fine to sample from - this matches the
+; original Sikorski C app, which never gated on motor state at all.
+;
+; We track the commanded duty cycle. When it moves by more than DUTY_CHANGE_THRESHOLD
+; we restart the settle counter; the EMA only resumes once we see the duty hold
+; steady for the full BALANCE_SETTLE_SAMPLES window.
+(define DUTY_CHANGE_THRESHOLD 0.02)             ; 2% commanded-duty step counts as a transient
+(define BALANCE_SETTLE_SAMPLES 20)              ; 20 samples * 0.25 s = 5 s settle window
 
 ; Display timer stop value
 (define DISPLAY_TIMER_STOP 2)
@@ -137,95 +164,113 @@
 ; Settle time after startup before allowing more beeper indications (e.g. thirds warning)
 (define STARTUP_TUNE_SETTLE 1.0)
 
-; Lightweight macro to conditionally evaluate debug logging expressions
-; Only evaluates the logging expression when debug_enabled is 1
-; This prevents expensive str-merge and to-str calls on memory-constrained targets
-(define debug_log_format (macro (expr)
-    `(if (and (not-eq debug_enabled nil) (= debug_enabled 1))
-        (puts ,expr)
+; Display LUT binary format helpers (init-only, not moved to flash)
+(defun validate_lut_header (data magic expected_version)
+{
+    (var file_magic (bufget-u32 data 0 'little-endian))
+    (var file_version (bufget-u16 data 4 'little-endian))
+    (var num_items (bufget-u16 data 6 'little-endian))
+    (if (!= file_magic magic)
+        nil
+        (if (!= file_version expected_version)
+            nil
+            num_items
+        )
     )
-))
+})
 
-@const-end
+(defun load_lookup_tables ()
+{
+    ; Import display and brightness lookup tables from binary files
+    ; These files are generated at build time from CSV sources
+    (import "generated/display_lut.bin" 'display_lut_bin)
 
-; =============================================================================
-; MUTABLE GLOBAL STATE - heap-resident (NOT flashed), so setvar/set works.
-; Defined here (after the constants block) so initialisers may reference the
-; constants above. main re-initialises these at runtime.
-; =============================================================================
+    ; Initialize display LUT (returns number of frames or nil on error)
+    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
 
-; --- EEPROM-backed configuration ---
-(define max_speed_no 0)
-(define start_speed 0)
-(define jump_speed 0)
-(define use_safe_start 0)
-(define enable_reverse 0)
-(define enable_smart_cruise 0)
-(define smart_cruise_timeout 0)
-(define rotation 0)
-(define disp_brightness 0)
-(define hardware_configuration 0)
-(define enable_battery_beeps 0)
-(define beeps_vol 0)
-(define cudax_flip 0)
-(define rotation2 0)
-(define enable_trigger_beeps 0)
-(define enable_smart_cruise_auto_engage 0)
-(define smart_cruise_auto_engage_time 0)
-(define enable_thirds_warning_startup 0)
-(define battery_calculation_method 0)
-(define debug_enabled 0)
-(define speed_set 0)
-(define scooter_type 0)
+    ; Verify LUTs loaded successfully - halt if validation fails
+    (if (not display_num_frames)
+        (exit-error "LUT validation failed: display"))
+})
 
-; --- Runtime state machine / motor / display vars ---
-(define sw_state 0)
-(define sw_pressed 0)
-(define timer_start 0)
-(define timer_duration 0)
-(define initial_press_time 0)
-(define clicks 0)
-(define speed SPEED_OFF)
-(define new_start_speed 0)
-(define speed_set_via_jump nil)       ; Track if current speed was set via jump (triple-click) and not manually changed
-(define smart_cruise SMART_CRUISE_OFF)
+; EEPROM initialization (init-only, not moved to flash)
+; Migration uses a monotonically increasing version marker in slot 127. Each
+; migration block runs only when the stored version is BELOW the block's target,
+; so once we have migrated to v2 the v1 block will not re-run on subsequent boots.
+; The previous code used (not-eq stored target) which caused the v1 block to fire
+; again after the v2 block had run, silently resetting any user changes to slots
+; 25-29 on every boot (and also resetting hardware_configuration in slot 19
+; whenever there was no prior 150-era install, which could kill the display).
+(defun eeprom_set_defaults ()
+{
+    (var stored_version (eeprom-read-i 127))
+    (if (eq stored_version nil) (setq stored_version 0))
 
-(define state_last_state STATE_UNINITIALIZED)
-(define state_last_change_time 0)
-(define state_last_reason "")
+    ; Normalize the pre-1.0.0 Poseidon marker (150 in slot 127). Poseidon already
+    ; populated slots 0-24, so we should run the 1.0.0 migration to add 25-29 but
+    ; NOT the fresh-install block that overwrites 0-24. Remember this for later
+    ; and collapse the version to 0 so the < 1 check below fires.
+    (var came_from_poseidon (= stored_version 150))
+    (if came_from_poseidon (setq stored_version 0))
 
-(define safe_start_timer 0)
-(define soft_start_timer 0)
-(define soft_start_active 0)
-(define safe_start_attempt_speed SPEED_OFF)
-(define safe_start_failures 0)
-(define safe_start_status 'idle)
+    ; Migration for 1.0.0: baseline settings added in this release.
+    (if (< stored_version 1) {
+        (puts "EEPROM: Initializing defaults for 1.0.0")
+        ; New settings added in version 1.0.0
+        (eeprom_store_i_if_changed 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
+        (eeprom_store_i_if_changed 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
+        (eeprom_store_i_if_changed 27 0) ; Enable Thirds warning on from power-up. 1=On 0=Off
+        (eeprom_store_i_if_changed 28 0) ; Battery calculation method: 0=Voltage-based, 1=Ampere-hour based
+        (eeprom_store_i_if_changed 29 0) ; Enable Debug Logging. 1=On 0=Off
 
-(define actual_batt 0)
-(define thirds_total 0)
-(define warning_counter 0)            ; Count how many times the 3rds warnings have been triggered.
-(define thirds_warning_latched 0)     ; Prevents repeated long-press activation
+        ; Only do a full fresh-install reset of slots 0-24 if there is no prior
+        ; marker at all (neither current schema nor the Poseidon 150 marker).
+        (if (not came_from_poseidon) {
+            (puts "EEPROM: No previous version detected, setting all defaults")
+            ; User speeds, ie 1 thru 8 are only used in the GUI, this lisp code uses speeds 0-9 with 0 & 1 being the 2 reverse speeds.
+            ; 99 is used as the "off" speed
+            (eeprom_store_i_if_changed 0 45) ; Reverse Speed 2 %
+            (eeprom_store_i_if_changed 1 20) ; Untangle Speed 1 %
+            (eeprom_store_i_if_changed 2 30) ; Speed 1 %
+            (eeprom_store_i_if_changed 3 38) ; Speed 2 %
+            (eeprom_store_i_if_changed 4 46) ; Speed 3 %
+            (eeprom_store_i_if_changed 5 54) ; Speed 4 %
+            (eeprom_store_i_if_changed 6 62) ; Speed 5 %
+            (eeprom_store_i_if_changed 7 70) ; Speed 6 %
+            (eeprom_store_i_if_changed 8 78) ; Speed 7 %
+            (eeprom_store_i_if_changed 9 100) ; Speed 8 %
+            (eeprom_store_i_if_changed 10 9) ; Maximum number of Speeds to use, must be greater or equal to start_speed (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 11 4) ; Speed the scooter starts in. Range 2-9, must be less or equal to the max_speed_no (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 12 7) ; Speed to jump to on triple click, (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 13 1) ; Turn safe start on or off 1=On 0=Off
+            (eeprom_store_i_if_changed 14 0) ; Enable Reverse speed. 1=On 0=Off
+            (eeprom_store_i_if_changed 15 0) ; Enable Smart Cruise (3 clicks while running). 1=On 0=Off
+            (eeprom_store_i_if_changed 16 60) ; How long before Smart Cruise times out and requires reactivation in sec.
+            (eeprom_store_i_if_changed 17 0) ; rotation of Display, 0-3 . Each number rotates display 90 deg.
+            (eeprom_store_i_if_changed 18 5) ; Display Brighness 0-5
+            (eeprom_store_i_if_changed 19 0) ; Hardware configuration, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
+            (eeprom_store_i_if_changed 20 0) ; Battery Beeps
+            (eeprom_store_i_if_changed 21 3) ; Beep Volume
+            (eeprom_store_i_if_changed 22 0) ; CudaX Flip Screens
+            (eeprom_store_i_if_changed 23 0) ; 2nd Screen rotation of Display, 0-3 . Each number rotates display 90 deg.
+            (eeprom_store_i_if_changed 24 0) ; Trigger Click Beeps
+        })
+        (puts "EEPROM: Defaults initialized successfully")
+    })
 
-(define click_beep 0)
-(define disp_timer_start 0)           ; Timer for display duration
-(define disp_num 1)                   ; variable used to define the display screen you are accesing 0-X
-(define last_disp_num 1)              ; variable used to track last display screen show
-(define batt_disp_timer_start 0)      ; Timer to see if Battery display has been triggered
-(define last_batt_disp_num 3)         ; variable used to track last display screen show
-(define startup_tune_done_time 0)     ; Timestamp when startup tune finished (0 = not done yet)
-(define batt_beeps_pending 0)         ; Battery beep count deferred until startup tune settle delay
+    ; Migration for 1.1.0: battery imbalance detection settings
+    (if (< stored_version 2) {
+        (puts "EEPROM: Initializing defaults for 1.1.0")
+        (eeprom_store_i_if_changed 30 200) ; Battery imbalance threshold in 0.01V units (200=2.00V, 0=disabled)
+        (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 161 = 16.1x)
+    })
 
-; Display LUT byte array. import MUST be a top-level form (not inside a flashed
-; const-block function), so the binding survives onto the heap. VESC Tool embeds
-; generated/display_lut.bin at upload time; flashed functions reference
-; display_lut_bin and resolve it at call time.
-(import "generated/display_lut.bin" 'display_lut_bin)
+    ; Always advance the marker to the latest schema version. Doing this once at
+    ; the end (instead of per-block) keeps the migration idempotent even if a
+    ; future block is added in the middle.
+    (eeprom_store_i_if_changed 127 2)
+})
 
-; =============================================================================
-; CONST BLOCK 2 - all functions (flashed, immutable). Function order is not
-; significant for flashing because LispBM resolves symbols at call time.
-; =============================================================================
-@const-start
 
 ; Helper function to reduce EEPROM wear by only writing when value changes
 (defun eeprom_store_i_if_changed (addr new_val)
@@ -236,13 +281,8 @@
     )
 })
 
-; Debug logging helper function
-(defun debug_log (msg)
-{
-    (if (and (not-eq debug_enabled nil) (= debug_enabled 1))
-        (puts msg)
-    )
-})
+(trap (move-to-flash eeprom_store_i_if_changed))
+
 
 ; =============================================================================
 ; Safe Start Helpers
@@ -266,11 +306,15 @@
     })
 })
 
+(trap (move-to-flash safe_start_set_status))
+
 ; Helper to set soft_start_active (silent - no logging to reduce noise)
 (defun soft_start_set_active (val)
 {
     (setvar 'soft_start_active val)
 })
+
+(trap (move-to-flash soft_start_set_active))
 
 (defun safe_start_reset_state ()
 {
@@ -280,6 +324,8 @@
     (safe_start_set_status 'idle)
     (soft_start_set_active 0)
 })
+
+(trap (move-to-flash safe_start_reset_state))
 
 (defun safe_start_begin (target_speed)
 {
@@ -297,6 +343,8 @@
     })
 })
 
+(trap (move-to-flash safe_start_begin))
+
 (defun safe_start_success ()
 {
     (setvar 'safe_start_timer 0)
@@ -304,6 +352,8 @@
     (setvar 'safe_start_failures 0)
     (safe_start_set_status 'success)
 })
+
+(trap (move-to-flash safe_start_success))
 
 (defun safe_start_increment_failure (reason)
 {
@@ -314,10 +364,14 @@
     })
 })
 
+(trap (move-to-flash safe_start_increment_failure))
+
 (defun safe_start_should_retry ()
 {
     (< safe_start_failures SAFE_START_MAX_RETRIES)
 })
+
+(trap (move-to-flash safe_start_should_retry))
 
 (defun safe_start_abort_with_reason (reason)
 {
@@ -336,10 +390,14 @@
     })
 })
 
+(trap (move-to-flash safe_start_abort_with_reason))
+
 (defun safe_start_value_valid (value max_abs)
 {
     (and (= value value) (< (abs value) max_abs))
 })
+
+(trap (move-to-flash safe_start_value_valid))
 
 (defun safe_start_telemetry_valid (rpm duty current)
 {
@@ -348,6 +406,8 @@
          (safe_start_value_valid current 200))
 })
 
+(trap (move-to-flash safe_start_telemetry_valid))
+
 (defun safe_start_met_success_criteria (rpm duty current)
 {
     (and (> (abs rpm) SAFE_START_MIN_RPM)
@@ -355,8 +415,9 @@
          (< (abs current) SAFE_START_MAX_CURRENT))
 })
 
-; Settings initialization (init-only, but harmless to flash - it only reads
-; eeprom and writes mutable heap globals via setvar)
+(trap (move-to-flash safe_start_met_success_criteria))
+
+; Settings initialization (init-only, not moved to flash)
 (defun update_settings_from_eeprom ()
 {
     (setvar 'max_speed_no (eeprom-read-i 10))
@@ -379,6 +440,8 @@
     (setvar 'enable_thirds_warning_startup (eeprom-read-i 27))
     (setvar 'battery_calculation_method (eeprom-read-i 28))
     (setvar 'debug_enabled (eeprom-read-i 29))
+    (setvar 'battery_imbalance_threshold_centi (eeprom-read-i 30))
+    (setvar 'adc_balance_wire_multiplier_x10 (eeprom-read-i 31))
 
     (setvar 'speed_set (list
         (eeprom-read-i 0) ; Reverse Speed 2 %
@@ -400,48 +463,6 @@
     )
 })
 
-(defun log_settings_1 ()
-{
-    (debug_log_format (str-merge "- max_speed_no: " (to-str (to-i max_speed_no))
-        "\n- start_speed: " (to-str (to-i start_speed))
-        "\n- jump_speed: " (to-str (to-i jump_speed))
-        "\n- use_safe_start: " (to-str (to-i use_safe_start))
-        "\n- enable_reverse: " (to-str (to-i enable_reverse))
-        "\n- enable_smart_cruise: " (to-str (to-i enable_smart_cruise))
-        "\n- smart_cruise_timeout: " (to-str (to-i smart_cruise_timeout))
-        "\n- rotation: " (to-str (to-i rotation))
-        "\n- disp_brightness: " (to-str (to-i disp_brightness))
-        "\n- enable_battery_beeps: " (to-str (to-i enable_battery_beeps))
-        "\n- beeps_vol: " (to-str (to-i beeps_vol))
-        "\n- cudax_flip: " (to-str (to-i cudax_flip))
-        "\n- rotation2: " (to-str (to-i rotation2))
-        "\n- enable_trigger_beeps: " (to-str (to-i enable_trigger_beeps))
-    ))
-})
-
-(defun log_settings_2 ()
-{
-    (debug_log_format (str-merge "- enable_smart_cruise_auto_engage: " (to-str (to-i enable_smart_cruise_auto_engage))
-        "\n- smart_cruise_auto_engage_time: " (to-str (to-i smart_cruise_auto_engage_time))
-        "\n- enable_thirds_warning_startup: " (to-str (to-i enable_thirds_warning_startup))
-        "\n- battery_calculation_method: " (to-str (to-i battery_calculation_method))
-    ))
-})
-
-(defun log_speeds ()
-{
-    (debug_log_format (str-merge "- speed (reverse): " (to-str (to-i (ix speed_set 0)))
-        "\n- speed (untangle): " (to-str (to-i (ix speed_set 1)))
-        "\n- speed (1): " (to-str (to-i (ix speed_set 2)))
-        "\n- speed (2): " (to-str (to-i (ix speed_set 3)))
-        "\n- speed (3): " (to-str (to-i (ix speed_set 4)))
-        "\n- speed (4): " (to-str (to-i (ix speed_set 5)))
-        "\n- speed (5): " (to-str (to-i (ix speed_set 6)))
-        "\n- speed (6): " (to-str (to-i (ix speed_set 7)))
-        "\n- speed (7): " (to-str (to-i (ix speed_set 8)))
-        "\n- speed (8): " (to-str (to-i (ix speed_set 9)))
-    ))
-})
 
 (defun log_startup ()
 {
@@ -465,16 +486,268 @@
     })
 })
 
+
+(defun log_settings_1 ()
+{
+    (debug_log_format (str-merge "- max_speed_no: " (to-str (to-i max_speed_no))
+        "\n- start_speed: " (to-str (to-i start_speed))
+        "\n- jump_speed: " (to-str (to-i jump_speed))
+        "\n- use_safe_start: " (to-str (to-i use_safe_start))
+        "\n- enable_reverse: " (to-str (to-i enable_reverse))
+        "\n- enable_smart_cruise: " (to-str (to-i enable_smart_cruise))
+        "\n- smart_cruise_timeout: " (to-str (to-i smart_cruise_timeout))
+        "\n- rotation: " (to-str (to-i rotation))
+        "\n- disp_brightness: " (to-str (to-i disp_brightness))
+        "\n- enable_battery_beeps: " (to-str (to-i enable_battery_beeps))
+        "\n- beeps_vol: " (to-str (to-i beeps_vol))
+        "\n- cudax_flip: " (to-str (to-i cudax_flip))
+        "\n- rotation2: " (to-str (to-i rotation2))
+        "\n- enable_trigger_beeps: " (to-str (to-i enable_trigger_beeps))
+    ))
+})
+
+
+(defun log_settings_2 ()
+{
+    (debug_log_format (str-merge "- enable_smart_cruise_auto_engage: " (to-str (to-i enable_smart_cruise_auto_engage))
+        "\n- smart_cruise_auto_engage_time: " (to-str (to-i smart_cruise_auto_engage_time))
+        "\n- enable_thirds_warning_startup: " (to-str (to-i enable_thirds_warning_startup))
+        "\n- battery_calculation_method: " (to-str (to-i battery_calculation_method))
+        "\n- battery_imbalance_threshold_centi: " (to-str (to-i battery_imbalance_threshold_centi))
+        "\n- adc_balance_wire_multiplier_x10: " (to-str (to-i adc_balance_wire_multiplier_x10))
+    ))
+})
+
+
+(defun log_speeds ()
+{
+    (debug_log_format (str-merge "- speed (reverse): " (to-str (to-i (ix speed_set 0)))
+        "\n- speed (untangle): " (to-str (to-i (ix speed_set 1)))
+        "\n- speed (1): " (to-str (to-i (ix speed_set 2)))
+        "\n- speed (2): " (to-str (to-i (ix speed_set 3)))
+        "\n- speed (3): " (to-str (to-i (ix speed_set 4)))
+        "\n- speed (4): " (to-str (to-i (ix speed_set 5)))
+        "\n- speed (5): " (to-str (to-i (ix speed_set 6)))
+        "\n- speed (6): " (to-str (to-i (ix speed_set 7)))
+        "\n- speed (7): " (to-str (to-i (ix speed_set 8)))
+        "\n- speed (8): " (to-str (to-i (ix speed_set 9)))
+    ))
+})
+
+
+; Debug logging helper function
+(defun debug_log (msg)
+{
+    (if (and (not-eq debug_enabled nil) (= debug_enabled 1))
+        (puts msg)
+    )
+})
+
+(trap (move-to-flash debug_log))
+
+; Lightweight macro to conditionally evaluate debug logging expressions
+; Only evaluates the logging expression when debug_enabled is 1
+; This prevents expensive str-merge and to-str calls on memory-constrained targets
+(define debug_log_format (macro (expr)
+    `(if (and (not-eq debug_enabled nil) (= debug_enabled 1))
+        (puts ,expr)
+    )
+))
+
+; Alias for debug_log_format - use when-debug for clarity in non-flash contexts
+(define when-debug (macro (expr)
+    `(if (and (not-eq debug_enabled nil) (= debug_enabled 1))
+        (puts ,expr)
+    )
+))
+
+
+(defun imbalance_detection_enabled ()
+{
+    (> battery_imbalance_threshold_centi 0)
+})
+
+(trap (move-to-flash imbalance_detection_enabled))
+
+(defun battery_imbalance_threshold_voltage ()
+{
+    (/ battery_imbalance_threshold_centi 100.0)
+})
+
+(trap (move-to-flash battery_imbalance_threshold_voltage))
+
+(defun get_lower_battery_voltage ()
+{
+    ; ADC1 is connected to the midpoint balance wire (lower pack top).
+    ; When detection is enabled, returns the EMA-smoothed reading (updated by
+    ; update_lower_voltage_smooth each display loop iteration); falls back to
+    ; total/2 if detection is disabled or the smooth value is not yet initialized.
+    (var total_voltage (get-vin))
+    (if (and (imbalance_detection_enabled) (> lower_voltage_smooth 0.1))
+        lower_voltage_smooth
+        (/ total_voltage 2.0)
+    )
+})
+
+(trap (move-to-flash get_lower_battery_voltage))
+
+(defun update_lower_voltage_smooth ()
+{
+    ; Update the EMA-smoothed lower pack ADC voltage. Call once per balance loop
+    ; iteration. α = 0.05 gives a ~5 s time constant at 4 Hz (SLEEP_UI_UPDATE = 0.25 s),
+    ; matching the legacy 200-sample / 5-second averaging window.
+    ; Always runs regardless of detection status so the value is pre-warmed on enable.
+    ;
+    ; Sampling is paused for BALANCE_SETTLE_SAMPLES after the commanded duty
+    ; cycle changes by more than DUTY_CHANGE_THRESHOLD. A steady duty (including
+    ; "off") is considered settled and is sampled normally. This catches both
+    ; start/stop transients and speed-step transients without losing data while
+    ; the motor is cruising at a fixed speed.
+    ;
+    ; Defensive: get-duty can return nil very early in boot before the motor
+    ; controller is ready; treat that as a transient to avoid touching the EMA
+    ; with garbage. Note: no when-debug here - this function is move-to-flash'd
+    ; and macros don't resolve in flash.
+    (var duty (get-duty))
+    (var duty_ok (and (not-eq duty nil) (= duty duty)))
+    (var duty_changed (or
+        (not duty_ok)
+        (> (abs (- duty balance_last_duty)) DUTY_CHANGE_THRESHOLD)))
+    (if duty_ok (setvar 'balance_last_duty duty))
+    (if duty_changed
+        (setvar 'balance_settle_counter BALANCE_SETTLE_SAMPLES))
+    (if (> balance_settle_counter 0) {
+        (setvar 'balance_smoothing_held 1)
+        (setvar 'balance_settle_counter (- balance_settle_counter 1))
+    } {
+        (setvar 'balance_smoothing_held 0)
+        (var total_voltage (get-vin))
+        ; Scale the raw ADC pin voltage by the multiplier to get actual pack voltage.
+        ; The balance wire is connected through a resistor divider (default 141k/10k => 15.0x).
+        ; get-adc returns pin voltage (0-3.3V); multiply by (ratio+1) to recover pack voltage.
+        (var adc_pin_voltage (get-adc 0))
+        ; multiplier = adc_balance_wire_multiplier_x10 / 10 (default 161 = 16.1x, measured on a reference
+        ; Blacktip). The value is user-adjustable from the VESC Tool UI in 0.1x steps; the periodic
+        ; balance-voltage log (log_balance_voltages_throttled, gated on debug_enabled) emits the
+        ; current total/upper/lower readings so the user can dial it in against a multimeter.
+        (var adc_voltage (* adc_pin_voltage (/ adc_balance_wire_multiplier_x10 10.0)))
+        (if (and (> total_voltage 1.0) (> adc_pin_voltage 0.1) (< adc_voltage total_voltage)) {
+            (if (= lower_voltage_smooth 0.0) {
+                (setvar 'lower_voltage_smooth adc_voltage)
+                (setvar 'total_voltage_smooth total_voltage)
+            } {
+                (setvar 'lower_voltage_smooth
+                    (+ (* 0.05 adc_voltage) (* 0.95 lower_voltage_smooth)))
+                (setvar 'total_voltage_smooth
+                    (+ (* 0.05 total_voltage) (* 0.95 total_voltage_smooth)))
+            })
+        })
+    })
+})
+
+(trap (move-to-flash update_lower_voltage_smooth))
+
+; Periodic debug log of pack voltages. Lets the user check the configured
+; balance-wire ADC multiplier against a multimeter and adjust it from the UI
+; if needed. Gated on debug_enabled (no output and no string-building when off).
+; Called from the display loop (4 Hz); interval ~15 s.
+(define BALANCE_LOG_INTERVAL 60)
+(define balance_log_counter 0)
+
+(defun log_balance_voltages_throttled ()
+{
+    (setvar 'balance_log_counter (+ balance_log_counter 1))
+    (if (>= balance_log_counter BALANCE_LOG_INTERVAL) {
+        (setvar 'balance_log_counter 0)
+        (when-debug {
+            (var total (get-vin))
+            (var lower (get_lower_battery_voltage))
+            (var upper (- total lower))
+            (str-merge "Balance: total=" (str-from-n total "%.2f")
+                "V upper(slot1)=" (str-from-n upper "%.2f")
+                "V lower(slot2)=" (str-from-n lower "%.2f")
+                "V mult=" (str-from-n (/ adc_balance_wire_multiplier_x10 10.0) "%.1f") "x"
+                (if (= balance_smoothing_held 1) " (held: motor speed changing)" ""))
+        })
+    })
+})
+
+(trap (move-to-flash log_balance_voltages_throttled))
+
+(defun get_display_pack_voltage ()
+{
+    ; Battery display calculations are based on 2 × lower pack voltage.
+    ; get_lower_battery_voltage returns total/2 when detection is disabled,
+    ; so the result is equivalent to get-vin in that case.
+    (* 2.0 (get_lower_battery_voltage))
+})
+
+(trap (move-to-flash get_display_pack_voltage))
+
+(defun get_battery_imbalance_voltage ()
+{
+    ; Positive means upper pack (slot 1) voltage is higher than lower pack (slot 2 / ADC) voltage.
+    ; Uses total_voltage_smooth so that motor load sag (which affects get-vin instantly but
+    ; lower_voltage_smooth only slowly) does not flip the sign or inflate the magnitude.
+    (if (imbalance_detection_enabled) {
+        (var total_smooth (if (> total_voltage_smooth 1.0) total_voltage_smooth (get-vin)))
+        (var lower_voltage (get_lower_battery_voltage))
+        (- (- total_smooth lower_voltage) lower_voltage)
+    } {
+        0.0
+    })
+})
+
+(trap (move-to-flash get_battery_imbalance_voltage))
+
+(defun get_battery_imbalance_warning ()
+{
+    ; imbalance = upper_smooth - lower_smooth (upper = slot 1 top pack, lower = slot 2 ADC pack)
+    ; Positive: upper (slot 1) is higher  => lower pack (slot 2) is depleted => warn PACK_2
+    ; Negative: lower (slot 2) is higher  => upper pack (slot 1) is depleted => warn PACK_1
+    (if (imbalance_detection_enabled) {
+        (var imbalance (get_battery_imbalance_voltage))
+        (var threshold (battery_imbalance_threshold_voltage))
+        (if (> imbalance threshold)
+            BATTERY_IMBALANCE_WARN_PACK_2
+            (if (< imbalance (- 0 threshold))
+                BATTERY_IMBALANCE_WARN_PACK_1
+                BATTERY_IMBALANCE_WARN_NONE
+            )
+        )
+    } {
+        BATTERY_IMBALANCE_WARN_NONE
+    })
+})
+
+(trap (move-to-flash get_battery_imbalance_warning))
+
 (defun calculate_corrected_battery ()
 {
-    ; Calculate corrected battery percentage from raw battery reading
+    ; Calculate corrected battery percentage from raw battery reading.
+    ; When imbalance detection is active, scale the SOC by 2*lower/total.
     (var raw_batt (get-batt))
+    (if (imbalance_detection_enabled) {
+        (var total_voltage (get-vin))
+        (if (> total_voltage 1.0) {
+            (setvar 'raw_batt (* raw_batt (/ (get_display_pack_voltage) total_voltage)))
+            (if (< raw_batt 0.0)
+                (setvar 'raw_batt 0.0)
+            )
+            (if (> raw_batt 1.0)
+                (setvar 'raw_batt 1.0)
+            )
+        })
+    })
+
     (+ (* BATTERY_COEFF_4 raw_batt raw_batt raw_batt raw_batt)
         (* BATTERY_COEFF_3 raw_batt raw_batt raw_batt)
         (* BATTERY_COEFF_2 raw_batt raw_batt)
         (* BATTERY_COEFF_1 raw_batt)
     )
 })
+
+(trap (move-to-flash calculate_corrected_battery))
 
 (defun calculate_ah_based_battery ()
 {
@@ -488,6 +761,8 @@
     )
 })
 
+(trap (move-to-flash calculate_ah_based_battery))
+
 (defun get_battery_level ()
     ; Get battery level using the configured calculation method
     (if (= battery_calculation_method 1)
@@ -496,13 +771,21 @@
     )
 )
 
+(trap (move-to-flash get_battery_level))
+
+(defun send_current_settings ()
+{
+    (var setbuf (array-create EEPROM_SETTINGS_COUNT))
+    (looprange i 0 EEPROM_SETTINGS_COUNT
+        (bufset-i8 setbuf i (or (eeprom-read-i i) 0)))
+    (send-data setbuf)
+})
+
 (defun receive_data (data)
 {
-    (if (= (bufget-u8 data 0) HANDSHAKE_CODE) { ; Handshake to trigger data send if not yet received.
-        (var setbuf (array-create EEPROM_SETTINGS_COUNT)) ; create a temp array to store setting
-        (looprange i 0 EEPROM_SETTINGS_COUNT
-            (bufset-i8 setbuf i (or (eeprom-read-i i) 0)))
-        (send-data setbuf)
+    (if (= (bufget-u8 data 0) HANDSHAKE_CODE) {
+        ; Handshake to trigger data send if not yet received.
+        (send_current_settings)
     } {
         ; For non-handshake messages, validate buffer size
         (if (< (buflen data) EEPROM_SETTINGS_COUNT) {
@@ -517,7 +800,11 @@
     })
 })
 
-; Setup functions
+(trap (move-to-flash send_current_settings))
+
+(trap (move-to-flash receive_data))
+
+; Setup functions (init-only, not moved to flash)
 (defun setup_event_handler ()
 {
     (defun event_handler ()
@@ -579,9 +866,14 @@
     })
 })
 
+
 (defun state_metrics_reset ()
 {
     ; State machine tracking (minimal for memory conservation)
+    (define state_last_state STATE_UNINITIALIZED)
+    (define state_last_change_time 0)
+    (define state_last_reason "")
+
     (setvar 'state_last_state STATE_UNINITIALIZED)
     (setvar 'state_last_change_time (systime))
     (setvar 'state_last_reason "startup")
@@ -605,6 +897,10 @@
     (spawn thread_stack handler)
 })
 
+(trap (move-to-flash state_metrics_reset))
+(trap (move-to-flash state_record_transition))
+(trap (move-to-flash state_transition_to))
+
 ; =============================================================================
 ; RPM Calculation Helper
 ; =============================================================================
@@ -617,6 +913,8 @@
         (t value)
     )
 })
+
+(trap (move-to-flash clamp))
 
 (defun speed_percentage_at (speed_index)
 {
@@ -638,6 +936,8 @@
     })
 })
 
+(trap (move-to-flash speed_percentage_at))
+
 (defun calculate_rpm (speed_index divisor)
 {
     (var speed_percent (speed_percentage_at speed_index))
@@ -652,6 +952,8 @@
         base_rpm
     )
 })
+
+(trap (move-to-flash calculate_rpm))
 
 ; =============================================================================
 ; State Machine Design Notes:
@@ -699,6 +1001,8 @@
     clamped_speed
 })
 
+(trap (move-to-flash set_speed_safe))
+
 ; =============================================================================
 ; Smart Cruise Timeout Helper
 ; =============================================================================
@@ -721,6 +1025,9 @@
         })
     )
 })
+
+(trap (move-to-flash check_smart_cruise_timeout))
+
 
 (defun smart_cruise_leds_count ()
 {
@@ -752,6 +1059,9 @@
     })
 })
 
+(trap (move-to-flash smart_cruise_leds_count))
+
+
 (defun state_handler_off ()
 {
     ; xxxx State "0" Off
@@ -775,6 +1085,9 @@
     })
 })
 
+(trap (move-to-flash state_handler_off))
+
+
 (defun smart_cruise_upgrade_if_needed ()
 {
     (if (= smart_cruise SMART_CRUISE_HALF_ENABLED) {
@@ -784,6 +1097,9 @@
         (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
     })
 })
+
+(trap (move-to-flash smart_cruise_upgrade_if_needed))
+
 
 ; Encapsulated click action handler
 (defun apply_click_action (click_count)
@@ -922,6 +1238,8 @@
     )
 })
 
+(trap (move-to-flash apply_click_action))
+
 ; xxxx STATE 1 Counting clicks
 (defun state_handler_counting_clicks ()
 {
@@ -969,6 +1287,8 @@
     })
 })
 
+(trap (move-to-flash state_handler_counting_clicks))
+
 ; xxxx State 2 "Pressed"
 (defun state_handler_pressed ()
 {
@@ -1014,6 +1334,8 @@
         })
     })
 })
+
+(trap (move-to-flash state_handler_pressed))
 
 ; xxxx State 3 "Going Off"
 (defun state_handler_going_off ()
@@ -1087,6 +1409,8 @@
         }) ; end Timer expiry
     }) ; end state
 })
+
+(trap (move-to-flash state_handler_going_off))
 
 (defun start_motor_speed_loop ()
 {
@@ -1205,6 +1529,9 @@
     })
 })
 
+(trap (move-to-flash start_motor_speed_loop))
+
+; Init-only function (not moved to flash)
 (defun thirds_warning_startup ()
 {
     (if (> enable_thirds_warning_startup 0) {
@@ -1245,6 +1572,9 @@
     leds_lit ; Return the LED count or -1
 })
 
+(trap (move-to-flash apply_smart_cruise_timer_bar))
+
+
 (defun start_display_output_loop ()
 {
     (var start_pos 0) ; variable used to define start position in the array of diferent display screens
@@ -1271,16 +1601,35 @@
                 ; Prevent the off→on flip in the same loop iteration
                 (setvar 'last_disp_num DISPLAY_SENTINEL)
             })
-            ; For Cuda X make sure it doesn't get stuck on displaying B1 or B2 error, so switch back to last battery.
-            (if (and (= scooter_type SCOOTER_CUDAX) (> last_disp_num 20))
+            ; For Cuda X, ensure warning frames don't persist after timeout.
+            (if (and (= scooter_type SCOOTER_CUDAX)
+                     (or (and (>= last_disp_num 18) (<= last_disp_num 20))
+                         (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_1)
+                         (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_2)))
                 (setvar 'disp_num last_batt_disp_num)
             )
 
             (setvar 'disp_timer_start 0)
         })
 
-        ; Check if we need to update display (either disp_num changed OR Smart Cruise timer bar needs updating)
-        (var should_update_display (!= disp_num last_disp_num))
+        ; Compute effective display frame.
+        ; Imbalance warning only replaces a SENTINEL (idle) display so it appears
+        ; AFTER any user-triggered frame (speed indicator, battery bar, smart cruise bar)
+        ; has completed its normal timer duration.
+        (var eff_disp disp_num)
+        (if (= eff_disp DISPLAY_SENTINEL) (setq eff_disp DISPLAY_OFF))
+        (if (= eff_disp DISPLAY_SENTINEL) {
+            (var imb_warn (get_battery_imbalance_warning))
+            (if (= imb_warn BATTERY_IMBALANCE_WARN_PACK_1)
+                (setvar 'eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_1)
+            )
+            (if (= imb_warn BATTERY_IMBALANCE_WARN_PACK_2)
+                (setvar 'eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_2)
+            )
+        })
+
+        ; Check if we need to update display (either effective display changed OR Smart Cruise timer bar needs updating)
+        (var should_update_display (!= eff_disp last_disp_num))
 
         ; Check if Smart Cruise timer bar LED count has changed
         (var current_leds (smart_cruise_leds_count))
@@ -1310,33 +1659,55 @@
                     )
                 )
             })
-            ; Only update disp_timer_start if disp_num actually changed
-            (if (!= disp_num last_disp_num) {
+            ; Only update disp_timer_start if effective display actually changed
+            (if (!= eff_disp last_disp_num) {
                 (setvar 'disp_timer_start (systime))
+                ; Log battery imbalance warning transitions
+                (if (or (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_1)
+                        (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_2)) {
+                    (when-debug (str-merge "Battery imbalance detected: pack "
+                        (to-str (if (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_1) 1 2))
+                        " low (imbalance="
+                        (str-from-n (get_battery_imbalance_voltage) "%.2f")
+                        "V, lower="
+                        (str-from-n lower_voltage_smooth "%.2f")
+                        "V)"))
+                })
+                (if (and (or (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_1)
+                             (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_2))
+                         (not (or (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_1)
+                                  (= eff_disp BATTERY_IMBALANCE_DISPLAY_PACK_2)))) {
+                    (debug_log "Battery imbalance warning cleared")
+                })
             })
             (if (= display_mpu_addr 0x70)
-                (setvar 'start_pos (+(* 64 disp_num) (* 16 rotation))) ; define the correct start position in the array for the display
-                (setvar 'start_pos (+(* 64 disp_num) (* 16 rotation2)))
+                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation))) ; define the correct start position in the array for the display
+                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation2)))
             )
             (bufclear pixbuf)
             ; Copy display data from binary LUT only if not sentinel (allows timer bar only display)
-            (if (!= disp_num DISPLAY_SENTINEL)
+            (if (!= eff_disp DISPLAY_SENTINEL)
                 (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16) ; copy the required display from binary LUT to "pixbuf"
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
             (apply_smart_cruise_timer_bar pixbuf)
+            (i2c-tx-rx display_mpu_addr (list 0x81)) ; re-enable display before frame write
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
-            (setvar 'last_disp_num disp_num)
+            (setvar 'last_disp_num eff_disp)
         })
     })
 })
+
+(trap (move-to-flash start_display_output_loop))
 
 ; Returns true once the startup tune has finished AND 1 second has elapsed,
 ; giving a clear gap between the tune and the battery status beeps.
 (defun tune-settled ()
     (and (> startup_tune_done_time 0) (> (secs-since startup_tune_done_time) STARTUP_TUNE_SETTLE))
 )
+
+(trap (move-to-flash tune-settled))
 
 ; **** Program that triggers the display to show battery status ****
 (defun start_display_battery_loop ()
@@ -1439,12 +1810,16 @@
     })
 })
 
+(trap (move-to-flash start_display_battery_loop))
+
 (defun beeper (beeps)
 (loopwhile (and (= enable_battery_beeps 1) (> batt_disp_timer_start 0) (> beeps 0)) {
        (sleep SLEEP_UI_UPDATE)
        (foc-beep 350 0.5 beeps_vol)
       (setvar 'beeps (- beeps 1))
     }))
+
+(trap (move-to-flash beeper))
 
 ; xxxx warbler Program xxxx"
 (defun warbler (Tone Time Delay)
@@ -1455,6 +1830,8 @@
     (foc-beep Tone Time beeps_vol)
     (foc-beep (- Tone 200) Time beeps_vol)
 })
+
+(trap (move-to-flash warbler))
 
 ; ***** Imperial March Theme *****
 ; Plays the first ~9 bars of the Imperial March on startup
@@ -1510,6 +1887,8 @@
     (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
 })
 
+(trap (move-to-flash play_imperial_march))
+
 ; ***** Program that beeps trigger clicks
 (defun start_beeper_loop ()
 {
@@ -1542,125 +1921,63 @@
     })
 })
 
-; Init-only peripheral setup. Lives in the init/main call path because
-; image-save does not restore external hardware state.
+(trap (move-to-flash start_beeper_loop))
+
+; Dedicated thread for the balance-wire EMA + periodic log. Kept off the
+; display thread so any fault in the balance code (or the periodic puts of a
+; long string) cannot interfere with the screen update loop.
+(defun start_balance_loop ()
+{
+    (loopwhile-thd THREAD_STACK_BALANCE t {
+        (sleep SLEEP_UI_UPDATE)
+        ; Trap so early-boot nils from get-duty/get-adc cannot kill the thread.
+        (trap (update_lower_voltage_smooth))
+        (trap (log_balance_voltages_throttled))
+    })
+})
+
+(trap (move-to-flash start_balance_loop))
+
+; Init-only function (not moved to flash)
 (defun peripherals_setup ()
 {
-    (if (or (= 0 hardware_configuration) (= 3 hardware_configuration)) ; turn on i2c for the screen based on wiring. 0 = Blacktip with Bluetooth, 3 = CudaX with Bluetooth
-            (i2c-start 'rate-400k 'pin-swdio 'pin-swclk) ; Works HW 60 with screen on SWD Connector. Screen SDA pin to Vesc SWDIO (2), Screen SCL pin to Vesc SWCLK (4)
-            (if (or (= 1 hardware_configuration) ( = 4 hardware_configuration)) ; 1 = Blacktip without Bluetooth, 4 = CudaX without Bluetooth
-                (i2c-start 'rate-400k 'pin-rx 'pin-tx) ; Works HW 60 with screen on Comm Connector. Screen SDA pin to Vesc RX/SDA (5), Screen SCL pin to Vesc TX/SCL (6)
-                (if ( = 2 hardware_configuration)
-                    (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
-                    (nil))))
+    ; Diagnostic logging is unconditional (NOT gated on debug_enabled) so that
+    ; when the display fails to come up on warm boot we can see exactly which
+    ; step is reached. Remove once the warm-boot display issue is resolved.
+    (puts (str-merge "peripherals_setup: start, hardware_configuration=" (to-str hardware_configuration)
+        " scooter_type=" (to-str scooter_type) " disp_brightness=" (to-str disp_brightness)))
 
-    ; HT16K33 init sequence: oscillator -> display ON -> brightness.
-    ;
-    ; VESC 7.00 BUG WORKAROUND - swallowed first I2C message:
-    ; On 7.00 the FIRST i2c-tx-rx issued after i2c-start (i.e. the first
-    ; transaction on a freshly muxed bus - which happens on every COLD boot, and
-    ; whenever the I2C pins are (re)configured) is silently swallowed: it never
-    ; reaches the device. On 6.06 that same single 0x21 was delivered and the
-    ; panel lit. The result on 7.00 is that the oscillator-enable is lost, the
-    ; HT16K33 oscillator never starts, and the panel stays dark on a cold boot.
-    ; A warm :reset masked the bug two ways: the chip (and its oscillator) stayed
-    ; powered from the previous session, and the bus was already muxed so no
-    ; transaction was swallowed.
-    ;
-    ; Workaround: send the oscillator-enable (0x21) TWICE. The first write is the
-    ; sacrificial one that the bug swallows; the second one actually reaches the
-    ; controller and starts the oscillator. No delay between them is needed.
-    (i2c-tx-rx 0x70 (list 0x21)) ; sacrificial: absorbs the swallowed first transaction
-    (i2c-tx-rx 0x70 (list 0x21)) ; real oscillator / system-setup enable
-    (i2c-tx-rx 0x70 (list 0x81)) ; display ON, blink off
+    (puts "peripherals_setup: i2c-start")
+    (var i2c_result
+        (if (or (= 0 hardware_configuration) (= 3 hardware_configuration)) ; turn on i2c for the screen based on wiring. 0 = Blacktip with Bluetooth, 3 = CudaX with Bluetooth
+                (i2c-start 'rate-400k 'pin-swdio 'pin-swclk) ; Works HW 60 with screen on SWD Connector. Screen SDA pin to Vesc SWDIO (2), Screen SCL pin to Vesc SWCLK (4)
+                (if (or (= 1 hardware_configuration) ( = 4 hardware_configuration)) ; 1 = Blacktip without Bluetooth, 4 = CudaX without Bluetooth
+                    (i2c-start 'rate-400k 'pin-rx 'pin-tx) ; Works HW 60 with screen on Comm Connector. Screen SDA pin to Vesc RX/SDA (5), Screen SCL pin to Vesc TX/SCL (6)
+                    (if ( = 2 hardware_configuration)
+                        (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
+                        (nil)))))
+    (puts (str-merge "peripherals_setup: i2c-start returned " (to-str i2c_result)))
+
+    (puts "peripherals_setup: 0x70 oscillator on")
+    (puts (str-merge "peripherals_setup: 0x70 osc result=" (to-str (i2c-tx-rx 0x70 (list 0x21))))) ; start the oscillator
     ; Set brightness using BRIGHTNESS_LUT (six discrete levels, indices 0..5)
-    (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
+    (puts "peripherals_setup: 0x70 brightness")
+    (puts (str-merge "peripherals_setup: 0x70 bright result=" (to-str
+        (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1)))))))) ; set brightness safely
+    (puts "peripherals_setup: 0x70 display on")
+    (puts (str-merge "peripherals_setup: 0x70 disp-on result=" (to-str (i2c-tx-rx 0x70 (list 0x81)))))
 
     (if (= scooter_type 1) { ; For cuda X setup second screen
-            ; The bus is already muxed and exercised by the 0x70 writes above, so
-            ; the swallow-the-first-message bug does not apply here - a single
-            ; 0x21 is sufficient for the second controller.
-            (i2c-tx-rx 0x71 (list 0x21)) ; start the oscillator
-            (i2c-tx-rx 0x71 (list 0x81)) ; display ON, blink off
-            (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
+            (puts "peripherals_setup: 0x71 oscillator on")
+            (puts (str-merge "peripherals_setup: 0x71 osc result=" (to-str (i2c-tx-rx 0x71 (list 0x21))))) ; start the oscillator
+            (puts "peripherals_setup: 0x71 brightness")
+            (puts (str-merge "peripherals_setup: 0x71 bright result=" (to-str
+                (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))))))
+            (puts "peripherals_setup: 0x71 display on")
+            (puts (str-merge "peripherals_setup: 0x71 disp-on result=" (to-str (i2c-tx-rx 0x71 (list 0x81)))))
     })
-})
 
-; Display LUT binary format helpers (init-only)
-(defun validate_lut_header (data magic expected_version)
-{
-    (var file_magic (bufget-u32 data 0 'little-endian))
-    (var file_version (bufget-u16 data 4 'little-endian))
-    (var num_items (bufget-u16 data 6 'little-endian))
-    (if (!= file_magic magic)
-        nil
-        (if (!= file_version expected_version)
-            nil
-            num_items
-        )
-    )
-})
-
-(defun load_lookup_tables ()
-{
-    ; display_lut_bin is imported at top level (between the const blocks); here
-    ; we only validate the already-loaded byte array.
-    ; Initialize display LUT (returns number of frames or nil on error)
-    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
-
-    ; Verify LUTs loaded successfully - halt if validation fails
-    (if (not display_num_frames)
-        (exit-error "LUT validation failed: display"))
-})
-
-; EEPROM initialization (init-only)
-(defun eeprom_set_defaults ()
-{
-    (if (not-eq (eeprom-read-i 127) (to-i32 1)) {
-        (puts "EEPROM: Initializing defaults for 1.0.0")
-        ; Check for current version marker (blacktip_dpv release 1.0.0)
-        ; New settings added in version 1.0.0
-        (eeprom_store_i_if_changed 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
-        (eeprom_store_i_if_changed 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
-        (eeprom_store_i_if_changed 27 0) ; Enable Thirds warning on from power-up. 1=On 0=Off
-        (eeprom_store_i_if_changed 28 0) ; Battery calculation method: 0=Voltage-based, 1=Ampere-hour based
-        (eeprom_store_i_if_changed 29 0) ; Enable Debug Logging. 1=On 0=Off
-
-        (if (not-eq (eeprom-read-i 127) (to-i32 150)) {
-            (puts "EEPROM: No previous version detected, setting all defaults")
-            ; Check for previous version marker (Dive Xtras V1.50 'Poseidon')
-            ; User speeds, ie 1 thru 8 are only used in the GUI, this lisp code uses speeds 0-9 with 0 & 1 being the 2 reverse speeds.
-            ; 99 is used as the "off" speed
-            (eeprom_store_i_if_changed 0 45) ; Reverse Speed 2 %
-            (eeprom_store_i_if_changed 1 20) ; Untangle Speed 1 %
-            (eeprom_store_i_if_changed 2 30) ; Speed 1 %
-            (eeprom_store_i_if_changed 3 38) ; Speed 2 %
-            (eeprom_store_i_if_changed 4 46) ; Speed 3 %
-            (eeprom_store_i_if_changed 5 54) ; Speed 4 %
-            (eeprom_store_i_if_changed 6 62) ; Speed 5 %
-            (eeprom_store_i_if_changed 7 70) ; Speed 6 %
-            (eeprom_store_i_if_changed 8 78) ; Speed 7 %
-            (eeprom_store_i_if_changed 9 100) ; Speed 8 %
-            (eeprom_store_i_if_changed 10 9) ; Maximum number of Speeds to use, must be greater or equal to start_speed (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 11 4) ; Speed the scooter starts in. Range 2-9, must be less or equal to the max_speed_no (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 12 7) ; Speed to jump to on triple click, (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 13 1) ; Turn safe start on or off 1=On 0=Off
-            (eeprom_store_i_if_changed 14 0) ; Enable Reverse speed. 1=On 0=Off
-            (eeprom_store_i_if_changed 15 0) ; Enable Smart Cruise (3 clicks while running). 1=On 0=Off
-            (eeprom_store_i_if_changed 16 60) ; How long before Smart Cruise times out and requires reactivation in sec.
-            (eeprom_store_i_if_changed 17 0) ; rotation of Display, 0-3 . Each number rotates display 90 deg.
-            (eeprom_store_i_if_changed 18 5) ; Display Brighness 0-5
-            (eeprom_store_i_if_changed 19 0) ; Hardware configuration, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
-            (eeprom_store_i_if_changed 20 0) ; Battery Beeps
-            (eeprom_store_i_if_changed 21 3) ; Beep Volume
-            (eeprom_store_i_if_changed 22 0) ; CudaX Flip Screens
-            (eeprom_store_i_if_changed 23 0) ; 2nd Screen rotation of Display, 0-3 . Each number rotates display 90 deg.
-            (eeprom_store_i_if_changed 24 0) ; Trigger Click Beeps
-        })
-        ; Mark as initialised for 1.0.0
-        (eeprom_store_i_if_changed 127 1) ; indicate that the defaults have been applied
-        (puts "EEPROM: Defaults initialized successfully")
-    })
+    (puts "peripherals_setup: done")
 })
 
 (defun init ()
@@ -1680,64 +1997,65 @@
 
     (log_startup)
 
-    ; State 3rds tracking - re-initialised at runtime (heap globals)
-    (setvar 'thirds_total 0)
-    (setvar 'warning_counter 0) ; Count how many times the 3rds warnings have been triggered.
-    (setvar 'thirds_warning_latched 0) ; Prevents repeated long-press activation
+    (define thirds_total 0)
+    (define warning_counter 0) ; Count how many times the 3rds warnings have been triggered.
+    (define thirds_warning_latched 0) ; Prevents repeated long-press activation
 
     (thirds_warning_startup)
 
     (setup_event_handler)
 
-    (setvar 'sw_state 0)
-    (setvar 'timer_start 0)
-    (setvar 'timer_duration 0)
-    (setvar 'initial_press_time 0)
-    (setvar 'clicks 0)
-    (setvar 'actual_batt 0)
-    (setvar 'new_start_speed start_speed)
-    (setvar 'speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
-    (setvar 'state_last_state STATE_UNINITIALIZED)
-    (setvar 'state_last_change_time 0)
-    (setvar 'state_last_reason "")
+    (define sw_state 0)
+    (define timer_start 0)
+    (define timer_duration 0)
+    (define initial_press_time 0)
+    (define clicks 0)
+    (define actual_batt 0)
+    (define new_start_speed start_speed)
+    (define speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
+    (define state_last_state STATE_UNINITIALIZED)
+    (define state_last_change_time 0)
+    (define state_last_reason "")
 
     (state_metrics_reset)
 
-    (setvar 'speed SPEED_OFF)
-    (setvar 'safe_start_timer 0)
-    (setvar 'soft_start_timer 0)
-    (setvar 'soft_start_active 0)
-    (setvar 'safe_start_attempt_speed SPEED_OFF)
-    (setvar 'safe_start_failures 0)
-    (setvar 'safe_start_status 'idle)
+    (define speed SPEED_OFF)
+    (define safe_start_timer 0)
+    (define soft_start_timer 0)
+    (define soft_start_active 0)
+    (define safe_start_attempt_speed SPEED_OFF)
+    (define safe_start_failures 0)
+    (define safe_start_status 'idle)
 
     (start_motor_speed_loop)
 
-    (setvar 'click_beep 0)
+    (define click_beep 0)
 
     (start_beeper_loop)
 
-    (setvar 'disp_timer_start 0) ; Timer for display duration
+    (define disp_timer_start 0) ; Timer for display duration
 
     (peripherals_setup)
 
-    (setvar 'disp_num 1) ; variable used to define the display screen you are accesing 0-X
-    (setvar 'last_disp_num 1) ; variable used to track last display screen show
+    (define disp_num 1) ; variable used to define the display screen you are accesing 0-X
+    (define last_disp_num -1) ; variable used to track last display screen show
 
     (start_display_output_loop)
 
-    (setvar 'batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
-    (setvar 'last_batt_disp_num 3) ; variable used to track last display screen show
-    (setvar 'startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
-    (setvar 'batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
+    (define batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
+    (define last_batt_disp_num 3) ; variable used to track last display screen show
+    (define startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (define batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
 
-    (setvar 'smart_cruise SMART_CRUISE_OFF)
+    (start_balance_loop)
+
+    (define smart_cruise SMART_CRUISE_OFF)
 
     (start_smart_cruise_loop)
 
-    (setvar 'sw_pressed 0)
+    (define sw_pressed 0)
 
     (start_trigger_loop)
 
@@ -1757,25 +2075,41 @@
     )
 
     (puts "Startup complete")
-
-    ; Keep main resident as a persistent supervisory context instead of
-    ; returning. The worker threads (motor/display/state-machine/etc.) were all
-    ; spawned above and run independently; this loop simply keeps the main
-    ; context alive (matching the common image-save 'looping main' idiom) and
-    ; gives a single place for periodic health checks. Low frequency to keep
-    ; CPU/wakeups negligible.
-    (loopwhile t {
-        (sleep 1.0)
-        ; (optional) supervisory hooks could go here later, e.g. re-assert the
-        ; display controller or restart a thread that has died.
-    })
 })
 
-@const-end
+; Configuration settings
+(define max_speed_no 0)
+(define start_speed 0)
+(define jump_speed 0)
+(define use_safe_start 0)
+(define enable_reverse 0)
+(define enable_smart_cruise 0)
+(define smart_cruise_timeout 0)
+(define rotation 0)
+(define disp_brightness 0)
+(define hardware_configuration 0)
+(define enable_battery_beeps 0)
+(define beeps_vol 0)
+(define cudax_flip 0)
+(define rotation2 0)
+(define enable_trigger_beeps 0)
+(define enable_smart_cruise_auto_engage 0)
+(define smart_cruise_auto_engage_time 0)
+(define enable_thirds_warning_startup 0)
+(define battery_calculation_method 0)
+(define debug_enabled 0)
+(define speed_set 0)
+(define scooter_type 0)
+(define battery_imbalance_threshold_centi 0)
+(define adc_balance_wire_multiplier_x10 ADC_BAL_MULT_X10_DEFAULT)
+(define lower_voltage_smooth 0.0)
+(define total_voltage_smooth 0.0)
+(define balance_smoothing_held 0)   ; 1 when update_lower_voltage_smooth is currently inside the post-transient settle window
+(define balance_settle_counter 0)   ; samples remaining in the settle window after a duty-cycle change
+(define balance_last_duty 0.0)      ; last sampled commanded duty cycle (for transient detection)
 
-; See DEVELOPMENT.md for boot sequence details.
 (init)
 
-(progn
-    (image-save)
-    (main))
+(image-save)
+
+(main)

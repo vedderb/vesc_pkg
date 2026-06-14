@@ -29,75 +29,6 @@ For more details, see the sections below and refer to `blacktip_dpv.lisp` for im
 
 This document contains information for developers working on the BlackTip DPV VESC package.
 
-## VESC 7.00 Compatibility
-
-### Flash / Heap Layout Strategy
-
-VESC firmware 7.00 introduced a persistent flash heap using `@const-start` / `@const-end` blocks that replaces the older `move-to-flash` pattern. The runtime is structured as two const blocks with mutable state defined between them:
-
-```
-@const-start       ; Block 1: constants and the debug-logging macro (flashed, immutable)
-  (define SLEEP_STATE_MACHINE …)
-  …
-  (define debug_log_format …)
-@const-end
-
-; MUTABLE GLOBAL STATE — heap-resident (NOT flashed), so setvar/set works at runtime.
-(define sw_state 0)
-…
-
-(import "generated/display_lut.bin" 'display_lut_bin)
-
-@const-start       ; Block 2: all functions (flashed, immutable)
-  (defun eeprom_store_i_if_changed …)
-  …
-@const-end
-
-; Boot sequence: init, then (progn (image-save) (main)) as a single top-level form.
-(init)
-(progn
-    (image-save)
-    (main))
-```
-
-**Rules that govern this layout:**
-
-**(a) Mutable globals must live outside the const blocks.**
-Flashed bindings are immutable. Every variable written at runtime via `setvar` or `set` must be defined on the working heap, between the two const blocks. These heap globals are pre-defined at the top level so their initialisers can reference already-flashed constants.
-
-**(b) Const-block initialisers are evaluated in source order.**
-A constant that references an earlier constant (e.g. `SOFT_START_DURATION` referencing `SAFE_START_TIMEOUT`) must come after it in the file. Function bodies have no such ordering constraint; LispBM resolves symbols at call time, not at definition time.
-
-**(c) Hardware init runs on every boot.**
-`image-save` does not restore external hardware state. All hardware initialisation (`i2c-start`, `gpio-configure`, oscillator setup) must live in the `init` / `main` call path so it re-executes on each cold boot.
-
-**(d) `import` must be a top-level form, not inside a flashed function.**
-When an `import` lives inside a flashed const-block function, the binding action is lost on subsequent boots; the imported symbol resolves to `nil`, causing `bufget-u32` type errors at runtime. The `import` for `display_lut.bin` is therefore placed as a top-level form between the two const blocks, where it runs once each time the package source is evaluated.
-
-**(e) `image-save` and `main` must be wrapped in a single `(progn …)` form.**
-`image-save` relocates the heap and serialises the environment, which invalidates the reader's source channel. If `image-save` and `main` are separate top-level forms, the reader tries to read `main` from the channel after `image-save` has run and fails with `read_error / ~CHANNEL~`. Wrapping both in one `(progn …)` means the entire form is parsed first, then `image-save` and `main` execute back-to-back with no intervening read.
-
-**(f) On subsequent boots the saved image is loaded and `main` is auto-invoked.**
-Only `init` runs from source on the very first boot after a fresh package upload. From the second boot onwards, the saved image is restored and `main` is invoked directly, bypassing the reader entirely.
-
-### VESC 7.00 Known Bugs and Workarounds
-
-#### I2C First-Message Bug
-
-On VESC firmware 7.00, the first `i2c-tx-rx` call issued after `i2c-start` — i.e. the first transaction on a freshly muxed bus, which happens on every cold boot — is silently swallowed and never reaches the I2C device.
-
-**Effect on cold boot:** The HT16K33 display controller's oscillator-enable command (`0x21`) was dropped on every cold boot. The oscillator never started, so the display chip stayed dormant and the screen remained dark. On firmware 6.06 the same single `0x21` was delivered correctly and the panel lit up.
-
-**Workaround:** Send the oscillator-enable command twice. The first write is sacrificial (absorbed by the firmware bug); the second is delivered to the controller.
-
-```lisp
-(i2c-tx-rx 0x70 (list 0x21)) ; sacrificial — absorbs the dropped first transaction
-(i2c-tx-rx 0x70 (list 0x21)) ; real oscillator-enable, reaches the HT16K33
-(i2c-tx-rx 0x70 (list 0x81)) ; display ON, blink off
-```
-
-This bug only affects the first transaction on a freshly muxed bus. Subsequent commands on the same bus configuration are delivered normally. The second display controller (`0x71` on CudaX) does not need the doubled command because by the time it is initialised the bus is already exercised by the `0x70` sequence.
-
 ## Build System
 
 The project uses GNU Make for building the VESC package:
@@ -250,13 +181,13 @@ Two mechanisms are available for debug logging:
 
     (debug_log "Motor: Stopping motor")
 
-**`debug_log_format` macro** - For dynamic strings with expensive operations:
+**`when-debug` macro** - For dynamic strings with expensive operations:
 
-    (debug_log_format (str-merge "Speed: Set to " (to-str clamped_speed)))
+    (when-debug (str-merge "Speed: Set to " (to-str clamped_speed)))
 
-### When to Use `debug_log_format`
+### When to Use `when-debug`
 
-Use the `debug_log_format` macro when logging requires:
+Use the `when-debug` macro when logging requires:
 
 * String concatenation (`str-merge`)
 * Number-to-string conversion (`to-str`)
@@ -264,7 +195,7 @@ Use the `debug_log_format` macro when logging requires:
 
 The macro only evaluates these expressions when `debug_enabled` is 1, preventing unnecessary memory allocation and CPU cycles in hot paths.
 
-### Hot Paths Requiring `debug_log_format`
+### Hot Paths Requiring `when-debug`
 
 * `set_speed_safe` - Called every speed change (multiple times per second)
 * Motor control loop - Runs continuously
@@ -279,7 +210,7 @@ The macro only evaluates these expressions when `debug_enabled` is 1, preventing
 
 **Good** (only evaluates when debug is enabled):
 
-    (debug_log_format (str-merge "Speed: Set to " (to-str speed)))
+    (when-debug (str-merge "Speed: Set to " (to-str speed)))
 
 ## Testing Best Practices
 
@@ -327,12 +258,12 @@ Example:
 
 The runtime uses LispBM's `import` statement to load binary data at runtime:
 
-    ; Import binary file as a top-level form (NOT inside a flashed function — see VESC 7.00 notes)
-    (import "generated/display_lut.bin" 'display_lut_bin)
+    ; Import binary files
+    (import "generated/display_lut.bin" 'display-lut-bin)
     ; Validate headers
-    (defun validate_lut_header (data magic expected_version) { … })
+    (defun validate-lut-header (data magic expected-version) { ... })
     ; Access display data (offset by 8-byte header)
-    (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+    (bufcpy pixbuf 0 display-lut-bin (+ 8 start_pos) 16)
 
 ### Why `pixbuf` is Required
 
@@ -340,9 +271,9 @@ The `pixbuf` variable is a 16-byte working buffer that is essential to the displ
 
     (let ((start_pos 0)
              (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
-          …
+          ...
           // Copy 16 bytes from binary file to pixbuf
-          (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+          (bufcpy pixbuf 0 display-lut-bin (+ 8 start_pos) 16)
 
           // Send pixbuf to display via I2C
           (i2c-tx-rx mpu-addr pixbuf)
