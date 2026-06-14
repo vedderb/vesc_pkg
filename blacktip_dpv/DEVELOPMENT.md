@@ -35,7 +35,7 @@ This document contains information for developers working on the BlackTip DPV VE
 
 VESC firmware 7.00 introduced a persistent flash heap using `@const-start` / `@const-end` blocks that replaces the older `move-to-flash` pattern. The runtime is structured as two const blocks with mutable state defined between them:
 
-```
+```lisp
 @const-start       ; Block 1: constants and the debug-logging macro (flashed, immutable)
   (define SLEEP_STATE_MACHINE …)
   …
@@ -102,11 +102,13 @@ This bug only affects the first transaction on a freshly muxed bus. Subsequent c
 
 The project uses GNU Make for building the VESC package:
 
-    make              # Build blacktip_dpv.vescpkg
-    make clean        # Remove generated files
-    make test         # Run code quality checks and smoke tests
-    make smoke-tests  # Run unit-style smoke tests only
-    make binary       # Generate binary LUT files only
+```text
+make              # Build blacktip_dpv.vescpkg
+make clean        # Remove generated files
+make test         # Run code quality checks and smoke tests
+make smoke-tests  # Run unit-style smoke tests only
+make binary       # Generate binary LUT files only
+```
 
 ### Version Management
 
@@ -133,7 +135,9 @@ To update the version:
 
 The project includes smoke tests for pure functions to catch regressions before flashing hardware:
 
-    make smoke-tests  # Run 30+ unit tests for pure functions
+```text
+make smoke-tests  # Run 30+ unit tests for pure functions
+```
 
 **Tested functions:**
 
@@ -174,16 +178,18 @@ This CSV file is the source of truth. The build system automatically generates t
 
 Visualize and verify display artwork before building:
 
-    // List all available screens
-    python tools/preview_display.py --list
-    // Preview a specific frame by index
-    python tools/preview_display.py --index 0
-    // Preview by name and rotation
-    python tools/preview_display.py --name "Display Battery 4 Bars" --rotation 0
-    // Show all screens for a given rotation
-    python tools/preview_display.py --show-all-rotation 0
-    // Export as PGM image
-    python tools/preview_display.py --index 0 --output preview.pgm
+```text
+// List all available screens
+python tools/preview_display.py --list
+// Preview a specific frame by index
+python tools/preview_display.py --index 0
+// Preview by name and rotation
+python tools/preview_display.py --name "Display Battery 4 Bars" --rotation 0
+// Show all screens for a given rotation
+python tools/preview_display.py --show-all-rotation 0
+// Export as PGM image
+python tools/preview_display.py --index 0 --output preview.pgm
+```
 
 The preview tool applies the correct 90° clockwise rotation and vertical flip to match the physical hardware orientation.
 
@@ -228,7 +234,9 @@ Each display frame consists of:
 
 ### Testing
 
-    make test  # Runs whitespace checks
+```text
+make test  # Runs whitespace checks
+```
 
 ### Code Style
 
@@ -248,11 +256,15 @@ Two mechanisms are available for debug logging:
 
 **`debug_log` function** - For static strings:
 
-    (debug_log "Motor: Stopping motor")
+```lisp
+(debug_log "Motor: Stopping motor")
+```
 
 **`debug_log_format` macro** - For dynamic strings with expensive operations:
 
-    (debug_log_format (str-merge "Speed: Set to " (to-str clamped_speed)))
+```lisp
+(debug_log_format (str-merge "Speed: Set to " (to-str clamped_speed)))
+```
 
 ### When to Use `debug_log_format`
 
@@ -275,11 +287,15 @@ The macro only evaluates these expressions when `debug_enabled` is 1, preventing
 
 **Bad** (evaluates `str-merge` even when debug is off):
 
-    (debug_log (str-merge "Speed: Set to " (to-str speed)))
+```lisp
+(debug_log (str-merge "Speed: Set to " (to-str speed)))
+```
 
 **Good** (only evaluates when debug is enabled):
 
-    (debug_log_format (str-merge "Speed: Set to " (to-str speed)))
+```lisp
+(debug_log_format (str-merge "Speed: Set to " (to-str speed)))
+```
 
 ## Testing Best Practices
 
@@ -297,6 +313,10 @@ When adding new pure functions (functions without side effects), add correspondi
 * Error conditions
 
 4. **Run tests before committing**:
+
+```text
+make test
+```
 
 ### What to Test
 
@@ -317,36 +337,42 @@ Each test function should:
 
 Example:
 
-    def test_new_function():
-        print("\n=== Testing new_function ===")
-        assert_eq(new_function(5), 10, "new_function: basic case")
-        assert_eq(new_function(0), 0, "new_function: zero input")
-        assert_eq(new_function(-1), 0, "new_function: negative clamped")
+```text
+def test_new_function():
+    print("\n=== Testing new_function ===")
+    assert_eq(new_function(5), 10, "new_function: basic case")
+    assert_eq(new_function(0), 0, "new_function: zero input")
+    assert_eq(new_function(-1), 0, "new_function: negative clamped")
+```
 
 ## Binary Loading Implementation
 
 The runtime uses LispBM's `import` statement to load binary data at runtime:
 
-    ; Import binary file as a top-level form (NOT inside a flashed function — see VESC 7.00 notes)
-    (import "generated/display_lut.bin" 'display_lut_bin)
-    ; Validate headers
-    (defun validate_lut_header (data magic expected_version) { … })
-    ; Access display data (offset by 8-byte header)
-    (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+```lisp
+; Import binary file as a top-level form (NOT inside a flashed function — see VESC 7.00 notes)
+(import "generated/display_lut.bin" 'display_lut_bin)
+; Validate headers
+(defun validate_lut_header (data magic expected_version) { … })
+; Access display data (offset by 8-byte header)
+(bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+```
 
 ### Why `pixbuf` is Required
 
 The `pixbuf` variable is a 16-byte working buffer that is essential to the display system and **cannot be removed**:
 
-    (let ((start_pos 0)
-             (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
-          …
-          // Copy 16 bytes from binary file to pixbuf
-          (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+```lisp
+(let ((start_pos 0)
+         (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
+      …
+      // Copy 16 bytes from binary file to pixbuf
+      (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
 
-          // Send pixbuf to display via I2C
-          (i2c-tx-rx mpu-addr pixbuf)
-    })
+      // Send pixbuf to display via I2C
+      (i2c-tx-rx mpu-addr pixbuf)
+})
+```
 
 **Why it's needed:**
 
