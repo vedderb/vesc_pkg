@@ -1,6 +1,9 @@
+; For architecture notes and VESC 7.00 porting details, see DEVELOPMENT.md.
+
 ; =============================================================================
-; Constants
+; CONST BLOCK 1 - constants and the debug-logging macro (flashed, immutable)
 ; =============================================================================
+@const-start
 
 ; Sleep intervals (seconds) - controls loop frequencies
 (define SLEEP_STATE_MACHINE 0.02)     ; 50Hz - button state polling
@@ -134,85 +137,95 @@
 ; Settle time after startup before allowing more beeper indications (e.g. thirds warning)
 (define STARTUP_TUNE_SETTLE 1.0)
 
-; Display LUT binary format helpers (init-only, not moved to flash)
-(defun validate_lut_header (data magic expected_version)
-{
-    (var file_magic (bufget-u32 data 0 'little-endian))
-    (var file_version (bufget-u16 data 4 'little-endian))
-    (var num_items (bufget-u16 data 6 'little-endian))
-    (if (!= file_magic magic)
-        nil
-        (if (!= file_version expected_version)
-            nil
-            num_items
-        )
+; Lightweight macro to conditionally evaluate debug logging expressions
+; Only evaluates the logging expression when debug_enabled is 1
+; This prevents expensive str-merge and to-str calls on memory-constrained targets
+(define debug_log_format (macro (expr)
+    `(if (and (not-eq debug_enabled nil) (= debug_enabled 1))
+        (puts ,expr)
     )
-})
+))
 
-(defun load_lookup_tables ()
-{
-    ; Import display and brightness lookup tables from binary files
-    ; These files are generated at build time from CSV sources
-    (import "generated/display_lut.bin" 'display_lut_bin)
+@const-end
 
-    ; Initialize display LUT (returns number of frames or nil on error)
-    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
+; =============================================================================
+; MUTABLE GLOBAL STATE - heap-resident (NOT flashed), so setvar/set works.
+; Defined here (after the constants block) so initialisers may reference the
+; constants above. main re-initialises these at runtime.
+; =============================================================================
 
-    ; Verify LUTs loaded successfully - halt if validation fails
-    (if (not display_num_frames)
-        (exit-error "LUT validation failed: display"))
-})
+; --- EEPROM-backed configuration ---
+(define max_speed_no 0)
+(define start_speed 0)
+(define jump_speed 0)
+(define use_safe_start 0)
+(define enable_reverse 0)
+(define enable_smart_cruise 0)
+(define smart_cruise_timeout 0)
+(define rotation 0)
+(define disp_brightness 0)
+(define hardware_configuration 0)
+(define enable_battery_beeps 0)
+(define beeps_vol 0)
+(define cudax_flip 0)
+(define rotation2 0)
+(define enable_trigger_beeps 0)
+(define enable_smart_cruise_auto_engage 0)
+(define smart_cruise_auto_engage_time 0)
+(define enable_thirds_warning_startup 0)
+(define battery_calculation_method 0)
+(define debug_enabled 0)
+(define speed_set 0)
+(define scooter_type 0)
 
-; EEPROM initialization (init-only, not moved to flash)
-(defun eeprom_set_defaults ()
-{
-    (if (not-eq (eeprom-read-i 127) (to-i32 1)) {
-        (puts "EEPROM: Initializing defaults for 1.0.0")
-        ; Check for current version marker (blacktip_dpv release 1.0.0)
-        ; New settings added in version 1.0.0
-        (eeprom_store_i_if_changed 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
-        (eeprom_store_i_if_changed 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
-        (eeprom_store_i_if_changed 27 0) ; Enable Thirds warning on from power-up. 1=On 0=Off
-        (eeprom_store_i_if_changed 28 0) ; Battery calculation method: 0=Voltage-based, 1=Ampere-hour based
-        (eeprom_store_i_if_changed 29 0) ; Enable Debug Logging. 1=On 0=Off
+; --- Runtime state machine / motor / display vars ---
+(define sw_state 0)
+(define sw_pressed 0)
+(define timer_start 0)
+(define timer_duration 0)
+(define initial_press_time 0)
+(define clicks 0)
+(define speed SPEED_OFF)
+(define new_start_speed 0)
+(define speed_set_via_jump nil)       ; Track if current speed was set via jump (triple-click) and not manually changed
+(define smart_cruise SMART_CRUISE_OFF)
 
-        (if (not-eq (eeprom-read-i 127) (to-i32 150)) {
-            (puts "EEPROM: No previous version detected, setting all defaults")
-            ; Check for previous version marker (Dive Xtras V1.50 'Poseidon')
-            ; User speeds, ie 1 thru 8 are only used in the GUI, this lisp code uses speeds 0-9 with 0 & 1 being the 2 reverse speeds.
-            ; 99 is used as the "off" speed
-            (eeprom_store_i_if_changed 0 45) ; Reverse Speed 2 %
-            (eeprom_store_i_if_changed 1 20) ; Untangle Speed 1 %
-            (eeprom_store_i_if_changed 2 30) ; Speed 1 %
-            (eeprom_store_i_if_changed 3 38) ; Speed 2 %
-            (eeprom_store_i_if_changed 4 46) ; Speed 3 %
-            (eeprom_store_i_if_changed 5 54) ; Speed 4 %
-            (eeprom_store_i_if_changed 6 62) ; Speed 5 %
-            (eeprom_store_i_if_changed 7 70) ; Speed 6 %
-            (eeprom_store_i_if_changed 8 78) ; Speed 7 %
-            (eeprom_store_i_if_changed 9 100) ; Speed 8 %
-            (eeprom_store_i_if_changed 10 9) ; Maximum number of Speeds to use, must be greater or equal to start_speed (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 11 4) ; Speed the scooter starts in. Range 2-9, must be less or equal to the max_speed_no (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 12 7) ; Speed to jump to on triple click, (actual speed #, not user speed)
-            (eeprom_store_i_if_changed 13 1) ; Turn safe start on or off 1=On 0=Off
-            (eeprom_store_i_if_changed 14 0) ; Enable Reverse speed. 1=On 0=Off
-            (eeprom_store_i_if_changed 15 0) ; Enable Smart Cruise (3 clicks while running). 1=On 0=Off
-            (eeprom_store_i_if_changed 16 60) ; How long before Smart Cruise times out and requires reactivation in sec.
-            (eeprom_store_i_if_changed 17 0) ; rotation of Display, 0-3 . Each number rotates display 90 deg.
-            (eeprom_store_i_if_changed 18 5) ; Display Brighness 0-5
-            (eeprom_store_i_if_changed 19 0) ; Hardware configuration, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
-            (eeprom_store_i_if_changed 20 0) ; Battery Beeps
-            (eeprom_store_i_if_changed 21 3) ; Beep Volume
-            (eeprom_store_i_if_changed 22 0) ; CudaX Flip Screens
-            (eeprom_store_i_if_changed 23 0) ; 2nd Screen rotation of Display, 0-3 . Each number rotates display 90 deg.
-            (eeprom_store_i_if_changed 24 0) ; Trigger Click Beeps
-        })
-        ; Mark as initialised for 1.0.0
-        (eeprom_store_i_if_changed 127 1) ; indicate that the defaults have been applied
-        (puts "EEPROM: Defaults initialized successfully")
-    })
-})
+(define state_last_state STATE_UNINITIALIZED)
+(define state_last_change_time 0)
+(define state_last_reason "")
 
+(define safe_start_timer 0)
+(define soft_start_timer 0)
+(define soft_start_active 0)
+(define safe_start_attempt_speed SPEED_OFF)
+(define safe_start_failures 0)
+(define safe_start_status 'idle)
+
+(define actual_batt 0)
+(define thirds_total 0)
+(define warning_counter 0)            ; Count how many times the 3rds warnings have been triggered.
+(define thirds_warning_latched 0)     ; Prevents repeated long-press activation
+
+(define click_beep 0)
+(define disp_timer_start 0)           ; Timer for display duration
+(define disp_num 1)                   ; variable used to define the display screen you are accesing 0-X
+(define last_disp_num 1)              ; variable used to track last display screen show
+(define batt_disp_timer_start 0)      ; Timer to see if Battery display has been triggered
+(define last_batt_disp_num 3)         ; variable used to track last display screen show
+(define startup_tune_done_time 0)     ; Timestamp when startup tune finished (0 = not done yet)
+(define batt_beeps_pending 0)         ; Battery beep count deferred until startup tune settle delay
+
+; Display LUT byte array. import MUST be a top-level form (not inside a flashed
+; const-block function), so the binding survives onto the heap. VESC Tool embeds
+; generated/display_lut.bin at upload time; flashed functions reference
+; display_lut_bin and resolve it at call time.
+(import "generated/display_lut.bin" 'display_lut_bin)
+
+; =============================================================================
+; CONST BLOCK 2 - all functions (flashed, immutable). Function order is not
+; significant for flashing because LispBM resolves symbols at call time.
+; =============================================================================
+@const-start
 
 ; Helper function to reduce EEPROM wear by only writing when value changes
 (defun eeprom_store_i_if_changed (addr new_val)
@@ -223,8 +236,13 @@
     )
 })
 
-(move-to-flash eeprom_store_i_if_changed)
-
+; Debug logging helper function
+(defun debug_log (msg)
+{
+    (if (and (not-eq debug_enabled nil) (= debug_enabled 1))
+        (puts msg)
+    )
+})
 
 ; =============================================================================
 ; Safe Start Helpers
@@ -248,15 +266,11 @@
     })
 })
 
-(move-to-flash safe_start_set_status)
-
 ; Helper to set soft_start_active (silent - no logging to reduce noise)
 (defun soft_start_set_active (val)
 {
     (setvar 'soft_start_active val)
 })
-
-(move-to-flash soft_start_set_active)
 
 (defun safe_start_reset_state ()
 {
@@ -266,8 +280,6 @@
     (safe_start_set_status 'idle)
     (soft_start_set_active 0)
 })
-
-(move-to-flash safe_start_reset_state)
 
 (defun safe_start_begin (target_speed)
 {
@@ -285,8 +297,6 @@
     })
 })
 
-(move-to-flash safe_start_begin)
-
 (defun safe_start_success ()
 {
     (setvar 'safe_start_timer 0)
@@ -294,8 +304,6 @@
     (setvar 'safe_start_failures 0)
     (safe_start_set_status 'success)
 })
-
-(move-to-flash safe_start_success)
 
 (defun safe_start_increment_failure (reason)
 {
@@ -306,14 +314,10 @@
     })
 })
 
-(move-to-flash safe_start_increment_failure)
-
 (defun safe_start_should_retry ()
 {
     (< safe_start_failures SAFE_START_MAX_RETRIES)
 })
-
-(move-to-flash safe_start_should_retry)
 
 (defun safe_start_abort_with_reason (reason)
 {
@@ -332,14 +336,10 @@
     })
 })
 
-(move-to-flash safe_start_abort_with_reason)
-
 (defun safe_start_value_valid (value max_abs)
 {
     (and (= value value) (< (abs value) max_abs))
 })
-
-(move-to-flash safe_start_value_valid)
 
 (defun safe_start_telemetry_valid (rpm duty current)
 {
@@ -348,8 +348,6 @@
          (safe_start_value_valid current 200))
 })
 
-(move-to-flash safe_start_telemetry_valid)
-
 (defun safe_start_met_success_criteria (rpm duty current)
 {
     (and (> (abs rpm) SAFE_START_MIN_RPM)
@@ -357,9 +355,8 @@
          (< (abs current) SAFE_START_MAX_CURRENT))
 })
 
-(move-to-flash safe_start_met_success_criteria)
-
-; Settings initialization (init-only, not moved to flash)
+; Settings initialization (init-only, but harmless to flash - it only reads
+; eeprom and writes mutable heap globals via setvar)
 (defun update_settings_from_eeprom ()
 {
     (setvar 'max_speed_no (eeprom-read-i 10))
@@ -403,6 +400,48 @@
     )
 })
 
+(defun log_settings_1 ()
+{
+    (debug_log_format (str-merge "- max_speed_no: " (to-str (to-i max_speed_no))
+        "\n- start_speed: " (to-str (to-i start_speed))
+        "\n- jump_speed: " (to-str (to-i jump_speed))
+        "\n- use_safe_start: " (to-str (to-i use_safe_start))
+        "\n- enable_reverse: " (to-str (to-i enable_reverse))
+        "\n- enable_smart_cruise: " (to-str (to-i enable_smart_cruise))
+        "\n- smart_cruise_timeout: " (to-str (to-i smart_cruise_timeout))
+        "\n- rotation: " (to-str (to-i rotation))
+        "\n- disp_brightness: " (to-str (to-i disp_brightness))
+        "\n- enable_battery_beeps: " (to-str (to-i enable_battery_beeps))
+        "\n- beeps_vol: " (to-str (to-i beeps_vol))
+        "\n- cudax_flip: " (to-str (to-i cudax_flip))
+        "\n- rotation2: " (to-str (to-i rotation2))
+        "\n- enable_trigger_beeps: " (to-str (to-i enable_trigger_beeps))
+    ))
+})
+
+(defun log_settings_2 ()
+{
+    (debug_log_format (str-merge "- enable_smart_cruise_auto_engage: " (to-str (to-i enable_smart_cruise_auto_engage))
+        "\n- smart_cruise_auto_engage_time: " (to-str (to-i smart_cruise_auto_engage_time))
+        "\n- enable_thirds_warning_startup: " (to-str (to-i enable_thirds_warning_startup))
+        "\n- battery_calculation_method: " (to-str (to-i battery_calculation_method))
+    ))
+})
+
+(defun log_speeds ()
+{
+    (debug_log_format (str-merge "- speed (reverse): " (to-str (to-i (ix speed_set 0)))
+        "\n- speed (untangle): " (to-str (to-i (ix speed_set 1)))
+        "\n- speed (1): " (to-str (to-i (ix speed_set 2)))
+        "\n- speed (2): " (to-str (to-i (ix speed_set 3)))
+        "\n- speed (3): " (to-str (to-i (ix speed_set 4)))
+        "\n- speed (4): " (to-str (to-i (ix speed_set 5)))
+        "\n- speed (5): " (to-str (to-i (ix speed_set 6)))
+        "\n- speed (6): " (to-str (to-i (ix speed_set 7)))
+        "\n- speed (7): " (to-str (to-i (ix speed_set 8)))
+        "\n- speed (8): " (to-str (to-i (ix speed_set 9)))
+    ))
+})
 
 (defun log_startup ()
 {
@@ -426,73 +465,6 @@
     })
 })
 
-
-(defun log_settings_1 ()
-{
-    (debug_log_format (str-merge "- max_speed_no: " (to-str (to-i max_speed_no))
-        "\n- start_speed: " (to-str (to-i start_speed))
-        "\n- jump_speed: " (to-str (to-i jump_speed))
-        "\n- use_safe_start: " (to-str (to-i use_safe_start))
-        "\n- enable_reverse: " (to-str (to-i enable_reverse))
-        "\n- enable_smart_cruise: " (to-str (to-i enable_smart_cruise))
-        "\n- smart_cruise_timeout: " (to-str (to-i smart_cruise_timeout))
-        "\n- rotation: " (to-str (to-i rotation))
-        "\n- disp_brightness: " (to-str (to-i disp_brightness))
-        "\n- enable_battery_beeps: " (to-str (to-i enable_battery_beeps))
-        "\n- beeps_vol: " (to-str (to-i beeps_vol))
-        "\n- cudax_flip: " (to-str (to-i cudax_flip))
-        "\n- rotation2: " (to-str (to-i rotation2))
-        "\n- enable_trigger_beeps: " (to-str (to-i enable_trigger_beeps))
-    ))
-})
-
-
-(defun log_settings_2 ()
-{
-    (debug_log_format (str-merge "- enable_smart_cruise_auto_engage: " (to-str (to-i enable_smart_cruise_auto_engage))
-        "\n- smart_cruise_auto_engage_time: " (to-str (to-i smart_cruise_auto_engage_time))
-        "\n- enable_thirds_warning_startup: " (to-str (to-i enable_thirds_warning_startup))
-        "\n- battery_calculation_method: " (to-str (to-i battery_calculation_method))
-    ))
-})
-
-
-(defun log_speeds ()
-{
-    (debug_log_format (str-merge "- speed (reverse): " (to-str (to-i (ix speed_set 0)))
-        "\n- speed (untangle): " (to-str (to-i (ix speed_set 1)))
-        "\n- speed (1): " (to-str (to-i (ix speed_set 2)))
-        "\n- speed (2): " (to-str (to-i (ix speed_set 3)))
-        "\n- speed (3): " (to-str (to-i (ix speed_set 4)))
-        "\n- speed (4): " (to-str (to-i (ix speed_set 5)))
-        "\n- speed (5): " (to-str (to-i (ix speed_set 6)))
-        "\n- speed (6): " (to-str (to-i (ix speed_set 7)))
-        "\n- speed (7): " (to-str (to-i (ix speed_set 8)))
-        "\n- speed (8): " (to-str (to-i (ix speed_set 9)))
-    ))
-})
-
-
-; Debug logging helper function
-(defun debug_log (msg)
-{
-    (if (and (not-eq debug_enabled nil) (= debug_enabled 1))
-        (puts msg)
-    )
-})
-
-(move-to-flash debug_log)
-
-; Lightweight macro to conditionally evaluate debug logging expressions
-; Only evaluates the logging expression when debug_enabled is 1
-; This prevents expensive str-merge and to-str calls on memory-constrained targets
-(define debug_log_format (macro (expr)
-    `(if (and (not-eq debug_enabled nil) (= debug_enabled 1))
-        (puts ,expr)
-    )
-))
-
-
 (defun calculate_corrected_battery ()
 {
     ; Calculate corrected battery percentage from raw battery reading
@@ -503,8 +475,6 @@
         (* BATTERY_COEFF_1 raw_batt)
     )
 })
-
-(move-to-flash calculate_corrected_battery)
 
 (defun calculate_ah_based_battery ()
 {
@@ -518,8 +488,6 @@
     )
 })
 
-(move-to-flash calculate_ah_based_battery)
-
 (defun get_battery_level ()
     ; Get battery level using the configured calculation method
     (if (= battery_calculation_method 1)
@@ -527,8 +495,6 @@
         (calculate_corrected_battery)
     )
 )
-
-(move-to-flash get_battery_level)
 
 (defun receive_data (data)
 {
@@ -551,9 +517,7 @@
     })
 })
 
-(move-to-flash receive_data)
-
-; Setup functions (init-only, not moved to flash)
+; Setup functions
 (defun setup_event_handler ()
 {
     (defun event_handler ()
@@ -615,14 +579,9 @@
     })
 })
 
-
 (defun state_metrics_reset ()
 {
     ; State machine tracking (minimal for memory conservation)
-    (define state_last_state STATE_UNINITIALIZED)
-    (define state_last_change_time 0)
-    (define state_last_reason "")
-
     (setvar 'state_last_state STATE_UNINITIALIZED)
     (setvar 'state_last_change_time (systime))
     (setvar 'state_last_reason "startup")
@@ -646,10 +605,6 @@
     (spawn thread_stack handler)
 })
 
-(move-to-flash state_metrics_reset)
-(move-to-flash state_record_transition)
-(move-to-flash state_transition_to)
-
 ; =============================================================================
 ; RPM Calculation Helper
 ; =============================================================================
@@ -662,8 +617,6 @@
         (t value)
     )
 })
-
-(move-to-flash clamp)
 
 (defun speed_percentage_at (speed_index)
 {
@@ -685,8 +638,6 @@
     })
 })
 
-(move-to-flash speed_percentage_at)
-
 (defun calculate_rpm (speed_index divisor)
 {
     (var speed_percent (speed_percentage_at speed_index))
@@ -701,8 +652,6 @@
         base_rpm
     )
 })
-
-(move-to-flash calculate_rpm)
 
 ; =============================================================================
 ; State Machine Design Notes:
@@ -750,8 +699,6 @@
     clamped_speed
 })
 
-(move-to-flash set_speed_safe)
-
 ; =============================================================================
 ; Smart Cruise Timeout Helper
 ; =============================================================================
@@ -774,9 +721,6 @@
         })
     )
 })
-
-(move-to-flash check_smart_cruise_timeout)
-
 
 (defun smart_cruise_leds_count ()
 {
@@ -808,9 +752,6 @@
     })
 })
 
-(move-to-flash smart_cruise_leds_count)
-
-
 (defun state_handler_off ()
 {
     ; xxxx State "0" Off
@@ -834,9 +775,6 @@
     })
 })
 
-(move-to-flash state_handler_off)
-
-
 (defun smart_cruise_upgrade_if_needed ()
 {
     (if (= smart_cruise SMART_CRUISE_HALF_ENABLED) {
@@ -846,9 +784,6 @@
         (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
     })
 })
-
-(move-to-flash smart_cruise_upgrade_if_needed)
-
 
 ; Encapsulated click action handler
 (defun apply_click_action (click_count)
@@ -987,8 +922,6 @@
     )
 })
 
-(move-to-flash apply_click_action)
-
 ; xxxx STATE 1 Counting clicks
 (defun state_handler_counting_clicks ()
 {
@@ -1036,8 +969,6 @@
     })
 })
 
-(move-to-flash state_handler_counting_clicks)
-
 ; xxxx State 2 "Pressed"
 (defun state_handler_pressed ()
 {
@@ -1083,8 +1014,6 @@
         })
     })
 })
-
-(move-to-flash state_handler_pressed)
 
 ; xxxx State 3 "Going Off"
 (defun state_handler_going_off ()
@@ -1158,8 +1087,6 @@
         }) ; end Timer expiry
     }) ; end state
 })
-
-(move-to-flash state_handler_going_off)
 
 (defun start_motor_speed_loop ()
 {
@@ -1278,9 +1205,6 @@
     })
 })
 
-(move-to-flash start_motor_speed_loop)
-
-; Init-only function (not moved to flash)
 (defun thirds_warning_startup ()
 {
     (if (> enable_thirds_warning_startup 0) {
@@ -1294,7 +1218,6 @@
         (setvar 'warning_counter 0)
     })
 })
-
 
 (defun apply_smart_cruise_timer_bar (pixbuf)
 {
@@ -1321,9 +1244,6 @@
 
     leds_lit ; Return the LED count or -1
 })
-
-(move-to-flash apply_smart_cruise_timer_bar)
-
 
 (defun start_display_output_loop ()
 {
@@ -1412,15 +1332,11 @@
     })
 })
 
-(move-to-flash start_display_output_loop)
-
 ; Returns true once the startup tune has finished AND 1 second has elapsed,
 ; giving a clear gap between the tune and the battery status beeps.
 (defun tune-settled ()
     (and (> startup_tune_done_time 0) (> (secs-since startup_tune_done_time) STARTUP_TUNE_SETTLE))
 )
-
-(move-to-flash tune-settled)
 
 ; **** Program that triggers the display to show battery status ****
 (defun start_display_battery_loop ()
@@ -1523,16 +1439,12 @@
     })
 })
 
-(move-to-flash start_display_battery_loop)
-
 (defun beeper (beeps)
 (loopwhile (and (= enable_battery_beeps 1) (> batt_disp_timer_start 0) (> beeps 0)) {
        (sleep SLEEP_UI_UPDATE)
        (foc-beep 350 0.5 beeps_vol)
       (setvar 'beeps (- beeps 1))
     }))
-
-(move-to-flash beeper)
 
 ; xxxx warbler Program xxxx"
 (defun warbler (Tone Time Delay)
@@ -1543,8 +1455,6 @@
     (foc-beep Tone Time beeps_vol)
     (foc-beep (- Tone 200) Time beeps_vol)
 })
-
-(move-to-flash warbler)
 
 ; ***** Imperial March Theme *****
 ; Plays the first ~9 bars of the Imperial March on startup
@@ -1566,7 +1476,7 @@
         (sleep 0.14)
         (foc-beep 392 0.35 beeps_vol)  ; G quarter
         (sleep 0.37)
-        
+
         ; Bar 3-4: Eb-Bb G (hold)
         (foc-beep 311 0.25 beeps_vol) ; Eb short
         (sleep 0.27)
@@ -1574,7 +1484,7 @@
         (sleep 0.14)
         (foc-beep 392 0.7 beeps_vol)  ; G half note
         (sleep 0.74)
-        
+
         ; Bar 5-6: D D D Eb-Bb Gb
         (foc-beep 587 0.35 beeps_vol)  ; D quarter
         (sleep 0.37)
@@ -1588,7 +1498,7 @@
         (sleep 0.14)
         (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
         (sleep 0.37)
-        
+
         ; Bar 7-8: Eb-Bb G (hold)
         (foc-beep 311 0.25 beeps_vol) ; Eb short
         (sleep 0.27)
@@ -1599,8 +1509,6 @@
     })
     (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
 })
-
-(move-to-flash play_imperial_march)
 
 ; ***** Program that beeps trigger clicks
 (defun start_beeper_loop ()
@@ -1634,9 +1542,8 @@
     })
 })
 
-(move-to-flash start_beeper_loop)
-
-; Init-only function (not moved to flash)
+; Init-only peripheral setup. Lives in the init/main call path because
+; image-save does not restore external hardware state.
 (defun peripherals_setup ()
 {
     (if (or (= 0 hardware_configuration) (= 3 hardware_configuration)) ; turn on i2c for the screen based on wiring. 0 = Blacktip with Bluetooth, 3 = CudaX with Bluetooth
@@ -1647,13 +1554,110 @@
                     (i2c-start 'rate-400k 'pin-tx 'pin-rx) ; tested on HW 410 Tested: SN 189, SN 1691
                     (nil))))
 
-    (i2c-tx-rx 0x70 (list 0x21)) ; start the oscillator
+    ; HT16K33 init sequence: oscillator -> display ON -> brightness.
+    ;
+    ; VESC 7.00 BUG WORKAROUND - swallowed first I2C message:
+    ; On 7.00 the FIRST i2c-tx-rx issued after i2c-start (i.e. the first
+    ; transaction on a freshly muxed bus - which happens on every COLD boot, and
+    ; whenever the I2C pins are (re)configured) is silently swallowed: it never
+    ; reaches the device. On 6.06 that same single 0x21 was delivered and the
+    ; panel lit. The result on 7.00 is that the oscillator-enable is lost, the
+    ; HT16K33 oscillator never starts, and the panel stays dark on a cold boot.
+    ; A warm :reset masked the bug two ways: the chip (and its oscillator) stayed
+    ; powered from the previous session, and the bus was already muxed so no
+    ; transaction was swallowed.
+    ;
+    ; Workaround: send the oscillator-enable (0x21) TWICE. The first write is the
+    ; sacrificial one that the bug swallows; the second one actually reaches the
+    ; controller and starts the oscillator. No delay between them is needed.
+    (i2c-tx-rx 0x70 (list 0x21)) ; sacrificial: absorbs the swallowed first transaction
+    (i2c-tx-rx 0x70 (list 0x21)) ; real oscillator / system-setup enable
     ; Set brightness using BRIGHTNESS_LUT (six discrete levels, indices 0..5)
     (i2c-tx-rx 0x70 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
 
     (if (= scooter_type 1) { ; For cuda X setup second screen
+            ; The bus is already muxed and exercised by the 0x70 writes above, so
+            ; the swallow-the-first-message bug does not apply here - a single
+            ; 0x21 is sufficient for the second controller.
             (i2c-tx-rx 0x71 (list 0x21)) ; start the oscillator
             (i2c-tx-rx 0x71 (list (ix BRIGHTNESS_LUT (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))))) ; set brightness safely
+    })
+})
+
+; Display LUT binary format helpers (init-only)
+(defun validate_lut_header (data magic expected_version)
+{
+    (var file_magic (bufget-u32 data 0 'little-endian))
+    (var file_version (bufget-u16 data 4 'little-endian))
+    (var num_items (bufget-u16 data 6 'little-endian))
+    (if (!= file_magic magic)
+        nil
+        (if (!= file_version expected_version)
+            nil
+            num_items
+        )
+    )
+})
+
+(defun load_lookup_tables ()
+{
+    ; display_lut_bin is imported at top level (between the const blocks); here
+    ; we only validate the already-loaded byte array.
+    ; Initialize display LUT (returns number of frames or nil on error)
+    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
+
+    ; Verify LUTs loaded successfully - halt if validation fails
+    (if (not display_num_frames)
+        (exit-error "LUT validation failed: display"))
+})
+
+; EEPROM initialization (init-only)
+(defun eeprom_set_defaults ()
+{
+    (if (not-eq (eeprom-read-i 127) (to-i32 1)) {
+        (puts "EEPROM: Initializing defaults for 1.0.0")
+        ; Check for current version marker (blacktip_dpv release 1.0.0)
+        ; New settings added in version 1.0.0
+        (eeprom_store_i_if_changed 25 0) ; Enable Auto-Engage Smart Cruise. 1=On 0=Off
+        (eeprom_store_i_if_changed 26 10) ; Auto-Engage Time in seconds (5-30 seconds)
+        (eeprom_store_i_if_changed 27 0) ; Enable Thirds warning on from power-up. 1=On 0=Off
+        (eeprom_store_i_if_changed 28 0) ; Battery calculation method: 0=Voltage-based, 1=Ampere-hour based
+        (eeprom_store_i_if_changed 29 0) ; Enable Debug Logging. 1=On 0=Off
+
+        (if (not-eq (eeprom-read-i 127) (to-i32 150)) {
+            (puts "EEPROM: No previous version detected, setting all defaults")
+            ; Check for previous version marker (Dive Xtras V1.50 'Poseidon')
+            ; User speeds, ie 1 thru 8 are only used in the GUI, this lisp code uses speeds 0-9 with 0 & 1 being the 2 reverse speeds.
+            ; 99 is used as the "off" speed
+            (eeprom_store_i_if_changed 0 45) ; Reverse Speed 2 %
+            (eeprom_store_i_if_changed 1 20) ; Untangle Speed 1 %
+            (eeprom_store_i_if_changed 2 30) ; Speed 1 %
+            (eeprom_store_i_if_changed 3 38) ; Speed 2 %
+            (eeprom_store_i_if_changed 4 46) ; Speed 3 %
+            (eeprom_store_i_if_changed 5 54) ; Speed 4 %
+            (eeprom_store_i_if_changed 6 62) ; Speed 5 %
+            (eeprom_store_i_if_changed 7 70) ; Speed 6 %
+            (eeprom_store_i_if_changed 8 78) ; Speed 7 %
+            (eeprom_store_i_if_changed 9 100) ; Speed 8 %
+            (eeprom_store_i_if_changed 10 9) ; Maximum number of Speeds to use, must be greater or equal to start_speed (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 11 4) ; Speed the scooter starts in. Range 2-9, must be less or equal to the max_speed_no (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 12 7) ; Speed to jump to on triple click, (actual speed #, not user speed)
+            (eeprom_store_i_if_changed 13 1) ; Turn safe start on or off 1=On 0=Off
+            (eeprom_store_i_if_changed 14 0) ; Enable Reverse speed. 1=On 0=Off
+            (eeprom_store_i_if_changed 15 0) ; Enable Smart Cruise (3 clicks while running). 1=On 0=Off
+            (eeprom_store_i_if_changed 16 60) ; How long before Smart Cruise times out and requires reactivation in sec.
+            (eeprom_store_i_if_changed 17 0) ; rotation of Display, 0-3 . Each number rotates display 90 deg.
+            (eeprom_store_i_if_changed 18 5) ; Display Brighness 0-5
+            (eeprom_store_i_if_changed 19 0) ; Hardware configuration, 0 = Blacktip HW60 + Ble, 1 = Blacktip HW60 - Ble, 2 = Blacktip HW410 - Ble, 3 = Cuda-X HW60 + Ble, 4 = Cuda-X HW60 - Ble
+            (eeprom_store_i_if_changed 20 0) ; Battery Beeps
+            (eeprom_store_i_if_changed 21 3) ; Beep Volume
+            (eeprom_store_i_if_changed 22 0) ; CudaX Flip Screens
+            (eeprom_store_i_if_changed 23 0) ; 2nd Screen rotation of Display, 0-3 . Each number rotates display 90 deg.
+            (eeprom_store_i_if_changed 24 0) ; Trigger Click Beeps
+        })
+        ; Mark as initialised for 1.0.0
+        (eeprom_store_i_if_changed 127 1) ; indicate that the defaults have been applied
+        (puts "EEPROM: Defaults initialized successfully")
     })
 })
 
@@ -1674,73 +1678,74 @@
 
     (log_startup)
 
-    (define thirds_total 0)
-    (define warning_counter 0) ; Count how many times the 3rds warnings have been triggered.
-    (define thirds_warning_latched 0) ; Prevents repeated long-press activation
+    ; State 3rds tracking - re-initialised at runtime (heap globals)
+    (setvar 'thirds_total 0)
+    (setvar 'warning_counter 0) ; Count how many times the 3rds warnings have been triggered.
+    (setvar 'thirds_warning_latched 0) ; Prevents repeated long-press activation
 
     (thirds_warning_startup)
 
     (setup_event_handler)
 
-    (define sw_state 0)
-    (define timer_start 0)
-    (define timer_duration 0)
-    (define initial_press_time 0)
-    (define clicks 0)
-    (define actual_batt 0)
-    (define new_start_speed start_speed)
-    (define speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
-    (define state_last_state STATE_UNINITIALIZED)
-    (define state_last_change_time 0)
-    (define state_last_reason "")
+    (setvar 'sw_state 0)
+    (setvar 'timer_start 0)
+    (setvar 'timer_duration 0)
+    (setvar 'initial_press_time 0)
+    (setvar 'clicks 0)
+    (setvar 'actual_batt 0)
+    (setvar 'new_start_speed start_speed)
+    (setvar 'speed_set_via_jump nil) ; Track if current speed was set via jump (triple-click) and not manually changed
+    (setvar 'state_last_state STATE_UNINITIALIZED)
+    (setvar 'state_last_change_time 0)
+    (setvar 'state_last_reason "")
 
     (state_metrics_reset)
 
-    (define speed SPEED_OFF)
-    (define safe_start_timer 0)
-    (define soft_start_timer 0)
-    (define soft_start_active 0)
-    (define safe_start_attempt_speed SPEED_OFF)
-    (define safe_start_failures 0)
-    (define safe_start_status 'idle)
+    (setvar 'speed SPEED_OFF)
+    (setvar 'safe_start_timer 0)
+    (setvar 'soft_start_timer 0)
+    (setvar 'soft_start_active 0)
+    (setvar 'safe_start_attempt_speed SPEED_OFF)
+    (setvar 'safe_start_failures 0)
+    (setvar 'safe_start_status 'idle)
 
     (start_motor_speed_loop)
 
-    (define click_beep 0)
+    (setvar 'click_beep 0)
 
     (start_beeper_loop)
 
-    (define disp_timer_start 0) ; Timer for display duration
+    (setvar 'disp_timer_start 0) ; Timer for display duration
 
     (peripherals_setup)
 
-    (define disp_num 1) ; variable used to define the display screen you are accesing 0-X
-    (define last_disp_num 1) ; variable used to track last display screen show
+    (setvar 'disp_num 1) ; variable used to define the display screen you are accesing 0-X
+    (setvar 'last_disp_num 1) ; variable used to track last display screen show
 
     (start_display_output_loop)
 
-    (define batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
-    (define last_batt_disp_num 3) ; variable used to track last display screen show
-    (define startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
-    (define batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
+    (setvar 'batt_disp_timer_start 0) ; Timer to see if Battery display has been triggered
+    (setvar 'last_batt_disp_num 3) ; variable used to track last display screen show
+    (setvar 'startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (setvar 'batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
 
-    (define smart_cruise SMART_CRUISE_OFF)
+    (setvar 'smart_cruise SMART_CRUISE_OFF)
 
     (start_smart_cruise_loop)
 
-    (define sw_pressed 0)
+    (setvar 'sw_pressed 0)
 
     (start_trigger_loop)
 
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 
     (setvar 'disp_num 15) ; display startup screen, change bytes if you want a different one
-    
+
     ; Play Imperial March on startup in background thread to avoid blocking
     (spawn THREAD_STACK_CLICK_BEEP play_imperial_march)
-    
+
     ; Check battery level and only play battery indication if not full (3 bars)
     ; Battery is considered "full" at > 0.75 (matching the 3-bar threshold)
     ; Allow 6+ seconds for battery to stabilize and Imperial March to finish before beeps
@@ -1750,34 +1755,25 @@
     )
 
     (puts "Startup complete")
+
+    ; Keep main resident as a persistent supervisory context instead of
+    ; returning. The worker threads (motor/display/state-machine/etc.) were all
+    ; spawned above and run independently; this loop simply keeps the main
+    ; context alive (matching the common image-save 'looping main' idiom) and
+    ; gives a single place for periodic health checks. Low frequency to keep
+    ; CPU/wakeups negligible.
+    (loopwhile t {
+        (sleep 1.0)
+        ; (optional) supervisory hooks could go here later, e.g. re-assert the
+        ; display controller or restart a thread that has died.
+    })
 })
 
-; Configuration settings
-(define max_speed_no 0)
-(define start_speed 0)
-(define jump_speed 0)
-(define use_safe_start 0)
-(define enable_reverse 0)
-(define enable_smart_cruise 0)
-(define smart_cruise_timeout 0)
-(define rotation 0)
-(define disp_brightness 0)
-(define hardware_configuration 0)
-(define enable_battery_beeps 0)
-(define beeps_vol 0)
-(define cudax_flip 0)
-(define rotation2 0)
-(define enable_trigger_beeps 0)
-(define enable_smart_cruise_auto_engage 0)
-(define smart_cruise_auto_engage_time 0)
-(define enable_thirds_warning_startup 0)
-(define battery_calculation_method 0)
-(define debug_enabled 0)
-(define speed_set 0)
-(define scooter_type 0)
+@const-end
 
+; See DEVELOPMENT.md for boot sequence details.
 (init)
 
-(image-save)
-
-(main)
+(progn
+    (image-save)
+    (main))
