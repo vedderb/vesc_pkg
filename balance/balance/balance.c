@@ -167,6 +167,10 @@ static void biquad_reset(Biquad *biquad) {
 }
 
 static void configure(data *d) {
+	// Validate hertz to prevent division-by-zero fault on ARM Cortex-M
+	if (d->balance_conf.hertz == 0) {
+		d->balance_conf.hertz = 1;
+	}
 	// Set calculated values from config
 	d->loop_time_seconds = 1.0 / d->balance_conf.hertz;
 
