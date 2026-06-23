@@ -404,10 +404,14 @@
 
 (defun get_display_pack_voltage ()
 {
-    ; Battery display calculations are based on 2 x lower pack voltage.
+    ; Battery display calculations are based on 2 x the weaker pack voltage.
     ; get_lower_battery_voltage returns total/2 when detection is disabled,
     ; so the result is equivalent to get-vin in that case.
-    (* 2.0 (get_lower_battery_voltage))
+    (var total_voltage (get-vin))
+    (var lower_voltage (get_lower_battery_voltage))
+    (var upper_voltage (- total_voltage lower_voltage))
+    (var weaker_voltage (if (< lower_voltage upper_voltage) lower_voltage upper_voltage))
+    (* 2.0 weaker_voltage)
 })
 
 (defun get_battery_imbalance_voltage ()
@@ -450,27 +454,31 @@
     ; restarts. Only acts on a SETTLED at-rest reading; only clears when |imbalance|
     ; falls below CLEAR_FRACTION * threshold (hysteresis, so the pack must actually
     ; be re-balanced). See "Battery Imbalance Detection" in DEVELOPMENT.md.
-    (if (and (imbalance_detection_enabled)
-             (= balance_smoothing_held 0)
-             (> lower_voltage_smooth 0.1)) {
-        (var warn (get_battery_imbalance_warning))
-        (var mag (abs (get_battery_imbalance_voltage)))
-        (var clear_threshold (* BATTERY_IMBALANCE_CLEAR_FRACTION (battery_imbalance_threshold_voltage)))
-        (if (!= warn BATTERY_IMBALANCE_WARN_NONE) {
-            ; Settled reading over threshold -> latch / refresh direction
-            (if (!= battery_imbalance_latched warn) {
-                (setvar 'battery_imbalance_latched warn)
-                (when-debug (str-merge "Battery imbalance latched: pack "
-                    (to-str (if (= warn BATTERY_IMBALANCE_WARN_PACK_1) 1 2))
-                    " low (imbalance=" (str-from-n (get_battery_imbalance_voltage) "%.2f")
-                    "V, lower=" (str-from-n lower_voltage_smooth "%.2f") "V)"))
-            })
-        } {
-            ; Settled reading below warn threshold; clear only if well under (hysteresis)
-            (if (and (!= battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE)
-                     (< mag clear_threshold)) {
-                (setvar 'battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE)
-                (debug_log "Battery imbalance latch cleared (pack re-balanced)")
+    (if (not (imbalance_detection_enabled)) {
+        (if (!= battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE)
+            (setvar 'battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE))
+    } {
+        (if (and (= balance_smoothing_held 0)
+                 (> lower_voltage_smooth 0.1)) {
+            (var warn (get_battery_imbalance_warning))
+            (var mag (abs (get_battery_imbalance_voltage)))
+            (var clear_threshold (* BATTERY_IMBALANCE_CLEAR_FRACTION (battery_imbalance_threshold_voltage)))
+            (if (!= warn BATTERY_IMBALANCE_WARN_NONE) {
+                ; Settled reading over threshold -> latch / refresh direction
+                (if (!= battery_imbalance_latched warn) {
+                    (setvar 'battery_imbalance_latched warn)
+                    (when-debug (str-merge "Battery imbalance latched: pack "
+                        (to-str (if (= warn BATTERY_IMBALANCE_WARN_PACK_1) 1 2))
+                        " low (imbalance=" (str-from-n (get_battery_imbalance_voltage) "%.2f")
+                        "V, lower=" (str-from-n lower_voltage_smooth "%.2f") "V)"))
+                })
+            } {
+                ; Settled reading below warn threshold; clear only if well under (hysteresis)
+                (if (and (!= battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE)
+                        (< mag clear_threshold)) {
+                    (setvar 'battery_imbalance_latched BATTERY_IMBALANCE_WARN_NONE)
+                    (debug_log "Battery imbalance latch cleared (pack re-balanced)")
+                })
             })
         })
     })
@@ -701,23 +709,25 @@
     })
 })
 
-(defun calculate_corrected_battery ()
+(defun apply_imbalance_pack_scale (battery_fraction)
 {
-    ; Calculate corrected battery percentage from raw battery reading.
-    ; When imbalance detection is active, scale the SOC by 2*lower/total.
-    (var raw_batt (get-batt))
+    (var corrected_fraction battery_fraction)
     (if (imbalance_detection_enabled) {
         (var total_voltage (get-vin))
         (if (> total_voltage 1.0) {
-            (setvar 'raw_batt (* raw_batt (/ (get_display_pack_voltage) total_voltage)))
-            (if (< raw_batt 0.0)
-                (setvar 'raw_batt 0.0)
-            )
-            (if (> raw_batt 1.0)
-                (setvar 'raw_batt 1.0)
-            )
+            (setvar 'corrected_fraction
+                (* corrected_fraction (/ (get_display_pack_voltage) total_voltage)))
+            (setvar 'corrected_fraction (clamp corrected_fraction 0.0 1.0))
         })
     })
+    corrected_fraction
+})
+
+(defun calculate_corrected_battery ()
+{
+    ; Calculate corrected battery percentage from raw battery reading.
+    ; When imbalance detection is active, scale by 2*weaker/total.
+    (var raw_batt (apply_imbalance_pack_scale (get-batt)))
 
     (+ (* BATTERY_COEFF_4 raw_batt raw_batt raw_batt raw_batt)
         (* BATTERY_COEFF_3 raw_batt raw_batt raw_batt)
@@ -741,7 +751,7 @@
 (defun get_battery_level ()
     ; Get battery level using the configured calculation method
     (if (= battery_calculation_method 1)
-        (calculate_ah_based_battery)
+        (apply_imbalance_pack_scale (calculate_ah_based_battery))
         (calculate_corrected_battery)
     )
 )
@@ -1518,6 +1528,7 @@
         (if (and
                 (> disp_timer_start 1)
                 (> (secs-since disp_timer_start) TIMER_DISPLAY_DURATION)) {
+            (var timed_out_disp last_disp_num)
             ; Clear the display number so 'C' or speed won't re-render with timer bar updates
             ; Only do this if Smart Cruise is active to avoid blank flash
             (if (or (= smart_cruise SMART_CRUISE_FULLY_ENABLED) (= smart_cruise SMART_CRUISE_AUTO_ENGAGED)) {
@@ -1526,17 +1537,17 @@
                 ; Smart Cruise not active - turn off display normally
                 (setvar 'disp_num DISPLAY_SENTINEL)
                 ; For Blacktip, turn off the display
-                (if (= scooter_type SCOOTER_BLACKTIP)
+                (if (= scooter_type SCOOTER_BLACKTIP) {
                     (i2c-tx-rx 0x70 (list 0x80))
-                )
-                ; Prevent the off->on flip in the same loop iteration
-                (setvar 'last_disp_num DISPLAY_SENTINEL)
+                    ; Prevent the off->on flip in the same loop iteration
+                    (setvar 'last_disp_num DISPLAY_SENTINEL)
+                })
             })
             ; For Cuda X, ensure warning frames don't persist after timeout.
             (if (and (= scooter_type SCOOTER_CUDAX)
-                     (or (and (>= last_disp_num 18) (<= last_disp_num 20))
-                         (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_1)
-                         (= last_disp_num BATTERY_IMBALANCE_DISPLAY_PACK_2)))
+                     (or (and (>= timed_out_disp 18) (<= timed_out_disp 20))
+                         (= timed_out_disp BATTERY_IMBALANCE_DISPLAY_PACK_1)
+                         (= timed_out_disp BATTERY_IMBALANCE_DISPLAY_PACK_2)))
                 (setvar 'disp_num last_batt_disp_num)
             )
 
@@ -1999,10 +2010,10 @@
         (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 162 = 16.2x)
     })
 
-    ; Always advance the marker to the latest schema version. Doing this once at
-    ; the end (instead of per-block) keeps the migration idempotent even if a
-    ; future block is added in the middle.
-    (eeprom_store_i_if_changed 127 2)
+    ; Advance older markers to this schema version. Do not rewrite markers from
+    ; newer firmware, so downgrade/upgrade cycles remain monotonic.
+    (if (< stored_version 2)
+        (eeprom_store_i_if_changed 127 2))
 })
 
 (defun init ()
