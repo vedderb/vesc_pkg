@@ -515,7 +515,8 @@
 
                 (var dt (secs-since wrk-t-last))
                 (var pitch-deg (rad2deg (ix (get-imu-rpy) 1)))
-                (var pitch-rate (/ (- pitch-deg-last pitch-deg) dt))
+                ;(def pitch-rate (/ (- pitch-deg-last pitch-deg) dt))
+                (def pitch-rate (* -1.0 (ix (get-imu-gyro) 1)))
 
                 (setq pitch-deg-last pitch-deg)
                 (setq wrk-t-last (systime))
