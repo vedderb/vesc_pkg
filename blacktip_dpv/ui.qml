@@ -47,6 +47,8 @@ Item {
 
     property string firmwareVersion: "&lt;unknown$gt;"
 
+    property int receivedAdcMultiplierX10: 162  // round-tripped from device; balance-wire ADC multiplier in 0.1x units (default 162 = 16.2x)
+
     property string detectedHardwareModel: "<unknown>"
     property string possibleScooterModels: ""
 
@@ -785,7 +787,7 @@ Item {
             return
         }
 
-        var buffer = new ArrayBuffer(30)
+        var buffer = new ArrayBuffer(32)
         var da = new DataView(buffer)
 
         da.setUint8(0, reverse_speed.realValue)
@@ -818,13 +820,15 @@ Item {
         da.setUint8(27, enable_thirds_warning_startup.checked ? 1 : 0)
         da.setUint8(28, use_ah_battery_calculation.checked ? 1 : 0)
         da.setUint8(29, debug_enabled.checked ? 1 : 0)
+        da.setUint8(30, enable_battery_imbalance_detection.checked ? Math.round(battery_imbalance_threshold.realValue * 100) : 0)
+        da.setUint8(31, receivedAdcMultiplierX10) // Balance-wire ADC multiplier x10 (5.0..25.5x, default 16.2x)
         mCommands.sendCustomAppData(buffer)
 
         console.log("Sent values")
     }
 
     function reset_defaults_blacktip() {
-        var buffer1 = new ArrayBuffer(30)
+        var buffer1 = new ArrayBuffer(32)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
         da1.setUint8(1, 20)
@@ -856,6 +860,8 @@ Item {
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
         da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         da1.setUint8(29, 0) // Debug enabled default: off
+        da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
+        da1.setUint8(31, 162) // Balance-wire ADC multiplier x10 default: 162 = 16.2x (measured on reference Blacktip)
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/master/datatypes.h
@@ -930,7 +936,7 @@ Item {
     }
 
     function reset_defaults_cudax() {
-        var buffer1 = new ArrayBuffer(30)
+        var buffer1 = new ArrayBuffer(32)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
         da1.setUint8(1, 10)
@@ -962,6 +968,8 @@ Item {
         da1.setUint8(27, 0) // Enable Thirds Warning Startup default: off
         da1.setUint8(28, 0) // Battery calculation method default: voltage-based
         da1.setUint8(29, 0) // Debug enabled default: off
+        da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
+        da1.setUint8(31, 162) // Balance-wire ADC multiplier x10 default: 162 = 16.2x (measured on reference Blacktip)
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
@@ -1078,6 +1086,13 @@ Item {
             enable_thirds_warning_startup.checked =  dv.getUint8(27) == 1
             use_ah_battery_calculation.checked =  dv.getUint8(28) == 1
             debug_enabled.checked =  dv.getUint8(29) == 1
+            var imb_val = dv.getUint8(30)
+            enable_battery_imbalance_detection.checked = imb_val > 0
+            battery_imbalance_threshold.realValue = imb_val > 0 ? imb_val / 100.0 : 2.00
+            if (dv.byteLength > 31) {
+                receivedAdcMultiplierX10 = dv.getUint8(31)
+                adc_balance_wire_multiplier.realValue = receivedAdcMultiplierX10 / 10.0
+            }
 
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
@@ -1415,6 +1430,82 @@ Item {
                     onClicked: {
                         batteryDialog.valuesChanged()
                     }
+                }
+
+                CheckBox {
+                    id: enable_battery_imbalance_detection
+                    Layout.fillWidth: true
+                    text: "Enable battery imbalance detection"
+                    checked: true
+                    onClicked: {
+                        if (checked && battery_imbalance_threshold.realValue < 0.25) {
+                            battery_imbalance_threshold.realValue = 2.00
+                        }
+                        batteryDialog.valuesChanged()
+                    }
+                }
+
+                DoubleSpinBox {
+                    id: battery_imbalance_threshold
+                    Layout.fillWidth: true
+                    enabled: enable_battery_imbalance_detection.checked
+                    decimals: 2
+                    prefix: "Imbalance warning threshold: "
+                    suffix: " V"
+                    realFrom: 0.25
+                    realTo: 2.00
+                    realValue: 2.00
+                    realStepSize: 0.25
+                    onRealValueChanged: {
+                        if (!loading_values) {
+                            batteryDialog.valuesChanged()
+                        }
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    text: "Disable imbalance detection only when using a custom battery pack with an on-board BMS that manages cell balancing independently."
+                    visible: !enable_battery_imbalance_detection.checked
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    wrapMode: Text.WordWrap
+                    text: "Balance-wire ADC multiplier"
+                    visible: enable_battery_imbalance_detection.checked
+                }
+
+                DoubleSpinBox {
+                    id: adc_balance_wire_multiplier
+                    Layout.fillWidth: true
+                    visible: enable_battery_imbalance_detection.checked
+                    enabled: enable_battery_imbalance_detection.checked
+                    decimals: 1
+                    suffix: " x"
+                    realFrom: 5.0
+                    realTo: 25.5
+                    realValue: 16.2
+                    realStepSize: 0.1
+                    onRealValueChanged: {
+                        if (!loading_values) {
+                            receivedAdcMultiplierX10 = Math.round(realValue * 10)
+                            batteryDialog.valuesChanged()
+                        }
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    text: "Converts the balance-wire pin voltage to the lower-pack voltage. The default (16.2x) is correct for stock hardware. To verify or fine-tune: enable Debug Logging below, then in the VESC Tool log watch the periodic 'Balance:' lines and compare the 'lower(slot2)' reading to a multimeter measurement at the slot-2 battery terminals. Adjust this value until they match."
+                    visible: enable_battery_imbalance_detection.checked
                 }
             }
         }

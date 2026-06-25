@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.3.1
+**Version:** 1.4.0
 
 ## License
 
@@ -37,6 +37,14 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.4.0
+
+New feature release:
+
+- **Battery imbalance detection** — The scooter now monitors the midpoint balance wire and warns when one of the two battery packs is significantly more depleted than the other. A flashing low-battery icon for slot 1 or slot 2 appears on the display, identifying which pack needs attention so a depleting cell cannot go unnoticed mid-dive. Enabled by default; threshold and balance-wire ADC multiplier are configurable from the Battery Settings dialog. See the [Battery Imbalance Detection](#battery-imbalance-detection) section below for full details.
+- **Battery state-of-charge correction** — When imbalance detection is active, the displayed battery percentage and capacity beeps reflect the weaker pack rather than the pack average, so the SOC indicator stays honest as the packs diverge.
+- **Battery display fixes** — Minor cosmetic fixes to the battery indicator frames so they render consistently across all display rotations.
 
 ## What's New in Version 1.3.1
 
@@ -137,6 +145,18 @@ Audio feedback for battery level when visibility is poor:
 - Adjustable volume levels (0-5)
 - Can be enabled/disabled independently
 
+### Battery Imbalance Detection
+
+Detects when one of the two series battery packs becomes significantly more depleted than the other — a condition that can otherwise be masked by the overall pack voltage and lead to an unexpectedly early shutdown mid-dive:
+
+- Continuously monitors the midpoint balance wire while the scooter is at rest
+- When the difference between the two packs exceeds the configured threshold, the display flashes a dedicated warning icon identifying **slot 1** or **slot 2** as the depleted pack
+- The warning is shown continuously when the motor is off and flashes briefly every few seconds while the motor is running, so it does not obscure the speed or Smart Cruise display
+- Warning stays latched until the pack is actually re-balanced (i.e. charged), so a momentary recovery cannot hide a persistent imbalance
+- Displayed battery percentage and capacity beeps are scaled to the weaker pack when detection is enabled, keeping the SOC indicator honest as the packs diverge
+- Enabled by default with a 2.00 V threshold (suitable for stock hardware); both the threshold and the balance-wire ADC multiplier are configurable from the Battery Settings dialog
+- **Disable only when using a custom battery pack with an on-board BMS that manages cell balancing independently**
+
 ### Startup Sound
 
 A distinctive musical theme plays on power-up to confirm successful initialization:
@@ -204,6 +224,7 @@ Full access to all features via the VESC mobile app on iOS or Android devices:
 - 8-LED timer bar showing Smart Cruise countdown
 - Rotating display support for different mounting orientations
 - Battery level indicators (full, thirds mode, percentage)
+- Per-slot low-battery warning icons (slot 1 / slot 2) for battery imbalance
 - Error code display for diagnostics
 
 ## Improvements Over Original Software
@@ -219,6 +240,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - ✅ **Intelligent Beep System** — Warning beeps for important events, silent timer resets
 - ✅ **Battery Calculation Method** — Choice between voltage-based or Ah-based calculation
 - ✅ **Auto-engage Smart Cruise** — Automatic activation after maintaining constant speed
+- ✅ **Battery Imbalance Detection** — Per-pack monitoring via the midpoint balance wire, with a latched on-display warning and SOC correction when one pack is significantly more depleted than the other
 
 ### Bug Fixes
 
@@ -407,6 +429,9 @@ All settings are accessible through the VESC mobile app or VESC Tool:
 - **Battery Capacity:** Total Ah rating
 - **Calculation Method:** Voltage-based or Ah-based
 - **Cutoff Voltages:** Start and end cutoff voltages
+- **Enable Battery Imbalance Detection:** Toggle the imbalance warning (default: on)
+- **Imbalance Warning Threshold:** Per-pack voltage difference that triggers the warning (0.25 – 2.00 V, default: 2.00 V)
+- **Balance-wire ADC Multiplier:** Scales the balance-wire pin voltage to the lower-pack voltage (5.0 – 25.5x, default: 16.2x for stock hardware). To fine-tune, enable Debug Logging and compare the periodic `Balance:` log line's `lower(slot2)` reading against a multimeter measurement at the slot-2 battery terminals.
 
 ### Display & Beeper Settings
 
