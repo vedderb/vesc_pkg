@@ -31,6 +31,7 @@
         <file>lib_tca9534/tca9534.vescpkg</file>
         <file>UnleashedCreativityLights/UCLights.vescpkg</file>
         <file>wheelie_limiter/wheelie_limiter.vescpkg</file>
+        <file>mt6701_config/mt6701_config.vescpkg</file>
    </qresource>
 </RCC>
 
