@@ -1,6 +1,8 @@
 # VL ABI Encoder Config (MT6701)
 
-This package can be used to configure the [VESC Labs ABI encoder](https://www.vesclabs.com/product/vl-abi-encoder/) over I2C. This is useful for setting the number of pole pairs when using it in hall sensor mode. Using the encoder in hall sensor mode is useful on dual motor controllers which only support hall sensors (such as the VESC Duet and the VESC Duet XS).
+This package can be used to configure the [VESC Labs ABI encoder](https://www.vesclabs.com/product/vl-abi-encoder/) over I2C. This is useful for setting the number of pole pairs when using it in hall sensor mode. Using the encoder in hall sensor mode is useful on dual motor controllers which only support hall sensors such as the VESC Duet and the VESC Duet XS.
+
+Hall sensor signals have lower bandwidth than an ABI signals and work without the PWM pin, so hall sensor mode can be more robust when position resolution at low speed is not important. Compared to regular hall sensors an encoder in hall sensor mode will generally perform better as it will have nearly perfect alignment.
 
 To use this package you can use the following procedure:
 
