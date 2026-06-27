@@ -1,0 +1,17 @@
+; 
+; various helper functions
+; 
+
+(defun lpf (val sample fconst)
+    (- val (* fconst (- val sample)))
+)
+
+(defun trunc (val min max)
+    (cond ((< val min) min) ((> val max) max) (t val))
+)
+
+(defun max (a b) (if (> a b) a b))
+
+(defun send-msg (text) ; emit status message in QML
+    (send-data (str-merge "msg " text))
+)
