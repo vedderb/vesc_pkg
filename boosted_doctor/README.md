@@ -1,10 +1,29 @@
 # Boosted Doctor (Boosted VESC Bridge)
 
-This is a package for using Boosted Board (and Rev Scooter) batteries with VESC controllers or VESC Express modules. The package implements the commands and command parsing for Boosted's CAN communications and implements the battery ping needed for the battery to stay on for more than 10 minutes. 
+A VESC package for using Boosted Board (and Rev Scooter) batteries with VESC controllers or VESC Express modules.
 
-In VESC tool, users are able to check individual cell voltages of their XR and Rev batteries. In the event of Red Light of Death (RLOD), users are also able to clear RLOD within VESC Tool.
+## Overview
 
-Robert Scullin - Boosted CANBUS Research: https://beambreak.org / https://github.com/rscullin/beambreak
-Alex Krysl - Boosted CANBUS Research: https://github.com/axkrysl47/BoostedBreak 
-Simon Wilson - VESC Express Implementation: https://github.com/techfoundrynz
-David Wang - Boosted CANBUS Research: https://www.xrgeneralhospital.com/
+Boosted Doctor implements the CAN commands and response parsing for Boosted's proprietary battery protocol, including the periodic battery ping required to keep the battery powered on beyond 10 minutes.
+
+## Features
+
+- Compatible with Boosted XR and Rev Scooter battery packs
+- Implements Boosted CAN communication protocol (commands + parsing)
+- Sends periodic battery ping to prevent auto-shutdown
+- View individual cell voltages in VESC Tool
+- Clear Red Light of Death (RLOD) directly from VESC Tool
+
+## Credits & Acknowledgements
+
+**Robert Scullin** - Boosted CANBUS Research
+[beambreak.org](https://beambreak.org) - [GitHub](https://github.com/rscullin/beambreak)
+
+**Alex Krysl** - Boosted CANBUS Research
+[GitHub](https://github.com/axkrysl47/BoostedBreak)
+
+**Simon Wilson** - VESC Express Implementation
+[GitHub](https://github.com/techfoundrynz)
+
+**David Wang** - Boosted CANBUS Research
+[XR General Hospital](https://www.xrgeneralhospital.com/)
