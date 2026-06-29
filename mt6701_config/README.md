@@ -4,6 +4,9 @@ This package can be used to configure the [VESC Labs ABI encoder](https://www.ve
 
 Hall sensor signals have lower bandwidth than an ABI signals and work without the PWM pin, so hall sensor mode can be more robust when position resolution at low speed is not important. Compared to regular hall sensors an encoder in hall sensor mode will generally perform better as it will have nearly perfect alignment.
 
+**NOTE**  
+The maximum number of pole pairs supported is 16. If your motor has more than 16 pole pairs (32 poles) the encoder cannot be used in hall sensor mode.
+
 To use this package you can use the following procedure:
 
 1. Set the encoder to I2C mode using the switch on the PCB.

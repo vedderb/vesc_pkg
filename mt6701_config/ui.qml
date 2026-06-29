@@ -44,7 +44,7 @@ Item {
                 id: polePairs
                 Layout.fillWidth: true
                 from: 1
-                to: 48
+                to: 16
                 value: 4
             }
         }
