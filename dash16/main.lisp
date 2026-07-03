@@ -38,30 +38,12 @@
 (import "views/view_pages.lbm" 'code-view-pages)
 (read-eval-program code-view-pages)
 
-; Assets
-(import "assets/sym_vesc_37x34.bin" 'img-vesc)
-(import "assets/batt_level_167x30.bin" 'img-batt-level)
-(import "assets/highbeam_32x24.bin" 'img-highbeam)
-(import "assets/lowbeam_32x24.bin" 'img-lowbeam)
-(import "assets/indicator_l_35x27.bin" 'img-indicator-l)
-(import "assets/indicator_r_35x27.bin" 'img-indicator-r)
-(import "assets/kickstand_26x29.bin" 'img-kickstand)
-(import "assets/temp_b_37x38.bin" 'img-temp-b)
-(import "assets/temp_e_37x38.bin" 'img-temp-e)
-(import "assets/temp_m_37x38.bin" 'img-temp-m)
-(import "assets/warning_28x24.bin" 'img-warning)
-(import "assets/cruise_40x36.bin" 'img-cruise)
-(import "assets/charging_160x61.bin" 'img-charging)
-(import "assets/page-clear_172x100.bin" 'img-page-clear)
+(def thr-volts 0.0)
+(def thr-pos 0.0)
 
-; Fonts
-(import "font/roboto-bold-12-4c.bin" 'font-12)
-(import "font/roboto-bold-16-4c.bin" 'font-16)
-(import "font/roboto-bold-24-4c.bin" 'font-24)
-(import "font/roboto-bold-32-4c.bin" 'font-32)
-(import "font/roboto-bold-48-4c.bin" 'font-48)
-(import "font/roboto-bold-16-2c.bin" 'font-16-2c)
-(import "font/roboto-bold-90-2c.bin" 'font-90)
+(defun lpf (val sample filter-const)
+    (- val (* filter-const (- val sample)))
+)
 
 (defun main () {
         (if (and
@@ -126,6 +108,17 @@
                 )
 
                 (sleep 5.0)
+        })
+
+        (setq thr-volts (get-adc 0))
+        (defun thr-read () {
+                (setq thr-volts (lpf thr-volts (get-adc 0) 0.2))
+                (setq thr-pos (trunc01 (/ (- thr-volts 0.45) 1.65)))
+                (sleep 0.003)
+        })
+
+        (loopwhile-thd ("Thr Filter" 150) t {
+                (thr-read)
         })
 
         (loopwhile-thd ("CommTX" 200) t {
@@ -195,3 +188,27 @@
 (image-save)
 (main)
 
+; Assets
+(import "assets/sym_vesc_37x34.bin" 'img-vesc)
+(import "assets/batt_level_167x30.bin" 'img-batt-level)
+(import "assets/highbeam_32x24.bin" 'img-highbeam)
+(import "assets/lowbeam_32x24.bin" 'img-lowbeam)
+(import "assets/indicator_l_35x27.bin" 'img-indicator-l)
+(import "assets/indicator_r_35x27.bin" 'img-indicator-r)
+(import "assets/kickstand_26x29.bin" 'img-kickstand)
+(import "assets/temp_b_37x38.bin" 'img-temp-b)
+(import "assets/temp_e_37x38.bin" 'img-temp-e)
+(import "assets/temp_m_37x38.bin" 'img-temp-m)
+(import "assets/warning_28x24.bin" 'img-warning)
+(import "assets/cruise_40x36.bin" 'img-cruise)
+(import "assets/charging_160x61.bin" 'img-charging)
+(import "assets/page-clear_172x100.bin" 'img-page-clear)
+
+; Fonts
+(import "font/roboto-bold-12-4c.bin" 'font-12)
+(import "font/roboto-bold-16-4c.bin" 'font-16)
+(import "font/roboto-bold-24-4c.bin" 'font-24)
+(import "font/roboto-bold-32-4c.bin" 'font-32)
+(import "font/roboto-bold-48-4c.bin" 'font-48)
+(import "font/roboto-bold-16-2c.bin" 'font-16-2c)
+(import "font/roboto-bold-90-2c.bin" 'font-90)

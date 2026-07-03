@@ -1,9 +1,6 @@
 (def btn-0-pressed nil)
 (def btn-1-pressed nil)
 
-(def thr-volts 0.0)
-(def thr-pos 0.0)
-
 (def btn '(0 0))
 
 @const-start
@@ -50,9 +47,6 @@
 
                 (var new-btn-0 (= (gpio-read 8) 0))
                 (var new-btn-1 (= (gpio-read 10) 0))
-
-                (setq thr-volts (get-adc 0))
-                (setq thr-pos (trunc01 (/ (- thr-volts 0.45) 1.65)))
 
                 ; buttons are pressed on release
                 (if (and (>= btn-0 input-debounce-count) (not new-btn-0) (not btn-0-long-fired))
