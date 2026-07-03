@@ -1,9 +1,9 @@
 # Dash16 ESC
 
-CAN-server for VESC Dash16. This should be installed on the ESC on the CAN-bus that provides data for the Dash16.
+CAN-server for VESC Dash16. This should be installed on the ESC on the CAN-bus that provides data for the Dash16. This package also implements the drive modes 1, 2 and 3 and maps the analog lever to ADC2 on the ADC app.
 
 ## Changelog
 
-**Version 1.0 (2026-03-18)**
+**Version 1.0 (2026-07-3)**
 
 * Initial Release

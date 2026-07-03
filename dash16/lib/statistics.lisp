@@ -1,6 +1,6 @@
 
 ; ID 20
-(def stats-battery-soc 0)
+(def stats-battery-soc 0.0)
 (def stats-duty 0)
 (def stats-kmh 0)
 (def stats-kw 0)
@@ -20,7 +20,7 @@
 (def stats-amps-now 0)
 (def stats-battery-ah 0)
 ; ID24
-(def stats-vin 0)
+(def stats-vin 0.0)
 (def stats-odom 0.0)
 
 ; Computed Statistics (resettable)

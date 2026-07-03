@@ -40,23 +40,24 @@
 
 ; Assets
 (import "assets/sym_vesc_37x34.bin" 'img-vesc)
-(import "assets/batt_level_50x210.bin" 'img-batt-level)
+(import "assets/batt_level_167x30.bin" 'img-batt-level)
 (import "assets/highbeam_32x24.bin" 'img-highbeam)
 (import "assets/lowbeam_32x24.bin" 'img-lowbeam)
-(import "assets/indicator_l_34x30.bin" 'img-indicator-l)
-(import "assets/indicator_r_34x30.bin" 'img-indicator-r)
+(import "assets/indicator_l_35x27.bin" 'img-indicator-l)
+(import "assets/indicator_r_35x27.bin" 'img-indicator-r)
 (import "assets/kickstand_26x29.bin" 'img-kickstand)
 (import "assets/temp_b_37x38.bin" 'img-temp-b)
 (import "assets/temp_e_37x38.bin" 'img-temp-e)
 (import "assets/temp_m_37x38.bin" 'img-temp-m)
-(import "assets/warning_35x38.bin" 'img-warning)
+(import "assets/warning_28x24.bin" 'img-warning)
 (import "assets/cruise_40x36.bin" 'img-cruise)
 (import "assets/charging_160x61.bin" 'img-charging)
-(import "assets/page-clear_400x160.bin" 'img-page-clear)
+(import "assets/page-clear_172x100.bin" 'img-page-clear)
 
 ; Fonts
 (import "font/roboto-bold-12-4c.bin" 'font-12)
 (import "font/roboto-bold-16-4c.bin" 'font-16)
+(import "font/roboto-bold-24-4c.bin" 'font-24)
 (import "font/roboto-bold-32-4c.bin" 'font-32)
 (import "font/roboto-bold-48-4c.bin" 'font-48)
 (import "font/roboto-bold-16-2c.bin" 'font-16-2c)
@@ -94,11 +95,10 @@
 
         (if config-code-server (start-code-server)) ; Enable remote code execution
 
-        (disp-set-bl 0)
-        (disp-reset)
-        (disp-orientation 3)
-        (disp-clear 0)
-        (disp-set-bl bl-lvl-bright)
+        ; Offset X = 34
+        (disp-init)
+        (ext-disp-orientation 0)
+        (pwm-start 2000 bl-lvl-bright 0 2)
 
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
@@ -169,27 +169,25 @@
 
         (def init-complete true)
 
-        (def on-btn-0-pressed (fn () (setq page-now (mod (+ page-now 1) page-num))))
         (def on-btn-1-pressed (fn () (if (> drive-mode 0) (setq drive-mode (- drive-mode 1)))))
-        (def on-btn-2-pressed (fn () (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))))
-        (def on-btn-3-pressed (fn () (setq light-on (not light-on))))
+        (def on-btn-0-pressed (fn () (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))))
+
+        (def on-btn-0-long-pressed (fn () {
+                    ;(setq backlight-dim (not backlight-dim))
+                    ;(if backlight-dim
+                        ;(pwm-set-duty bl-lvl-dim 0)
+                        ;(pwm-set-duty bl-lvl-bright 0)
+                    ;)
+
+                    (setq page-now (mod (+ page-now 1) page-num))
+        }))
 
         (def on-btn-1-long-pressed (fn () {
                     (comm-send-event 0)
         }))
 
-        (def on-btn-3-long-pressed (fn () {
-                    (setq backlight-dim (not backlight-dim))
-                    (if backlight-dim
-                        (disp-set-bl bl-lvl-dim)
-                        (disp-set-bl bl-lvl-bright)
-                    )
-        }))
-
         (def on-btn-0-repeat-press nil)
         (def on-btn-1-repeat-press nil)
-        (def on-btn-2-repeat-press nil)
-        (def on-btn-3-repeat-press nil)
 })
 
 @const-end

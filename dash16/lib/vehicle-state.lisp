@@ -23,7 +23,7 @@
 (def battery-b-connected false) ; Has received msg from BMS B
 
 (def page-now 0)
-(def page-num 3)
+(def page-num 2)
 
 (def light-on light-on-default)
 (def backlight-dim false)

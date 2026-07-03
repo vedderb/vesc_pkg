@@ -144,9 +144,19 @@
 )))
 
 (defun comm-tx-thread () {
+        (var canbuf (bufcreate 8))
+
         (loopwhile t {
+                ; Lights
                 (can-send-sid 201 (list drive-mode (if light-on 1 0) 0 0 0 0 0 0))
-                (sleep 0.1)
+
+                ; Brake Lever
+                (bufclear canbuf)
+                (bufset-i16 canbuf 0 (* thr-pos 1000.0))
+                (bufset-i16 canbuf 2 (* thr-volts 1000.0))
+                (can-send-sid 203 canbuf)
+
+                (sleep 0.02)
         })
 })
 
