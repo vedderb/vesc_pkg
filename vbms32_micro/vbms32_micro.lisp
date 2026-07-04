@@ -332,7 +332,8 @@ loopwhile-thd
 
                 (if (< (assoc rtc-val 'soc) 0.05)
                     {
-                        (bms-set-btn-wakeup-state -1)
+                        (sleep-config-wakeup-pin 0 1)
+                        (bms-set-btn-wakeup-state 1)
                         (sleep-deep (bms-get-param 'sleep_long))
                     }
                     {
@@ -414,7 +415,8 @@ loopwhile-thd
 
                 (if (< (assoc rtc-val 'soc) 0.05)
                     {
-                        (bms-set-btn-wakeup-state -1)
+                        (sleep-config-wakeup-pin 0 1)
+                        (bms-set-btn-wakeup-state 1)
                         (sleep-deep (bms-get-param 'sleep_long))
                     }
                     {
@@ -735,7 +737,8 @@ loopwhile-thd
                     (save-rtc-val)
                     (save-settings)
                     (with-com '(bms-sleep))
-                    (bms-set-btn-wakeup-state -1)
+                    (sleep-config-wakeup-pin 0 1)
+                    (bms-set-btn-wakeup-state 1)
                     (sleep-deep (bms-get-param 'sleep_long))
             })
 
