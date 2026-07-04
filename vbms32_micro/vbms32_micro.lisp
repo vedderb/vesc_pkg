@@ -86,16 +86,16 @@ loopwhile-thd
 
 (defun beep (times dt) {
         (if (assoc rtc-val 'beeper-en)
-        {
+            {
                 (mutex-lock buz-mutex)
 
-        (loopwhile (> times 0) {
-                (pwm-set-duty 0.5 0)
-                (sleep dt)
-                (pwm-set-duty 0.0 0)
-                (sleep dt)
-                (setq times (- times 1))
-        })
+                (loopwhile (> times 0) {
+                        (pwm-set-duty 0.5 0)
+                        (sleep dt)
+                        (pwm-set-duty 0.0 0)
+                        (sleep dt)
+                        (setq times (- times 1))
+                })
 
                 (mutex-unlock buz-mutex)
         })
@@ -345,8 +345,6 @@ loopwhile-thd
         })
 
         (init-hw)
-
-        (beep 2 0.1)
 
         (if (can-active) (setq do-sleep false))
 
@@ -979,6 +977,8 @@ loopwhile-thd
         })
 
         (start-hum-thd)
+
+        (beep 2 0.1) ; Boot done
 })
 
 @const-end
