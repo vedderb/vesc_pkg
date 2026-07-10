@@ -34,6 +34,7 @@
         <file>UnleashedCreativityLights/UCLights.vescpkg</file>
         <file>wheelie_limiter/wheelie_limiter.vescpkg</file>
         <file>mt6701_config/mt6701_config.vescpkg</file>
+        <file>mqttcan4vesc/mqttcan4vesc.vescpkg</file>
    </qresource>
 </RCC>
 
