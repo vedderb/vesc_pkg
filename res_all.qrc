@@ -22,18 +22,17 @@
         <file>blacktip_dpv/blacktip_dpv.vescpkg</file>
         <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
         <file>dash35b/dash35b.vescpkg</file>
-        <file>dash35b/dash35b_esc.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_stm.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
         <file>lib_bq27441/bq27441.vescpkg</file>
         <file>boosted_doctor/boosted_doctor.vescpkg</file>
         <file>dash16/dash16.vescpkg</file>
-        <file>dash16/dash16_esc.vescpkg</file>
         <file>dash16/dash16_test.vescpkg</file>
         <file>lib_tca9534/tca9534.vescpkg</file>
         <file>UnleashedCreativityLights/UCLights.vescpkg</file>
         <file>wheelie_limiter/wheelie_limiter.vescpkg</file>
         <file>mt6701_config/mt6701_config.vescpkg</file>
+        <file>dash_esc/dash_esc.vescpkg</file>
    </qresource>
 </RCC>
 

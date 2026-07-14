@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "Dash16 ESC"
-    property string pkgDescriptionMd: "README_ESC-gen.md"
-    property string pkgLisp: "main-esc.lisp"
+    property string pkgName: "Dash ESC"
+    property string pkgDescriptionMd: "README-gen.md"
+    property string pkgLisp: "main.lisp"
     property string pkgQml: "logui.qml"
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "dash16_esc.vescpkg"
+    property string pkgOutput: "dash_esc.vescpkg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device
