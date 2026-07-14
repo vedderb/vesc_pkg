@@ -6,6 +6,11 @@
 (def val-brk 0.0)
 (def volts-brk 0.0)
 
+; 2 is buttons only, 3 is buttons and ADC. Initially only
+; the buttons are detached, but once throttle is received
+; ADC2 is detached and replaced by the dash16 throttle
+(def adc-detach-mode 2)
+
 (def cruise-on 0)
 (def cruise-ts 0)
 
@@ -57,17 +62,23 @@
                     (match drive-mode
                         (0 { ; Reverse
                                 (conf-set 'l-current-max-scale 0.4)
-                                (conf-set 'min-speed (/ -10.0 3.6))
+                                (conf-set 'min-speed (/ -15.0 3.6))
                                 (if dual-motors {
                                         (run-m2 (conf-set 'l-current-max-scale 0.8))
                                         (run-m2 (conf-set 'max-speed (/ 10.0 3.6)))
                                 })
+
+                                (app-adc-override 2 1)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (1 { ; Neutral
-                                (conf-set 'l-current-max-scale 0.8)
+                                (conf-set 'l-current-max-scale 0.0)
+
                                 (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 0.8))
+                                        (run-m2 (conf-set 'l-current-max-scale 0.0))
                                 })
+
+                                (app-adc-override 2 0)
                         })
                         (2 { ; 1
                                 (conf-set 'l-current-max-scale 0.5)
@@ -76,6 +87,8 @@
                                         (run-m2 (conf-set 'l-current-max-scale 0.5))
                                         (run-m2 (conf-set 'max-speed (/ 20.0 3.6)))
                                 })
+
+                                (app-adc-override 2 0)
                         })
                         (3 { ; 2
                                 (conf-set 'l-current-max-scale 0.6)
@@ -84,6 +97,8 @@
                                         (run-m2 (conf-set 'l-current-max-scale 0.6))
                                         (run-m2 (conf-set 'max-speed (/ 25.0 3.6)))
                                 })
+
+                                (app-adc-override 2 0)
                         })
                         (4 { ; 3
                                 (conf-set 'l-current-max-scale 1.0)
@@ -92,6 +107,8 @@
                                         (run-m2 (conf-set 'l-current-max-scale 1.0))
                                         (run-m2 (conf-set 'max-speed (/ 200.0 3.6)))
                                 })
+
+                                (app-adc-override 2 0)
                         })
                     )
 
@@ -111,8 +128,9 @@
                     (setq val-brk (/ (bufget-i16 data 0) 1000.0))
                     (setq volts-brk (/ (bufget-i16 data 2) 1000.0))
 
+                    (setq adc-detach-mode 3)
                     (app-adc-override 1 volts-brk)
-                    (app-adc-detach 1 3) ; Detach ADC2
+                    (app-adc-detach adc-detach-mode 3) ; Detach ADC2
             })
 
             ; Event
@@ -456,7 +474,7 @@
 
         (var buf-can (array-create 8))
 
-        (loopwhile-thd ("Send CAN" 100) t {
+        (loopwhile-thd ("Send CAN" 150) t {
                 (bufclear buf-can)
                 (bufset-i16 buf-can 0 (* (get-batt) 1000))
                 (bufset-i16 buf-can 2 (* (abs (get-duty)) 1000))
@@ -523,11 +541,24 @@
                 (bufset-u8 buf-can 0 cruise-on)
                 (can-send-sid 202 buf-can)
 
+                (sleep 0.1)
+        })
+
+        (loopwhile-thd ("Cruise" 150) t {
                 (if (and (> (secs-since cruise-ts) 1) (< (* (abs (get-speed-set)) 3.6) 5.0)) {
                         (setq cruise-on 0)
                 })
 
-                (sleep 0.1) ; 10 Hz
+                (if (or
+                        (< drive-mode 2)
+                        (and (> (secs-since cruise-ts) 2) (> (abs (get-adc-decoded)) 0.05))
+                    )
+                    (setq cruise-on 0)
+                )
+
+                (app-adc-override 3 cruise-on)
+
+                (sleep 0.05)
         })
 
         (start-code-server)
