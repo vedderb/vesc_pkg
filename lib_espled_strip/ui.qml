@@ -51,6 +51,7 @@ Item {
     readonly property int defSpeed: 32
     readonly property int defSize: 8
     readonly property int defLevel: 255
+    readonly property int defBri: 255
 
     // One object per strip; array index == segment index on the device.
     property var strips: []
@@ -108,7 +109,7 @@ Item {
             pin: pin, len: len, ledType: type, timing: timing,
             fx: defFx, pal: defPal,
             r: 255, g: 0, b: 0,
-            speed: defSpeed, size: defSize, level: defLevel
+            speed: defSpeed, size: defSize, level: defLevel, bri: defBri
         }
     }
 
@@ -171,6 +172,7 @@ Item {
         if (s.speed !== defSpeed) c.push("(ext-espled-seg-spd " + i + " " + s.speed + ")")
         if (s.size !== defSize)   c.push("(ext-espled-seg-size " + i + " " + s.size + ")")
         if (s.level !== defLevel) c.push("(ext-espled-seg-level " + i + " " + s.level + ")")
+        if (s.bri !== defBri)     c.push("(ext-espled-seg-bri " + i + " " + s.bri + ")")
         var col = packColor(s.r, s.g, s.b)
         if (col !== 0)            c.push("(ext-espled-seg-col " + i + " " + col + ")")
         if (c.length > 0) {
@@ -400,6 +402,27 @@ Item {
                                 item.interactionReleased.connect(function() {
                                     queueSend("lvl" + page.seg,
                                         "(ext-espled-seg-level " + page.seg + " " + item.value.toFixed(0) + ")")
+                                })
+                            }
+                        }
+
+                        // Per-strip brightness. The firmware multiplies this by
+                        // the Global brightness slider, so the strip's output is
+                        // (strip brightness / 255) * (global brightness / 255).
+                        Label { text: "Brightness" }
+                        Loader {
+                            sourceComponent: customValueSlider
+                            Layout.fillWidth: true
+                            onLoaded: {
+                                item.from = 0; item.to = 255; item.value = page.d.bri
+                                item.valueChanged.connect(function() {
+                                    page.d.bri = Math.round(item.value)
+                                    queueSend("bri" + page.seg,
+                                        "(ext-espled-seg-bri " + page.seg + " " + item.value.toFixed(0) + ")")
+                                })
+                                item.interactionReleased.connect(function() {
+                                    queueSend("bri" + page.seg,
+                                        "(ext-espled-seg-bri " + page.seg + " " + item.value.toFixed(0) + ")")
                                 })
                             }
                         }
