@@ -45,9 +45,12 @@ Item {
     property Commands mCommands: VescIf.commands()
 
     // Segment defaults set by ext-espled-seg-def. Replays skip values equal
-    // to these, keeping the burst after a rebuild small.
-    readonly property int defFx: 0
-    readonly property int defPal: 0
+    // to these, keeping the burst after a rebuild small. fx 2 = solid (0 =
+    // off, 1 = custom), matching the firmware effect enum.
+    readonly property int fxSolid: 2
+    readonly property int defFx: fxSolid
+    // Palette 0 is the (empty) custom palette; 1 = Spectrum is the default.
+    readonly property int defPal: 1
     readonly property int defSpeed: 32
     readonly property int defSize: 8
     readonly property int defLevel: 255
@@ -104,24 +107,38 @@ Item {
 
     // ---- Strip management ------------------------------------------------
 
-    function makeStrip(pin, len, type, timing) {
+    function makeStrip(pin, len, type, timing, offset) {
         return {
-            pin: pin, len: len, ledType: type, timing: timing,
+            pin: pin, len: len, ledType: type, timing: timing, offset: offset,
             fx: defFx, pal: defPal,
             r: 255, g: 0, b: 0,
             speed: defSpeed, size: defSize, level: defLevel, bri: defBri
         }
     }
 
-    // Called from the Add dialog once pin / length / type / timing are chosen,
-    // so a strip is only created (and init'd) on the pin the user picked -
-    // never on a placeholder pin.
-    function addStripFrom(pin, len, type, timing) {
+    // Called from the Add dialog once pin / length / type / timing / offset are
+    // chosen, so a strip is only created (and init'd) on the pin the user
+    // picked - never on a placeholder pin.
+    function addStripFrom(pin, len, type, timing, offset) {
         var arr = strips.slice()
-        arr.push(makeStrip(pin, len, type, timing))
+        arr.push(makeStrip(pin, len, type, timing, offset))
         strips = arr            // reassign -> tab delegates rebuild
         applyStructure()
         tabBar.currentIndex = strips.length - 1
+    }
+
+    // Next free offset on a pin: the end of the furthest strip already on it,
+    // so chained strips (0-20, 21-40, ...) can be placed with one fewer thing
+    // to compute. 0 when the pin is unused.
+    function nextOffsetForPin(pin) {
+        var end = 0
+        for (var i = 0; i < strips.length; i++) {
+            if (strips[i].pin === pin) {
+                var e = strips[i].offset + strips[i].len
+                if (e > end) end = e
+            }
+        }
+        return end
     }
 
     function removeStrip(idx) {
@@ -152,7 +169,7 @@ Item {
         for (var i = 0; i < strips.length; i++) {
             var s = strips[i]
             c.push("(ext-espled-seg-def " + i + " " + s.pin + " " +
-                   s.ledType + " " + s.len + " 0 " + s.timing + ")")
+                   s.ledType + " " + s.len + " " + s.offset + " " + s.timing + ")")
         }
         c.push("(ext-espled-init " + strips.length + ")")
         sendCode("(progn " + c.join(" ") + ")")
@@ -283,6 +300,17 @@ Item {
                             onValueModified: { page.d.len = value; applyStructure() }
                         }
 
+                        // Pixel offset within the pin's chain. Strips sharing a
+                        // pin must have non-overlapping [offset, offset+LEDs)
+                        // ranges (e.g. 0-20 then 21-40 on the same data line).
+                        Label { text: "Offset" }
+                        SpinBox {
+                            from: 0; to: 1024; editable: true
+                            Layout.fillWidth: true
+                            value: page.d.offset
+                            onValueModified: { page.d.offset = value; applyStructure() }
+                        }
+
                         Label { text: "Type" }
                         ComboBox {
                             model: ["GRB (WS2812)", "RGB", "GRBW (SK6812 RGBW)", "RGBW"]
@@ -319,7 +347,7 @@ Item {
                         Label { text: "Effect" }
                         ComboBox {
                             id: fxCombo
-                            model: ["Solid", "Breathe", "Chase", "Rainbow", "Sparkle", "Comet", "Gauge", "Strobe", "Larson", "Felony", "Theater", "Wipe", "Waves", "Candle", "Heartbeat"]
+                            model: ["Off", "Custom", "Solid", "Breathe", "Chase", "Rainbow", "Sparkle", "Comet", "Gauge", "Strobe", "Larson", "Felony", "Theater", "Wipe", "Waves", "Candle", "Heartbeat", "Turn signal"]
                             Layout.fillWidth: true
                             currentIndex: page.d.fx
                             onActivated: {
@@ -330,7 +358,7 @@ Item {
 
                         Label { text: "Palette" }
                         ComboBox {
-                            model: ["Spectrum", "Fire", "Ocean", "Neon", "Ember", "Traffic", "B&W Flash", "Police Blue", "Sunset", "Lava", "Aurora", "Forest", "Party", "Ice", "Halloween", "Christmas", "Pastel", "Sakura"]
+                            model: ["Custom", "Spectrum", "Fire", "Ocean", "Neon", "Ember", "Traffic", "B&W Flash", "Police Blue", "Sunset", "Lava", "Aurora", "Forest", "Party", "Ice", "Halloween", "Christmas", "Pastel", "Sakura"]
                             Layout.fillWidth: true
                             currentIndex: page.d.pal
                             // Colour 0 means "take colour from the palette", so
@@ -511,27 +539,30 @@ Item {
                                         page.d.r = modelData.cr
                                         page.d.g = modelData.cg
                                         page.d.b = modelData.cb
-                                        page.d.fx = 0
-                                        fxCombo.currentIndex = 0
+                                        page.d.fx = fxSolid
+                                        fxCombo.currentIndex = fxSolid
                                         page.refreshPreview()
                                         sendCode("(ext-espled-seg-col " + page.seg + " " +
                                                  packColor(modelData.cr, modelData.cg, modelData.cb) + ")")
-                                        sendCode("(ext-espled-seg-fx " + page.seg + " 0)")
+                                        sendCode("(ext-espled-seg-fx " + page.seg + " " + fxSolid + ")")
                                     }
                                 }
                             }
                             Button {
                                 text: "Off"
                                 Layout.fillWidth: true
+                                // FX_OFF (0) blanks the strip whatever the
+                                // effect, without disturbing its colour.
                                 onClicked: {
-                                    page.d.r = 0; page.d.g = 0; page.d.b = 0
-                                    page.refreshPreview()
-                                    sendCode("(ext-espled-seg-col " + page.seg + " 0)")
+                                    page.d.fx = 0
+                                    fxCombo.currentIndex = 0
+                                    sendCode("(ext-espled-seg-fx " + page.seg + " 0)")
                                 }
                             }
                         }
                     }
                 }
+
             }
         }
     }
@@ -629,7 +660,8 @@ Item {
         // A strip is only created once these are chosen, so init never runs
         // on a placeholder pin.
         onAccepted: addStripFrom(dlgPin.value, dlgLen.value,
-                                 dlgType.currentIndex, dlgTiming.currentIndex)
+                                 dlgType.currentIndex, dlgTiming.currentIndex,
+                                 dlgOffset.value)
 
         GridLayout {
             anchors.fill: parent
@@ -640,12 +672,22 @@ Item {
                 id: dlgPin
                 from: 0; to: 48; value: 20; editable: true
                 Layout.fillWidth: true
+                // Chained strips share a pin: suggest the next free offset when
+                // the chosen pin already has strips on it.
+                onValueModified: dlgOffset.value = nextOffsetForPin(value)
             }
 
             Label { text: "LEDs" }
             SpinBox {
                 id: dlgLen
                 from: 1; to: 512; value: 30; editable: true
+                Layout.fillWidth: true
+            }
+
+            Label { text: "Offset" }
+            SpinBox {
+                id: dlgOffset
+                from: 0; to: 1024; value: 0; editable: true
                 Layout.fillWidth: true
             }
 
@@ -694,6 +736,7 @@ Item {
                     dlgLen.value = 30
                     dlgType.currentIndex = 0
                     dlgTiming.currentIndex = 0
+                    dlgOffset.value = nextOffsetForPin(dlgPin.value)
                     addDialog.open()
                 }
             }

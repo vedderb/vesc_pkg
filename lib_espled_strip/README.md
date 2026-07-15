@@ -17,7 +17,7 @@ The package includes a VESC Tool page for testing. Each LED strip is a tab: use 
 | `ext-espled-deinit` | `()` | stop rendering and release the LED driver |
 | `ext-espled-seg-look` | `(i fx pal color spd bri)` | full appearance in one call |
 | `ext-espled-seg-fx` / `ext-espled-fx` | `(i fx)` / `(fx)` | effect per segment / all segments |
-| `ext-espled-seg-pal` / `ext-espled-pal` | `(i pal)` / `(pal)` | palette 0..7 |
+| `ext-espled-seg-pal` / `ext-espled-pal` | `(i pal)` / `(pal)` | palette: 0 = custom (set with `ext-espled-seg-palette`), 1..18 = built-in |
 | `ext-espled-seg-col` / `ext-espled-col` | `(i color)` / `(color)` | packed `0xWWRRGGBB` |
 | `ext-espled-col-rgb` / `ext-espled-col-rgbw` | `(r g b [w])` | solid color on all segments |
 | `ext-espled-seg-bri` | `(i bri)` | per-segment brightness 0..255 |
@@ -28,15 +28,19 @@ The package includes a VESC Tool page for testing. Each LED strip is a tab: use 
 | `ext-espled-seg-overlay` | `(i color bri)` | overlay color and brightness at runtime (bri 0 = off) |
 | `ext-espled-seg-on` | `(i on)` | enable/disable a segment |
 | `ext-espled-seg-reverse` | `(i rev)` | reverse pixel order |
+| `ext-espled-seg-custom` | `(i)` | put segment `i` in custom mode (effect 1): a blank consumer-driven pixel buffer, so you can run your own effect while still getting brightness / current limit / channel pooling |
+| `ext-espled-seg-pixel` | `(i idx color)` | set one custom pixel (packed `0xWWRRGGBB`); enters custom mode automatically |
+| `ext-espled-seg-pixels` | `(i start colors)` | set consecutive custom pixels from `start`, `colors` a list of packed values; enters custom mode automatically |
+| `ext-espled-seg-palette` | `(i c0 c1 c2 c3)` | set segment `i`'s custom palette (4 anchor colours) and select it (palette 0), to recolour the gradient effects |
 | `ext-espled-bri` | `(b)` | master brightness 0..255 |
 | `ext-espled-fade` | `(rate)` | brightness easing: fraction of the remaining gap closed per frame in 32nds (0 = instant, default 15 = ~47%/frame) |
 | `ext-espled-auto-white` | `(en)` | derive W from RGB on RGBW strips |
 | `ext-espled-ablimit` | `(ma)` | adaptive current cap in mA (0 = off) |
 
-Effects: 0 solid, 1 breathe, 2 chase, 3 rainbow, 4 sparkle, 5 comet, 6 gauge (fill by `level`, pulses when `spd` > 0), 7 strobe, 8 larson/knight-rider, 9 felony (halves alternate red/blue), 10 theater (marching marquee), 11 wipe (fill then wipe to black), 12 waves (overlapping slow waves), 13 candle (warm flicker), 14 heartbeat (double pulse).
+Effects: 0 off (all pixels dark, whatever the colour), 1 custom (consumer-supplied pixels via `ext-espled-seg-pixel` / `-pixels`), 2 solid, 3 breathe, 4 chase, 5 rainbow, 6 sparkle, 7 comet, 8 gauge (fill by `level`, pulses when `spd` > 0), 9 strobe, 10 larson/knight-rider, 11 felony (halves alternate red/blue), 12 theater (marching marquee), 13 wipe (fill then wipe to black), 14 waves (overlapping slow waves), 15 candle (warm flicker), 16 heartbeat (double pulse), 17 turn signal (splits the strip in half; `level` selects the mode - 0 off, then left/right/hazard x solid/blink/sweep as `1 + side*3 + style`; defaults to amber when no colour is set).
 
-Color semantics: a segment color of 0 means "take color from the palette" - breathe, chase, sparkle, comet, strobe, larson, theater, wipe, waves and heartbeat then cycle their color through the palette, and rainbow always draws the palette. Exceptions: solid with color 0 is black (so segments can be blanked), gauge with color 0 draws the palette as a gradient along the fill (or a battery-style red-to-green gradient when the palette is 0 too), felony has fixed red/blue, and candle with color 0 uses a fixed warm flame color.
-Palettes: 0 spectrum, 1 fire, 2 ocean, 3 neon, 4 ember, 5 traffic, 6 b&w flash, 7 police-blue, 8 sunset, 9 lava, 10 aurora, 11 forest, 12 party, 13 ice, 14 halloween, 15 christmas, 16 pastel, 17 sakura.
+Color semantics: a segment color of 0 means "take color from the palette" - breathe, chase, sparkle, comet, strobe, larson, theater, wipe, waves and heartbeat then cycle their color through the palette, and rainbow always draws the palette. Exceptions: solid with color 0 is black (so segments can be blanked - or use effect 0, off), gauge draws the palette as a gradient along the fill for palettes 1+ (and a battery-style red-to-green gradient for palette 0), felony has fixed red/blue, and candle with color 0 uses a fixed warm flame color.
+Palettes: 0 custom (4 anchor colours set with `ext-espled-seg-palette`; recolours the gradient effects - gauge excepted, which reads palette 0 as its battery gradient), 1 spectrum, 2 fire, 3 ocean, 4 neon, 5 ember, 6 traffic, 7 b&w flash, 8 police-blue, 9 sunset, 10 lava, 11 aurora, 12 forest, 13 party, 14 ice, 15 halloween, 16 christmas, 17 pastel, 18 sakura.
 
 ## Example
 

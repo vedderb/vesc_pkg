@@ -54,7 +54,9 @@ HEADER
 
 // Effects
 enum {
-	FX_SOLID = 0,
+	FX_OFF = 0,   // all pixels off (ignores the colour) - the zeroed default
+	FX_CUSTOM,    // consumer-supplied pixels (ext-espled-seg-pixel / -pixels)
+	FX_SOLID,     // steady colour
 	FX_BREATHE,
 	FX_CHASE,
 	FX_RAINBOW,
@@ -69,6 +71,18 @@ enum {
 	FX_WAVES,     // overlapping slow waves (pacifica-like)
 	FX_CANDLE,    // warm uneven flicker
 	FX_HEARTBEAT, // thump-thump double pulse
+	FX_TURN,      // turn signal - the `level` param selects the mode (see below)
+};
+
+// Turn-signal mode, carried in seg.level for the FX_TURN effect. The strip is
+// split in half; a mode selects a side (left half / right half / both) and a
+// style (solid = steady, blink = flash on/off, sweep = fill centre -> edge).
+// Laid out so (mode-1)/3 gives the side and (mode-1)%3 gives the style.
+enum {
+	TURN_OFF = 0,
+	TURN_LEFT_SOLID,   TURN_LEFT_BLINK,   TURN_LEFT_SWEEP,
+	TURN_RIGHT_SOLID,  TURN_RIGHT_BLINK,  TURN_RIGHT_SWEEP,
+	TURN_HAZARD_SOLID, TURN_HAZARD_BLINK, TURN_HAZARD_SWEEP,
 };
 
 // Color byte layouts on the wire
@@ -130,6 +144,16 @@ typedef struct {
 	uint8_t ov_idx[ESPLED_OV_MAX];
 	uint32_t ov_color;
 	uint8_t ov_bri;
+
+	// Custom mode: a consumer-supplied pixel buffer (len packed colors) shown
+	// by FX_CUSTOM, so consumers can run their own effects while still getting
+	// this engine's brightness, current limit and channel pooling. NULL until
+	// the segment is put in custom mode.
+	uint32_t *manual;
+
+	// Custom palette: 4 anchor colours used when pal == 0, so the built-in
+	// gradient effects can be recoloured. Set via ext-espled-seg-palette.
+	uint32_t cpal[4];
 
 	int group;         // pin group index, assigned at init
 } seg_t;
@@ -196,16 +220,30 @@ static uint32_t scale(uint32_t c, uint32_t num) { // num 0..255
 	return pack(r, g, b, w);
 }
 
-static uint32_t palette_at(uint8_t pal, uint8_t pos) {
-	const palette_t *p = &palettes[pal % PALETTE_COUNT];
-	uint32_t a = p->c[pos / 64];
-	uint32_t b = p->c[(pos / 64 + 1) % 4];
+// Interpolate a position 0..255 across 4 anchor colours (wrapping).
+static uint32_t interp4(const uint32_t *c, uint8_t pos) {
+	uint32_t a = c[pos / 64];
+	uint32_t b = c[(pos / 64 + 1) % 4];
 	uint32_t f = pos % 64; // 0..63 between anchors
 
 	uint32_t r = (((a >> 16) & 0xFF) * (63 - f) + ((b >> 16) & 0xFF) * f) / 63;
 	uint32_t g = (((a >> 8) & 0xFF) * (63 - f) + ((b >> 8) & 0xFF) * f) / 63;
 	uint32_t bl = ((a & 0xFF) * (63 - f) + (b & 0xFF) * f) / 63;
 	return pack(r, g, bl, 0);
+}
+
+static uint32_t palette_at(uint8_t pal, uint8_t pos) {
+	return interp4(palettes[pal % PALETTE_COUNT].c, pos);
+}
+
+// Palette for a segment. pal 0 is the segment's custom palette (cpal); pal
+// 1..N map to the built-in palettes (index - 1), so adding custom at 0 did
+// not renumber the const table.
+static uint32_t seg_palette_at(const seg_t *s, uint8_t pos) {
+	if (s->pal == 0) {
+		return interp4(s->cpal, pos);
+	}
+	return palette_at(s->pal - 1, pos);
 }
 
 // Triangle wave 0..255..0 over a 512-step period.
@@ -231,7 +269,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	switch (s->fx) {
 	case FX_BREATHE: {
 		uint32_t b = triangle(ph / 32);
-		uint32_t c0 = s->color ? s->color : palette_at(s->pal, (uint8_t)(ph / 128));
+		uint32_t c0 = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
 		uint32_t c = scale(c0, b);
 		for (int i = 0; i < n; i++) work[i] = c;
 	} break;
@@ -243,7 +281,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			if (d < 0) d += n;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
 			uint32_t c = s->color ? s->color
-				: palette_at(s->pal, (uint8_t)((i * 255) / (n ? n : 1)));
+				: seg_palette_at(s,(uint8_t)((i * 255) / (n ? n : 1)));
 			work[i] = scale(c, b);
 		}
 	} break;
@@ -251,7 +289,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	case FX_RAINBOW: {
 		for (int i = 0; i < n; i++) {
 			uint8_t pos = (uint8_t)((i * 255) / (n ? n : 1) + ph / 32);
-			work[i] = palette_at(s->pal, pos);
+			work[i] = seg_palette_at(s,pos);
 		}
 	} break;
 
@@ -260,7 +298,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			// Deterministic twinkle from phase + index
 			uint32_t h = ((uint32_t)i * 2654435761u) ^ ((ph / 32) * 40503u);
 			uint32_t c = s->color ? s->color
-				: palette_at(s->pal, (uint8_t)(h >> 16));
+				: seg_palette_at(s,(uint8_t)(h >> 16));
 			work[i] = ((h >> 8) & 0xFF) < ((uint32_t)(s->spd ? s->spd : 32) / 2 + 1) ? c : 0;
 		}
 	} break;
@@ -271,7 +309,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			int d = head - i;
 			if (d < 0) d += n;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
-			uint32_t c = s->color ? s->color : palette_at(s->pal, (uint8_t)(ph / 32));
+			uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 32));
 			work[i] = scale(c, b);
 		}
 	} break;
@@ -289,7 +327,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		if (!s->color && s->pal) {
 			for (int i = 0; i < n; i++) {
 				work[i] = i < lit
-					? scale(palette_at(s->pal, (uint8_t)((i * 255) / n)), b)
+					? scale(seg_palette_at(s,(uint8_t)((i * 255) / n)), b)
 					: 0;
 			}
 			break;
@@ -311,7 +349,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	case FX_STROBE: {
 		uint32_t flash = ph / 64;
 		uint32_t c = s->color ? s->color
-			: palette_at(s->pal, (uint8_t)(flash * 61)); // new hue per flash
+			: seg_palette_at(s,(uint8_t)(flash * 61)); // new hue per flash
 		bool lit = flash & 1;
 		for (int i = 0; i < n; i++) work[i] = lit ? c : 0;
 	} break;
@@ -320,7 +358,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		int span = n > 1 ? n - 1 : 1;
 		int pos = (int)((ph / 16) % (uint32_t)(2 * span));
 		if (pos > span) pos = 2 * span - pos;
-		uint32_t c = s->color ? s->color : palette_at(s->pal, (uint8_t)(ph / 128));
+		uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
 		for (int i = 0; i < n; i++) {
 			int d = i > pos ? i - pos : pos - i;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
@@ -343,7 +381,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		for (int i = 0; i < n; i++) {
 			bool lit = ((i + 3 - offset) % 3) == 0;
 			uint32_t c = s->color ? s->color
-				: palette_at(s->pal, (uint8_t)((i * 255) / n + ph / 64));
+				: seg_palette_at(s,(uint8_t)((i * 255) / n + ph / 64));
 			work[i] = lit ? c : 0;
 		}
 	} break;
@@ -356,7 +394,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		bool filling = pos < (uint32_t)n;
 		int edge = (int)(filling ? pos : pos - (uint32_t)n);
 		uint32_t c = s->color ? s->color
-			: palette_at(s->pal, (uint8_t)(((ph / 32) / period) * 47));
+			: seg_palette_at(s,(uint8_t)(((ph / 32) / period) * 47));
 		for (int i = 0; i < n; i++) {
 			bool lit = filling ? (i <= edge) : (i > edge);
 			work[i] = lit ? c : 0;
@@ -373,7 +411,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			uint32_t w2 = triangle(p * 3 + 170 + 1024 - ph / 48);
 			uint32_t w3 = triangle(p + 85 + ph / 80);
 			uint32_t c0 = s->color ? s->color
-				: palette_at(s->pal, (uint8_t)((w1 + w3) / 2));
+				: seg_palette_at(s,(uint8_t)((w1 + w3) / 2));
 			work[i] = scale(c0, 64 + (w2 * 191) / 255);
 		}
 	} break;
@@ -406,10 +444,66 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			b = 180 - (d * 180) / 80;
 		}
 		if (b < 16) b = 16; // faint glow between beats
-		uint32_t c = s->color ? s->color : palette_at(s->pal, (uint8_t)(ph / 128));
+		uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
 		c = scale(c, b);
 		for (int i = 0; i < n; i++) work[i] = c;
 	} break;
+
+	case FX_TURN: {
+		// Turn signal. seg.level selects side + style (see the TURN_* enum);
+		// the strip is split at the midpoint. Colour is the segment colour, or
+		// amber when none is set. Blank whenever off or the mode is invalid.
+		for (int i = 0; i < n; i++) work[i] = 0;
+		int mode = s->level;
+		if (mode < TURN_LEFT_SOLID || mode > TURN_HAZARD_SWEEP) {
+			break;
+		}
+		int m = mode - 1;
+		int side = m / 3;    // 0 left, 1 right, 2 both (hazard)
+		int style = m % 3;   // 0 solid, 1 blink, 2 sweep
+		bool do_left  = (side == 0 || side == 2);
+		bool do_right = (side == 1 || side == 2);
+		uint32_t c = s->color ? s->color : 0xFF6400; // amber default
+		int half = n / 2;
+
+		if (style == 0) {          // solid
+			if (do_left)  for (int i = 0; i < half; i++) work[i] = c;
+			if (do_right) for (int i = half; i < n; i++) work[i] = c;
+		} else if (style == 1) {   // blink
+			if ((ph / 64) & 1) {
+				if (do_left)  for (int i = 0; i < half; i++) work[i] = c;
+				if (do_right) for (int i = half; i < n; i++) work[i] = c;
+			}
+		} else {                   // sweep, centre -> edge, with a blank gap
+			if (do_left && half > 0) {
+				int period = half + (half / 2 > 3 ? half / 2 : 3);
+				int prog = (int)((ph / 32) % (uint32_t)period);
+				int lit = prog < half ? prog + 1 : 0;
+				for (int j = 0; j < lit; j++) work[(half - 1) - j] = c; // centre outward
+			}
+			int hr = n - half;
+			if (do_right && hr > 0) {
+				int period = hr + (hr / 2 > 3 ? hr / 2 : 3);
+				int prog = (int)((ph / 32) % (uint32_t)period);
+				int lit = prog < hr ? prog + 1 : 0;
+				for (int j = 0; j < lit; j++) work[half + j] = c; // centre outward
+			}
+		}
+	} break;
+
+	case FX_CUSTOM: {
+		// Consumer-driven pixels; brightness / current limit / overlay still
+		// apply downstream in render_seg.
+		if (s->manual) {
+			for (int i = 0; i < n; i++) work[i] = s->manual[i];
+		} else {
+			for (int i = 0; i < n; i++) work[i] = 0;
+		}
+	} break;
+
+	case FX_OFF:
+		for (int i = 0; i < n; i++) work[i] = 0;
+		break;
 
 	case FX_SOLID:
 	default:
@@ -662,7 +756,7 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->offset = (uint16_t)offset;
 	s->reverse = false;
 	s->fx = FX_SOLID;
-	s->pal = 0;
+	s->pal = 1; // Spectrum (0 is the custom palette, empty by default)
 	s->bri = 255;
 	s->bri_cur = 255;
 	s->spd = 32;
@@ -673,6 +767,11 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->ov_count = 0;
 	s->ov_color = 0;
 	s->ov_bri = 0;
+	s->cpal[0] = 0; s->cpal[1] = 0; s->cpal[2] = 0; s->cpal[3] = 0;
+	if (s->manual) { // redefining drops any custom-mode buffer
+		VESC_IF->free(s->manual);
+		s->manual = NULL;
+	}
 	VESC_IF->mutex_unlock(st->lock);
 
 	return VESC_IF->lbm_enc_sym_true;
@@ -902,6 +1001,13 @@ static void espled_stop(espled_t *st) {
 			}
 		}
 	}
+	// Free any manual-mode pixel buffers.
+	for (int i = 0; i < ESPLED_SEG_MAX; i++) {
+		if (st->seg[i].manual) {
+			VESC_IF->free(st->seg[i].manual);
+			st->seg[i].manual = NULL;
+		}
+	}
 	st->group_count = 0;
 	st->buf_len = 0;
 	st->seg_count = 0;
@@ -1010,6 +1116,103 @@ static lbm_value ext_seg_on(lbm_value *a, lbm_uint n) { return set_one(a, n, SET
 
 // (ext-espled-seg-reverse i rev)
 static lbm_value ext_seg_reverse(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_REVERSE); }
+
+// Ensure segment s is in custom mode: allocate its pixel buffer (once) and
+// switch it to the custom effect. Must be called with the lock held.
+static bool seg_custom_ready(seg_t *s) {
+	if (!s->manual) {
+		s->manual = VESC_IF->malloc((uint32_t)s->len * sizeof(uint32_t));
+		if (!s->manual) {
+			return false;
+		}
+		for (int i = 0; i < s->len; i++) {
+			s->manual[i] = 0;
+		}
+	}
+	s->fx = FX_CUSTOM;
+	return true;
+}
+
+// (ext-espled-seg-custom i) - put segment i in custom mode (blank buffer).
+// Consumers then push pixels with ext-espled-seg-pixel / -pixels and run
+// their own effect; brightness, current limit and channel pooling still apply.
+static lbm_value ext_seg_custom(lbm_value *a, lbm_uint n) {
+	espled_t *st = state();
+	if (!check_num_args(a, n, 1)) return VESC_IF->lbm_enc_sym_terror;
+	seg_t *s = seg_arg(st, a[0]);
+	if (!s) return VESC_IF->lbm_enc_sym_terror;
+
+	VESC_IF->mutex_lock(st->lock);
+	bool ok = seg_custom_ready(s);
+	VESC_IF->mutex_unlock(st->lock);
+	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
+}
+
+// (ext-espled-seg-pixel i idx color) - set one manual pixel (packed 0xWWRRGGBB).
+// Enters manual mode if not already. Out-of-range idx is ignored.
+static lbm_value ext_seg_pixel(lbm_value *a, lbm_uint n) {
+	espled_t *st = state();
+	if (!check_num_args(a, n, 3)) return VESC_IF->lbm_enc_sym_terror;
+	seg_t *s = seg_arg(st, a[0]);
+	if (!s) return VESC_IF->lbm_enc_sym_terror;
+	int idx = VESC_IF->lbm_dec_as_i32(a[1]);
+	uint32_t color = VESC_IF->lbm_dec_as_u32(a[2]);
+
+	VESC_IF->mutex_lock(st->lock);
+	bool ok = seg_custom_ready(s);
+	if (ok && idx >= 0 && idx < s->len) {
+		s->manual[idx] = color;
+	}
+	VESC_IF->mutex_unlock(st->lock);
+	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
+}
+
+// (ext-espled-seg-pixels i start colors) - set consecutive manual pixels from
+// `start`, where colors is a list of packed 0xWWRRGGBB values. Enters manual
+// mode if not already; pixels past the end of the segment are ignored.
+static lbm_value ext_seg_pixels(lbm_value *a, lbm_uint n) {
+	espled_t *st = state();
+	if (n != 3 || !VESC_IF->lbm_is_number(a[0]) || !VESC_IF->lbm_is_number(a[1])) {
+		return VESC_IF->lbm_enc_sym_terror;
+	}
+	seg_t *s = seg_arg(st, a[0]);
+	if (!s) return VESC_IF->lbm_enc_sym_terror;
+	int idx = VESC_IF->lbm_dec_as_i32(a[1]);
+
+	VESC_IF->mutex_lock(st->lock);
+	bool ok = seg_custom_ready(s);
+	if (ok) {
+		lbm_value lst = a[2];
+		while (VESC_IF->lbm_is_cons(lst) && idx < s->len) {
+			if (idx >= 0) {
+				s->manual[idx] = VESC_IF->lbm_dec_as_u32(VESC_IF->lbm_car(lst));
+			}
+			idx++;
+			lst = VESC_IF->lbm_cdr(lst);
+		}
+	}
+	VESC_IF->mutex_unlock(st->lock);
+	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
+}
+
+// (ext-espled-seg-palette i c0 c1 c2 c3) - set segment i's custom palette
+// (4 anchor colours, packed 0xWWRRGGBB) and select it (pal 0), so the built-in
+// gradient effects (rainbow, chase, gauge, ...) render in these colours.
+static lbm_value ext_seg_palette(lbm_value *a, lbm_uint n) {
+	espled_t *st = state();
+	if (!check_num_args(a, n, 5)) return VESC_IF->lbm_enc_sym_terror;
+	seg_t *s = seg_arg(st, a[0]);
+	if (!s) return VESC_IF->lbm_enc_sym_terror;
+
+	VESC_IF->mutex_lock(st->lock);
+	s->cpal[0] = VESC_IF->lbm_dec_as_u32(a[1]);
+	s->cpal[1] = VESC_IF->lbm_dec_as_u32(a[2]);
+	s->cpal[2] = VESC_IF->lbm_dec_as_u32(a[3]);
+	s->cpal[3] = VESC_IF->lbm_dec_as_u32(a[4]);
+	s->pal = 0; // select the custom palette
+	VESC_IF->mutex_unlock(st->lock);
+	return VESC_IF->lbm_enc_sym_true;
+}
 
 // (ext-espled-col-rgb r g b) / (ext-espled-col-rgbw r g b w) - solid color on
 // all segments, like fled-col-rgb.
@@ -1126,6 +1329,10 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->lbm_add_extension("ext-espled-col", ext_col);
 	VESC_IF->lbm_add_extension("ext-espled-seg-on", ext_seg_on);
 	VESC_IF->lbm_add_extension("ext-espled-seg-reverse", ext_seg_reverse);
+	VESC_IF->lbm_add_extension("ext-espled-seg-custom", ext_seg_custom);
+	VESC_IF->lbm_add_extension("ext-espled-seg-pixel", ext_seg_pixel);
+	VESC_IF->lbm_add_extension("ext-espled-seg-pixels", ext_seg_pixels);
+	VESC_IF->lbm_add_extension("ext-espled-seg-palette", ext_seg_palette);
 	VESC_IF->lbm_add_extension("ext-espled-col-rgb", ext_col_rgbw);
 	VESC_IF->lbm_add_extension("ext-espled-col-rgbw", ext_col_rgbw);
 	VESC_IF->lbm_add_extension("ext-espled-bri", ext_bri);
