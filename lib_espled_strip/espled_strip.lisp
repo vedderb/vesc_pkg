@@ -37,7 +37,14 @@
         (recv
             ((event-data-rx . (? data))
                 (if (and (> (buflen data) 0) (= (bufget-u8 data 0) 40)) ; '('
-                    (trap (eval (read data)))
+                    {
+                        ; trap keeps a bad command from killing the handler;
+                        ; log the error and the offending command so failures
+                        ; are visible in the VESC Tool lisp console.
+                        (var res (trap (eval (read data))))
+                        (if (eq (car res) 'exit-error)
+                            (print (list "espled eval error" (ix res 1) data)))
+                    }
             ))
             (_ nil)
 )))

@@ -6,7 +6,7 @@ Works on all Express targets (ESP32-C3, C6, S3, P4) - the package contains one b
 
 ## Test UI
 
-The package includes a VESC Tool page for testing: configure pin / LED count / strip type and press **Start**, then play with effects, palettes, color and brightness. The controls send LispBM expressions to the device as custom app data, which `espled_strip.lisp` evaluates.
+The package includes a VESC Tool page for testing. Each LED strip is a tab: use **+ Add** to add a strip, set its pin / LED count / type / timing, then play with effects, palettes, colour and per-strip level. Several strips on different pins run at once (the firmware pools the chip's RMT channels behind the pins). A **Global** tab holds master brightness, fade, RGBW auto-white and the current limit, plus **Stop all**. The controls send LispBM expressions to the device as custom app data, which `espled_strip.lisp` evaluates. One strip is added automatically when the page opens.
 
 ## Extensions
 
