@@ -91,6 +91,13 @@ make clean
 make VESC_TOOL=/path/to/vesc_tool
 ```
 
+### Native libraries for the VESC Express
+
+The build rules for VESC Express native libraries (see `c_libs/examples/express_extension`) use [RVfplib](https://github.com/pulp-platform/RVfplib) for soft-float support on the RISC-V targets. It is included as a git submodule, so it has to be initialized before building:
+```sh
+git submodule update --init
+```
+
 ### Notes
 
 * Make sure that you build a VESC Package file (\*.vescpkg) in the main directory of your package (e.g. euc/euc.vescpkg)
