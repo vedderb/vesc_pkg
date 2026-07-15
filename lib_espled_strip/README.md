@@ -50,7 +50,7 @@ Palettes: 0 spectrum, 1 fire, 2 ocean, 3 neon, 4 ember, 5 traffic, 6 b&w flash, 
 (ext-espled-seg-fx 0 3)        ; rainbow
 ```
 
-Segments can sit on different pins; they are transmitted sequentially through the firmware's single LED driver each frame. The default timing is the firmware's universal preset, which covers WS2812B / WS2815 / SK6812 / SK6815; a strip-specific preset can be picked per pin with the `timing` argument of `ext-espled-seg-def`.
+Segments can sit on different pins. The firmware pools the chip's RMT TX channels (2 on the ESP32-C3/C6, 4 on the S3) behind the LED driver, so any number of pins works: strips that fit the pool are driven continuously, and beyond that pins share a channel and are refreshed in turn (each strip holds its last frame between refreshes). The default timing is the firmware's universal preset, which covers WS2812B / WS2815 / SK6812 / SK6815; a strip-specific preset can be picked per pin with the `timing` argument of `ext-espled-seg-def`.
 
 Frames are only transmitted when they differ from what the strip already shows (WLED-style dirty tracking), so static content keeps the data line quiet - useful on setups prone to EMF pickup. A keepalive retransmit every ~2 s heals pixels corrupted by line noise.
 

@@ -22,11 +22,13 @@
 // Lisp sets high-level segment /
 // effect state and a background render thread animates, applies
 // brightness / auto-white / an adaptive current limit and pushes pixels.
-// The hardware path is the firmware rgbled driver through the C interface
-// (VESC_IF->rgbled_init/update), which drives one pin at a time - segments
-// on different pins are transmitted sequentially each frame. The firmware
-// skips re-init when the pin does not change, so single-strip setups have
-// no switching overhead.
+// The hardware path is the firmware rgbled driver through the C interface,
+// addressed by pin: strips are registered with rgbled_init at start and each
+// frame's changed groups are pushed with rgbled_update(pin, ...). The
+// firmware pools the chip's RMT TX channels behind those calls (2 on the
+// ESP32-C3/C6, 4 on the S3), so any number of pin groups works - strips that
+// fit the pool stay lit continuously, and beyond that they share channels
+// and are refreshed in turn.
 //
 // Native-lib constraints shape the implementation: on the RISC-V targets
 // the lib executes in place from flash, so there are no writable globals -
@@ -562,7 +564,6 @@ static void render_thd(void *arg) {
 				}
 			}
 			int pin = g->pin;
-			unsigned int timing = g->timing;
 			uint8_t *tx = g->txbuf[g->cur];
 			int tx_bytes = g->chain_len * g->colors;
 
@@ -584,10 +585,11 @@ static void render_thd(void *arg) {
 			VESC_IF->mutex_unlock(st->lock);
 
 			// Hardware IO outside the lock - the firmware driver can block
-			// while a previous transmission finishes. Re-init is a no-op
-			// when the pin and timing are unchanged.
-			if (send && VESC_IF->rgbled_init(pin, timing)) {
-				VESC_IF->rgbled_update(tx, tx_bytes);
+			// while a previous transmission finishes. The firmware pools RMT
+			// channels per pin, so this just hands off the frame for this
+			// group's pin (strips were registered with rgbled_init at start).
+			if (send) {
+				VESC_IF->rgbled_update(pin, tx, tx_bytes);
 			}
 		}
 
@@ -820,6 +822,15 @@ static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
 		}
 	}
 
+	// The firmware drives strips by pin and pools RMT channels behind that,
+	// so any number of pin groups works (channels are shared when there are
+	// more pins than the chip has). Just require the LED API to be present.
+	if (VESC_IF->rgbled_init == NULL || VESC_IF->rgbled_update == NULL
+		|| VESC_IF->rgbled_deinit == NULL) {
+		VESC_IF->lbm_set_error_reason("This firmware has no LED strip support");
+		return VESC_IF->lbm_enc_sym_eerror;
+	}
+
 	bool alloc_ok = true;
 	st->work = VESC_IF->malloc(max_len * sizeof(uint32_t));
 	alloc_ok = st->work != NULL;
@@ -839,6 +850,11 @@ static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
 	if (alloc_ok) {
 		st->buf_len = max_len;
 		st->seg_count = n;
+		// Register each pin group as a strip so the firmware can bind RMT
+		// channels (dedicated while they fit, shared beyond that).
+		for (int gi = 0; gi < st->group_count; gi++) {
+			VESC_IF->rgbled_init(st->group[gi].pin, st->group[gi].timing);
+		}
 		st->thread = VESC_IF->spawn(render_thd, 3072, "espled_render", st);
 		alloc_ok = st->thread != NULL;
 	}
@@ -873,7 +889,9 @@ static void espled_stop(espled_t *st) {
 	VESC_IF->request_terminate(st->thread);
 	st->running = false;
 
-	VESC_IF->rgbled_deinit();
+	for (int gi = 0; gi < st->group_count; gi++) {
+		VESC_IF->rgbled_deinit(st->group[gi].pin);
+	}
 
 	VESC_IF->free(st->work); st->work = NULL;
 	for (int gi = 0; gi < st->group_count; gi++) {

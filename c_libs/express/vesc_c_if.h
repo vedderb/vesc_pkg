@@ -215,8 +215,8 @@ typedef struct {
 
 	// Accessory: RGB LED
 	bool (*rgbled_init)(int pin, unsigned int timing_preset);
-	void (*rgbled_deinit)(void);
-	void (*rgbled_update)(uint8_t *data, size_t size);
+	void (*rgbled_deinit)(int pin);
+	void (*rgbled_update)(int pin, uint8_t *data, size_t size);
 } vesc_c_if;
 
 typedef struct {
