@@ -375,6 +375,8 @@ loopwhile-thd
         (setq init-done true)
 
         (setq charge-ok (and
+                ; charging should only start if the voltage is lower than vc_charge_start
+                (< c-max (bms-get-param 'vc_charge_start))
                 (< c-max (bms-get-param 'vc_charge_end))
                 (> c-min (bms-get-param 'vc_charge_min))
                 (< t-max (bms-get-param 't_charge_max))
