@@ -212,6 +212,11 @@ typedef struct {
 	void (*sem_signal)(lib_semaphore);
 	bool (*sem_wait_to)(lib_semaphore, systime_t); // Returns false on timeout
 	void (*sem_reset)(lib_semaphore);
+
+	// Accessory: RGB LED
+	bool (*rgbled_init)(int pin, unsigned int timing_preset);
+	void (*rgbled_deinit)(void);
+	void (*rgbled_update)(uint8_t *data, size_t size);
 } vesc_c_if;
 
 typedef struct {
