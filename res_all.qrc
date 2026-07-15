@@ -33,6 +33,8 @@
         <file>wheelie_limiter/wheelie_limiter.vescpkg</file>
         <file>mt6701_config/mt6701_config.vescpkg</file>
         <file>dash_esc/dash_esc.vescpkg</file>
+        <file>vescxpress2x3bridge/VESCXPRESS2X3Bridge.vescpkg</file>
+        <file>vescxpress2x3bridge_master/VESCXPRESS2X3Bridge_Master.vescpkg</file>
    </qresource>
 </RCC>
 
