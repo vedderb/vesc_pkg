@@ -644,6 +644,8 @@ loopwhile-thd
                             (bms-get-param 'vc_charge_end)
                             (bms-get-param 'vc_charge_start)
                     ))
+                    ; Since vc_charge_start can be set higher than vc_charge_end in VESC tool, we need to always check for that
+                    (< c-max (bms-get-param 'vc_charge_end))
                     (> c-min (bms-get-param 'vc_charge_min))
                     (< t-max (bms-get-param 't_charge_max))
                     (> t-min (bms-get-param 't_charge_min))
