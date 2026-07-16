@@ -1,0 +1,1830 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConfigParams>
+    <Params>
+        <config_name>
+            <longName>none</longName>
+            <type>3</type>
+            <transmittable>0</transmittable>
+            <description>Float Accessories configuration</description>
+            <cDefine></cDefine>
+            <valString>FaConfig</valString>
+            <maxLen>0</maxLen>
+        </config_name>
+        <hw_name>
+            <longName>Float Accessories Cfg</longName>
+            <type>0</type>
+            <transmittable>0</transmittable>
+            <description>Smart LED control, tilt remote and stock OW BMS bridge for the VESC Express.</description>
+            <cDefine></cDefine>
+        </hw_name>
+        <led_enabled>
+            <longName>LED Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable the LED module (needs the ESPLED Strip native lib).</description>
+            <cDefine>CFG_DFLT_LED_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </led_enabled>
+        <bms_enabled>
+            <longName>BMS Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable the stock OW BMS RS485 bridge.</description>
+            <cDefine>CFG_DFLT_BMS_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </bms_enabled>
+        <pubmote_enabled>
+            <longName>Pubmote Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable the Pubmote ESP-NOW remote.</description>
+            <cDefine>CFG_DFLT_PUBMOTE_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </pubmote_enabled>
+        <log_enabled>
+            <longName>Logging Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable telemetry logging.</description>
+            <cDefine>CFG_DFLT_LOG_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </log_enabled>
+        <humidity_enabled>
+            <longName>Humidity Sensor Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable the Si7021/AHT20 humidity sensor loop.</description>
+            <cDefine>CFG_DFLT_HUMIDITY_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </humidity_enabled>
+        <gnss_enabled>
+            <longName>GNSS Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Enable the GNSS receiver (u-blox or NMEA). Feeds the gnss-* extensions, the SD log position (Log GNSS) and the CAN GNSS broadcast.</description>
+            <cDefine>CFG_DFLT_GNSS_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </gnss_enabled>
+        <can_id>
+            <longName>CAN ID</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>CAN ID of the VESC. -1 scans and picks the first one found.</description>
+            <cDefine>CFG_DFLT_CAN_ID</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>253</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </can_id>
+        <can_loop_delay>
+            <longName>CAN Loop Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Telemetry poll rate on the CAN bus.</description>
+            <cDefine>CFG_DFLT_CAN_LOOP_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>8</valInt>
+            <suffix> Hz</suffix>
+            <vTx>6</vTx>
+        </can_loop_delay>
+        <led_on>
+            <longName>LEDs On</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Master LED on/off. Also toggled from the QML page and mall grab.</description>
+            <cDefine>CFG_DFLT_LED_ON</cDefine>
+            <valInt>1</valInt>
+        </led_on>
+        <led_highbeam_on>
+            <longName>Highbeam On</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Highbeam on/off.</description>
+            <cDefine>CFG_DFLT_LED_HIGHBEAM_ON</cDefine>
+            <valInt>1</valInt>
+        </led_highbeam_on>
+        <led_mode>
+            <longName>LED Mode</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Front/rear LED pattern while riding.</description>
+            <cDefine>CFG_DFLT_LED_MODE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>White/Red</enumNames>
+            <enumNames>Battery</enumNames>
+            <enumNames>Cyan/Magenta</enumNames>
+            <enumNames>Blue/Green</enumNames>
+            <enumNames>Yellow/Green</enumNames>
+            <enumNames>Rainbow</enumNames>
+            <enumNames>Strobe</enumNames>
+            <enumNames>Rave</enumNames>
+            <enumNames>Rave Directional</enumNames>
+            <enumNames>Knight Rider</enumNames>
+            <enumNames>Felony</enumNames>
+            <enumNames>Trans Pride</enumNames>
+        </led_mode>
+        <led_mode_idle>
+            <longName>LED Mode Idle</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Front/rear LED pattern when idle.</description>
+            <cDefine>CFG_DFLT_LED_MODE_IDLE</cDefine>
+            <valInt>5</valInt>
+            <enumNames>White/Red</enumNames>
+            <enumNames>Battery</enumNames>
+            <enumNames>Cyan/Magenta</enumNames>
+            <enumNames>Blue/Green</enumNames>
+            <enumNames>Yellow/Green</enumNames>
+            <enumNames>Rainbow</enumNames>
+            <enumNames>Strobe</enumNames>
+            <enumNames>Rave</enumNames>
+            <enumNames>Rave Directional</enumNames>
+            <enumNames>Knight Rider</enumNames>
+            <enumNames>Felony</enumNames>
+            <enumNames>Trans Pride</enumNames>
+        </led_mode_idle>
+        <led_mode_startup>
+            <longName>LED Mode Startup</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Front/rear LED pattern during startup.</description>
+            <cDefine>CFG_DFLT_LED_MODE_STARTUP</cDefine>
+            <valInt>9</valInt>
+            <enumNames>White/Red</enumNames>
+            <enumNames>Battery</enumNames>
+            <enumNames>Cyan/Magenta</enumNames>
+            <enumNames>Blue/Green</enumNames>
+            <enumNames>Yellow/Green</enumNames>
+            <enumNames>Rainbow</enumNames>
+            <enumNames>Strobe</enumNames>
+            <enumNames>Rave</enumNames>
+            <enumNames>Rave Directional</enumNames>
+            <enumNames>Knight Rider</enumNames>
+            <enumNames>Felony</enumNames>
+            <enumNames>Trans Pride</enumNames>
+        </led_mode_startup>
+        <led_mode_status>
+            <longName>Status Bar Style</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Style of the footpad indication on the status bar.</description>
+            <cDefine>CFG_DFLT_LED_MODE_STATUS</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Classic</enumNames>
+            <enumNames>Alternate</enumNames>
+        </led_mode_status>
+        <led_mode_button>
+            <longName>Button LED Mode</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Pattern of the single button LED.</description>
+            <cDefine>CFG_DFLT_LED_MODE_BUTTON</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Rainbow</enumNames>
+            <enumNames>Battery</enumNames>
+        </led_mode_button>
+        <led_mode_footpad>
+            <longName>Footpad LED Mode</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Pattern of the footpad strip.</description>
+            <cDefine>CFG_DFLT_LED_MODE_FOOTPAD</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Rainbow</enumNames>
+        </led_mode_footpad>
+        <led_mall_grab_enabled>
+            <longName>Mall Grab</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Show the status pattern when the board is held nose-up.</description>
+            <cDefine>CFG_DFLT_LED_MALL_GRAB_ENABLED</cDefine>
+            <valInt>1</valInt>
+        </led_mall_grab_enabled>
+        <led_brake_light_enabled>
+            <longName>Brake Light</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Strobe the rear strip red when braking.</description>
+            <cDefine>CFG_DFLT_LED_BRAKE_LIGHT_ENABLED</cDefine>
+            <valInt>1</valInt>
+        </led_brake_light_enabled>
+        <led_brake_light_min_amps>
+            <longName>Brake Light Min Current</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Motor current threshold below which the brake light triggers.</description>
+            <cDefine>CFG_DFLT_LED_BRAKE_LIGHT_MIN_AMPS</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.0</maxDouble>
+            <minDouble>-50.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>-4.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> A</suffix>
+            <vTx>9</vTx>
+        </led_brake_light_min_amps>
+        <idle_timeout>
+            <longName>Idle Timeout</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Seconds without activity before the idle pattern shows.</description>
+            <cDefine>CFG_DFLT_IDLE_TIMEOUT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>3600</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>1</valInt>
+            <suffix> s</suffix>
+            <vTx>6</vTx>
+        </idle_timeout>
+        <idle_timeout_shutoff>
+            <longName>Idle Shutoff</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Seconds without activity before the LEDs turn off.</description>
+            <cDefine>CFG_DFLT_IDLE_TIMEOUT_SHUTOFF</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>36000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>600</valInt>
+            <suffix> s</suffix>
+            <vTx>6</vTx>
+        </idle_timeout_shutoff>
+        <led_brightness>
+            <longName>Brightness</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>LED brightness while riding.</description>
+            <cDefine>CFG_DFLT_LED_BRIGHTNESS</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.8</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_brightness>
+        <led_brightness_highbeam>
+            <longName>Highbeam Brightness</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Brightness of the highbeam.</description>
+            <cDefine>CFG_DFLT_LED_BRIGHTNESS_HIGHBEAM</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.8</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_brightness_highbeam>
+        <led_brightness_idle>
+            <longName>Idle Brightness</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>LED brightness when idle.</description>
+            <cDefine>CFG_DFLT_LED_BRIGHTNESS_IDLE</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.5</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_brightness_idle>
+        <led_brightness_status>
+            <longName>Status Brightness</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Brightness of the status bar.</description>
+            <cDefine>CFG_DFLT_LED_BRIGHTNESS_STATUS</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_brightness_status>
+        <led_max_brightness>
+            <longName>Max Brightness</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Upper limit applied to every LED brightness.</description>
+            <cDefine>CFG_DFLT_LED_MAX_BRIGHTNESS</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.8</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_max_brightness>
+        <led_dim_on_highbeam_ratio>
+            <longName>Dim On Highbeam</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>How much the rest of the strip dims while the highbeam is on.</description>
+            <cDefine>CFG_DFLT_LED_DIM_ON_HIGHBEAM_RATIO</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_dim_on_highbeam_ratio>
+        <led_startup_timeout>
+            <longName>Startup Pattern Time</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>How long the startup pattern shows after boot.</description>
+            <cDefine>CFG_DFLT_LED_STARTUP_TIMEOUT</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>600</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix> s</suffix>
+            <vTx>6</vTx>
+        </led_startup_timeout>
+        <led_loop_delay>
+            <longName>LED Loop Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Update rate of the LED state logic.</description>
+            <cDefine>CFG_DFLT_LED_LOOP_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix> Hz</suffix>
+            <vTx>6</vTx>
+        </led_loop_delay>
+        <led_update_not_running>
+            <longName>Freeze While Riding</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Freeze front/rear animations while riding.</description>
+            <cDefine>CFG_DFLT_LED_UPDATE_NOT_RUNNING</cDefine>
+            <valInt>0</valInt>
+        </led_update_not_running>
+        <led_show_battery_charging>
+            <longName>Show Charging</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Show the battery pattern while the charger is plugged in.</description>
+            <cDefine>CFG_DFLT_LED_SHOW_BATTERY_CHARGING</cDefine>
+            <valInt>1</valInt>
+        </led_show_battery_charging>
+        <led_front_timing>
+            <longName>Front Strip</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Front strip: disabled, or the wire timing preset to drive it with.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_TIMING</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Disabled</enumNames>
+            <enumNames>Universal</enumNames>
+            <enumNames>WS2812B</enumNames>
+            <enumNames>WS2815</enumNames>
+            <enumNames>SK6812</enumNames>
+            <enumNames>SK6815</enumNames>
+        </led_front_timing>
+        <led_front_pin>
+            <longName>Front Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO of the front strip data line.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>8</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_front_pin>
+        <led_front_num>
+            <longName>Front LED Count</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Number of LEDs on the front strip (highbeam LEDs not included).</description>
+            <cDefine>CFG_DFLT_LED_FRONT_NUM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>512</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>11</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_front_num>
+        <led_front_type>
+            <longName>Front Color Order</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Color order / RGBW type of the front strip.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_TYPE</cDefine>
+            <valInt>2</valInt>
+            <enumNames>GRB</enumNames>
+            <enumNames>RGB</enumNames>
+            <enumNames>GRBW</enumNames>
+            <enumNames>RGBW</enumNames>
+        </led_front_type>
+        <led_front_reversed>
+            <longName>Front Reversed</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Reverse the pixel order of the front strip.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_REVERSED</cDefine>
+            <valInt>1</valInt>
+        </led_front_reversed>
+        <led_front_highbeam_mode>
+            <longName>Front Highbeam</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Front highbeam hardware: a separate PWM-driven pin, or LEDs embedded in the strip itself.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_HIGHBEAM_MODE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>PWM Pin</enumNames>
+            <enumNames>Embedded LEDs</enumNames>
+        </led_front_highbeam_mode>
+        <led_front_highbeam_pin>
+            <longName>Front Highbeam Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>PWM highbeam GPIO for the front (highbeam mode PWM Pin).</description>
+            <cDefine>CFG_DFLT_LED_FRONT_HIGHBEAM_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_front_highbeam_pin>
+        <led_front_highbeam_pos>
+            <longName>Front Highbeam Positions</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam LED positions within the strip, packed one per byte from the lowest, 255 = unused (e.g. positions 3,8,14,19 = 320014339).</description>
+            <cDefine>CFG_DFLT_LED_FRONT_HIGHBEAM_POS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_front_highbeam_pos>
+        <led_front_highbeam_min>
+            <longName>Front Highbeam Min Drive</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam brightness is mapped onto the min-max drive range some light bars expect.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_HIGHBEAM_MIN</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_front_highbeam_min>
+        <led_front_highbeam_max>
+            <longName>Front Highbeam Max Drive</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam brightness is mapped onto the min-max drive range some light bars expect.</description>
+            <cDefine>CFG_DFLT_LED_FRONT_HIGHBEAM_MAX</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>1.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_front_highbeam_max>
+        <led_rear_timing>
+            <longName>Rear Strip</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Rear strip: disabled, or the wire timing preset to drive it with.</description>
+            <cDefine>CFG_DFLT_LED_REAR_TIMING</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Disabled</enumNames>
+            <enumNames>Universal</enumNames>
+            <enumNames>WS2812B</enumNames>
+            <enumNames>WS2815</enumNames>
+            <enumNames>SK6812</enumNames>
+            <enumNames>SK6815</enumNames>
+        </led_rear_timing>
+        <led_rear_pin>
+            <longName>Rear Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO of the rear strip data line.</description>
+            <cDefine>CFG_DFLT_LED_REAR_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>9</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_rear_pin>
+        <led_rear_num>
+            <longName>Rear LED Count</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Number of LEDs on the rear strip (highbeam LEDs not included).</description>
+            <cDefine>CFG_DFLT_LED_REAR_NUM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>512</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>11</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_rear_num>
+        <led_rear_type>
+            <longName>Rear Color Order</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Color order / RGBW type of the rear strip.</description>
+            <cDefine>CFG_DFLT_LED_REAR_TYPE</cDefine>
+            <valInt>2</valInt>
+            <enumNames>GRB</enumNames>
+            <enumNames>RGB</enumNames>
+            <enumNames>GRBW</enumNames>
+            <enumNames>RGBW</enumNames>
+        </led_rear_type>
+        <led_rear_reversed>
+            <longName>Rear Reversed</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Reverse the pixel order of the rear strip.</description>
+            <cDefine>CFG_DFLT_LED_REAR_REVERSED</cDefine>
+            <valInt>1</valInt>
+        </led_rear_reversed>
+        <led_rear_highbeam_mode>
+            <longName>Rear Highbeam</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Rear highbeam hardware: a separate PWM-driven pin, or LEDs embedded in the strip itself.</description>
+            <cDefine>CFG_DFLT_LED_REAR_HIGHBEAM_MODE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>None</enumNames>
+            <enumNames>PWM Pin</enumNames>
+            <enumNames>Embedded LEDs</enumNames>
+        </led_rear_highbeam_mode>
+        <led_rear_highbeam_pin>
+            <longName>Rear Highbeam Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>PWM highbeam GPIO for the rear (highbeam mode PWM Pin).</description>
+            <cDefine>CFG_DFLT_LED_REAR_HIGHBEAM_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_rear_highbeam_pin>
+        <led_rear_highbeam_pos>
+            <longName>Rear Highbeam Positions</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam LED positions within the strip, packed one per byte from the lowest, 255 = unused (e.g. positions 3,8,14,19 = 320014339).</description>
+            <cDefine>CFG_DFLT_LED_REAR_HIGHBEAM_POS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_rear_highbeam_pos>
+        <led_rear_highbeam_min>
+            <longName>Rear Highbeam Min Drive</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam brightness is mapped onto the min-max drive range some light bars expect.</description>
+            <cDefine>CFG_DFLT_LED_REAR_HIGHBEAM_MIN</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>0.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_rear_highbeam_min>
+        <led_rear_highbeam_max>
+            <longName>Rear Highbeam Max Drive</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Embedded highbeam brightness is mapped onto the min-max drive range some light bars expect.</description>
+            <cDefine>CFG_DFLT_LED_REAR_HIGHBEAM_MAX</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1.0</maxDouble>
+            <minDouble>0.0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.05</stepDouble>
+            <valDouble>1.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </led_rear_highbeam_max>
+        <led_status_timing>
+            <longName>Status Strip</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Status bar: disabled, or the wire timing preset to drive it with.</description>
+            <cDefine>CFG_DFLT_LED_STATUS_TIMING</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Disabled</enumNames>
+            <enumNames>Universal</enumNames>
+            <enumNames>WS2812B</enumNames>
+            <enumNames>WS2815</enumNames>
+            <enumNames>SK6812</enumNames>
+            <enumNames>SK6815</enumNames>
+        </led_status_timing>
+        <led_status_pin>
+            <longName>Status Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO of the status bar data line.</description>
+            <cDefine>CFG_DFLT_LED_STATUS_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>7</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_status_pin>
+        <led_status_num>
+            <longName>Status LED Count</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Number of LEDs on the status bar.</description>
+            <cDefine>CFG_DFLT_LED_STATUS_NUM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>512</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>10</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_status_num>
+        <led_status_type>
+            <longName>Status Color Order</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Color order / RGBW type of the status bar.</description>
+            <cDefine>CFG_DFLT_LED_STATUS_TYPE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>GRB</enumNames>
+            <enumNames>RGB</enumNames>
+            <enumNames>GRBW</enumNames>
+            <enumNames>RGBW</enumNames>
+        </led_status_type>
+        <led_status_reversed>
+            <longName>Status Reversed</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Reverse the pixel order of the status bar.</description>
+            <cDefine>CFG_DFLT_LED_STATUS_REVERSED</cDefine>
+            <valInt>1</valInt>
+        </led_status_reversed>
+        <led_footpad_timing>
+            <longName>Footpad Strip</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Footpad strip: disabled, or the wire timing preset to drive it with.</description>
+            <cDefine>CFG_DFLT_LED_FOOTPAD_TIMING</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Disabled</enumNames>
+            <enumNames>Universal</enumNames>
+            <enumNames>WS2812B</enumNames>
+            <enumNames>WS2815</enumNames>
+            <enumNames>SK6812</enumNames>
+            <enumNames>SK6815</enumNames>
+        </led_footpad_timing>
+        <led_footpad_pin>
+            <longName>Footpad Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO of the footpad strip data line.</description>
+            <cDefine>CFG_DFLT_LED_FOOTPAD_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_footpad_pin>
+        <led_footpad_num>
+            <longName>Footpad LED Count</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Number of LEDs on the footpad strip.</description>
+            <cDefine>CFG_DFLT_LED_FOOTPAD_NUM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>512</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_footpad_num>
+        <led_footpad_type>
+            <longName>Footpad Color Order</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Color order / RGBW type of the footpad strip.</description>
+            <cDefine>CFG_DFLT_LED_FOOTPAD_TYPE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>GRB</enumNames>
+            <enumNames>RGB</enumNames>
+            <enumNames>GRBW</enumNames>
+            <enumNames>RGBW</enumNames>
+        </led_footpad_type>
+        <led_footpad_reversed>
+            <longName>Footpad Reversed</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Reverse the pixel order of the footpad strip.</description>
+            <cDefine>CFG_DFLT_LED_FOOTPAD_REVERSED</cDefine>
+            <valInt>0</valInt>
+        </led_footpad_reversed>
+        <led_button_timing>
+            <longName>Button LED</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>Single button LED: disabled, or the wire timing preset to drive it with.</description>
+            <cDefine>CFG_DFLT_LED_BUTTON_TIMING</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Disabled</enumNames>
+            <enumNames>Universal</enumNames>
+            <enumNames>WS2812B</enumNames>
+            <enumNames>WS2815</enumNames>
+            <enumNames>SK6812</enumNames>
+            <enumNames>SK6815</enumNames>
+        </led_button_timing>
+        <led_button_pin>
+            <longName>Button Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO of the button LED data line.</description>
+            <cDefine>CFG_DFLT_LED_BUTTON_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </led_button_pin>
+        <pubmote_loop_delay>
+            <longName>Pubmote Loop Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Telemetry rate to the remote.</description>
+            <cDefine>CFG_DFLT_PUBMOTE_LOOP_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>20</valInt>
+            <suffix> Hz</suffix>
+            <vTx>6</vTx>
+        </pubmote_loop_delay>
+        <pubmote_remote_mac_a>
+            <longName>Remote MAC A</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Paired remote MAC (upper bytes). Set by the pairing flow.</description>
+            <cDefine>CFG_DFLT_PUBMOTE_REMOTE_MAC_A</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </pubmote_remote_mac_a>
+        <pubmote_remote_mac_b>
+            <longName>Remote MAC B</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Paired remote MAC (lower bytes). Set by the pairing flow.</description>
+            <cDefine>CFG_DFLT_PUBMOTE_REMOTE_MAC_B</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </pubmote_remote_mac_b>
+        <pubmote_secret_code>
+            <longName>Pairing Secret</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Pairing secret. Set by the pairing flow.</description>
+            <cDefine>CFG_DFLT_PUBMOTE_SECRET_CODE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </pubmote_secret_code>
+        <bms_type>
+            <longName>BMS Type</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>BMS variant.</description>
+            <cDefine>CFG_DFLT_BMS_TYPE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_type>
+        <bms_rs485_chip>
+            <longName>RS485 Chip</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>RS485 transceiver variant.</description>
+            <cDefine>CFG_DFLT_BMS_RS485_CHIP</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>3</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_rs485_chip>
+        <bms_rs485_di_pin>
+            <longName>RS485 DI Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO wired to the transceiver DI.</description>
+            <cDefine>CFG_DFLT_BMS_RS485_DI_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>16</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_rs485_di_pin>
+        <bms_rs485_ro_pin>
+            <longName>RS485 RO Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO wired to the transceiver RO.</description>
+            <cDefine>CFG_DFLT_BMS_RS485_RO_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>8</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_rs485_ro_pin>
+        <bms_rs485_dere_pin>
+            <longName>RS485 DE/RE Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO wired to the transceiver DE/RE.</description>
+            <cDefine>CFG_DFLT_BMS_RS485_DERE_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>17</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_rs485_dere_pin>
+        <bms_wakeup_pin>
+            <longName>BMS Wakeup Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO that wakes the BMS, -1 if unused.</description>
+            <cDefine>CFG_DFLT_BMS_WAKEUP_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_wakeup_pin>
+        <bms_override_soc>
+            <longName>Override SOC</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Report the locally estimated SOC instead of the BMS one.</description>
+            <cDefine>CFG_DFLT_BMS_OVERRIDE_SOC</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_override_soc>
+        <bms_charge_only>
+            <longName>Charge Only</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Only talk to the BMS while charging.</description>
+            <cDefine>CFG_DFLT_BMS_CHARGE_ONLY</cDefine>
+            <valInt>0</valInt>
+        </bms_charge_only>
+        <bms_buff_size>
+            <longName>RS485 Buffer</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>RS485 receive buffer size.</description>
+            <cDefine>CFG_DFLT_BMS_BUFF_SIZE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>1024</maxInt>
+            <minInt>32</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>128</valInt>
+            <suffix> B</suffix>
+            <vTx>6</vTx>
+        </bms_buff_size>
+        <bms_loop_delay>
+            <longName>BMS Loop Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>BMS poll rate.</description>
+            <cDefine>CFG_DFLT_BMS_LOOP_DELAY</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>100</maxInt>
+            <minInt>1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>8</valInt>
+            <suffix> Hz</suffix>
+            <vTx>6</vTx>
+        </bms_loop_delay>
+        <soc_type>
+            <longName>SOC Estimator</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>State-of-charge estimation method.</description>
+            <cDefine>CFG_DFLT_SOC_TYPE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </soc_type>
+        <cell_type>
+            <longName>Cell Type</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Battery cell type for the voltage curve.</description>
+            <cDefine>CFG_DFLT_CELL_TYPE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>10</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </cell_type>
+        <bms_key_a>
+            <longName>BMS Key A</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS pairing key. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_KEY_A</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_key_a>
+        <bms_key_b>
+            <longName>BMS Key B</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS pairing key. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_KEY_B</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_key_b>
+        <bms_key_c>
+            <longName>BMS Key C</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS pairing key. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_KEY_C</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_key_c>
+        <bms_key_d>
+            <longName>BMS Key D</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS pairing key. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_KEY_D</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_key_d>
+        <bms_counter_a>
+            <longName>BMS Counter A</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS counter. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_COUNTER_A</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_counter_a>
+        <bms_counter_b>
+            <longName>BMS Counter B</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS counter. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_COUNTER_B</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_counter_b>
+        <bms_counter_c>
+            <longName>BMS Counter C</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS counter. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_COUNTER_C</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_counter_c>
+        <bms_counter_d>
+            <longName>BMS Counter D</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Stored BMS counter. Set from the QML page.</description>
+            <cDefine>CFG_DFLT_BMS_COUNTER_D</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </bms_counter_d>
+        <log_rate>
+            <longName>Log Rate</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>Telemetry log sample rate.</description>
+            <cDefine>CFG_DFLT_LOG_RATE</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>50.0</maxDouble>
+            <minDouble>0.1</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>2.0</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix> Hz</suffix>
+            <vTx>9</vTx>
+        </log_rate>
+        <log_append_gnss>
+            <longName>Log GNSS</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Append GNSS position to log samples (needs GNSS enabled).</description>
+            <cDefine>CFG_DFLT_LOG_APPEND_GNSS</cDefine>
+            <valInt>0</valInt>
+        </log_append_gnss>
+        <humidity_sda_pin>
+            <longName>Humidity SDA Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>I2C SDA GPIO of the humidity sensor.</description>
+            <cDefine>CFG_DFLT_HUMIDITY_SDA_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </humidity_sda_pin>
+        <humidity_slc_pin>
+            <longName>Humidity SCL Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>I2C SCL GPIO of the humidity sensor.</description>
+            <cDefine>CFG_DFLT_HUMIDITY_SLC_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </humidity_slc_pin>
+        <gnss_type>
+            <longName>GNSS Type</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>u-blox modules are driven by the firmware driver; any other NMEA module is read from a plain UART.</description>
+            <cDefine>CFG_DFLT_GNSS_TYPE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>u-blox (UBX)</enumNames>
+            <enumNames>NMEA (UART)</enumNames>
+        </gnss_type>
+        <gnss_rx_pin>
+            <longName>GNSS RX Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO wired to the module's TX output.</description>
+            <cDefine>CFG_DFLT_GNSS_RX_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </gnss_rx_pin>
+        <gnss_tx_pin>
+            <longName>GNSS TX Pin</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>GPIO wired to the module's RX input. Required for u-blox, optional for NMEA (read-only).</description>
+            <cDefine>CFG_DFLT_GNSS_TX_PIN</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>48</maxInt>
+            <minInt>-1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </gnss_tx_pin>
+        <gnss_uart_num>
+            <longName>GNSS UART</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>UART peripheral to use.</description>
+            <cDefine>CFG_DFLT_GNSS_UART_NUM</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>1</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </gnss_uart_num>
+        <gnss_rate_ms>
+            <longName>GNSS Nav Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Navigation update interval (u-blox type only).</description>
+            <cDefine>CFG_DFLT_GNSS_RATE_MS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>5000</maxInt>
+            <minInt>100</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>500</valInt>
+            <suffix> ms</suffix>
+            <vTx>6</vTx>
+        </gnss_rate_ms>
+        <gnss_baud>
+            <longName>GNSS Baud Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>UART baud rate (NMEA type only - the u-blox driver manages its own).</description>
+            <cDefine>CFG_DFLT_GNSS_BAUD</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>921600</maxInt>
+            <minInt>4800</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>9600</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </gnss_baud>
+        <mqtt_enabled>
+            <longName>MQTT Enabled</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Publish telemetry and accept commands over MQTT. Needs Wi-Fi configured and connected (VESC Express Wi-Fi settings).</description>
+            <cDefine>CFG_DFLT_MQTT_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </mqtt_enabled>
+        <mqtt_broker_uri>
+            <longName>Broker URI</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>Broker URI, e.g. mqtt://host:1883 or mqtts://host:8883.</description>
+            <cDefine>CFG_DFLT_MQTT_BROKER_URI</cDefine>
+            <valString></valString>
+            <maxLen>95</maxLen>
+        </mqtt_broker_uri>
+        <mqtt_client_id>
+            <longName>Client ID</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>MQTT client id. Blank auto-generates one.</description>
+            <cDefine>CFG_DFLT_MQTT_CLIENT_ID</cDefine>
+            <valString></valString>
+            <maxLen>47</maxLen>
+        </mqtt_client_id>
+        <mqtt_user>
+            <longName>Username</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>Broker username. Blank for no authentication.</description>
+            <cDefine>CFG_DFLT_MQTT_USER</cDefine>
+            <valString></valString>
+            <maxLen>47</maxLen>
+        </mqtt_user>
+        <mqtt_password>
+            <longName>Password</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>Broker password.</description>
+            <cDefine>CFG_DFLT_MQTT_PASSWORD</cDefine>
+            <valString></valString>
+            <maxLen>63</maxLen>
+        </mqtt_password>
+        <mqtt_topic_prefix>
+            <longName>Topic Prefix</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>Base topic: telemetry is published to &lt;prefix&gt;/telemetry and commands are read from &lt;prefix&gt;/cmd.</description>
+            <cDefine>CFG_DFLT_MQTT_TOPIC_PREFIX</cDefine>
+            <valString>vesc/float</valString>
+            <maxLen>47</maxLen>
+        </mqtt_topic_prefix>
+        <mqtt_qos>
+            <longName>QoS</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Quality of service for publishes and the command subscription.</description>
+            <cDefine>CFG_DFLT_MQTT_QOS</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </mqtt_qos>
+        <mqtt_keepalive>
+            <longName>Keepalive</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>MQTT keepalive interval.</description>
+            <cDefine>CFG_DFLT_MQTT_KEEPALIVE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>600</maxInt>
+            <minInt>5</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>60</valInt>
+            <suffix> s</suffix>
+            <vTx>6</vTx>
+        </mqtt_keepalive>
+        <mqtt_publish_rate>
+            <longName>Publish Rate</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>Telemetry publish rate.</description>
+            <cDefine>CFG_DFLT_MQTT_PUBLISH_RATE</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>30</maxInt>
+            <minInt>1</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>1</valInt>
+            <suffix> Hz</suffix>
+            <vTx>6</vTx>
+        </mqtt_publish_rate>
+        <accept_tos>
+            <longName>TOS Accepted</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Set once the terms-of-service prompt was accepted.</description>
+            <cDefine>CFG_DFLT_ACCEPT_TOS</cDefine>
+            <valInt>0</valInt>
+        </accept_tos>
+    </Params>
+    <SerOrder>
+        <ser>led_enabled</ser>
+        <ser>bms_enabled</ser>
+        <ser>pubmote_enabled</ser>
+        <ser>log_enabled</ser>
+        <ser>humidity_enabled</ser>
+        <ser>gnss_enabled</ser>
+        <ser>can_id</ser>
+        <ser>can_loop_delay</ser>
+        <ser>led_on</ser>
+        <ser>led_highbeam_on</ser>
+        <ser>led_mode</ser>
+        <ser>led_mode_idle</ser>
+        <ser>led_mode_startup</ser>
+        <ser>led_mode_status</ser>
+        <ser>led_mode_button</ser>
+        <ser>led_mode_footpad</ser>
+        <ser>led_mall_grab_enabled</ser>
+        <ser>led_brake_light_enabled</ser>
+        <ser>led_brake_light_min_amps</ser>
+        <ser>idle_timeout</ser>
+        <ser>idle_timeout_shutoff</ser>
+        <ser>led_brightness</ser>
+        <ser>led_brightness_highbeam</ser>
+        <ser>led_brightness_idle</ser>
+        <ser>led_brightness_status</ser>
+        <ser>led_max_brightness</ser>
+        <ser>led_dim_on_highbeam_ratio</ser>
+        <ser>led_startup_timeout</ser>
+        <ser>led_loop_delay</ser>
+        <ser>led_update_not_running</ser>
+        <ser>led_show_battery_charging</ser>
+        <ser>led_front_timing</ser>
+        <ser>led_front_pin</ser>
+        <ser>led_front_num</ser>
+        <ser>led_front_type</ser>
+        <ser>led_front_reversed</ser>
+        <ser>led_front_highbeam_mode</ser>
+        <ser>led_front_highbeam_pin</ser>
+        <ser>led_front_highbeam_pos</ser>
+        <ser>led_front_highbeam_min</ser>
+        <ser>led_front_highbeam_max</ser>
+        <ser>led_rear_timing</ser>
+        <ser>led_rear_pin</ser>
+        <ser>led_rear_num</ser>
+        <ser>led_rear_type</ser>
+        <ser>led_rear_reversed</ser>
+        <ser>led_rear_highbeam_mode</ser>
+        <ser>led_rear_highbeam_pin</ser>
+        <ser>led_rear_highbeam_pos</ser>
+        <ser>led_rear_highbeam_min</ser>
+        <ser>led_rear_highbeam_max</ser>
+        <ser>led_status_timing</ser>
+        <ser>led_status_pin</ser>
+        <ser>led_status_num</ser>
+        <ser>led_status_type</ser>
+        <ser>led_status_reversed</ser>
+        <ser>led_footpad_timing</ser>
+        <ser>led_footpad_pin</ser>
+        <ser>led_footpad_num</ser>
+        <ser>led_footpad_type</ser>
+        <ser>led_footpad_reversed</ser>
+        <ser>led_button_timing</ser>
+        <ser>led_button_pin</ser>
+        <ser>pubmote_loop_delay</ser>
+        <ser>pubmote_remote_mac_a</ser>
+        <ser>pubmote_remote_mac_b</ser>
+        <ser>pubmote_secret_code</ser>
+        <ser>bms_type</ser>
+        <ser>bms_rs485_chip</ser>
+        <ser>bms_rs485_di_pin</ser>
+        <ser>bms_rs485_ro_pin</ser>
+        <ser>bms_rs485_dere_pin</ser>
+        <ser>bms_wakeup_pin</ser>
+        <ser>bms_override_soc</ser>
+        <ser>bms_charge_only</ser>
+        <ser>bms_buff_size</ser>
+        <ser>bms_loop_delay</ser>
+        <ser>soc_type</ser>
+        <ser>cell_type</ser>
+        <ser>bms_key_a</ser>
+        <ser>bms_key_b</ser>
+        <ser>bms_key_c</ser>
+        <ser>bms_key_d</ser>
+        <ser>bms_counter_a</ser>
+        <ser>bms_counter_b</ser>
+        <ser>bms_counter_c</ser>
+        <ser>bms_counter_d</ser>
+        <ser>log_rate</ser>
+        <ser>log_append_gnss</ser>
+        <ser>humidity_sda_pin</ser>
+        <ser>humidity_slc_pin</ser>
+        <ser>gnss_type</ser>
+        <ser>gnss_rx_pin</ser>
+        <ser>gnss_tx_pin</ser>
+        <ser>gnss_uart_num</ser>
+        <ser>gnss_rate_ms</ser>
+        <ser>gnss_baud</ser>
+        <ser>mqtt_enabled</ser>
+        <ser>mqtt_broker_uri</ser>
+        <ser>mqtt_client_id</ser>
+        <ser>mqtt_user</ser>
+        <ser>mqtt_password</ser>
+        <ser>mqtt_topic_prefix</ser>
+        <ser>mqtt_qos</ser>
+        <ser>mqtt_keepalive</ser>
+        <ser>mqtt_publish_rate</ser>
+        <ser>accept_tos</ser>
+    </SerOrder>
+    <Grouping>
+        <group>
+            <groupName>Features</groupName>
+            <subgroup>
+                <subgroupName>General</subgroupName>
+                <subgroupParams>
+                    <param>led_enabled</param>
+                    <param>bms_enabled</param>
+                    <param>pubmote_enabled</param>
+                    <param>log_enabled</param>
+                    <param>humidity_enabled</param>
+                    <param>gnss_enabled</param>
+                    <param>can_id</param>
+                    <param>can_loop_delay</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>LEDs</groupName>
+            <subgroup>
+                <subgroupName>General</subgroupName>
+                <subgroupParams>
+                    <param>led_on</param>
+                    <param>led_highbeam_on</param>
+                    <param>led_mode</param>
+                    <param>led_mode_idle</param>
+                    <param>led_mode_startup</param>
+                    <param>led_mode_status</param>
+                    <param>led_mode_button</param>
+                    <param>led_mode_footpad</param>
+                    <param>led_mall_grab_enabled</param>
+                    <param>led_brake_light_enabled</param>
+                    <param>led_brake_light_min_amps</param>
+                    <param>idle_timeout</param>
+                    <param>idle_timeout_shutoff</param>
+                    <param>led_brightness</param>
+                    <param>led_brightness_highbeam</param>
+                    <param>led_brightness_idle</param>
+                    <param>led_brightness_status</param>
+                    <param>led_max_brightness</param>
+                    <param>led_dim_on_highbeam_ratio</param>
+                    <param>led_startup_timeout</param>
+                    <param>led_loop_delay</param>
+                    <param>led_update_not_running</param>
+                    <param>led_show_battery_charging</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Front</subgroupName>
+                <subgroupParams>
+                    <param>led_front_timing</param>
+                    <param>led_front_pin</param>
+                    <param>led_front_num</param>
+                    <param>led_front_type</param>
+                    <param>led_front_reversed</param>
+                    <param>led_front_highbeam_mode</param>
+                    <param>led_front_highbeam_pin</param>
+                    <param>led_front_highbeam_pos</param>
+                    <param>led_front_highbeam_min</param>
+                    <param>led_front_highbeam_max</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Rear</subgroupName>
+                <subgroupParams>
+                    <param>led_rear_timing</param>
+                    <param>led_rear_pin</param>
+                    <param>led_rear_num</param>
+                    <param>led_rear_type</param>
+                    <param>led_rear_reversed</param>
+                    <param>led_rear_highbeam_mode</param>
+                    <param>led_rear_highbeam_pin</param>
+                    <param>led_rear_highbeam_pos</param>
+                    <param>led_rear_highbeam_min</param>
+                    <param>led_rear_highbeam_max</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Status Bar</subgroupName>
+                <subgroupParams>
+                    <param>led_status_timing</param>
+                    <param>led_status_pin</param>
+                    <param>led_status_num</param>
+                    <param>led_status_type</param>
+                    <param>led_status_reversed</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Footpad</subgroupName>
+                <subgroupParams>
+                    <param>led_footpad_timing</param>
+                    <param>led_footpad_pin</param>
+                    <param>led_footpad_num</param>
+                    <param>led_footpad_type</param>
+                    <param>led_footpad_reversed</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Button</subgroupName>
+                <subgroupParams>
+                    <param>led_button_timing</param>
+                    <param>led_button_pin</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>Pubmote</groupName>
+            <subgroup>
+                <subgroupName>Remote</subgroupName>
+                <subgroupParams>
+                    <param>pubmote_loop_delay</param>
+                    <param>pubmote_remote_mac_a</param>
+                    <param>pubmote_remote_mac_b</param>
+                    <param>pubmote_secret_code</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>BMS</groupName>
+            <subgroup>
+                <subgroupName>Interface</subgroupName>
+                <subgroupParams>
+                    <param>bms_type</param>
+                    <param>bms_rs485_chip</param>
+                    <param>bms_rs485_di_pin</param>
+                    <param>bms_rs485_ro_pin</param>
+                    <param>bms_rs485_dere_pin</param>
+                    <param>bms_wakeup_pin</param>
+                    <param>bms_override_soc</param>
+                    <param>bms_charge_only</param>
+                    <param>bms_buff_size</param>
+                    <param>bms_loop_delay</param>
+                    <param>soc_type</param>
+                    <param>cell_type</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Pairing</subgroupName>
+                <subgroupParams>
+                    <param>bms_key_a</param>
+                    <param>bms_key_b</param>
+                    <param>bms_key_c</param>
+                    <param>bms_key_d</param>
+                    <param>bms_counter_a</param>
+                    <param>bms_counter_b</param>
+                    <param>bms_counter_c</param>
+                    <param>bms_counter_d</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>Logging</groupName>
+            <subgroup>
+                <subgroupName>Log</subgroupName>
+                <subgroupParams>
+                    <param>log_rate</param>
+                    <param>log_append_gnss</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Humidity</subgroupName>
+                <subgroupParams>
+                    <param>humidity_sda_pin</param>
+                    <param>humidity_slc_pin</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>GNSS</groupName>
+            <subgroup>
+                <subgroupName>Receiver</subgroupName>
+                <subgroupParams>
+                    <param>gnss_type</param>
+                    <param>gnss_rx_pin</param>
+                    <param>gnss_tx_pin</param>
+                    <param>gnss_uart_num</param>
+                    <param>gnss_rate_ms</param>
+                    <param>gnss_baud</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>MQTT</groupName>
+            <subgroup>
+                <subgroupName>Broker</subgroupName>
+                <subgroupParams>
+                    <param>mqtt_enabled</param>
+                    <param>mqtt_broker_uri</param>
+                    <param>mqtt_client_id</param>
+                    <param>mqtt_user</param>
+                    <param>mqtt_password</param>
+                    <param>mqtt_topic_prefix</param>
+                    <param>mqtt_qos</param>
+                    <param>mqtt_keepalive</param>
+                    <param>mqtt_publish_rate</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+        <group>
+            <groupName>Internal</groupName>
+            <subgroup>
+                <subgroupName>Meta</subgroupName>
+                <subgroupParams>
+                    <param>accept_tos</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+    </Grouping>
+</ConfigParams>

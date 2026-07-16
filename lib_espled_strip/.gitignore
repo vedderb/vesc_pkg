@@ -5,3 +5,6 @@ espled_strip/*.list
 espled_strip/*.map
 espled_strip/*.o
 espled_strip/*.d
+
+# Generated from espled_strip/code.c by gen_defs.py (see the Makefile).
+espled_defs.lisp

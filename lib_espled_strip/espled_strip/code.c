@@ -52,7 +52,8 @@ HEADER
 // still heals shortly.
 #define ESPLED_REFRESH_FRAMES 60
 
-// Effects
+// Effects. Lisp consumers mirror these ids in espled_defs.lisp - update that
+// file when this enum changes, or the wrong effect is selected silently.
 enum {
 	FX_OFF = 0,   // all pixels off (ignores the colour) - the zeroed default
 	FX_CUSTOM,    // consumer-supplied pixels (ext-espled-seg-pixel / -pixels)
@@ -93,27 +94,41 @@ enum {
 	TYPE_RGBW,
 };
 
-// A palette is 4 anchor colors, interpolated across pos 0..255.
+// Wire timing presets. The lib forwards the value to the firmware LED driver;
+// it is never switched on here, so this enum is documentation for lisp
+// consumers (mirrored into espled_defs.lisp by gen_defs.py).
+enum {
+	TIMING_GENERIC = 0,
+	TIMING_WS2812B,
+	TIMING_WS2815,
+	TIMING_SK6812,
+	TIMING_SK6815,
+};
+
+// A palette is 4 anchor colors, interpolated across pos 0..255. The
+// PAL_<NAME> tag on each row is the canonical id; gen_defs.py mirrors it into
+// espled_defs.lisp, with the row's position as the value. Keep tags unique
+// and the rows in id order.
 typedef struct { uint32_t c[4]; } palette_t;
 static const palette_t palettes[] = {
-	{{0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF}}, // 0 rgbw-ish
-	{{0xFF0000, 0xFF8000, 0xFFFF00, 0xFF0000}}, // 1 fire
-	{{0x0000FF, 0x00FFFF, 0x00FF80, 0x0000FF}}, // 2 ocean
-	{{0xFF00FF, 0x8000FF, 0x0080FF, 0xFF00FF}}, // 3 neon
-	{{0xFFFFFF, 0xFF4000, 0x400000, 0x000000}}, // 4 ember
-	{{0x00FF00, 0xFFFF00, 0xFF0000, 0x00FF00}}, // 5 traffic
-	{{0xFFFFFF, 0x000000, 0xFFFFFF, 0x000000}}, // 6 strobe
-	{{0x1030FF, 0xFFFFFF, 0x1030FF, 0x001040}}, // 7 police-blue
-	{{0x0B1D51, 0xFF6A00, 0xFFD700, 0x2A0E4F}}, // 8 sunset
-	{{0x000000, 0x8B0000, 0xFF4500, 0xFFFFE0}}, // 9 lava
-	{{0x01411F, 0x00FFB2, 0x7A00FF, 0x013220}}, // 10 aurora
-	{{0x013220, 0x2E8B57, 0x9ACD32, 0x013220}}, // 11 forest
-	{{0x8000FF, 0xFF4000, 0xFF00A0, 0x0040FF}}, // 12 party
-	{{0x001F5C, 0x00BFFF, 0xFFFFFF, 0x001F5C}}, // 13 ice
-	{{0xFF6A00, 0x1A001A, 0x8000FF, 0x000000}}, // 14 halloween
-	{{0xFF0000, 0x00FF00, 0xFFC000, 0x0000FF}}, // 15 christmas (c9)
-	{{0xFFB3BA, 0xBAFFC9, 0xBAE1FF, 0xFFFFBA}}, // 16 pastel
-	{{0xFF2E6A, 0xFFC0CB, 0xFFF0F5, 0xC71585}}, // 17 sakura
+	{{0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF}}, // PAL_RGBW      rgbw-ish
+	{{0xFF0000, 0xFF8000, 0xFFFF00, 0xFF0000}}, // PAL_FIRE      fire
+	{{0x0000FF, 0x00FFFF, 0x00FF80, 0x0000FF}}, // PAL_OCEAN     ocean
+	{{0xFF00FF, 0x8000FF, 0x0080FF, 0xFF00FF}}, // PAL_NEON      neon
+	{{0xFFFFFF, 0xFF4000, 0x400000, 0x000000}}, // PAL_EMBER     ember
+	{{0x00FF00, 0xFFFF00, 0xFF0000, 0x00FF00}}, // PAL_TRAFFIC   traffic
+	{{0xFFFFFF, 0x000000, 0xFFFFFF, 0x000000}}, // PAL_STROBE    strobe
+	{{0x1030FF, 0xFFFFFF, 0x1030FF, 0x001040}}, // PAL_POLICE    police-blue
+	{{0x0B1D51, 0xFF6A00, 0xFFD700, 0x2A0E4F}}, // PAL_SUNSET    sunset
+	{{0x000000, 0x8B0000, 0xFF4500, 0xFFFFE0}}, // PAL_LAVA      lava
+	{{0x01411F, 0x00FFB2, 0x7A00FF, 0x013220}}, // PAL_AURORA    aurora
+	{{0x013220, 0x2E8B57, 0x9ACD32, 0x013220}}, // PAL_FOREST    forest
+	{{0x8000FF, 0xFF4000, 0xFF00A0, 0x0040FF}}, // PAL_PARTY     party
+	{{0x001F5C, 0x00BFFF, 0xFFFFFF, 0x001F5C}}, // PAL_ICE       ice
+	{{0xFF6A00, 0x1A001A, 0x8000FF, 0x000000}}, // PAL_HALLOWEEN halloween
+	{{0xFF0000, 0x00FF00, 0xFFC000, 0x0000FF}}, // PAL_CHRISTMAS christmas (c9)
+	{{0xFFB3BA, 0xBAFFC9, 0xBAE1FF, 0xFFFFBA}}, // PAL_PASTEL    pastel
+	{{0xFF2E6A, 0xFFC0CB, 0xFFF0F5, 0xC71585}}, // PAL_SAKURA    sakura
 };
 #define PALETTE_COUNT ((int)(sizeof(palettes) / sizeof(palettes[0])))
 

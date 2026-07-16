@@ -1,0 +1,16 @@
+float_accessories.vescpkg
+fa_cfg/*.bin
+fa_cfg/*.elf
+fa_cfg/*.lisp
+fa_cfg/*.list
+fa_cfg/*.map
+fa_cfg/*.o
+fa_cfg/*.d
+conf/*.o
+conf/*.d
+__pycache__/
+conf/confparser.c
+conf/confparser.h
+conf/confxml.c
+conf/confxml.h
+conf/conf_default.h
