@@ -84,14 +84,6 @@
                 (to-byte (bitwise-and packed-value 0xFF))))
 })
 
-(defun swap-rg (color-list) {
-    (looprange led-index 0 (length color-list) {
-        (var color (color-split (ix color-list led-index) 1))
-        (var new-color (color-make (ix color 1) (ix color 0) (ix color 2) (ix color 3)))
-        (setix color-list led-index new-color)
-    })
-})
-
 (def has-si7021 nil)
 (def has-aht20 nil)
 
