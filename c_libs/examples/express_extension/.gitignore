@@ -1,0 +1,8 @@
+*.o
+*.d
+*.elf
+*.list
+*.map
+express_extension_*.bin
+express_extension_*.lisp
+express_extension.vescpkg
