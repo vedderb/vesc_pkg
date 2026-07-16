@@ -61,6 +61,18 @@ static bool write_cfg_to_eeprom(fa_data *d) {
 		return false;
 	}
 
+	// Store the whole config in one NVS transaction when the firmware supports
+	// it (buffer is CONFIG_WORDS u32 words; eeprom_var is a u32 union). Fall
+	// back to the per-word calls on firmware that predates the batch op.
+	if (VESC_IF->store_eeprom_var_batch) {
+		if (!VESC_IF->store_eeprom_var_batch(
+				(eeprom_var *)buffer, EEPROM_BASE_IDX, CONFIG_WORDS)) {
+			VESC_IF->printf("facfg: eeprom write failed");
+			return false;
+		}
+		return true;
+	}
+
 	for (uint32_t i = 0; i < CONFIG_WORDS; i++) {
 		eeprom_var v;
 		v.as_u32 = buffer[i];
@@ -76,14 +88,20 @@ static bool write_cfg_to_eeprom(fa_data *d) {
 static void read_cfg_from_eeprom(fa_data *d) {
 	uint32_t buffer[CONFIG_WORDS];
 
-	bool read_ok = true;
-	for (uint32_t i = 0; i < CONFIG_WORDS; i++) {
-		eeprom_var v;
-		if (!VESC_IF->read_eeprom_var(&v, EEPROM_BASE_IDX + i)) {
-			read_ok = false;
-			break;
+	bool read_ok;
+	if (VESC_IF->read_eeprom_var_batch) {
+		read_ok = VESC_IF->read_eeprom_var_batch(
+			(eeprom_var *)buffer, EEPROM_BASE_IDX, CONFIG_WORDS);
+	} else {
+		read_ok = true;
+		for (uint32_t i = 0; i < CONFIG_WORDS; i++) {
+			eeprom_var v;
+			if (!VESC_IF->read_eeprom_var(&v, EEPROM_BASE_IDX + i)) {
+				read_ok = false;
+				break;
+			}
+			buffer[i] = v.as_u32;
 		}
-		buffer[i] = v.as_u32;
 	}
 
 	// The signature check rejects stale data from older layouts, which

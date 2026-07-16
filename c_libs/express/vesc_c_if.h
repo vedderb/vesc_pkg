@@ -402,6 +402,14 @@ typedef struct {
 	bool (*sem_wait_to)(lib_semaphore, systime_t); // Returns false on timeout
 	void (*sem_reset)(lib_semaphore);
 
+	// OS: device / firmware identification
+	int         (*fw_version_major)(void);
+	int         (*fw_version_minor)(void);
+	int         (*fw_version_test)(void);
+	const char* (*hw_name)(void);
+	const char* (*chip_name)(void);
+	void        (*get_mac)(uint8_t *buf);
+
 	// CAN bus. Transmit raw standard/extended frames, or register a callback
 	// to receive them (return true from the callback to consume the frame).
 	// The can_set_* / can_get_status_* helpers command and read other VESC-
@@ -472,6 +480,8 @@ typedef struct {
 	// shared with the lisp eeprom-store/-read extensions).
 	bool (*store_eeprom_var)(eeprom_var *v, int address);
 	bool (*read_eeprom_var)(eeprom_var *v, int address);
+	bool (*store_eeprom_var_batch)(eeprom_var *v, int base_addr, int count);
+	bool (*read_eeprom_var_batch)(eeprom_var *v, int base_addr, int count);
 
 	// Custom config: register a settings page that appears in VESC Tool.
 	// get_cfg serializes current/default settings, set_cfg applies them,
@@ -603,19 +613,7 @@ typedef struct {
 	bool (*ble_app_connected)(void);
 	int  (*ble_app_mtu)(void);
 	void (*ble_app_set_conn_callback)(void (*cb)(bool connected));
-
-	// Device / firmware identification. fw_version_* is the VESC firmware
-	// version (test = beta number, 0 on a release). hw_name is the hardware
-	// name string (e.g. "Devkit C3"); chip_name is the target SoC (e.g.
-	// "esp32c3"). get_mac / get_ble_mac write 6 bytes into buf - the Wi-Fi
-	// (base) MAC and the Bluetooth MAC respectively, usable as device IDs.
-	int         (*fw_version_major)(void);
-	int         (*fw_version_minor)(void);
-	int         (*fw_version_test)(void);
-	const char* (*hw_name)(void);
-	const char* (*chip_name)(void);
-	void        (*get_mac)(uint8_t *buf);
-	void        (*get_ble_mac)(uint8_t *buf);
+	void (*get_ble_mac)(uint8_t *buf);
 
 	// Accessory: RGB LED
 	bool (*rgbled_init)(int pin, unsigned int timing_preset);
