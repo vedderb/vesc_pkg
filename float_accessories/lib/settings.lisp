@@ -142,6 +142,13 @@
             (send-status "Settings updated")
             (apply-config)
         })
+        ; Debounced persist of live control changes: recv-control marks
+        ; control-store-pending (a systime) instead of storing per slider
+        ; sample; write the config once it has settled for ~0.75 s.
+        (if (and control-store-pending (> (secs-since control-store-pending) 0.75)) {
+            (setq control-store-pending nil)
+            (ext-facfg-store)
+        })
         (sleep 0.5)
     })
 )
@@ -378,7 +385,10 @@
     (set-config 'led-brightness-highbeam (to-float in-led-brightness-highbeam))
     (set-config 'led-brightness-idle (to-float in-led-brightness-idle))
     (set-config 'led-brightness-status (to-float in-led-brightness-status))
-    (ext-facfg-store)
+    ; Applied to RAM above; the LED loop picks it up on its next tick. Persist
+    ; is deferred/debounced (config-watch-loop) so dragging a slider doesn't
+    ; store the whole config to NVS on every sample - that was the lag.
+    (setq control-store-pending (systime))
 
     (if (and (= (get-config 'bms-enabled) 1) (> bms-type 1) (!= bms-charge-state in-bms-charge-state) ) {
         (setq bms-charge-state (if (= bms-charge-state 1) 1 0))

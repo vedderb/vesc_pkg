@@ -21,6 +21,10 @@
 (def can-last-activity-time (systime))
 (def bms-charge-state 0) ;0 if 100, 1 if 90
 (def log-context-id -1)
+; systime of the last live control change (brightness/on-off from the QML
+; page). config-watch-loop persists the config once this settles, so dragging
+; a slider doesn't write NVS on every sample. nil = nothing pending.
+(def control-store-pending nil)
 
 ; LED control state mirrored from config for fast access in the LED loop
 (def led-on)

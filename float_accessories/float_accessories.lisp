@@ -33,6 +33,8 @@
 (read-eval-program logger)
 (import "lib/gnss.lisp" 'gnss)
 (read-eval-program gnss)
+(import "lib/humidity.lisp" 'humidity)
+(read-eval-program humidity)
 (import "../lib_espled_strip/espled_defs.lisp" 'espled-defs)
 (read-eval-program espled-defs)
 (import "lib/led-vars.lisp" 'led-vars)
@@ -45,7 +47,6 @@
 (read-eval-program bms)
 (import "lib/mqtt.lisp" 'mqtt)
 (read-eval-program mqtt)
-; Pubmote comes from the standalone lib_pubmote library package
 (import "../lib_pubmote/pubmote.lisp" 'pubmote)
 (read-eval-program pubmote)
 (import "lib/commands.lisp" 'commands)
