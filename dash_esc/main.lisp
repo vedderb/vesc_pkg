@@ -61,11 +61,14 @@
 
                     (match drive-mode
                         (0 { ; Reverse
-                                (conf-set 'l-current-max-scale 0.4)
-                                (conf-set 'min-speed (/ -15.0 3.6))
+                                (conf-set 'l-current-max-scale (read-setting 'mode-r-current))
+                                (conf-set 'l-current-min-scale (read-setting 'mode-r-current-brk))
+                                (conf-set 'min-speed (/ (read-setting 'mode-r-speed) -3.6))
+
                                 (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 0.8))
-                                        (run-m2 (conf-set 'max-speed (/ 10.0 3.6)))
+                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-r-current)))
+                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-r-current-brk)))
+                                        (run-m2 (conf-set 'min-speed (/ (read-setting 'mode-r-speed) -3.6)))
                                 })
 
                                 (app-adc-override 2 1)
@@ -73,39 +76,50 @@
                         })
                         (1 { ; Neutral
                                 (conf-set 'l-current-max-scale 0.0)
+                                (conf-set 'l-current-min-scale (read-setting 'mode-n-current-brk))
 
                                 (if dual-motors {
                                         (run-m2 (conf-set 'l-current-max-scale 0.0))
+                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-n-current-brk)))
                                 })
 
                                 (app-adc-override 2 0)
                         })
                         (2 { ; 1
-                                (conf-set 'l-current-max-scale 0.5)
-                                (conf-set 'max-speed (/ 20.0 3.6))
+                                (conf-set 'l-current-max-scale (read-setting 'mode-1-current))
+                                (conf-set 'l-current-min-scale (read-setting 'mode-1-current-brk))
+                                (conf-set 'max-speed (/ (read-setting 'mode-1-speed) 3.6))
+
                                 (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 0.5))
-                                        (run-m2 (conf-set 'max-speed (/ 20.0 3.6)))
+                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-1-current)))
+                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-1-current-brk)))
+                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-1-speed) 3.6)))
                                 })
 
                                 (app-adc-override 2 0)
                         })
                         (3 { ; 2
-                                (conf-set 'l-current-max-scale 0.6)
-                                (conf-set 'max-speed (/ 25.0 3.6))
+                                (conf-set 'l-current-max-scale 0.6)(conf-set 'l-current-max-scale (read-setting 'mode-2-current))
+                                (conf-set 'l-current-min-scale (read-setting 'mode-2-current-brk))
+                                (conf-set 'max-speed (/ (read-setting 'mode-2-speed) 3.6))
+
                                 (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 0.6))
-                                        (run-m2 (conf-set 'max-speed (/ 25.0 3.6)))
+                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-2-current)))
+                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-2-current-brk)))
+                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-2-speed) 3.6)))
                                 })
 
                                 (app-adc-override 2 0)
                         })
                         (4 { ; 3
-                                (conf-set 'l-current-max-scale 1.0)
-                                (conf-set 'max-speed (/ 200.0 3.6))
+                                (conf-set 'l-current-max-scale (read-setting 'mode-3-current))
+                                (conf-set 'l-current-min-scale (read-setting 'mode-3-current-brk))
+                                (conf-set 'max-speed (/ (read-setting 'mode-3-speed) 3.6))
+
                                 (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 1.0))
-                                        (run-m2 (conf-set 'max-speed (/ 200.0 3.6)))
+                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-3-current)))
+                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-3-current-brk)))
+                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-3-speed) 3.6)))
                                 })
 
                                 (app-adc-override 2 0)
@@ -373,6 +387,22 @@
         (send-data "Settings Saved!")
 })
 
+(defun save-modes () {
+        (write-setting 'mode-r-speed (rest-args 0))
+        (write-setting 'mode-r-current (rest-args 1))
+        (write-setting 'mode-r-current-brk (rest-args 2))
+        (write-setting 'mode-n-current-brk (rest-args 3))
+        (write-setting 'mode-1-speed (rest-args 4))
+        (write-setting 'mode-1-current (rest-args 5))
+        (write-setting 'mode-1-current-brk (rest-args 6))
+        (write-setting 'mode-2-speed (rest-args 7))
+        (write-setting 'mode-2-current (rest-args 8))
+        (write-setting 'mode-2-current-brk (rest-args 9))
+        (write-setting 'mode-3-speed (rest-args 10))
+        (write-setting 'mode-3-current (rest-args 11))
+        (write-setting 'mode-3-current-brk (rest-args 12))
+})
+
 ; Persistent settings
 ; Format: (label . (offset type))
 (def eeprom-addrs '(
@@ -384,6 +414,20 @@
         (log-local   . (5 b))
         (log-can     . (6 b))
         (log-bms     . (7 b))
+
+        (mode-r-speed       . (8 f))
+        (mode-r-current     . (9 f))
+        (mode-r-current-brk . (10 f))
+        (mode-n-current-brk . (11 f))
+        (mode-1-speed       . (12 f))
+        (mode-1-current     . (13 f))
+        (mode-1-current-brk . (14 f))
+        (mode-2-speed       . (15 f))
+        (mode-2-current     . (16 f))
+        (mode-2-current-brk . (17 f))
+        (mode-3-speed       . (18 f))
+        (mode-3-current     . (19 f))
+        (mode-3-current-brk . (20 f))
 ))
 
 (defun print-settings ()
@@ -392,7 +436,7 @@
 ))
 
 ; Settings version
-(def settings-version 239i32)
+(def settings-version 240i32)
 
 (defun read-setting (name)
     (let (
@@ -425,6 +469,24 @@
         (write-setting 'log-can true)
         (write-setting 'log-bms false)
         (write-setting 'ver-code settings-version)
+
+        (write-setting 'mode-r-speed 15.0)
+        (write-setting 'mode-r-current 0.5)
+        (write-setting 'mode-r-current-brk 1.0)
+
+        (write-setting 'mode-n-current-brk 1.0)
+
+        (write-setting 'mode-1-speed 20.0)
+        (write-setting 'mode-1-current 0.5)
+        (write-setting 'mode-1-current-brk 1.0)
+
+        (write-setting 'mode-2-speed 25.0)
+        (write-setting 'mode-2-current 0.6)
+        (write-setting 'mode-2-current-brk 1.0)
+
+        (write-setting 'mode-3-speed 250.0)
+        (write-setting 'mode-3-current 1.0)
+        (write-setting 'mode-3-current-brk 1.0)
 })
 
 (defun send-settings ()
@@ -437,6 +499,24 @@
             (if (read-setting 'log-local) "1 " "0 ")
             (if (read-setting 'log-can) "1 " "0 ")
             (if (read-setting 'log-bms) "1 " "0 ")
+)))
+
+(defun send-modes ()
+    (send-data (str-merge
+            "modes "
+            (str-from-n (read-setting 'mode-r-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-r-current) "%.2f ")
+            (str-from-n (read-setting 'mode-r-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-n-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-1-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-1-current) "%.2f ")
+            (str-from-n (read-setting 'mode-1-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-2-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-2-current) "%.2f ")
+            (str-from-n (read-setting 'mode-2-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-3-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-3-current) "%.2f ")
+            (str-from-n (read-setting 'mode-3-current-brk) "%.2f ")
 )))
 
 (defun send-msg (text)
