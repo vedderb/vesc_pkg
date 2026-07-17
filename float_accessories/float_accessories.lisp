@@ -7,7 +7,7 @@
 ; Beta Testers: Pickles
 ;
 ; This version renders LEDs through the espled_strip native lib and keeps
-; its configuration in a VESC custom config (Float Accessories Cfg in VESC
+; its configuration in a VESC custom config (Float Accessories in VESC
 ; Tool) provided by the fa_cfg native lib - see conf/settings.xml.
 
 ; Native libs, one binary per chip.
@@ -189,7 +189,7 @@
 
     (if (= (get-config 'log-enabled) 1) (setq log-context-id (spawn-with-restart "log-loop" 50 log-loop)))
 
-    ; Apply config edits made in VESC Tool (Float Accessories Cfg) at runtime
+    ; Apply config edits made in VESC Tool (Float Accessories) at runtime
     (spawn-with-restart "config-watch" nil config-watch-loop)
 })
 

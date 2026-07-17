@@ -309,13 +309,11 @@ PARAMS = [
 ]
 
 GROUPS = [
-    ("Features", [
-        ("General", ["led_enabled", "bms_enabled", "pubmote_enabled",
+    ("General", [
+        ("Features", ["led_enabled", "bms_enabled", "pubmote_enabled",
                      "log_enabled", "humidity_enabled", "gnss_enabled",
                      "can_id", "can_loop_delay", "node_role"]),
-    ]),
-    ("LEDs", [
-        ("General", ["led_on", "led_highbeam_on", "led_mode", "led_mode_idle",
+        ("LEDs", ["led_on", "led_highbeam_on", "led_mode", "led_mode_idle",
                      "led_mode_startup", "led_mode_status", "led_mode_button",
                      "led_mode_footpad", "led_mall_grab_enabled",
                      "led_brake_light_enabled", "led_brake_light_min_amps",
@@ -342,31 +340,21 @@ GROUPS = [
                      "led_footpad_num", "led_footpad_type",
                      "led_footpad_reversed"]),
         ("Button", ["led_button_timing", "led_button_pin"]),
-    ]),
-    ("Pubmote", [
-        ("Remote", ["pubmote_loop_delay", "pubmote_remote_mac_a",
+        ("Pubmote", ["pubmote_loop_delay", "pubmote_remote_mac_a",
                     "pubmote_remote_mac_b", "pubmote_secret_code"]),
-    ]),
-    ("BMS", [
-        ("Interface", ["bms_type", "bms_rs485_chip", "bms_rs485_di_pin",
-                       "bms_rs485_ro_pin", "bms_rs485_dere_pin",
-                       "bms_wakeup_pin", "bms_override_soc",
-                       "bms_charge_only", "bms_buff_size", "bms_loop_delay",
-                       "soc_type", "cell_type"]),
-        ("Pairing", ["bms_key_a", "bms_key_b", "bms_key_c", "bms_key_d",
-                     "bms_counter_a", "bms_counter_b", "bms_counter_c",
-                     "bms_counter_d"]),
-    ]),
-    ("Logging", [
-        ("Log", ["log_rate", "log_append_gnss"]),
+        ("BMS", ["bms_type", "bms_rs485_chip", "bms_rs485_di_pin",
+                 "bms_rs485_ro_pin", "bms_rs485_dere_pin",
+                 "bms_wakeup_pin", "bms_override_soc",
+                 "bms_charge_only", "bms_buff_size", "bms_loop_delay",
+                 "soc_type", "cell_type",
+                 "bms_key_a", "bms_key_b", "bms_key_c", "bms_key_d",
+                 "bms_counter_a", "bms_counter_b", "bms_counter_c",
+                 "bms_counter_d"]),
+        ("Logging", ["log_rate", "log_append_gnss"]),
         ("Humidity", ["humidity_sda_pin", "humidity_slc_pin"]),
-    ]),
-    ("GNSS", [
-        ("Receiver", ["gnss_type", "gnss_rx_pin", "gnss_tx_pin",
+        ("GNSS", ["gnss_type", "gnss_rx_pin", "gnss_tx_pin",
                       "gnss_uart_num", "gnss_rate_ms", "gnss_baud"]),
-    ]),
-    ("MQTT", [
-        ("Broker", ["mqtt_enabled", "mqtt_broker_uri", "mqtt_client_id",
+        ("MQTT", ["mqtt_enabled", "mqtt_broker_uri", "mqtt_client_id",
                     "mqtt_user", "mqtt_password", "mqtt_topic_prefix",
                     "mqtt_qos", "mqtt_keepalive", "mqtt_publish_rate"]),
     ]),
@@ -397,7 +385,7 @@ def emit_xml(path):
     a("            <maxLen>0</maxLen>")
     a("        </config_name>")
     a("        <hw_name>")
-    a("            <longName>Float Accessories Cfg</longName>")
+    a("            <longName>Float Accessories</longName>")
     a("            <type>0</type>")
     a("            <transmittable>0</transmittable>")
     a("            <description>Smart LED control, tilt remote and stock OW BMS bridge for the VESC Express.</description>")

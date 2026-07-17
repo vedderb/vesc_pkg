@@ -20,7 +20,7 @@
 // Float Accessories package configuration as a VESC custom config.
 //
 // The config is described by conf/settings.xml, edited in VESC Tool's
-// standard parameter UI (Float Accessories Cfg), serialized by the
+// standard parameter UI (Float Accessories), serialized by the
 // generated confparser and persisted in the firmware's eeprom-var storage.
 // LispBM reads and writes the same config through the ext-facfg-*
 // extensions; parameter names use the XML names, with '-' and '_' treated

@@ -11,7 +11,7 @@
             <maxLen>0</maxLen>
         </config_name>
         <hw_name>
-            <longName>Float Accessories Cfg</longName>
+            <longName>Float Accessories</longName>
             <type>0</type>
             <transmittable>0</transmittable>
             <description>Smart LED control, tilt remote and stock OW BMS bridge for the VESC Express.</description>
@@ -1632,9 +1632,9 @@
     </SerOrder>
     <Grouping>
         <group>
-            <groupName>Features</groupName>
+            <groupName>General</groupName>
             <subgroup>
-                <subgroupName>General</subgroupName>
+                <subgroupName>Features</subgroupName>
                 <subgroupParams>
                     <param>led_enabled</param>
                     <param>bms_enabled</param>
@@ -1647,11 +1647,8 @@
                     <param>node_role</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>LEDs</groupName>
             <subgroup>
-                <subgroupName>General</subgroupName>
+                <subgroupName>LEDs</subgroupName>
                 <subgroupParams>
                     <param>led_on</param>
                     <param>led_highbeam_on</param>
@@ -1735,11 +1732,8 @@
                     <param>led_button_pin</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>Pubmote</groupName>
             <subgroup>
-                <subgroupName>Remote</subgroupName>
+                <subgroupName>Pubmote</subgroupName>
                 <subgroupParams>
                     <param>pubmote_loop_delay</param>
                     <param>pubmote_remote_mac_a</param>
@@ -1747,11 +1741,8 @@
                     <param>pubmote_secret_code</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>BMS</groupName>
             <subgroup>
-                <subgroupName>Interface</subgroupName>
+                <subgroupName>BMS</subgroupName>
                 <subgroupParams>
                     <param>bms_type</param>
                     <param>bms_rs485_chip</param>
@@ -1765,11 +1756,6 @@
                     <param>bms_loop_delay</param>
                     <param>soc_type</param>
                     <param>cell_type</param>
-                </subgroupParams>
-            </subgroup>
-            <subgroup>
-                <subgroupName>Pairing</subgroupName>
-                <subgroupParams>
                     <param>bms_key_a</param>
                     <param>bms_key_b</param>
                     <param>bms_key_c</param>
@@ -1780,11 +1766,8 @@
                     <param>bms_counter_d</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>Logging</groupName>
             <subgroup>
-                <subgroupName>Log</subgroupName>
+                <subgroupName>Logging</subgroupName>
                 <subgroupParams>
                     <param>log_rate</param>
                     <param>log_append_gnss</param>
@@ -1797,11 +1780,8 @@
                     <param>humidity_slc_pin</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>GNSS</groupName>
             <subgroup>
-                <subgroupName>Receiver</subgroupName>
+                <subgroupName>GNSS</subgroupName>
                 <subgroupParams>
                     <param>gnss_type</param>
                     <param>gnss_rx_pin</param>
@@ -1811,11 +1791,8 @@
                     <param>gnss_baud</param>
                 </subgroupParams>
             </subgroup>
-        </group>
-        <group>
-            <groupName>MQTT</groupName>
             <subgroup>
-                <subgroupName>Broker</subgroupName>
+                <subgroupName>MQTT</subgroupName>
                 <subgroupParams>
                     <param>mqtt_enabled</param>
                     <param>mqtt_broker_uri</param>

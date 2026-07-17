@@ -3,7 +3,7 @@
 @const-start
 
 ; Configuration lives in the fa_cfg native lib as a VESC custom config
-; ("Float Accessories Cfg" in VESC Tool), described by conf/settings.xml
+; ("Float Accessories" in VESC Tool), described by conf/settings.xml
 ; and persisted by the firmware. get-config/set-config in settings.lisp
 ; access it through the ext-facfg-* extensions.
 

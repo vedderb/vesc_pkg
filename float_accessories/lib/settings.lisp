@@ -28,7 +28,7 @@
 })
 
 (defun print-config ()
-    (print "Configuration is in VESC Tool: Float Accessories Cfg")
+    (print "Configuration is in VESC Tool: Float Accessories")
 )
 
 ; Applies runtime feature changes after the config was edited (from VESC

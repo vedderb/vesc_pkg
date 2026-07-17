@@ -546,85 +546,161 @@ Item {
         }
     }
 
-    Popup {
+    // BMS terms of service, styled like the pubmote pairing dialog.
+    Dialog {
         id: termsPopup
         modal: true
         focus: true
-        visible: false
-        width: parent.width * 0.8
-        height: parent.height * 0.6
         anchors.centerIn: parent
+        width: Math.min(container.width - 20, 400)
+        height: Math.min(container.height - 40, 560)
 
+        // Match the rounding of the standard cards elsewhere in the UI.
         background: Rectangle {
-            color: "black"
-            radius: 10
+            color: Utility.getAppHexColor("darkBackground")
+            radius: cardStyle.radius
+            border.color: Qt.rgba(1, 1, 1, 0.1)
+            border.width: 1
         }
 
-        contentItem: Item {
+        ColumnLayout {
             anchors.fill: parent
+            spacing: 12
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 20
-                spacing: 10
-                ScrollView {
-                    clip: true
-                    width: parent.width
-                    background: Rectangle { color: cardStyle.scrollViewBg }
+            Text {
+                text: "Terms of Service"
+                color: "white"
+                font.bold: true
+                font.pixelSize: 15
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            ScrollView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                    TextArea {
-                        id: termsText
-                        textFormat: Text.RichText
-                        text: "<p>WARNING NOTICE:</p>" +
-                            "<p>This code is released as part of legitimate security research and is intended to enable interoperability between a specific Battery Management System (BMS) and aftermarket Electronic Speed Controllers (ESCs) for a widely used motorized land vehicle. This vehicle is often utilized as a mobility aid for individuals with disabilities, such as those with Hidradenitis Suppurativa, which prevents the use of traditional mobility devices.</p>" +
-                            "<p>The publication of this code is an exercise of the right to free speech and expression, protected under the First Amendment of the U.S. Constitution. Furthermore, this code is released in accordance with both the security research exception under DMCA Section 1201(g) and the exemption for motorized land vehicles, which allows the circumvention of technological protection measures (TPMs) for the purposes of repair, modification, and interoperability under the Librarian of Congress's 2015 ruling and subsequent triennial exemptions. This exemption applies specifically to vehicle software, including Battery Management Systems, and permits this work for diagnostic and modification purposes.</p>" +
-                            "<p>This system lacks manufacturer-provided documentation or tools for repair. Currently, consumers are forced to replace the entire battery, enclosure, and BMS at significant cost, rather than repairing individual components. We are providing the necessary documentation and tools to facilitate the repair of these systems, enabling consumers to extend the life of their devices.</p>" +
-                            "<p>This publication is further supported by the California Right to Repair Act (SB 244), which took full effect on July 1, 2024. Under this law, consumers and independent repair providers are entitled to access the tools, parts, and documentation necessary to perform repairs on electronics and appliances sold or used in California, reinforcing the legality and public interest of this code publication. Although some exceptions apply, this law affirms the right to repair motorized vehicles, aligning with the purpose of this research and promoting repairability and consumer choice.</p>" +
-                            "<p>Additionally, this publication is protected under Washington's Revised Code of Washington (RCW) § 4.24.525 and California Code of Civil Procedure § 425.16, which are anti-SLAPP laws designed to prevent lawsuits aimed at intimidating or silencing lawful speech on matters of public interest. Any attempt to interfere with or litigate against the publication of this code may result in the dismissal of such legal actions, with the imposition of attorney's fees and statutory damages.</p>" +
-                            "<p>Furthermore, the motor land vehicle this BMS resides in had its advertised speed reduced during a software update for the haptic buzz feature. This change constitutes a violation of Article 6(1)(a) of the EU Directive 2005/29/EC on Unfair Commercial Practices, which prohibits misleading actions that affect the consumer's decision to purchase or retain a product. Reducing the performance of previously purchased products, is deemed unfair under EU law, particularly as consumers were not informed or compensated for this loss of functionality.</p>" +
-                            "<p>Moreover, the haptic feedback feature remains insufficiently implemented. On uneven terrains such as trails, the vibration cannot be felt effectively, and the audio feedback is may sometimes be too quiet to be useful, especially for individuals with disabilities like hearing impairments. This code addresses these deficiencies by allowing use with ESCs that allow real-time interoperability with third-party phone applications that provide customizable alerts through speakers, or headphones, improving accessibility, safety, and overall user experience."
-                        color: "white"
-                        wrapMode: Text.Wrap
-                        onLinkActivated: function(url) {
-                            Qt.openUrlExternally(url)
-                        }
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                background: Rectangle { color: cardStyle.scrollViewBg; radius: 8 }
+
+                TextArea {
+                    id: termsText
+                    textFormat: Text.RichText
+                    text: "<p>WARNING NOTICE:</p>" +
+                        "<p>This code is released as part of legitimate security research and is intended to enable interoperability between a specific Battery Management System (BMS) and aftermarket Electronic Speed Controllers (ESCs) for a widely used motorized land vehicle. This vehicle is often utilized as a mobility aid for individuals with disabilities, such as those with Hidradenitis Suppurativa, which prevents the use of traditional mobility devices.</p>" +
+                        "<p>The publication of this code is an exercise of the right to free speech and expression, protected under the First Amendment of the U.S. Constitution. Furthermore, this code is released in accordance with both the security research exception under DMCA Section 1201(g) and the exemption for motorized land vehicles, which allows the circumvention of technological protection measures (TPMs) for the purposes of repair, modification, and interoperability under the Librarian of Congress's 2015 ruling and subsequent triennial exemptions. This exemption applies specifically to vehicle software, including Battery Management Systems, and permits this work for diagnostic and modification purposes.</p>" +
+                        "<p>This system lacks manufacturer-provided documentation or tools for repair. Currently, consumers are forced to replace the entire battery, enclosure, and BMS at significant cost, rather than repairing individual components. We are providing the necessary documentation and tools to facilitate the repair of these systems, enabling consumers to extend the life of their devices.</p>" +
+                        "<p>This publication is further supported by the California Right to Repair Act (SB 244), which took full effect on July 1, 2024. Under this law, consumers and independent repair providers are entitled to access the tools, parts, and documentation necessary to perform repairs on electronics and appliances sold or used in California, reinforcing the legality and public interest of this code publication. Although some exceptions apply, this law affirms the right to repair motorized vehicles, aligning with the purpose of this research and promoting repairability and consumer choice.</p>" +
+                        "<p>Additionally, this publication is protected under Washington's Revised Code of Washington (RCW) § 4.24.525 and California Code of Civil Procedure § 425.16, which are anti-SLAPP laws designed to prevent lawsuits aimed at intimidating or silencing lawful speech on matters of public interest. Any attempt to interfere with or litigate against the publication of this code may result in the dismissal of such legal actions, with the imposition of attorney's fees and statutory damages.</p>" +
+                        "<p>Furthermore, the motor land vehicle this BMS resides in had its advertised speed reduced during a software update for the haptic buzz feature. This change constitutes a violation of Article 6(1)(a) of the EU Directive 2005/29/EC on Unfair Commercial Practices, which prohibits misleading actions that affect the consumer's decision to purchase or retain a product. Reducing the performance of previously purchased products, is deemed unfair under EU law, particularly as consumers were not informed or compensated for this loss of functionality.</p>" +
+                        "<p>Moreover, the haptic feedback feature remains insufficiently implemented. On uneven terrains such as trails, the vibration cannot be felt effectively, and the audio feedback is may sometimes be too quiet to be useful, especially for individuals with disabilities like hearing impairments. This code addresses these deficiencies by allowing use with ESCs that allow real-time interoperability with third-party phone applications that provide customizable alerts through speakers, or headphones, improving accessibility, safety, and overall user experience."
+                    color: Utility.getAppHexColor("lightText")
+                    wrapMode: Text.Wrap
+                    readOnly: true
+                    background: null
+                    onLinkActivated: function(url) {
+                        Qt.openUrlExternally(url)
+                    }
+                }
+            }
+
+            CheckBox {
+                id: acceptCheckBox
+                text: "I have read and accept the Terms of Service."
+                checked: false
+                onCheckedChanged: {
+                    acceptButton.enabled = checked
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Button {
+                    text: "Cancel"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        termsPopup.close()
+                        bmsEnabled.checked = false
+                        VescIf.emitMessageDialog("Float Accessories", "You must accept the Terms of Service to continue with BMS features.", false, false)
                     }
                 }
 
-                CheckBox {
-                    id: acceptCheckBox
-                    text: "I have read and accept the Terms of Service."
-                    checked: false
-                    onCheckedChanged: {
-                        acceptButton.enabled = checked
+                Button {
+                    id: acceptButton
+                    text: "Accept"
+                    Layout.fillWidth: true
+                    highlighted: true
+                    enabled: acceptCheckBox.checked
+                    onClicked: {
+                        acceptTOS = true
+                        termsPopup.close()
+                        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(accept-tos)")
                     }
                 }
+            }
+        }
+    }
 
-                RowLayout {
-                    Layout.alignment: Qt.AlignRight
-                    spacing: 10
+    // About dialog, opened from the (i) button in the title bar (was a tab).
+    Dialog {
+        id: aboutDialog
+        modal: true
+        focus: true
+        anchors.centerIn: parent
+        width: Math.min(container.width - 20, 400)
+        height: Math.min(container.height - 40, 520)
+        background: Rectangle {
+            color: Utility.getAppHexColor("darkBackground")
+            radius: cardStyle.radius
+            border.color: Qt.rgba(1, 1, 1, 0.1)
+            border.width: 1
+        }
 
-                    Button {
-                        text: "Cancel"
-                        onClicked: {
-                            termsPopup.close()
-                            bmsEnabled.checked = false
-                            VescIf.emitMessageDialog("Float Accessories", "You must accept the Terms of Service to continue with BMS features.", false, false)
-                        }
-                    }
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
 
-                    Button {
-                        id: acceptButton
-                        text: "Accept"
-                        enabled: acceptCheckBox.checked
-                        onClicked: {
-                            acceptTOS = true
-                            termsPopup.close()
-                            sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(accept-tos)")
-                        }
-                    }
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            TextArea {
+                textFormat: Text.RichText
+                text: "<p><b>FLOAT ACCESSORIES PACKAGE</b></p>" +
+                    "<p>A VESC Express package for controlling LEDs, BMS and Pubmote.</p>" +
+
+                    "<p><b>Support Future Work</b></p>" +
+                    "<p>Buy me a Coffee: <a href='https://venmo.com/sylerclayton'>https://venmo.com/sylerclayton</a></p>" +
+                    "<p>Support me on Patreon: <a href='https://patreon.com/SylerTheCreator'>https://patreon.com/SylerTheCreator</a></p>" +
+
+                    "<p><b>CREDITS</b></p>" +
+                    "<p>Special Thanks: Benjamin Vedder, surfdado, Mitch (NuRxG), Siwoz, lolwheel (OWIE), ThankTheMaker (rESCue), 4_fools (avaspark), auden_builds (pubmote)</p>" +
+                    "<p>gr33tz: outlandnish, exphat, datboig42069</p>" +
+                    "<p>Beta Testers: Pickles</p>" +
+
+                    "<p>My Blog: <a href='https://sylerclayton.com'>https://sylerclayton.com</a></p>" +
+
+                    "<p><b>BUILD INFO</b></p>" +
+                    "<p>Version 4.0.0</p>" +
+                    "<p>Source code can be found here: <a href='https://github.com/relys/vesc_pkg'>https://github.com/relys/vesc_pkg</a></p>"
+                wrapMode: Text.WordWrap
+                readOnly: true
+                color: Utility.getAppHexColor("lightText")
+                background: null
+                onLinkActivated: function(url) {
+                    Qt.openUrlExternally(url)
                 }
+            }
+            }
+
+            Button {
+                text: "Close"
+                Layout.fillWidth: true
+                highlighted: true
+                onClicked: aboutDialog.close()
             }
         }
     }
@@ -642,15 +718,33 @@ Item {
             }
         }
 
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            color: Utility.getAppHexColor("lightText")
-            font.pointSize: 20
-            font.bold: true
-            text: "Float Accessories"
-            topPadding: 10
-            leftPadding: 10
-            rightPadding: 10
+        Item {
+            Layout.fillWidth: true
+            Layout.topMargin: 10
+            implicitHeight: appTitleText.implicitHeight
+
+            Text {
+                id: appTitleText
+                anchors.centerIn: parent
+                color: Utility.getAppHexColor("lightText")
+                font.pointSize: 20
+                font.bold: true
+                text: "Float Accessories"
+            }
+
+            // Opens the About dialog (replaces the old About tab).
+            RoundButton {
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                implicitWidth: 30
+                implicitHeight: 30
+                padding: 0
+                text: "i"
+                font.pointSize: 13
+                font.bold: true
+                onClicked: aboutDialog.open()
+            }
         }
 
         // Config menu for selecting which config to show
@@ -813,19 +907,6 @@ Item {
                 }
             }
 
-            TabButton {
-                id: aboutTabButton
-                text: qsTr("About")
-                font.capitalization: Font.MixedCase
-                Layout.fillWidth: true
-                contentItem: Text {
-                    text: aboutTabButton.text
-                    font: aboutTabButton.font
-                    color: aboutTabButton.checked ? "white" : Qt.rgba(1, 1, 1, 0.54)
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
         }
 
         TabBar {
@@ -2489,18 +2570,44 @@ Item {
                             title: "Input Preview"
                             Layout.fillWidth: true
                             background: Loader { sourceComponent: cardBg }
-                            label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "Input Preview" }
+                            label: Item {
+                                implicitHeight: 40
+                                width: parent ? parent.width : 200
+
+                                Text {
+                                    text: "Input Preview"
+                                    color: "white"
+                                    font.bold: true
+                                    font.pixelSize: 15
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Loader {
+                                    id: inputPreviewEnabled
+                                    sourceComponent: customSwitch
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: cardStyle.sidePadding
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    property bool checked: item ? item.checked : false
+
+                                    onLoaded: {
+                                        item.checked = false
+                                        item.checkedChanged.connect(function() {
+                                            inputPreviewEnabled.checked = item.checked
+                                        })
+                                    }
+
+                                    onCheckedChanged: {
+                                        if (item) item.checked = checked
+                                    }
+                                }
+                            }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
 
                             ColumnLayout {
                                 anchors.fill: parent
                                 spacing: 10
-
-                                Switch {
-                                    id: inputPreviewEnabled
-                                    text: "Live Preview"
-                                    checked: false
-                                }
 
                                 Text {
                                     visible: inputPreviewEnabled.checked
@@ -3409,47 +3516,6 @@ Item {
                 }
             }
 
-            // About Tab
-            ScrollView {
-                clip: true
-                contentWidth: availableWidth
-                ScrollBar.vertical.policy: ScrollBar.AsNeeded
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                background: Rectangle { color: cardStyle.scrollViewBg }
-
-                TextArea {
-                    id: aboutText
-                    leftPadding: cardStyle.scrollHPadding
-                    rightPadding: cardStyle.scrollHPadding
-                    topPadding: cardStyle.scrollTopPadding
-                    bottomPadding: cardStyle.scrollBottomPadding
-                    textFormat: Text.RichText
-                    text: "<p><b>FLOAT ACCESSORIES PACKAGE</b></p>" +
-                        "<p>A VESC Express package for controlling LEDs, BMS and Pubmote.</p>" +
-
-                        "<p><b>Support Future Work</b></p>" +
-                        "<p>Buy me a Coffee: <a href='https://venmo.com/sylerclayton'>https://venmo.com/sylerclayton</a></p>" +
-                        "<p>Support me on Patreon: <a href='https://patreon.com/SylerTheCreator'>https://patreon.com/SylerTheCreator</a></p>" +
-
-                        "<p><b>CREDITS</b></p>" +
-                        "<p>Special Thanks: Benjamin Vedder, surfdado, Mitch (NuRxG), Siwoz, lolwheel (OWIE), ThankTheMaker (rESCue), 4_fools (avaspark), auden_builds (pubmote)</p>" +
-                        "<p>gr33tz: outlandnish, exphat, datboig42069</p>" +
-                        "<p>Beta Testers: Pickles</p>" +
-
-                        "<p>My Blog: <a href='https://sylerclayton.com'>https://sylerclayton.com</a></p>" +
-
-                        "<p><b>BUILD INFO</b></p>" +
-                        "<p>Version 4.0.0</p>" +
-                        "<p>Source code can be found here: <a href='https://github.com/relys/vesc_pkg'>https://github.com/relys/vesc_pkg</a></p>"
-                    wrapMode: Text.WordWrap
-                    readOnly: true
-                    color: Utility.getAppHexColor("lightText")
-                    background: null
-                    onLinkActivated: function(url) {
-                        Qt.openUrlExternally(url)
-                    }
-                }
-            }
         }
 
         // Save and Restore Buttons
