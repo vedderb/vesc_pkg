@@ -277,6 +277,40 @@ Item {
     property bool pubmoteInputBtZ: false
     property bool pubmoteInputRev: false
 
+    // ---- LED strips add/remove -----------------------------------------
+    // The per-role strip config cards below (status / front / rear / footpad
+    // / button) are each still backed by their own ledXxxStripType / pin /
+    // num controls and the positional config protocol. A role's Strip Type
+    // combo doubles as its enable: index 0 = "None" hides the card (removes
+    // the strip), any preset shows it. The "+ Add Strip" button at the end
+    // of the list adds a not-yet-used role. The firmware chains strips that
+    // share a pin automatically, so no per-strip offset is configured here.
+    // This binding tracks the five currentValue props directly so it
+    // re-evaluates whenever a strip is added or removed.
+    property var addedRoles: {
+        var a = []
+        if (ledStatusStripType.currentValue > 0)  a.push("Status")
+        if (ledFrontStripType.currentValue > 0)   a.push("Front")
+        if (ledRearStripType.currentValue > 0)    a.push("Rear")
+        if (ledFootpadStripType.currentValue > 0) a.push("Footpad")
+        if (ledButtonStripType.currentValue > 0)  a.push("Button")
+        return a
+    }
+
+    // Enable (on = true, set the Strip Type to its first real preset) or
+    // remove (on = false, back to "None") a role. Setting currentIndex fires
+    // the combo's existing onCurrentIndexChanged, which pushes live settings.
+    function setRole(name, on) {
+        var idx = on ? 1 : 0
+        switch (name) {
+        case "Status":  ledStatusStripType.currentIndex = idx;  break
+        case "Front":   ledFrontStripType.currentIndex = idx;   break
+        case "Rear":    ledRearStripType.currentIndex = idx;    break
+        case "Footpad": ledFootpadStripType.currentIndex = idx; break
+        case "Button":  ledButtonStripType.currentIndex = idx;  break
+        }
+    }
+
     Component.onCompleted: {
         if (VescIf.getLastFwRxParams().hwTypeStr() !== "Custom Module") {
             VescIf.emitMessageDialog("Float Accessories", "Warning: It doesn't look like this is installed on a VESC Express.", false, false)
@@ -352,19 +386,22 @@ Item {
         }
     }
 
-    // Popup for Pubmote pairing confirmation
-    Popup {
+    // Pubmote pairing confirmation, styled like the espled_strip Add dialog:
+    // a modal Dialog with a title header and framework background rather than
+    // a hand-rolled black Popup.
+    Dialog {
         id: pubmotePairPopup
         modal: true
         focus: true
-        visible: false
-        width: parent.width * 0.8
-        height: parent.height * 0.3
         anchors.centerIn: parent
+        width: Math.min(container.width - 20, 340)
 
+        // Match the rounding of the standard cards elsewhere in the UI.
         background: Rectangle {
-            color: "black"
-            radius: 10
+            color: Utility.getAppHexColor("darkBackground")
+            radius: cardStyle.radius
+            border.color: Qt.rgba(1, 1, 1, 0.1)
+            border.width: 1
         }
 
         onVisibleChanged: {
@@ -383,27 +420,21 @@ Item {
             }
         }
 
-        contentItem: ColumnLayout {
+        ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 20
-            spacing: 10
-
-            Text {
-                text: "Confirm Pubmote Pairing"
-                color: "white"
-                font.pointSize: 16
-                Layout.alignment: Qt.AlignHCenter
-            }
+            spacing: 12
 
             Text {
                 text: "Pairing Code: " + pubmotePairCode
-                color: "white"
+                color: Utility.getAppHexColor("lightText")
+                font.pointSize: 20
+                font.bold: true
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Text {
-                text: "Time remaining: " + remainingTime + " seconds"
-                color: "white"
+                text: "Time remaining: " + remainingTime + " s"
+                color: Utility.getAppHexColor("lightText")
                 Layout.alignment: Qt.AlignHCenter
             }
 
@@ -411,31 +442,38 @@ Item {
                 text: pubmotePairingState === 1 ? "Searching for remote..." :
                       pubmotePairingState === 2 ? "Remote found! Confirm code and Accept." :
                       "Pairing..."
-                color: "cyan"
-                Layout.alignment: Qt.AlignHCenter
+                color: Material.accent
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
             }
 
             RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 8
                 spacing: 10
-                Layout.alignment: Qt.AlignHCenter
+
+                Button {
+                    text: "Reject"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(pair-pubmote -2)");  // Reject pairing manually
+                        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-config)");
+                        pubmotePairPopup.close();
+                    }
+                }
 
                 Button {
                     text: "Accept"
+                    Layout.fillWidth: true
+                    highlighted: true
+                    enabled: !pairingTimeout
                     onClicked: {
                         if (!pairingTimeout) {
                             sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(pair-pubmote -1)");  // Accept pairing
                             sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-config)");
                             pubmotePairPopup.close();
                         }
-                    }
-                }
-
-                Button {
-                    text: "Reject"
-                    onClicked: {
-                        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(pair-pubmote -2)");  // Reject pairing manually
-                        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-config)");
-                        pubmotePairPopup.close();
                     }
                 }
             }
@@ -1657,6 +1695,7 @@ Item {
                         GroupBox {
                             title: "Status Config"
                             Layout.fillWidth: true
+                            visible: ledStatusStripType.currentValue > 0
                             background: Loader { sourceComponent: cardBg }
                             label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "Status Config" }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
@@ -1786,6 +1825,7 @@ Item {
                         GroupBox {
                             title: "LED Front Config"
                             Layout.fillWidth: true
+                            visible: ledFrontStripType.currentValue > 0
                             background: Loader { sourceComponent: cardBg }
                             label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "LED Front Config" }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
@@ -1958,6 +1998,7 @@ Item {
                         GroupBox {
                             title: "LED Rear Config"
                             Layout.fillWidth: true
+                            visible: ledRearStripType.currentValue > 0
                             background: Loader { sourceComponent: cardBg }
                             label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "LED Rear Config" }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
@@ -2130,6 +2171,7 @@ Item {
                         GroupBox {
                             title: "LED Button Config"
                             Layout.fillWidth: true
+                            visible: ledButtonStripType.currentValue > 0
                             background: Loader { sourceComponent: cardBg }
                             label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "LED Button Config" }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
@@ -2195,6 +2237,7 @@ Item {
                         GroupBox {
                             title: "LED Footpad Config"
                             Layout.fillWidth: true
+                            visible: ledFootpadStripType.currentValue > 0
                             background: Loader { sourceComponent: cardBg }
                             label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "LED Footpad Config" }
                             topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
@@ -2329,6 +2372,50 @@ Item {
                                         Layout.fillWidth: true
                                         model: ["Universal", "WS2812B", "WS2815", "SK6812", "SK6815"]
                                     }
+                                }
+                            }
+                        }
+
+                        // Adds a not-yet-used role to the list above; each
+                        // role's own Strip Type = "None" removes it again.
+                        Button {
+                            text: "+ Add Strip"
+                            Layout.fillWidth: true
+                            enabled: container.addedRoles.length < 5
+                            onClicked: addStripMenu.popup()
+
+                            Menu {
+                                id: addStripMenu
+
+                                MenuItem {
+                                    text: "Status bar"
+                                    visible: ledStatusStripType.currentValue === 0
+                                    height: visible ? implicitHeight : 0
+                                    onTriggered: container.setRole("Status", true)
+                                }
+                                MenuItem {
+                                    text: "Front"
+                                    visible: ledFrontStripType.currentValue === 0
+                                    height: visible ? implicitHeight : 0
+                                    onTriggered: container.setRole("Front", true)
+                                }
+                                MenuItem {
+                                    text: "Rear"
+                                    visible: ledRearStripType.currentValue === 0
+                                    height: visible ? implicitHeight : 0
+                                    onTriggered: container.setRole("Rear", true)
+                                }
+                                MenuItem {
+                                    text: "Footpad"
+                                    visible: ledFootpadStripType.currentValue === 0
+                                    height: visible ? implicitHeight : 0
+                                    onTriggered: container.setRole("Footpad", true)
+                                }
+                                MenuItem {
+                                    text: "Button LED"
+                                    visible: ledButtonStripType.currentValue === 0
+                                    height: visible ? implicitHeight : 0
+                                    onTriggered: container.setRole("Button", true)
                                 }
                             }
                         }
