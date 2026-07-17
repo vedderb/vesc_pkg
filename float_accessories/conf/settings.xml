@@ -1642,6 +1642,7 @@
                     <param>log_enabled</param>
                     <param>humidity_enabled</param>
                     <param>gnss_enabled</param>
+                    <param>::sep::CAN Bus</param>
                     <param>can_id</param>
                     <param>can_loop_delay</param>
                     <param>node_role</param>
@@ -1658,17 +1659,20 @@
                     <param>led_mode_status</param>
                     <param>led_mode_button</param>
                     <param>led_mode_footpad</param>
+                    <param>::sep::Behavior</param>
                     <param>led_mall_grab_enabled</param>
                     <param>led_brake_light_enabled</param>
                     <param>led_brake_light_min_amps</param>
                     <param>idle_timeout</param>
                     <param>idle_timeout_shutoff</param>
+                    <param>::sep::Brightness</param>
                     <param>led_brightness</param>
                     <param>led_brightness_highbeam</param>
                     <param>led_brightness_idle</param>
                     <param>led_brightness_status</param>
                     <param>led_max_brightness</param>
                     <param>led_dim_on_highbeam_ratio</param>
+                    <param>::sep::Advanced</param>
                     <param>led_startup_timeout</param>
                     <param>led_loop_delay</param>
                     <param>led_update_not_running</param>
@@ -1683,6 +1687,7 @@
                     <param>led_front_num</param>
                     <param>led_front_type</param>
                     <param>led_front_reversed</param>
+                    <param>::sep::Highbeam</param>
                     <param>led_front_highbeam_mode</param>
                     <param>led_front_highbeam_pin</param>
                     <param>led_front_highbeam_pos</param>
@@ -1698,6 +1703,7 @@
                     <param>led_rear_num</param>
                     <param>led_rear_type</param>
                     <param>led_rear_reversed</param>
+                    <param>::sep::Highbeam</param>
                     <param>led_rear_highbeam_mode</param>
                     <param>led_rear_highbeam_pin</param>
                     <param>led_rear_highbeam_pos</param>
@@ -1736,6 +1742,7 @@
                 <subgroupName>Pubmote</subgroupName>
                 <subgroupParams>
                     <param>pubmote_loop_delay</param>
+                    <param>::sep::Paired Remote</param>
                     <param>pubmote_remote_mac_a</param>
                     <param>pubmote_remote_mac_b</param>
                     <param>pubmote_secret_code</param>
@@ -1754,8 +1761,10 @@
                     <param>bms_charge_only</param>
                     <param>bms_buff_size</param>
                     <param>bms_loop_delay</param>
+                    <param>::sep::Battery</param>
                     <param>soc_type</param>
                     <param>cell_type</param>
+                    <param>::sep::Pairing</param>
                     <param>bms_key_a</param>
                     <param>bms_key_b</param>
                     <param>bms_key_c</param>
