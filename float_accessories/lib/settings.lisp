@@ -133,6 +133,12 @@
     }{
         (stop-log)
     })
+
+    ; Master: propagate the shared LED settings to the slaves whenever the
+    ; config is (re)applied - VESC Tool edit, QML save, or a control change.
+    ; is-master guards this so a slave applying a pushed config never echoes
+    ; it back (which would otherwise loop).
+    (if (is-master) (push-config-to-slaves))
 })
 
 ; Poll for config writes from VESC Tool and apply them.
@@ -148,6 +154,9 @@
         (if (and control-store-pending (> (secs-since control-store-pending) 0.75)) {
             (setq control-store-pending nil)
             (ext-facfg-store)
+            ; Master: propagate live on-off / brightness changes to slaves once
+            ; the slider has settled (recv-control doesn't run apply-config).
+            (if (is-master) (push-config-to-slaves))
         })
         (sleep 0.5)
     })
@@ -210,6 +219,7 @@
         )
     }) qml-config-params)) " "))
     (send-mqtt-cfg)
+    (send-node-role)
     (send-status "Settings loaded")
 })
 
@@ -441,6 +451,21 @@
 (defun accept-tos() {
     (set-config 'accept-tos 1)
     (ext-facfg-store)
+})
+
+; Master/slave role. Sent on its own line (independent of the positional
+; settings string) so the QML page can show it without touching the legacy
+; token layout. The role only takes effect on the next reboot because
+; can-loop picks its path once at startup.
+(defun send-node-role () {
+    (send-data (str-merge "node-role " (str-from-n (to-i (get-config 'node-role)) "%d")))
+})
+
+(defun set-node-role (role) {
+    (set-config 'node-role (to-i role))
+    (ext-facfg-store)
+    (send-node-role)
+    (send-status "Node role saved - reboot to apply")
 })
 
 (defun status () {

@@ -97,6 +97,16 @@
             <suffix> Hz</suffix>
             <vTx>6</vTx>
         </can_loop_delay>
+        <node_role>
+            <longName>Node Role</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>CAN role. A Master polls the VESC and broadcasts telemetry plus the shared LED behaviour settings to every Slave on the bus. A Slave does not poll the VESC itself - it renders its own strips from the state the Master broadcasts and stores the settings the Master pushes. Physical wiring (pins, LED counts, strip timing, highbeam hardware) stays local to each node. Reboot after changing.</description>
+            <cDefine>CFG_DFLT_NODE_ROLE</cDefine>
+            <valInt>0</valInt>
+            <enumNames>Master</enumNames>
+            <enumNames>Slave</enumNames>
+        </node_role>
         <led_on>
             <longName>LEDs On</longName>
             <type>5</type>
@@ -1519,6 +1529,7 @@
         <ser>gnss_enabled</ser>
         <ser>can_id</ser>
         <ser>can_loop_delay</ser>
+        <ser>node_role</ser>
         <ser>led_on</ser>
         <ser>led_highbeam_on</ser>
         <ser>led_mode</ser>
@@ -1633,6 +1644,7 @@
                     <param>gnss_enabled</param>
                     <param>can_id</param>
                     <param>can_loop_delay</param>
+                    <param>node_role</param>
                 </subgroupParams>
             </subgroup>
         </group>

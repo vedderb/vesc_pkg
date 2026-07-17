@@ -14,6 +14,7 @@ typedef struct {
     uint8_t gnss_enabled;
     int32_t can_id;
     int32_t can_loop_delay;
+    uint8_t node_role;
     uint8_t led_on;
     uint8_t led_highbeam_on;
     uint8_t led_mode;

@@ -11,7 +11,7 @@
 typedef enum { CFG_F32 = 0, CFG_I32, CFG_U8, CFG_STR } cfg_field_type;
 
 #define CFG_NAME_LEN 26
-#define CFG_FIELD_COUNT 107
+#define CFG_FIELD_COUNT 108
 
 static const char cfg_names[CFG_FIELD_COUNT][CFG_NAME_LEN] = {
     "led_enabled",
@@ -22,6 +22,7 @@ static const char cfg_names[CFG_FIELD_COUNT][CFG_NAME_LEN] = {
     "gnss_enabled",
     "can_id",
     "can_loop_delay",
+    "node_role",
     "led_on",
     "led_highbeam_on",
     "led_mode",
@@ -132,6 +133,7 @@ static const uint16_t cfg_offsets[CFG_FIELD_COUNT] = {
     offsetof(FaConfig, gnss_enabled),
     offsetof(FaConfig, can_id),
     offsetof(FaConfig, can_loop_delay),
+    offsetof(FaConfig, node_role),
     offsetof(FaConfig, led_on),
     offsetof(FaConfig, led_highbeam_on),
     offsetof(FaConfig, led_mode),
@@ -252,6 +254,7 @@ static const uint8_t cfg_types[CFG_FIELD_COUNT] = {
     CFG_U8,
     CFG_U8,
     CFG_U8,
+    CFG_U8,
     CFG_F32,
     CFG_I32,
     CFG_I32,
@@ -346,6 +349,7 @@ static const uint8_t cfg_types[CFG_FIELD_COUNT] = {
 // Buffer size (bytes) for CFG_STR fields, 0 otherwise. Used to bound
 // the copy in the string set/get handlers.
 static const uint16_t cfg_lengths[CFG_FIELD_COUNT] = {
+    0,
     0,
     0,
     0,

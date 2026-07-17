@@ -48,15 +48,72 @@
     (COMMAND_GET_INFO . 0)
     (COMMAND_RUN_LISP . 1)
     (COMMAND_BMS_STATUS . 2)
+    (COMMAND_STATE_SYNC . 3)      ; master -> slaves: packed telemetry
+    (COMMAND_CONFIG_PUSH . 4)     ; master -> slaves: shared LED settings
+    (COMMAND_CONFIG_REQUEST . 5)  ; slave  -> master: please (re)send config
 ))
 
 (def discover-can-id -1)
+
+; CAN controller id 255 is treated as a broadcast by the firmware
+; (comm_can: `if (id == 255 || id == controller_id)`), so a single send
+; reaches every node on the bus.
+(def CAN_BROADCAST_ID 255)
+
+; Master/slave role. The role lives in the config (node-role: 0 Master,
+; 1 Slave; default Master). Anything that is not an explicit Slave counts as
+; Master, so an older config that predates this field still behaves as before.
+(defun is-master () (!= (get-config 'node-role) 1))
+
+; Behavioural LED settings the master keeps in sync across all slaves. Only
+; appearance/behaviour is shared - physical wiring (pins, LED counts, strip
+; timing, highbeam hardware) is deliberately left out so each node keeps its
+; own strip layout. (name . type) where type is 'i or 'f, matching the
+; qml-config-params convention in settings.lisp.
+(def config-sync-params '(
+    (led-on i) (led-highbeam-on i) (led-mode i) (led-mode-idle i)
+    (led-mode-startup i) (led-mode-status i) (led-mode-button i)
+    (led-mode-footpad i) (led-mall-grab-enabled i) (led-brake-light-enabled i)
+    (led-brake-light-min-amps f) (idle-timeout i) (idle-timeout-shutoff i)
+    (led-brightness f) (led-brightness-highbeam f) (led-brightness-idle f)
+    (led-brightness-status f) (led-max-brightness f)
+    (led-dim-on-highbeam-ratio f) (led-startup-timeout i)
+    (led-update-not-running i) (led-show-battery-charging i)
+    (soc-type i) (cell-type i)
+))
 
 (defun running-state (){
     (let ret (and (>= state 1) (<= state 5)))
 })
 
-(defun can-loop (){
+; Entry point spawned by init(). Master and slave behave very differently on
+; the CAN bus, so branch once here. The role is fixed for the lifetime of the
+; loop - changing it takes effect on the next reboot.
+(defun can-loop () {
+    (if (is-master)
+        (master-can-loop)
+        (slave-can-loop))
+})
+
+; Slave: never polls the VESC. Telemetry arrives via COMMAND_STATE_SYNC and
+; the shared settings via COMMAND_CONFIG_PUSH (both handled in the event
+; thread). All we do here is ask the master for the current config on boot,
+; and keep asking while we are not hearing any state broadcasts (freshly
+; booted / just reconnected).
+(defun slave-can-loop () {
+    (print "Running as CAN slave - telemetry and shared settings come from the master")
+    (request-config)
+    (var last-request (systime))
+    (loopwhile t {
+        (if (and (> (secs-since can-last-activity-time) 3) (> (secs-since last-request) 5)) {
+            (request-config)
+            (setq last-request (systime))
+        })
+        (sleep 1.0)
+    })
+})
+
+(defun master-can-loop (){
     (setq can-loop-delay (get-config 'can-loop-delay))
     (var next-run-time (secs-since 0))
     (var loop-start-time 0)
@@ -92,6 +149,9 @@
             (fetch-series-cells)
             (apply-battery-config (get-config 'soc-type) (get-config 'cell-type))
         })
+
+        ; Forward the freshly polled telemetry to any slaves on the bus.
+        (broadcast-state)
 
         (var time-to-wait (- next-run-time (secs-since 0)))
         (if (> time-to-wait 0) {
@@ -229,6 +289,112 @@
     (send-data (append (list FLOAT_MAGIC) cmd) 2 can-id)
 })
 
+; --- Master/slave state + config sync -------------------------------------
+
+; Master: pack the telemetry the LED logic consumes into one frame and
+; broadcast it. Fixed 32-byte layout, get/set with the same buffer ops so
+; endianness is self-consistent. Slaves unpack it in apply-state-sync.
+(defun broadcast-state () {
+    (var b (bufcreate 32))
+    (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
+    (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_STATE_SYNC))
+    (bufset-u8 b 2 (to-byte fault-code))
+    (bufset-u8 b 3 (to-byte state))
+    (bufset-u8 b 4 (to-byte switch-state))
+    (bufset-u8 b 5 (+ (if handtest-mode 1 0)
+                      (if bms-is-charging 2 0)
+                      (if bms-charger-just-plugged 4 0)))
+    (bufset-i16 b 6 (to-i (* pitch-angle 10)))
+    (bufset-i16 b 8 (to-i (* roll-angle 10)))
+    (bufset-f32 b 10 (to-float rpm))
+    (bufset-i16 b 14 (to-i (* speed 10)))
+    (bufset-i16 b 16 (to-i (* tot-current 10)))
+    (bufset-i16 b 18 (to-i (* vin 10)))
+    (bufset-u8 b 20 (to-byte (+ 128 (to-i (* duty-cycle-now 100)))))
+    (bufset-u8 b 21 (to-byte (min 255 (to-i (* battery-percent-remaining 200)))))
+    (bufset-u8 b 22 (to-byte (to-i (* fet-temp-filtered 2))))
+    (bufset-u8 b 23 (to-byte (to-i (* motor-temp-filtered 2))))
+    (bufset-f32 b 24 (to-float distance-abs))
+    (bufset-u32 b 28 (to-u32 odometer))
+    (send-data b 2 CAN_BROADCAST_ID)
+    (free b)
+})
+
+; Slave: unpack a state frame from the master into the same telemetry vars the
+; LED loop already reads, so no LED code needs to change. Bumping
+; can-last-activity-time keeps the LED "CAN alive" checks happy.
+(defun apply-state-sync (data) {
+    (setq can-last-activity-time (systime))
+    (setq fault-code (bufget-u8 data 2))
+    (setq state (bufget-u8 data 3))
+    (setq switch-state (bufget-u8 data 4))
+    (var flags (bufget-u8 data 5))
+    (setq handtest-mode (= (bitwise-and flags 1) 1))
+    (setq bms-is-charging (= (bitwise-and flags 2) 2))
+    (setq bms-charger-just-plugged (= (bitwise-and flags 4) 4))
+    (setq pitch-angle (/ (to-float (bufget-i16 data 6)) 10))
+    (setq roll-angle (/ (to-float (bufget-i16 data 8)) 10))
+    (setq rpm (bufget-f32 data 10))
+    (setq speed (/ (to-float (bufget-i16 data 14)) 10))
+    (setq tot-current (/ (to-float (bufget-i16 data 16)) 10))
+    (setq vin (/ (to-float (bufget-i16 data 18)) 10))
+    (setq duty-cycle-now (/ (to-float (- (bufget-u8 data 20) 128)) 100))
+    (setq battery-percent-remaining (/ (to-float (bufget-u8 data 21)) 200))
+    (setq fet-temp-filtered (/ (to-float (bufget-u8 data 22)) 2))
+    (setq motor-temp-filtered (/ (to-float (bufget-u8 data 23)) 2))
+    (setq distance-abs (bufget-f32 data 24))
+    (setq odometer (bufget-u32 data 28))
+})
+
+; Master: serialize config-sync-params as a lisp list literal and broadcast it.
+; The payload is read back with (read ...) on the slave, exactly like the
+; existing COMMAND_RUN_LISP path.
+(defun push-config-to-slaves () {
+    (if (is-master) {
+        (var vals (map (fn (p)
+            (if (eq (second p) 'f)
+                (str-from-n (to-float (get-config (first p))) "%.4f")
+                (str-from-n (to-i (get-config (first p))) "%d")))
+            config-sync-params))
+        (var payload (str-merge "(" (str-join vals " ") ")"))
+        (var plen (- (buflen payload) 1)) ; drop the trailing null
+        (var b (bufcreate (+ 2 plen)))
+        (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
+        (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_CONFIG_PUSH))
+        (bufcpy b 2 payload 0 plen)
+        (send-data b 2 CAN_BROADCAST_ID)
+        (free b)
+    })
+})
+
+; Slave: apply a config list pushed by the master (same order as
+; config-sync-params), persist it and re-apply so the LED loop reinitialises
+; with the new behaviour.
+(defun apply-synced-config (vals) {
+    (if (not (is-master)) {
+        (var i 0)
+        (loopforeach p config-sync-params {
+            (var v (ix vals i))
+            (if (eq (second p) 'f)
+                (set-config (first p) (to-float v))
+                (set-config (first p) (to-i v)))
+            (setq i (+ i 1))
+        })
+        (ext-facfg-store)
+        (apply-config)
+        (send-status "Settings synced from master")
+    })
+})
+
+; Slave: broadcast a request for the master to (re)push the shared config.
+(defun request-config () {
+    (var b (bufcreate 2))
+    (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
+    (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_CONFIG_REQUEST))
+    (send-data b 2 CAN_BROADCAST_ID)
+    (free b)
+})
+
 (defun float-accessories-command-rx (data) {
     (match (cossa float-accessories-cmds (bufget-u8 data 1))
         ;(COMMAND_GET_INFO {
@@ -243,10 +409,27 @@
         (COMMAND_BMS_STATUS {
             (var send-buffer (bufcreate 3))
             (bufset-u8 send-buffer 0 FLOAT_ACCESSORIES_MAGIC)
-            (bufset-u8 send-buffer 1 (assoc 'COMMAND_BMS_STATUS float-accessories-cmds))
+            (bufset-u8 send-buffer 1 (assoc float-accessories-cmds 'COMMAND_BMS_STATUS))
             (bufset-u8 send-buffer 2 bms-status)
             (send-data send-buffer 2 can-id)
             (free send-buffer)
+        })
+        (COMMAND_STATE_SYNC {
+            ; Only a slave consumes broadcast state; a master ignores it.
+            (if (not (is-master)) (apply-state-sync data))
+        })
+        (COMMAND_CONFIG_PUSH {
+            (if (not (is-master)) {
+                (var payload-len (- (buflen data) 2))
+                (var payload (bufcreate payload-len))
+                (bufcpy payload 0 data 2 payload-len)
+                (apply-synced-config (read payload))
+                (free payload)
+            })
+        })
+        (COMMAND_CONFIG_REQUEST {
+            ; A slave asked for the shared config - only the master answers.
+            (if (is-master) (push-config-to-slaves))
         })
         (_ nil) ; Ignore other commands
     )

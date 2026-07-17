@@ -3145,6 +3145,44 @@ Item {
                     }
 
                     GroupBox {
+                        title: "Node Role"
+                        Layout.fillWidth: true
+                        background: Loader { sourceComponent: cardBg }
+                        label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "Node Role" }
+                        topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: cardStyle.labelSpacing
+
+                            Text {
+                                color: fieldLabelStyle.color
+                                font.pixelSize: fieldLabelStyle.pixelSize
+                                font.bold: fieldLabelStyle.bold
+                                text: "CAN Role"
+                            }
+                            ComboBox {
+                                id: nodeRole
+                                Layout.fillWidth: true
+                                model: ["Master", "Slave"]
+                                // onActivated only fires on user interaction, not
+                                // when the loaded value is applied below, so this
+                                // never echoes the role straight back on connect.
+                                onActivated: {
+                                    sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(set-node-role " + currentIndex + ")")
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: fieldLabelStyle.color
+                                font.pixelSize: fieldLabelStyle.pixelSize - 2
+                                text: "Master polls the VESC and broadcasts telemetry plus the shared lighting settings over CAN. Slaves render their own strips from the master's broadcast and do not poll the VESC. Pins, LED counts and strip timing stay local to each node. Reboot after changing the role."
+                            }
+                        }
+                    }
+
+                    GroupBox {
                         title: "State of Charge Reporting"
                         Layout.fillWidth: true
                         background: Loader { sourceComponent: cardBg }
@@ -3833,6 +3871,8 @@ Item {
                 isPubmotePaired = (Number(tokens[46]) != -1);
                 pubmoteMacAddress.text = !isPubmotePaired ? "MAC: Not Paired" : (isPubmoteBle ? "Connection: BLE" : "MAC: " + macAddress.toUpperCase());
                 readConfig = true;
+            } else if (str.startsWith("node-role ")) {
+                nodeRole.currentIndex = Number(str.split(" ")[1])
             } else if (str.startsWith("msg")) {
                 var msg = str.substring(4)
                 VescIf.emitMessageDialog("Float Accessories", msg, false, false)

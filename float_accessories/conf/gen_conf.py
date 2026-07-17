@@ -54,6 +54,13 @@ PARAMS = [
      "CAN ID of the VESC. -1 scans and picks the first one found."),
     ("can_loop_delay", "CAN Loop Rate", (I, 1, 100, " Hz"), 8,
      "Telemetry poll rate on the CAN bus."),
+    ("node_role", "Node Role", (E, ["Master", "Slave"]), 0,
+     "CAN role. A Master polls the VESC and broadcasts telemetry plus the"
+     " shared LED behaviour settings to every Slave on the bus. A Slave"
+     " does not poll the VESC itself - it renders its own strips from the"
+     " state the Master broadcasts and stores the settings the Master"
+     " pushes. Physical wiring (pins, LED counts, strip timing, highbeam"
+     " hardware) stays local to each node. Reboot after changing."),
 
     # --- LEDs: general --------------------------------------------------
     ("led_on", "LEDs On", (B,), 1,
@@ -305,7 +312,7 @@ GROUPS = [
     ("Features", [
         ("General", ["led_enabled", "bms_enabled", "pubmote_enabled",
                      "log_enabled", "humidity_enabled", "gnss_enabled",
-                     "can_id", "can_loop_delay"]),
+                     "can_id", "can_loop_delay", "node_role"]),
     ]),
     ("LEDs", [
         ("General", ["led_on", "led_highbeam_on", "led_mode", "led_mode_idle",
