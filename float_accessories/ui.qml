@@ -277,6 +277,69 @@ Item {
     property bool pubmoteInputBtZ: false
     property bool pubmoteInputRev: false
 
+    // Live GNSS preview state (fed by the (gnss-state) poll)
+    property bool gnssPreviewFix: false
+    property real gnssPreviewLat: 0
+    property real gnssPreviewLon: 0
+    property real gnssPreviewHdop: 99
+    property real gnssPreviewSpeed: 0
+    property real gnssPreviewAge: 9999
+    // GNSS track as [dx, dy] metres east/north of the first fix, for the
+    // preview canvas (a real map isn't available to package QML).
+    property var gnssTrack: []
+    property real gnssTrackLat0: 0
+    property real gnssTrackLon0: 0
+    property bool gnssTrackHasOrigin: false
+
+    // Append a fix to the track in local ENU metres from the first fix,
+    // skipping sub-0.5 m jitter, then repaint the preview canvas.
+    function appendGnssPoint(lat, lon) {
+        if (lat === 0 && lon === 0) return
+        if (!gnssTrackHasOrigin) {
+            gnssTrackLat0 = lat
+            gnssTrackLon0 = lon
+            gnssTrackHasOrigin = true
+        }
+        var mPerDegLat = 111320.0
+        var mPerDegLon = 111320.0 * Math.cos(gnssTrackLat0 * Math.PI / 180.0)
+        var dx = (lon - gnssTrackLon0) * mPerDegLon
+        var dy = (lat - gnssTrackLat0) * mPerDegLat
+        var arr = gnssTrack
+        if (arr.length > 0) {
+            var ddx = dx - arr[arr.length - 1][0]
+            var ddy = dy - arr[arr.length - 1][1]
+            if ((ddx * ddx + ddy * ddy) < 0.25) {
+                gnssTrackCanvas.requestPaint()
+                return
+            }
+        }
+        arr.push([dx, dy])
+        if (arr.length > 400) arr.shift()
+        gnssTrack = arr
+        gnssTrackCanvas.requestPaint()
+    }
+
+    // Device link lost: clear stale preview data so the joystick and GPS
+    // track don't stay frozen at their last values until reconnect.
+    onStatusTimeoutChanged: {
+        if (statusTimeout) {
+            pubmoteInputConnected = false
+            pubmoteInputJsy = 0
+            pubmoteInputJsx = 0
+            pubmoteInputBtC = false
+            pubmoteInputBtZ = false
+            pubmoteInputRev = false
+            gnssPreviewFix = false
+            gnssPreviewLat = 0
+            gnssPreviewLon = 0
+            gnssPreviewHdop = 99
+            gnssPreviewSpeed = 0
+            gnssTrack = []
+            gnssTrackHasOrigin = false
+            gnssTrackCanvas.requestPaint()
+        }
+    }
+
     // ---- LED strips add/remove -----------------------------------------
     // The per-role strip config cards below (status / front / rear / footpad
     // / button) are each still backed by their own ledXxxStripType / pin /
@@ -347,6 +410,17 @@ Item {
         running: inputPreviewSection.visible && inputPreviewEnabled.checked
         onTriggered: {
             sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(input-state)")
+        }
+    }
+
+    // Polls the GNSS position while the preview section is visible and on
+    Timer {
+        id: gnssPreviewTimer
+        interval: 200 // 5 Hz
+        repeat: true
+        running: gnssPreviewSection.visible && gnssPreviewEnabled.checked
+        onTriggered: {
+            sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(gnss-state)")
         }
     }
 
@@ -3094,6 +3168,149 @@ Item {
                                 }
                             }
                         }
+
+                        GroupBox {
+                            id: gnssPreviewSection
+                            title: "GNSS Preview"
+                            Layout.fillWidth: true
+                            background: Loader { sourceComponent: cardBg }
+                            label: Item {
+                                implicitHeight: 40
+                                width: parent ? parent.width : 200
+
+                                Text {
+                                    text: "GNSS Preview"
+                                    color: "white"
+                                    font.bold: true
+                                    font.pixelSize: 15
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Loader {
+                                    id: gnssPreviewEnabled
+                                    sourceComponent: customSwitch
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: cardStyle.sidePadding
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    property bool checked: item ? item.checked : false
+
+                                    onLoaded: {
+                                        item.checked = false
+                                        item.checkedChanged.connect(function() {
+                                            gnssPreviewEnabled.checked = item.checked
+                                        })
+                                    }
+
+                                    onCheckedChanged: {
+                                        if (item) item.checked = checked
+                                    }
+                                }
+                            }
+                            topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 10
+
+                                Text {
+                                    visible: gnssPreviewEnabled.checked
+                                    text: gnssPreviewFix ? "Fix acquired" : "No fix"
+                                    color: gnssPreviewFix ? "cyan" : Utility.getAppHexColor("lightText")
+                                    Layout.alignment: Qt.AlignHCenter
+                                }
+
+                                ColumnLayout {
+                                    visible: gnssPreviewEnabled.checked
+                                    spacing: 10
+                                    Layout.alignment: Qt.AlignHCenter
+
+                                    // Self-drawn track (no map tiles available to package
+                                    // QML): plots the path north-up, relative to first fix.
+                                    Rectangle {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.preferredWidth: 220
+                                        Layout.preferredHeight: 220
+                                        color: "transparent"
+                                        border.color: Qt.rgba(1, 1, 1, 0.3)
+                                        border.width: 1
+                                        radius: 8
+
+                                        Canvas {
+                                            id: gnssTrackCanvas
+                                            anchors.fill: parent
+                                            anchors.margins: 1
+                                            onPaint: {
+                                                var ctx = getContext("2d")
+                                                ctx.clearRect(0, 0, width, height)
+
+                                                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                                                ctx.lineWidth = 1
+                                                ctx.beginPath(); ctx.moveTo(width / 2, 0); ctx.lineTo(width / 2, height); ctx.stroke()
+                                                ctx.beginPath(); ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2); ctx.stroke()
+
+                                                ctx.fillStyle = Qt.rgba(1, 1, 1, 0.4)
+                                                ctx.fillText("N", width / 2 + 4, 12)
+
+                                                var track = gnssTrack
+                                                if (!gnssTrackHasOrigin || track.length === 0)
+                                                    return
+
+                                                var minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9
+                                                for (var i = 0; i < track.length; i++) {
+                                                    minx = Math.min(minx, track[i][0]); maxx = Math.max(maxx, track[i][0])
+                                                    miny = Math.min(miny, track[i][1]); maxy = Math.max(maxy, track[i][1])
+                                                }
+                                                var span = Math.max(maxx - minx, maxy - miny, 2)
+                                                var margin = 18
+                                                var scale = (Math.min(width, height) - 2 * margin) / span
+                                                var cx = (minx + maxx) / 2, cy = (miny + maxy) / 2
+
+                                                function px(x) { return width / 2 + (x - cx) * scale }
+                                                function py(y) { return height / 2 - (y - cy) * scale }
+
+                                                ctx.strokeStyle = "cyan"
+                                                ctx.lineWidth = 2
+                                                ctx.beginPath()
+                                                for (var j = 0; j < track.length; j++) {
+                                                    var X = px(track[j][0]), Y = py(track[j][1])
+                                                    if (j === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y)
+                                                }
+                                                ctx.stroke()
+
+                                                ctx.fillStyle = Qt.rgba(1, 1, 1, 0.5)
+                                                ctx.beginPath(); ctx.arc(px(track[0][0]), py(track[0][1]), 3, 0, 2 * Math.PI); ctx.fill()
+
+                                                var last = track[track.length - 1]
+                                                ctx.fillStyle = gnssPreviewFix ? "cyan" : "gray"
+                                                ctx.beginPath(); ctx.arc(px(last[0]), py(last[1]), 5, 0, 2 * Math.PI); ctx.fill()
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        text: "Lat " + gnssPreviewLat.toFixed(6) + "   Lon " + gnssPreviewLon.toFixed(6)
+                                        color: Utility.getAppHexColor("lightText")
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
+                                    Text {
+                                        text: "HDOP " + gnssPreviewHdop.toFixed(1) + "    " + (gnssPreviewSpeed * 3.6).toFixed(1) + " km/h    age " + gnssPreviewAge.toFixed(1) + "s"
+                                        color: Utility.getAppHexColor("lightText")
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
+
+                                    Button {
+                                        text: "Clear track"
+                                        Layout.alignment: Qt.AlignHCenter
+                                        onClicked: {
+                                            gnssTrack = []
+                                            gnssTrackHasOrigin = false
+                                            gnssTrackCanvas.requestPaint()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     ColumnLayout {
@@ -4136,12 +4353,40 @@ Item {
                 pubmotePairingState = Number(tokens[1]);
             } else if (str.startsWith("input-state")) {
                 var tokens = str.split(" ");
-                pubmoteInputConnected = !!Number(tokens[1]);
-                pubmoteInputJsy = parseFloat(tokens[2]);
-                pubmoteInputJsx = parseFloat(tokens[3]);
-                pubmoteInputBtC = !!Number(tokens[4]);
-                pubmoteInputBtZ = !!Number(tokens[5]);
-                pubmoteInputRev = !!Number(tokens[6]);
+                var pmConn = !!Number(tokens[1]);
+                pubmoteInputConnected = pmConn;
+                // Neutral when the remote isn't connected, so a dropped
+                // link doesn't leave the last stick/buttons frozen.
+                pubmoteInputJsy = pmConn ? parseFloat(tokens[2]) : 0;
+                pubmoteInputJsx = pmConn ? parseFloat(tokens[3]) : 0;
+                pubmoteInputBtC = pmConn ? !!Number(tokens[4]) : false;
+                pubmoteInputBtZ = pmConn ? !!Number(tokens[5]) : false;
+                pubmoteInputRev = pmConn ? !!Number(tokens[6]) : false;
+            } else if (str.startsWith("gnss-state")) {
+                var gs = str.split(" ")
+                var gFix = !!Number(gs[1])
+                // On any fix gained/lost transition, drop the stale track so
+                // it rebuilds fresh instead of drawing a line across the gap.
+                if (gFix !== gnssPreviewFix) {
+                    gnssTrack = []
+                    gnssTrackHasOrigin = false
+                    gnssTrackCanvas.requestPaint()
+                }
+                gnssPreviewFix = gFix
+                if (gFix) {
+                    gnssPreviewLat = parseFloat(gs[2])
+                    gnssPreviewLon = parseFloat(gs[3])
+                    gnssPreviewHdop = parseFloat(gs[4])
+                    gnssPreviewSpeed = parseFloat(gs[5])
+                    gnssPreviewAge = parseFloat(gs[6])
+                    appendGnssPoint(gnssPreviewLat, gnssPreviewLon)
+                } else {
+                    gnssPreviewLat = 0
+                    gnssPreviewLon = 0
+                    gnssPreviewHdop = 99
+                    gnssPreviewSpeed = 0
+                    gnssPreviewAge = parseFloat(gs[6])
+                }
             }
         }
     }

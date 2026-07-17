@@ -516,4 +516,21 @@
     ) " "))
 })
 
+; Live GNSS snapshot for the QML preview: fix flag, lat, lon, hdop,
+; speed (m/s) and sentence age. Same source as the status row.
+(defun gnss-state () {
+    (var ll (gnss-lat-lon))
+    (var age-s (gnss-age))
+    (var fix (if (and (< age-s 5.0) (or (!= (ix ll 0) 0.0) (!= (ix ll 1) 0.0))) 1 0))
+    (send-data (str-join (list
+        "gnss-state"
+        (str-from-n fix "%d")
+        (str-from-n (ix ll 0) "%.6f")
+        (str-from-n (ix ll 1) "%.6f")
+        (str-from-n (gnss-hdop) "%.1f")
+        (str-from-n (gnss-speed) "%.2f")
+        (str-from-n (to-float (min age-s 9999.0)) "%.1f")
+    ) " "))
+})
+
 @const-end

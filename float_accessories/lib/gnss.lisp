@@ -15,17 +15,19 @@
     (var tx (get-config 'gnss-tx-pin))
 
     (if (< rx 0) {
-        (send-msg "GNSS: RX pin not set")
+        ; Enabled but not wired up: skip init quietly (print, not send-msg)
+        ; so it doesn't pop an alert dialog on every boot.
+        (print "GNSS: RX pin not set, not starting")
         (return nil)
     })
 
     (if (= (get-config 'gnss-type) 0) {
         (if (< tx 0) {
-            (send-msg "GNSS: u-blox needs both RX and TX pins")
+            (print "GNSS: u-blox needs both RX and TX pins, not starting")
             (return nil)
         })
         (if (ublox-init (get-config 'gnss-rate-ms) (get-config 'gnss-uart-num) rx tx) {
-            (send-msg "GNSS: u-blox started")
+            (print "GNSS: u-blox started")
             (return 'ublox)
         } {
             ; No alert dialog: the GNSS status row already shows "No
@@ -36,7 +38,7 @@
         })
     } {
         (uart-start (get-config 'gnss-uart-num) rx tx (get-config 'gnss-baud))
-        (send-msg "GNSS: NMEA UART started")
+        (print "GNSS: NMEA UART started")
         (return 'nmea)
     })
 })
@@ -67,6 +69,12 @@
             (loopwhile (not gnss-exit-flag) {
                 (sleep 1)
             })
+        })
+        (t {
+            ; Not configured or init failed: park until stopped so
+            ; spawn-with-restart doesn't respawn (and re-alert) in a tight
+            ; loop. A restart is still needed to pick up a later config.
+            (loopwhile (not gnss-exit-flag) (sleep 1))
         })
     )
     (setq gnss-exit-flag nil)
