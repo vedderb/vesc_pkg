@@ -10,6 +10,9 @@ To use reverse APP ADC needs to use the mode **Current Reverse Button** or **Cur
 
 ## Changelog
 
+**Version 1.3 (2026-07-18)**
+* Better multi-ESC support
+
 **Version 1.2 (2026-07-14)**
 * New app UI
 * Configurable mode settings in UI
