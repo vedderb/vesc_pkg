@@ -1,4 +1,4 @@
-; VESCXPRESS2X3Bridge -- runs on VESC Express. See README.md.
+; NinebotX3Bridge -- runs on VESC Express. See README.md.
 
 ; ---- Pins (WROOM-1 V2.1+) ----
 ; Pin 7 (multipin) drives underglow only -- horn isn't implemented.

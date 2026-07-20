@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "VESCXPRESS2X3Bridge VESC"
+    property string pkgName: "NinebotX3Bridge VESC"
     property string pkgDescriptionMd: "README.md"
     property string pkgLisp: "vesc-side-master.lisp"
     property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "VESCXPRESS2X3Bridge_Master.vescpkg"
+    property string pkgOutput: "NinebotX3Bridge_Master.vescpkg"
 
     // Unlike the Express-side package, this has no board-specific hardware
     // to check for -- it runs on any real VESC motor controller (identifies

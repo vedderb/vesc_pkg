@@ -122,7 +122,7 @@ Item {
                 spacing: 4
 
                 Text {
-                    text: "VESCXPRESS2X3Bridge"
+                    text: "NinebotX3Bridge"
                     color: colText
                     font.weight: Font.Black
                     font.pointSize: 20

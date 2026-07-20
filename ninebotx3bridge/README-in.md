@@ -1,8 +1,8 @@
-# VESCXPRESS2X3Bridge Express
+# NinebotX3Bridge Express
 
 Bridges a Ninebot X3-series dashboard (G3/ZT3/GT3) to a VESC motor
 controller, using stock VESC Express firmware plus a LispBM script instead
-of custom firmware. Requires the companion **VESCXPRESS2X3Bridge** PCB --
+of custom firmware. Requires the companion **NinebotX3Bridge** PCB --
 this package will refuse to install on any other board
 
 Installing this package uploads `main.lisp` (dashboard-facing status
@@ -40,17 +40,17 @@ light state, refreshed periodically from Express.
   frame, letting a real BMS own it.
 
 **Reload from Express** / **Save to Express** buttons at the bottom sync 
-the page against the connected board.
+the page against the connected board
 
 ## This is only half the bridge
 
-This package and the **VESCXPRESS2X3Bridge VESC** package need each
-other -- neither is useful installed alone. VESCXPRESS2X3Bridge VESC
+This package and the **NinebotX3Bridge VESC** package need each
+other -- neither is useful installed alone. NinebotX3Bridge VESC
 goes on the VESC that owns throttle input, a different physical device
 than VESC Express, so this package (which only targets Express) can't
 install it. Multi-motor setups also need a slave-variant script on the
 additional motor(s) -- see the
-VESCXPRESS2X3Bridge VESC package's README.
+NinebotX3Bridge VESC package's README.
 
 PCB design files (open source): https://github.com/Finnn-glitch/VESCXPRESS2X3Bridge_PCB
 
