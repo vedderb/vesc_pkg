@@ -1,8 +1,8 @@
 VESC_TOOL ?= vesc_tool
 
-all: VESCXPRESS2X3Bridge.vescpkg
+all: NinebotX3Bridge_Master.vescpkg
 
-VESCXPRESS2X3Bridge.vescpkg: pkgdesc.qml README.md main.lisp main-settings.qml
+NinebotX3Bridge_Master.vescpkg: pkgdesc.qml README.md vesc-side-master.lisp
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml
 
 VERSION=`cat version`
@@ -16,6 +16,6 @@ README.md: README-in.md version
 	echo "- Git Commit: #`git rev-parse --short HEAD`" >> $@
 
 clean:
-	rm -f VESCXPRESS2X3Bridge.vescpkg README.md
+	rm -f NinebotX3Bridge_Master.vescpkg README.md
 
 .PHONY: all clean

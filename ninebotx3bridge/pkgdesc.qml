@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "VESCXPRESS2X3Bridge Express"
+    property string pkgName: "NinebotX3Bridge Express"
     property string pkgDescriptionMd: "README.md"
     property string pkgLisp: "main.lisp"
     property string pkgQml: "main-settings.qml"
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "VESCXPRESS2X3Bridge.vescpkg"
+    property string pkgOutput: "NinebotX3Bridge.vescpkg"
 
     // Verified against vesc_express's own COMM_FW_VERSION handler
     // (main/commands.c in vedderb/vesc_express, release_7_00) rather than
