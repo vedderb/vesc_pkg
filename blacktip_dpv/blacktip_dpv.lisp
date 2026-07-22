@@ -1538,8 +1538,17 @@
                 (setvar 'disp_num DISPLAY_SENTINEL)
                 ; For Blacktip, turn off the display
                 (if (= scooter_type SCOOTER_BLACKTIP) {
+                    ; Clear the framebuffer before switching the controller off.
+                    ; If a transient I2C fault drops the display-off command, the
+                    ; successful framebuffer write still leaves the panel blank.
+                    (bufclear pixbuf)
+                    (i2c-tx-rx 0x70 pixbuf)
+                    ; Retry the idempotent off command so one dropped transaction
+                    ; cannot leave the last frame latched indefinitely.
                     (i2c-tx-rx 0x70 (list 0x80))
-                    ; Prevent the off->on flip in the same loop iteration
+                    (i2c-tx-rx 0x70 (list 0x80))
+                    ; Update the cache only after the blank/off writes have run,
+                    ; and prevent an off->on flip in this loop iteration.
                     (setvar 'last_disp_num DISPLAY_SENTINEL)
                 })
             })
@@ -1652,8 +1661,10 @@
     (loopwhile-thd THREAD_STACK_BATTERY t {
        (sleep SLEEP_UI_UPDATE)
 
-        (if (or (= batt_disp_timer_start 0) (= batt_disp_state 0)) {
-        (setvar 'batt_disp_state 0)})
+        ; Cancelling the battery-display timer also cancels any partially
+        ; completed bars -> percentage sequence.
+        (if (= batt_disp_timer_start 0)
+            (setvar 'batt_disp_state 0))
 
 
         (if (and (> batt_disp_timer_start 1) (> (secs-since batt_disp_timer_start) 6) (= batt_disp_state 0)) { ; waits Display Duration + 1 second after scooter is turned off to stabilize battery readings
