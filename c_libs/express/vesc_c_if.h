@@ -245,12 +245,12 @@ typedef struct {
 	void (*send_app_data)(unsigned char *data, unsigned int len);
 	bool (*set_app_data_handler)(void(*func)(unsigned char *data, unsigned int len));
 
-	// Persistent storage: read/write a variable by address 0..255 (NVS-backed,
-	// shared with the lisp eeprom-store/-read extensions).
-	bool (*store_eeprom_var)(eeprom_var *v, int address);
-	bool (*read_eeprom_var)(eeprom_var *v, int address);
-	bool (*store_eeprom_var_batch)(eeprom_var *v, int base_addr, int count);
-	bool (*read_eeprom_var_batch)(eeprom_var *v, int base_addr, int count);
+	// Persistent storage: read/write count variables from base_addr (NVS-backed,
+	// shared with the lisp eeprom-store/-read extensions). Addresses are
+	// 0..EEPROM_VARS-1. Each call is one NVS transaction, so storing a struct
+	// as a single call is both faster and atomic - pass count 1 for one value.
+	bool (*store_eeprom_var)(eeprom_var *v, int base_addr, int count);
+	bool (*read_eeprom_var)(eeprom_var *v, int base_addr, int count);
 
 	// Custom config: register a settings page that appears in VESC Tool.
 	// get_cfg serializes current/default settings, set_cfg applies them,
