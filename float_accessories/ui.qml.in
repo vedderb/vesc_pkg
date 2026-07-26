@@ -740,23 +740,7 @@ Item {
 
             TextArea {
                 textFormat: Text.RichText
-                text: "<p><b>FLOAT ACCESSORIES PACKAGE</b></p>" +
-                    "<p>A VESC Express package for controlling LEDs, BMS and Pubmote.</p>" +
-
-                    "<p><b>Support Future Work</b></p>" +
-                    "<p>Buy me a Coffee: <a href='https://venmo.com/sylerclayton'>https://venmo.com/sylerclayton</a></p>" +
-                    "<p>Support me on Patreon: <a href='https://patreon.com/SylerTheCreator'>https://patreon.com/SylerTheCreator</a></p>" +
-
-                    "<p><b>CREDITS</b></p>" +
-                    "<p>Special Thanks: Benjamin Vedder, surfdado, Mitch (NuRxG), Siwoz, lolwheel (OWIE), ThankTheMaker (rESCue), 4_fools (avaspark), auden_builds (pubmote)</p>" +
-                    "<p>gr33tz: outlandnish, exphat, datboig42069</p>" +
-                    "<p>Beta Testers: Pickles</p>" +
-
-                    "<p>My Blog: <a href='https://sylerclayton.com'>https://sylerclayton.com</a></p>" +
-
-                    "<p><b>BUILD INFO</b></p>" +
-                    "<p>Version 4.0.0</p>" +
-                    "<p>Source code can be found here: <a href='https://github.com/relys/vesc_pkg'>https://github.com/relys/vesc_pkg</a></p>"
+                text: Utility.md2html("{{ABOUT_MD}}")
                 wrapMode: Text.WordWrap
                 readOnly: true
                 color: Utility.getAppHexColor("lightText")
@@ -781,6 +765,7 @@ Item {
         anchors.fill: parent
         spacing: 10
         property string primaryTabLabel: ledEnabled.checked || bmsEnabled.checked || logEnabled.checked ? qsTr("Control") : qsTr("Status")
+        property int enabledFeatureCount: ledEnabled.checked + pubmoteEnabled.checked + bmsEnabled.checked + logEnabled.checked + gnssEnabled.checked
 
         onEnabledFeatureCountChanged: {
             if (enabledFeatureCount === 0 && tabBar.currentIndex === 1) {
@@ -3482,10 +3467,10 @@ Item {
                                     text: "CAN Frequency (Hz)"
                                 }
                                 SpinBox {
-                                    id: canLoopDelay
+                                    id: canLoopFreq
                                     from: 1
-                                    to: 1000
-                                    value: 8
+                                    to: 100
+                                    value: 20
                                     stepSize: 1
                                     editable: true
                                 }
@@ -3801,7 +3786,7 @@ Item {
             ledLoopDelay.value,
             bmsLoopDelay.value,
             pubmoteLoopDelay.value,
-            canLoopDelay.value,
+            canLoopFreq.value,
             ledStartupTimeout.value,
             parseFloat(ledDimOnHighbeamRatioLoader.item.value).toFixed(2),
             bmsType.currentIndex,
@@ -3978,7 +3963,7 @@ Item {
                 ledLoopDelay.value = Number(tokens[63])
                 bmsLoopDelay.value = Number(tokens[64])
                 pubmoteLoopDelay.value = Number(tokens[65])
-                canLoopDelay.value = Number(tokens[66])
+                canLoopFreq.value = Number(tokens[66])
                 ledStartupTimeout.value = Number(tokens[67])
                 ledDimOnHighbeamRatioLoader.item.value = Number(tokens[68])
                 bmsType.currentIndex = Number(tokens[69])

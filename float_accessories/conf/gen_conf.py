@@ -52,7 +52,7 @@ PARAMS = [
      " broadcast."),
     ("can_id", "CAN ID", (I, -1, 253, ""), -1,
      "CAN ID of the VESC. -1 scans and picks the first one found."),
-    ("can_loop_delay", "CAN Loop Rate", (I, 1, 100, " Hz"), 8,
+    ("can_loop_delay", "CAN Loop Rate", (I, 1, 100, " Hz"), 20,
      "Telemetry poll rate on the CAN bus."),
     ("node_role", "Node Role", (E, ["Master", "Slave"]), 0,
      "CAN role. A Master polls the VESC and broadcasts telemetry plus the"
