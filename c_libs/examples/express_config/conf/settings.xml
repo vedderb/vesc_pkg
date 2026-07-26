@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConfigParams>
+    <Params>
+        <config_name>
+            <longName>none</longName>
+            <type>3</type>
+            <transmittable>0</transmittable>
+            <description>Example custom configuration</description>
+            <cDefine></cDefine>
+            <valString>ExampleConfig</valString>
+            <maxLen>0</maxLen>
+        </config_name>
+        <hw_name>
+            <longName>Express Config Example</longName>
+            <type>0</type>
+            <transmittable>0</transmittable>
+            <description>One parameter of every type VESC Tool can render, as a reference for building a custom config.</description>
+            <cDefine></cDefine>
+        </hw_name>
+
+        <demo_bool>
+            <longName>Bool</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>type 5 (CFG_T_BOOL). A checkbox. Serialized as one byte, stored as uint8_t.</description>
+            <cDefine>CFG_DFLT_DEMO_BOOL</cDefine>
+            <valInt>1</valInt>
+        </demo_bool>
+        <demo_enum>
+            <longName>Enum</longName>
+            <type>4</type>
+            <transmittable>1</transmittable>
+            <description>type 4 (CFG_T_ENUM). A combo box listing enumNames; the stored value is the selected index. One byte, uint8_t.</description>
+            <cDefine>CFG_DFLT_DEMO_ENUM</cDefine>
+            <valInt>1</valInt>
+            <enumNames>First</enumNames>
+            <enumNames>Second</enumNames>
+            <enumNames>Third</enumNames>
+        </demo_enum>
+        <demo_bitfield>
+            <longName>Bitfield</longName>
+            <type>6</type>
+            <transmittable>1</transmittable>
+            <description>type 6 (CFG_T_BITFIELD). One checkbox per enumNames entry, packed into the bits of a single byte - so at most 8 flags. The default 5 means bits 0 and 2 are set.</description>
+            <cDefine>CFG_DFLT_DEMO_BITFIELD</cDefine>
+            <valInt>5</valInt>
+            <enumNames>Flag A</enumNames>
+            <enumNames>Flag B</enumNames>
+            <enumNames>Flag C</enumNames>
+            <enumNames>Flag D</enumNames>
+        </demo_bitfield>
+
+        <demo_uint8>
+            <longName>Int (uint8)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 (CFG_T_INT) with vTx 1 (VESC_TX_UINT8). One byte on the wire, stored as uint8_t. The vTx choice is what decides the width - keep the C type in datatypes.h in step with it.</description>
+            <cDefine>CFG_DFLT_DEMO_UINT8</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>255</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>200</valInt>
+            <suffix></suffix>
+            <vTx>1</vTx>
+        </demo_uint8>
+        <demo_int8>
+            <longName>Int (int8)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 with vTx 2 (VESC_TX_INT8). One signed byte, stored as int8_t.</description>
+            <cDefine>CFG_DFLT_DEMO_INT8</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>127</maxInt>
+            <minInt>-128</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-50</valInt>
+            <suffix></suffix>
+            <vTx>2</vTx>
+        </demo_int8>
+        <demo_uint16>
+            <longName>Int (uint16)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 with vTx 3 (VESC_TX_UINT16). Two bytes, stored as uint16_t.</description>
+            <cDefine>CFG_DFLT_DEMO_UINT16</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>65535</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>40000</valInt>
+            <suffix></suffix>
+            <vTx>3</vTx>
+        </demo_uint16>
+        <demo_int16>
+            <longName>Int (int16)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 with vTx 4 (VESC_TX_INT16). Two signed bytes, stored as int16_t. This one also sets a suffix, which VESC Tool appends in the editor as a unit.</description>
+            <cDefine>CFG_DFLT_DEMO_INT16</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>32767</maxInt>
+            <minInt>-32768</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>10</stepInt>
+            <valInt>-1000</valInt>
+            <suffix> ms</suffix>
+            <vTx>4</vTx>
+        </demo_int16>
+        <demo_uint32>
+            <longName>Int (uint32)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 with vTx 5 (VESC_TX_UINT32). Four bytes, stored as uint32_t. maxInt is parsed as a signed int by VESC Tool, so the editable maximum cannot exceed 2147483647 even though the field itself is unsigned.</description>
+            <cDefine>CFG_DFLT_DEMO_UINT32</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2000000000</maxInt>
+            <minInt>0</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>100000</valInt>
+            <suffix></suffix>
+            <vTx>5</vTx>
+        </demo_uint32>
+        <demo_int32>
+            <longName>Int (int32)</longName>
+            <type>2</type>
+            <transmittable>1</transmittable>
+            <description>type 2 with vTx 6 (VESC_TX_INT32). Four signed bytes, stored as int32_t. The usual choice when the range does not matter.</description>
+            <cDefine>CFG_DFLT_DEMO_INT32</cDefine>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxInt>2147483647</maxInt>
+            <minInt>-2147483648</minInt>
+            <showDisplay>0</showDisplay>
+            <stepInt>1</stepInt>
+            <valInt>-123456</valInt>
+            <suffix></suffix>
+            <vTx>6</vTx>
+        </demo_int32>
+
+        <demo_float16>
+            <longName>Float (double16)</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>type 1 (CFG_T_DOUBLE) with vTx 7 (VESC_TX_DOUBLE16). Sent as value * vTxDoubleScale in a signed 16-bit int, so with scale 100 the range is limited to about +-327 and precision to 0.01. Cheapest float on the wire; stored as a normal float in C.</description>
+            <cDefine>CFG_DFLT_DEMO_FLOAT16</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>300</maxDouble>
+            <minDouble>-300</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.1</stepDouble>
+            <valDouble>12.34</valDouble>
+            <vTxDoubleScale>100</vTxDoubleScale>
+            <suffix> A</suffix>
+            <vTx>7</vTx>
+        </demo_float16>
+        <demo_float32>
+            <longName>Float (double32)</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>type 1 with vTx 8 (VESC_TX_DOUBLE32). Sent as value * vTxDoubleScale in a signed 32-bit int - here scale 1000, so three decimals over a wide range.</description>
+            <cDefine>CFG_DFLT_DEMO_FLOAT32</cDefine>
+            <editorDecimalsDouble>3</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1000</maxDouble>
+            <minDouble>-1000</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.01</stepDouble>
+            <valDouble>-45.678</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> V</suffix>
+            <vTx>8</vTx>
+        </demo_float32>
+        <demo_float32_auto>
+            <longName>Float (double32 auto)</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>type 1 with vTx 9 (VESC_TX_DOUBLE32_AUTO). Sent as a self-scaling 32-bit float, so no vTxDoubleScale to pick and no range/precision tradeoff to get wrong. Use this unless the wire size matters.</description>
+            <cDefine>CFG_DFLT_DEMO_FLOAT32_AUTO</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>1000000</maxDouble>
+            <minDouble>-1000000</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.5</stepDouble>
+            <valDouble>1234.5</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </demo_float32_auto>
+        <demo_percent>
+            <longName>Float (as percentage)</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>A double32 auto with editAsPercentage set. The value is stored 0.0-1.0 but edited as 0-100 %, which is the usual way to expose a ratio.</description>
+            <cDefine>CFG_DFLT_DEMO_PERCENT</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>1</editAsPercentage>
+            <maxDouble>1</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.01</stepDouble>
+            <valDouble>0.25</valDouble>
+            <vTxDoubleScale>1</vTxDoubleScale>
+            <suffix></suffix>
+            <vTx>9</vTx>
+        </demo_percent>
+
+        <demo_string>
+            <longName>String</longName>
+            <type>3</type>
+            <transmittable>1</transmittable>
+            <description>type 3 (CFG_T_QSTRING). A free text field. maxLen is the editable length; the C buffer must be one byte larger for the null terminator. Unlike every other type this one is variable length on the wire, so the serialized size is only an upper bound.</description>
+            <cDefine>CFG_DFLT_DEMO_STRING</cDefine>
+            <valString>hello</valString>
+            <maxLen>31</maxLen>
+        </demo_string>
+    </Params>
+    <SerOrder>
+        <ser>demo_bool</ser>
+        <ser>demo_enum</ser>
+        <ser>demo_bitfield</ser>
+        <ser>demo_uint8</ser>
+        <ser>demo_int8</ser>
+        <ser>demo_uint16</ser>
+        <ser>demo_int16</ser>
+        <ser>demo_uint32</ser>
+        <ser>demo_int32</ser>
+        <ser>demo_float16</ser>
+        <ser>demo_float32</ser>
+        <ser>demo_float32_auto</ser>
+        <ser>demo_percent</ser>
+        <ser>demo_string</ser>
+    </SerOrder>
+    <Grouping>
+        <group>
+            <groupName>General</groupName>
+            <subgroup>
+                <subgroupName>Flags</subgroupName>
+                <subgroupParams>
+                    <param>demo_bool</param>
+                    <param>demo_enum</param>
+                    <param>demo_bitfield</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Integers</subgroupName>
+                <subgroupParams>
+                    <param>::sep::One byte</param>
+                    <param>demo_uint8</param>
+                    <param>demo_int8</param>
+                    <param>::sep::Two bytes</param>
+                    <param>demo_uint16</param>
+                    <param>demo_int16</param>
+                    <param>::sep::Four bytes</param>
+                    <param>demo_uint32</param>
+                    <param>demo_int32</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Floats</subgroupName>
+                <subgroupParams>
+                    <param>demo_float16</param>
+                    <param>demo_float32</param>
+                    <param>demo_float32_auto</param>
+                    <param>::sep::Presentation</param>
+                    <param>demo_percent</param>
+                </subgroupParams>
+            </subgroup>
+            <subgroup>
+                <subgroupName>Text</subgroupName>
+                <subgroupParams>
+                    <param>demo_string</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+    </Grouping>
+</ConfigParams>
