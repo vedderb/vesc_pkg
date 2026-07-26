@@ -37,13 +37,7 @@
 
 HEADER
 
-// Serialized config is chunked into eeprom vars starting at this index,
-// leaving the low indices free for other uses of the eeprom space. The
-// firmware backs these with NVS slots (EEPROM_VARS in flash_helper.c), so
-// EEPROM_BASE_IDX + CONFIG_WORDS must stay <= EEPROM_VARS. With the MQTT
-// string fields the config needs ~151 words; the firmware eeprom-var space
-// was raised to 512 so this still fits from base 128 with v0..v127 free.
-#define EEPROM_BASE_IDX 128
+#define EEPROM_BASE_IDX 0
 #define CONFIG_WORDS ((SERIALIZED_CONFIG_LENGTH - 1) / 4 + 1)
 
 typedef struct {

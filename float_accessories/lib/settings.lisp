@@ -97,19 +97,6 @@
         (setq gnss-context-id (spawn gnss-loop))
     })
 
-    ; MQTT: restart to pick up new broker / topic / credentials
-    (if (>= mqtt-context-id 0) {
-        (var start-time (systime))
-        (setq mqtt-exit-flag t)
-        (loopwhile (and mqtt-exit-flag (< (- (systime) start-time) 3000000))
-            (yield 10000))
-        (if mqtt-exit-flag (send-msg "WARNING: MQTT loop did not exit in time."))
-        (setq mqtt-context-id -1)
-    })
-    (if (= (get-config 'mqtt-enabled) 1) {
-        (setq mqtt-context-id (spawn mqtt-loop))
-    })
-
     ; Pubmote loop
     (if (and (>= pubmote-context-id 0) (!= (get-config 'pubmote-enabled) 1)) {
         (var start-time (systime))
@@ -218,42 +205,8 @@
             (str-from-n (to-i value) "%d")
         )
     }) qml-config-params)) " "))
-    (send-mqtt-cfg)
     (send-node-role)
     (send-status "Settings loaded")
-})
-
-; MQTT config round-trip for the QML page. The numeric fields ride a normal
-; space-split line; each string is sent on its own line so a value with
-; spaces survives (the QML side takes everything after the tag as the value).
-(defun send-mqtt-cfg () {
-    (send-data (str-join (list "mqtt-cfg"
-        (str-from-n (to-i (get-config 'mqtt-enabled)) "%d")
-        (str-from-n (to-i (get-config 'mqtt-qos)) "%d")
-        (str-from-n (to-i (get-config 'mqtt-keepalive)) "%d")
-        (str-from-n (to-i (get-config 'mqtt-publish-rate)) "%d")) " "))
-    (send-data (str-merge "mqtt-uri " (get-config 'mqtt-broker-uri)))
-    (send-data (str-merge "mqtt-cid " (get-config 'mqtt-client-id)))
-    (send-data (str-merge "mqtt-user " (get-config 'mqtt-user)))
-    (send-data (str-merge "mqtt-pass " (get-config 'mqtt-password)))
-    (send-data (str-merge "mqtt-prefix " (get-config 'mqtt-topic-prefix)))
-})
-
-; Saved from the QML MQTT page. Strings arrive as quoted lisp strings via the
-; (eval (read ...)) command path, so spaces in them are safe here.
-(defun recv-mqtt-cfg (in-enabled in-qos in-keepalive in-rate in-uri in-cid in-user in-pass in-prefix) {
-    (set-config 'mqtt-enabled (to-i in-enabled))
-    (set-config 'mqtt-qos (to-i in-qos))
-    (set-config 'mqtt-keepalive (to-i in-keepalive))
-    (set-config 'mqtt-publish-rate (to-i in-rate))
-    (set-config 'mqtt-broker-uri in-uri)
-    (set-config 'mqtt-client-id in-cid)
-    (set-config 'mqtt-user in-user)
-    (set-config 'mqtt-password in-pass)
-    (set-config 'mqtt-topic-prefix in-prefix)
-    (ext-facfg-store)
-    (apply-config)
-    (send-mqtt-cfg)
 })
 
 ; Full settings write from the QML settings page. Same signature as the

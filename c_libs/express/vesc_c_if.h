@@ -1,5 +1,5 @@
 /*
-	Copyright 2026 Benjamin Vedder	benjamin@vedder.se
+	Copyright 2022 Benjamin Vedder	benjamin@vedder.se
 
 	This file is part of the VESC firmware.
 
@@ -220,14 +220,6 @@ typedef struct {
 	void (*sem_signal)(lib_semaphore);
 	bool (*sem_wait_to)(lib_semaphore, systime_t); // Returns false on timeout
 	void (*sem_reset)(lib_semaphore);
-
-	// OS: device / firmware identification
-	int         (*fw_version_major)(void);
-	int         (*fw_version_minor)(void);
-	int         (*fw_version_test)(void);
-	const char* (*hw_name)(void);
-	const char* (*chip_name)(void);
-	void        (*get_mac)(uint8_t *buf);
 
 	// CAN bus. Transmit raw standard/extended frames, or register a callback
 	// to receive them (return true from the callback to consume the frame).

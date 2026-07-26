@@ -6,7 +6,7 @@
 ; gr33tz: outlandnish, exphat, datboig42069
 ; Beta Testers: Pickles
 ;
-; This version renders LEDs through the espled_strip native lib and keeps
+; This version renders LEDs through the esp_led_strip native lib and keeps
 ; its configuration in a VESC custom config (Float Accessories in VESC
 ; Tool) provided by the fa_cfg native lib - see conf/settings.xml.
 
@@ -15,10 +15,10 @@
 (import "fa_cfg/fa_cfg_esp32c6.bin" 'facfg-esp32c6)
 (import "fa_cfg/fa_cfg_esp32s3.bin" 'facfg-esp32s3)
 (import "fa_cfg/fa_cfg_esp32p4.bin" 'facfg-esp32p4)
-(import "../lib_espled_strip/espled_strip/espled_strip_esp32c3.bin" 'espled-esp32c3)
-(import "../lib_espled_strip/espled_strip/espled_strip_esp32c6.bin" 'espled-esp32c6)
-(import "../lib_espled_strip/espled_strip/espled_strip_esp32s3.bin" 'espled-esp32s3)
-(import "../lib_espled_strip/espled_strip/espled_strip_esp32p4.bin" 'espled-esp32p4)
+(import "../lib_esp_led_strip/esp_led_strip/esp_led_strip_esp32c3.bin" 'esp_led-esp32c3)
+(import "../lib_esp_led_strip/esp_led_strip/esp_led_strip_esp32c6.bin" 'esp_led-esp32c6)
+(import "../lib_esp_led_strip/esp_led_strip/esp_led_strip_esp32s3.bin" 'esp_led-esp32s3)
+(import "../lib_esp_led_strip/esp_led_strip/esp_led_strip_esp32p4.bin" 'esp_led-esp32p4)
 
 @const-start
 (import "lib/utils.lisp" 'utils)
@@ -35,8 +35,8 @@
 (read-eval-program gnss)
 (import "lib/humidity.lisp" 'humidity)
 (read-eval-program humidity)
-(import "../lib_espled_strip/espled_defs.lisp" 'espled-defs)
-(read-eval-program espled-defs)
+(import "../lib_esp_led_strip/esp_led_defs.lisp" 'esp_led-defs)
+(read-eval-program esp_led-defs)
 (import "lib/led-vars.lisp" 'led-vars)
 (read-eval-program led-vars)
 (import "lib/led.lisp" 'led)
@@ -45,9 +45,13 @@
 (read-eval-program bms-vars)
 (import "lib/bms.lisp" 'bms)
 (read-eval-program bms)
-(import "lib/mqtt.lisp" 'mqtt)
-(read-eval-program mqtt)
-(import "../lib_pubmote/pubmote.lisp" 'pubmote)
+(import "pubmote/pubmote-consts.lisp" 'pubmote-consts)
+(import "pubmote/pubmote-vars.lisp" 'pubmote-vars)
+(import "pubmote/pubmote-utils.lisp" 'pubmote-utils)
+(import "pubmote/pubmote.lisp" 'pubmote)
+(read-eval-program pubmote-consts)
+(read-eval-program pubmote-vars)
+(read-eval-program pubmote-utils)
 (read-eval-program pubmote)
 (import "lib/commands.lisp" 'commands)
 (read-eval-program commands)
@@ -55,10 +59,10 @@
 (defun load-native-libs () {
     (var target (sysinfo 'hw-target))
     (var libs (cond
-        ((= (str-cmp target "esp32c3") 0) (list facfg-esp32c3 espled-esp32c3))
-        ((= (str-cmp target "esp32c6") 0) (list facfg-esp32c6 espled-esp32c6))
-        ((= (str-cmp target "esp32s3") 0) (list facfg-esp32s3 espled-esp32s3))
-        ((= (str-cmp target "esp32p4") 0) (list facfg-esp32p4 espled-esp32p4))
+        ((= (str-cmp target "esp32c3") 0) (list facfg-esp32c3 esp_led-esp32c3))
+        ((= (str-cmp target "esp32c6") 0) (list facfg-esp32c6 esp_led-esp32c6))
+        ((= (str-cmp target "esp32s3") 0) (list facfg-esp32s3 esp_led-esp32s3))
+        ((= (str-cmp target "esp32p4") 0) (list facfg-esp32p4 esp_led-esp32p4))
         (t nil)
     ))
     (if (eq libs nil) {
@@ -141,7 +145,7 @@
     ; Always inject the pubmote callbacks, even with pubmote disabled -
     ; enabling it later from the settings page spawns pubmote-loop through
     ; apply-config, which must never run with unset callbacks.
-    (setup-pubmote
+    (pubmote-setup
         VEHICLE_TYPE_ONEWHEEL
         (fn (jsy jsx bt-c bt-z is-rev) {
             (setq pubmote-last-jsy jsy)
@@ -185,7 +189,6 @@
 
     (if (= (get-config 'gnss-enabled) 1) (setq gnss-context-id (spawn-with-restart "gnss-loop" nil gnss-loop)))
 
-    (if (= (get-config 'mqtt-enabled) 1) (setq mqtt-context-id (spawn-with-restart "mqtt-loop" nil mqtt-loop)))
 
     (if (= (get-config 'log-enabled) 1) (setq log-context-id (spawn-with-restart "log-loop" 50 log-loop)))
 

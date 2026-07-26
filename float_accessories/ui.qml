@@ -460,9 +460,6 @@ Item {
         }
     }
 
-    // Pubmote pairing confirmation, styled like the espled_strip Add dialog:
-    // a modal Dialog with a title header and framework background rather than
-    // a hand-rolled black Popup.
     Dialog {
         id: pubmotePairPopup
         modal: true
@@ -784,7 +781,6 @@ Item {
         anchors.fill: parent
         spacing: 10
         property string primaryTabLabel: ledEnabled.checked || bmsEnabled.checked || logEnabled.checked ? qsTr("Control") : qsTr("Status")
-        property int enabledFeatureCount: ledEnabled.checked + pubmoteEnabled.checked + bmsEnabled.checked + logEnabled.checked + gnssEnabled.checked + mqttEnabled.checked
 
         onEnabledFeatureCountChanged: {
             if (enabledFeatureCount === 0 && tabBar.currentIndex === 1) {
@@ -867,15 +863,6 @@ Item {
                 height: visible ? implicitHeight : 0
                 onTriggered: {
                     tabBar2.currentIndex = 4
-                    tabBar.currentIndex = 1
-                }
-            }
-            MenuItem {
-                text: qsTr("MQTT")
-                visible: mqttEnabled.checked
-                height: visible ? implicitHeight : 0
-                onTriggered: {
-                    tabBar2.currentIndex = 5
                     tabBar.currentIndex = 1
                 }
             }
@@ -962,7 +949,6 @@ Item {
                         else if (bmsEnabled.checked) tabBar2.currentIndex = 2
                         else if (logEnabled.checked) tabBar2.currentIndex = 3
                         else if (gnssEnabled.checked) tabBar2.currentIndex = 4
-                        else if (mqttEnabled.checked) tabBar2.currentIndex = 5
                     }
                 }
             }
@@ -1016,10 +1002,6 @@ Item {
                 function onCheckedChanged() { updateEnabledIndices() }
             }
 
-            Connections {
-                target: mqttEnabled
-                function onCheckedChanged() { updateEnabledIndices() }
-            }
 
             TabButton {
                 text: qsTr("Lights")
@@ -1052,12 +1034,6 @@ Item {
                 enabled: gnssEnabled.checked
                 visible: gnssEnabled.checked
                 width: gnssEnabled.checked ? implicitWidth : 0
-            }
-            TabButton {
-                text: qsTr("MQTT")
-                enabled: mqttEnabled.checked
-                visible: mqttEnabled.checked
-                width: mqttEnabled.checked ? implicitWidth : 0
             }
         }
 
@@ -1548,7 +1524,7 @@ Item {
                                 }
 
                                 // Max Blend Count and LED Fix were rgbled-era
-                                // workarounds; the espled render thread makes
+                                // workarounds; the esp_led render thread makes
                                 // them unnecessary. Their wire-protocol slots
                                 // are kept as constants.
 
@@ -3313,164 +3289,6 @@ Item {
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 20
-                        visible: mqttEnabled.checked && tabBar2.currentIndex === 5
-                        GroupBox {
-                            title: "MQTT Config"
-                            Layout.fillWidth: true
-                            background: Loader { sourceComponent: cardBg }
-                            label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "MQTT Config" }
-                            topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 10
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    color: fieldLabelStyle.color
-                                    font.pixelSize: fieldLabelStyle.pixelSize
-                                    text: "Wi-Fi must be configured separately in the VESC Express Wi-Fi settings; MQTT connects over that link."
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Layout.fillWidth: true
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Broker URI"
-                                    }
-                                    TextField {
-                                        id: mqttUri
-                                        Layout.fillWidth: true
-                                        placeholderText: "mqtt://host:1883"
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Layout.fillWidth: true
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Client ID"
-                                    }
-                                    TextField {
-                                        id: mqttClientId
-                                        Layout.fillWidth: true
-                                        placeholderText: "Client ID (blank = auto)"
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Layout.fillWidth: true
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Username"
-                                    }
-                                    TextField {
-                                        id: mqttUser
-                                        Layout.fillWidth: true
-                                        placeholderText: "Username (blank = none)"
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Layout.fillWidth: true
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Password"
-                                    }
-                                    TextField {
-                                        id: mqttPassword
-                                        Layout.fillWidth: true
-                                        echoMode: TextInput.Password
-                                        placeholderText: "Password"
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Layout.fillWidth: true
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Topic Prefix"
-                                    }
-                                    TextField {
-                                        id: mqttTopicPrefix
-                                        Layout.fillWidth: true
-                                        text: "vesc/float"
-                                        placeholderText: "vesc/float"
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "QoS"
-                                    }
-                                    SpinBox {
-                                        id: mqttQos
-                                        from: 0
-                                        to: 2
-                                        value: 0
-                                        editable: true
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Keepalive (s)"
-                                    }
-                                    SpinBox {
-                                        id: mqttKeepalive
-                                        from: 5
-                                        to: 600
-                                        value: 60
-                                        editable: true
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    spacing: cardStyle.labelSpacing
-                                    Text {
-                                        color: fieldLabelStyle.color
-                                        font.pixelSize: fieldLabelStyle.pixelSize
-                                        font.bold: fieldLabelStyle.bold
-                                        text: "Publish Rate (Hz)"
-                                    }
-                                    SpinBox {
-                                        id: mqttPublishRate
-                                        from: 1
-                                        to: 30
-                                        value: 1
-                                        editable: true
-                                    }
-                                }
-                            }
-                        }
-                    }
                     }
                 }
             }
@@ -3546,12 +3364,6 @@ Item {
                                 enabled: true
                             }
 
-                            CheckBox {
-                                id: mqttEnabled
-                                text: "MQTT Enabled"
-                                checked: false
-                                enabled: true
-                            }
                         }
                     }
 
@@ -3754,24 +3566,6 @@ Item {
                     console.log(makeArgStr())
                     sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(recv-config " + makeArgStr() + " )")
 
-                    // MQTT config is sent as its own command: its string fields
-                    // (URI, credentials, prefix) can't ride the space-split
-                    // recv-config token vector. Strings are escaped and quoted
-                    // so the (eval (read ...)) command path parses them intact.
-                    var mqttEsc = function(s) {
-                        return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + '"'
-                    }
-                    var mqttCmd = "(recv-mqtt-cfg " +
-                        (mqttEnabled.checked * 1) + " " +
-                        mqttQos.value + " " +
-                        mqttKeepalive.value + " " +
-                        mqttPublishRate.value + " " +
-                        mqttEsc(mqttUri.text) + " " +
-                        mqttEsc(mqttClientId.text) + " " +
-                        mqttEsc(mqttUser.text) + " " +
-                        mqttEsc(mqttPassword.text) + " " +
-                        mqttEsc(mqttTopicPrefix.text) + ")"
-                    sendCode(String.fromCharCode(102) + String.fromCharCode(1) + mqttCmd)
                     //sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(save-config)")
                     //sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-config)")
                 }
@@ -4066,7 +3860,6 @@ Item {
         if (bmsEnabled.checked) newIndices.push(2)
         if (logEnabled.checked) newIndices.push(3)
         if (gnssEnabled.checked) newIndices.push(4)
-        if (mqttEnabled.checked) newIndices.push(5)
         enabledIndices = newIndices
     }
 
@@ -4246,24 +4039,6 @@ Item {
             } else if (str.startsWith("msg")) {
                 var msg = str.substring(4)
                 VescIf.emitMessageDialog("Float Accessories", msg, false, false)
-            } else if (str.startsWith("mqtt-cfg ")) {
-                // Numeric MQTT fields (space-split). String fields arrive on
-                // their own mqtt-* lines below so values with spaces survive.
-                var mtok = str.split(" ")
-                mqttEnabled.checked = Number(mtok[1])
-                mqttQos.value = Number(mtok[2])
-                mqttKeepalive.value = Number(mtok[3])
-                mqttPublishRate.value = Number(mtok[4])
-            } else if (str.startsWith("mqtt-uri ")) {
-                mqttUri.text = str.substring(9)
-            } else if (str.startsWith("mqtt-cid ")) {
-                mqttClientId.text = str.substring(9)
-            } else if (str.startsWith("mqtt-user ")) {
-                mqttUser.text = str.substring(10)
-            } else if (str.startsWith("mqtt-pass ")) {
-                mqttPassword.text = str.substring(10)
-            } else if (str.startsWith("mqtt-prefix ")) {
-                mqttTopicPrefix.text = str.substring(12)
             } else if (str.startsWith("float-stats")) {
                 var tokens = str.split(" ")
 

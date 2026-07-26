@@ -2,12 +2,12 @@
 
 @const-start
 
-; LED state. Rendering is done by the espled_strip native lib; this module
+; LED state. Rendering is done by the esp_led_strip native lib; this module
 ; only keeps the configuration cache and the state-machine variables the
 ; LED loop uses to drive it.
 
-; espled effect / palette / type / timing / turn-mode ids are defined once in
-; the espled_strip library (../lib_espled_strip/espled_defs.lisp) and imported
+; esp_led effect / palette / type / timing / turn-mode ids are defined once in
+; the esp_led_strip library (../lib_esp_led_strip/esp_led_defs.lisp) and imported
 ; by float_accessories.lisp before this module, so they cannot drift from the
 ; lib's C enums.
 
@@ -68,7 +68,7 @@
 (def direction 1)
 (def led-mall-grab 0)
 
-; espled segment index per strip, -1 when the strip is not present
+; esp_led segment index per strip, -1 when the strip is not present
 (def seg-front -1)
 (def seg-rear -1)
 (def seg-status -1)

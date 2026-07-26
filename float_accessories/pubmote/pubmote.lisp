@@ -5,10 +5,10 @@
 ;
 ; The library is host-agnostic: everything package-specific (where the
 ; config lives, what telemetry to send, what to do with control input)
-; is injected through setup-pubmote callbacks. The host owns the event
+; is injected through pubmote-setup callbacks. The host owns the event
 ; loop and routes packets in:
 ;
-;   (setup-pubmote vehicle-type on-control get-telemetry send-msg
+;   (pubmote-setup vehicle-type on-control get-telemetry send-msg
 ;                  get-cfg set-cfg save-cfg on-pairing-state)
 ;   (spawn pubmote-loop)
 ;   ; from the host's event handler:
@@ -23,61 +23,10 @@
 ; with that secret, -1 accepts, -2 rejects/aborts. on-pairing-state gets
 ; called with the PAIR_STATE_* value on every change.
 
-; Pairing states
-(def PAIR_STATE_IDLE 0)
-(def PAIR_STATE_INITIATED 1)
-(def PAIR_STATE_BONDING 2)
 
-; Vehicle types reported to the remote
-(def VEHICLE_TYPE_UNSPECIFIED 0)
-(def VEHICLE_TYPE_ONEWHEEL 1)
-(def VEHICLE_TYPE_ESKATE 2)
-(def VEHICLE_TYPE_SCOOTER 3)
-(def VEHICLE_TYPE_EUC 4)
+; Depends on pubmote-consts / -vars / -utils, loaded in that order.
 
-; Protocol commands
-(def REM_VERSION 0)
-(def REM_VERSION_REC 5)
-(def REM_PAIR_INIT 10)
-(def REM_PAIR_BOND 11)
-(def REM_PAIR_COMPLETE 12)
-(def REM_SET_CORE_DATA 100)
-(def REM_SET_INPUT_STATE 150)
-(def PUBMOTE_MAGIC 169)
-
-; State
-(def pubmote-loop-delay)  ; Loop rate in Hz, read from the config
-(def pairing-state PAIR_STATE_IDLE)
-(def pubmote-exit-flag nil)
-(def pubmote-send-pair-complete-retries 0)
-(def pubmote-pair-complete-status 0)
-(def pubmote-last-pairing-broadcast 0)
-(def pubmote-last-activity-time (systime))
-(def wifi-enabled-on-boot nil)
-(def pubmote-remote-mac '())
-(def pubmote-ble-paired nil)
-(def pubmote-pairing-timer 31)
-(def pubmote-pairing-timer-timeout 60) ; How many seconds to wait before aborting pairing
-(def uni-mac '(255 255 255 255 255 255)) ; Universal mac (all devices)
-(def channel-locked 0)
-(def channel-locked-timeout 10) ; How many seconds of no activity to wait before unlocking locked wifi channel
-(def pubmote-version '(0 0 0))
-(def pubmote-api-version 1)
-(def pubmote-vehicle-type VEHICLE_TYPE_UNSPECIFIED)
-
-; Host callbacks, injected by setup-pubmote
-(def pubmote-on-control nil)
-(def pubmote-get-telemetry nil)
-(def pubmote-send-msg-cb nil)
-(def pubmote-get-config nil)
-(def pubmote-set-config nil)
-(def pubmote-save-config nil)
-(def pubmote-on-pairing-state nil)
-
-(def last-log-time-telemetry-tx 0)
-(def last-log-time-telemetry-rx 0)
-
-(defun setup-pubmote (vehicle-type on-control get-telemetry send-msg-cb get-cfg-cb set-cfg-cb save-cfg-cb on-pairing-state) {
+(defun pubmote-setup (vehicle-type on-control get-telemetry send-msg-cb get-cfg-cb set-cfg-cb save-cfg-cb on-pairing-state) {
     (setq pubmote-vehicle-type vehicle-type)
     (setq pubmote-on-control on-control)
     (setq pubmote-get-telemetry get-telemetry)
@@ -88,141 +37,6 @@
     (setq pubmote-on-pairing-state on-pairing-state)
 })
 
-; ---- Internal helpers ----------------------------------------------------
-
-(defun pubmote-send-msg (text) {
-    (if (not-eq pubmote-send-msg-cb nil) {
-        (pubmote-send-msg-cb text)
-    } {
-        (print text)
-    })
-})
-
-(defun pubmote-get-cfg (name) {
-    (if (not-eq pubmote-get-config nil) {
-        (pubmote-get-config name)
-    })
-})
-
-(defun pubmote-set-cfg (name val) {
-    (if (not-eq pubmote-set-config nil) {
-        (pubmote-set-config name val)
-    })
-})
-
-(defun pubmote-save-cfg () {
-    (if (not-eq pubmote-save-config nil) {
-        (pubmote-save-config)
-    })
-})
-
-(defunret pubmote-pack-u32 (byte-list) {
-  (return (to-u32 (+ (shl (to-u32 (ix byte-list 0)) 24)
-                     (shl (to-u32 (ix byte-list 1)) 16)
-                     (shl (to-u32 (ix byte-list 2)) 8)
-                     (to-u32 (ix byte-list 3)))))
-})
-(defunret pubmote-unpack-u32 (packed-value) {
-  (return (list (to-byte (bitwise-and (shr packed-value 24) 0xFF))
-                (to-byte (shr (bitwise-and packed-value 0xFF0000) 16))
-                (to-byte (shr (bitwise-and packed-value 0xFF00) 8))
-                (to-byte (bitwise-and packed-value 0xFF))))
-})
-
-(defun serialize-telemetry (buf telemetry) {
-    (bufset-u8 buf 5 (ix telemetry 0))       ; fault-code
-    (bufset-i16 buf 6 (floor (* (ix telemetry 1) 10))) ; pitch-angle
-    (bufset-i16 buf 8 (floor (* (ix telemetry 2) 10))) ; roll-angle
-    (bufset-u8 buf 10 (ix telemetry 3))      ; state
-    (bufset-u8 buf 11 (ix telemetry 4))      ; switch-state
-    (bufset-i16 buf 12 (floor (* (ix telemetry 5) 10))) ; vin
-    (bufset-i16 buf 14 (floor (ix telemetry 6)))     ; rpm
-    (bufset-i16 buf 16 (floor (* (ix telemetry 7) 10))) ; speed
-    (bufset-i16 buf 18 (floor (* (ix telemetry 8) 10))) ; tot-current
-    (bufset-u8 buf 20 (floor (* (+ (abs (ix telemetry 9)) 0.5) 100))) ; duty-cycle-now
-    (bufset-f32 buf 21 (ix telemetry 10) 'little-endian) ; distance-abs
-    (bufset-u8 buf 25 (floor (* (ix telemetry 11) 2))) ; fet-temp-filtered
-    (bufset-u8 buf 26 (floor (* (ix telemetry 12) 2))) ; motor-temp-filtered
-    (bufset-u32 buf 27 (ix telemetry 13))    ; odometer
-    (bufset-u8 buf 31 (floor (* (ix telemetry 14) 200))) ; battery-percent-remaining
-})
-
-(defun lock-channel (reason) {
-    (print (str-merge "Channel switching disabled. Reason: " reason))
-    (setq channel-locked (wifi-get-chan))
-    (wifi-disconnect)
-    (wifi-auto-reconnect nil)
-})
-
-(defun unlock-channel (reason) {
-    (print (str-merge "Channel switching enabled. Reason: " reason))
-    (setq channel-locked 0)
-    (wifi-auto-reconnect true)
-    (wifi-connect (conf-get `wifi-sta-ssid) (conf-get `wifi-sta-key))
-})
-
-(defun is-station-mode () {
-    (eq (conf-get 'wifi-mode) 1)
-})
-
-(defun is-wifi-connected () {
-    (eq (wifi-status) 'connected)
-})
-
-(defun should-lock-channel () {
-    ; Channel is not locked
-    ; Station mode
-    ; Wifi is not connected
-    (and (eq channel-locked 0) (is-station-mode) (not (is-wifi-connected)))
-})
-
-(defun should-unlock-channel (last-activity-time) {
-    ; Channel is locked
-    ; Station mode
-    ; Last activity time is not set or more than set time passed since last rx
-    (if (and (> channel-locked 0) (is-station-mode) (> (secs-since last-activity-time) channel-locked-timeout)) {
-        (unlock-channel (str-from-n pubmote-last-activity-time "Last activity time greater than set time"))
-    })
-})
-
-(defun should-send-message () {
-    (and
-        (= pairing-state PAIR_STATE_IDLE)
-        (!= (pubmote-get-cfg 'pubmote-remote-mac-a) -1)
-        (< (secs-since pubmote-last-activity-time) 1.0)
-    )
-})
-
-; Valid destination for esp-now-send: 6 bytes and not the BLE placeholder MAC
-(defun is-valid-espnow-mac (mac) {
-    (and (= (length mac) 6) (not-eq mac '(0 0 0 0 0 0)))
-})
-
-(defun should-process-message (src data) {
-    ; Length check must come before bufget-i32: an out-of-range bufget raises
-    ; an eval error which would kill the event handler thread
-    (and (= pairing-state PAIR_STATE_IDLE) (>= (buflen data) 5) (eq pubmote-remote-mac src) (= (bufget-i32 data 1 'little-endian) (pubmote-get-cfg 'pubmote-secret-code)))
-})
-
-(defun reset-last-activity-time () {
-    (setq pubmote-last-activity-time (systime))
-})
-
-(defun pubmote-send-packet (dest-mac packet-buf is-ble) {
-    (var send-buf (bufcreate (+ (buflen packet-buf) 1)))
-    (bufset-u8 send-buf 0 PUBMOTE_MAGIC)
-    (bufcpy send-buf 1 packet-buf 0 (buflen packet-buf))
-
-    (if is-ble {
-        (send-data send-buf 8)
-    } {
-        ; Never attempt an ESP-NOW send to the BLE placeholder (all-zeros) MAC
-        (if (and wifi-enabled-on-boot (is-valid-espnow-mac dest-mac)) {
-            (esp-now-send dest-mac send-buf)
-        })
-    })
-    (free send-buf)
-})
 
 (defun set-pairing-state (new-state) {
     (setq pairing-state new-state)
@@ -244,7 +58,7 @@
     ; Running without the host callbacks would read nil config values and
     ; blow up in the MAC unpacking - refuse instead.
     (if (eq pubmote-get-config nil) {
-        (pubmote-send-msg "Pubmote: setup-pubmote must be called first")
+        (pubmote-send-msg "Pubmote: pubmote-setup must be called first")
         (return nil)
     })
     (setq wifi-enabled-on-boot (> (conf-get 'wifi-mode) 0))

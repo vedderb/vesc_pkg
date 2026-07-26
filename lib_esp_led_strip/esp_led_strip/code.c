@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// ext-espled-*: segmented addressable-LED strip engine as a native library.
+// ext-esp_led-*: segmented addressable-LED strip engine as a native library.
 //
 // Lisp sets high-level segment /
 // effect state and a background render thread animates, applies
@@ -43,20 +43,20 @@
 
 HEADER
 
-#define ESPLED_SEG_MAX     8
-#define ESPLED_OV_MAX      8   // overlay pixels per segment
-#define ESPLED_RENDER_MS   33  // ~30 fps
+#define esp_led_SEG_MAX     8
+#define esp_led_OV_MAX      8   // overlay pixels per segment
+#define esp_led_RENDER_MS   33  // ~30 fps
 
 // Frames without changes before a keepalive retransmit (~2 s): static
 // content keeps the data line quiet, but a pixel corrupted by line noise
 // still heals shortly.
-#define ESPLED_REFRESH_FRAMES 60
+#define esp_led_REFRESH_FRAMES 60
 
-// Effects. Lisp consumers mirror these ids in espled_defs.lisp - update that
+// Effects. Lisp consumers mirror these ids in esp_led_defs.lisp - update that
 // file when this enum changes, or the wrong effect is selected silently.
 enum {
 	FX_OFF = 0,   // all pixels off (ignores the colour) - the zeroed default
-	FX_CUSTOM,    // consumer-supplied pixels (ext-espled-seg-pixel / -pixels)
+	FX_CUSTOM,    // consumer-supplied pixels (ext-esp_led-seg-pixel / -pixels)
 	FX_SOLID,     // steady colour
 	FX_BREATHE,
 	FX_CHASE,
@@ -92,11 +92,12 @@ enum {
 	TYPE_RGB,
 	TYPE_GRBW,
 	TYPE_RGBW,
+	TYPE_WRGB,  // white first (WS2814 and friends)
 };
 
 // Wire timing presets. The lib forwards the value to the firmware LED driver;
 // it is never switched on here, so this enum is documentation for lisp
-// consumers (mirrored into espled_defs.lisp by gen_defs.py).
+// consumers (mirrored into esp_led_defs.lisp by gen_defs.py).
 enum {
 	TIMING_GENERIC = 0,
 	TIMING_WS2812B,
@@ -107,7 +108,7 @@ enum {
 
 // A palette is 4 anchor colors, interpolated across pos 0..255. The
 // PAL_<NAME> tag on each row is the canonical id; gen_defs.py mirrors it into
-// espled_defs.lisp, with the row's position as the value. Keep tags unique
+// esp_led_defs.lisp, with the row's position as the value. Keep tags unique
 // and the rows in id order.
 typedef struct { uint32_t c[4]; } palette_t;
 static const palette_t palettes[] = {
@@ -140,6 +141,7 @@ typedef struct {
 	uint8_t timing;    // wire timing preset, 0 = generic
 	uint16_t len;      // pixels
 	bool reverse;
+	bool auto_white;   // Derive the white channel from the common RGB part
 	uint8_t fx;
 	uint8_t pal;
 	uint8_t bri;       // per-segment brightness target 0..255
@@ -156,7 +158,7 @@ typedef struct {
 	// effect pixels flow around them. Positions are relative to the
 	// segment and extend its footprint to len + ov_count pixels.
 	uint8_t ov_count;
-	uint8_t ov_idx[ESPLED_OV_MAX];
+	uint8_t ov_idx[esp_led_OV_MAX];
 	uint32_t ov_color;
 	uint8_t ov_bri;
 
@@ -167,7 +169,7 @@ typedef struct {
 	uint32_t *manual;
 
 	// Custom palette: 4 anchor colours used when pal == 0, so the built-in
-	// gradient effects can be recoloured. Set via ext-espled-seg-palette.
+	// gradient effects can be recoloured. Set via ext-esp_led-seg-palette.
 	uint32_t cpal[4];
 
 	int group;         // pin group index, assigned at init
@@ -195,16 +197,15 @@ typedef struct {
 	lib_mutex lock;
 	volatile bool running;
 
-	seg_t seg[ESPLED_SEG_MAX];
+	seg_t seg[esp_led_SEG_MAX];
 	int seg_count;
 
-	group_t group[ESPLED_SEG_MAX];
+	group_t group[esp_led_SEG_MAX];
 	int group_count;
 
 	uint8_t master_bri;  // target
 	uint8_t master_cur;  // eased current
 	uint8_t fade;        // gap fraction closed per frame in 32nds, 0 = instant
-	bool auto_white;
 	uint32_t ablimit_ma; // 0 = off
 
 	// Current limiting is global: each frame sums the unscaled demand of
@@ -215,10 +216,10 @@ typedef struct {
 
 	uint16_t buf_len;    // pixels the work buffer holds
 	uint32_t *work;      // packed 0xWWRRGGBB, buf_len entries
-} espled_t;
+} esp_led_t;
 
-static espled_t *state(void) {
-	return (espled_t*)ARG;
+static esp_led_t *state(void) {
+	return (esp_led_t*)ARG;
 }
 
 // ---- Color helpers ------------------------------------------------------
@@ -548,7 +549,7 @@ static uint8_t ease_u8(uint8_t cur, uint8_t target, uint8_t fade) {
 }
 
 // Render one segment into its place in the pin group's chain buffer.
-static void render_seg(espled_t *st, seg_t *s) {
+static void render_seg(esp_led_t *st, seg_t *s) {
 	group_t *grp = &st->group[s->group];
 	int n = s->len;
 	uint32_t *work = st->work;
@@ -570,7 +571,7 @@ static void render_seg(espled_t *st, seg_t *s) {
 		uint32_t b = c & 0xFF;
 
 		// Derive white from the common RGB part on RGBW strips
-		if (st->auto_white && colors == 4 && w == 0) {
+		if (s->auto_white && colors == 4 && w == 0) {
 			w = r < g ? (r < b ? r : b) : (g < b ? g : b);
 			r -= w; g -= w; b -= w;
 		}
@@ -625,6 +626,7 @@ static void render_seg(espled_t *st, seg_t *s) {
 		case TYPE_RGB:  px[0] = r; px[1] = g; px[2] = b; break;
 		case TYPE_GRBW: px[0] = g; px[1] = r; px[2] = b; px[3] = w; break;
 		case TYPE_RGBW: px[0] = r; px[1] = g; px[2] = b; px[3] = w; break;
+		case TYPE_WRGB: px[0] = w; px[1] = r; px[2] = g; px[3] = b; break;
 		case TYPE_GRB:
 		default:        px[0] = g; px[1] = r; px[2] = b; break;
 		}
@@ -632,7 +634,7 @@ static void render_seg(espled_t *st, seg_t *s) {
 }
 
 static void render_thd(void *arg) {
-	espled_t *st = (espled_t*)arg;
+	esp_led_t *st = (esp_led_t*)arg;
 
 	while (!VESC_IF->should_terminate()) {
 		// Ease brightness toward the targets and derive the current-limit
@@ -682,7 +684,7 @@ static void render_thd(void *arg) {
 			// transmission so the comparison stays against the wire state.
 			bool send = false;
 			if (any) {
-				if (g->quiet >= ESPLED_REFRESH_FRAMES
+				if (g->quiet >= esp_led_REFRESH_FRAMES
 					|| memcmp(g->txbuf[0], g->txbuf[1], (size_t)tx_bytes) != 0) {
 					send = true;
 					g->quiet = 0;
@@ -702,7 +704,7 @@ static void render_thd(void *arg) {
 			}
 		}
 
-		VESC_IF->sleep_ms(ESPLED_RENDER_MS);
+		VESC_IF->sleep_ms(esp_led_RENDER_MS);
 	}
 }
 
@@ -720,9 +722,9 @@ static bool check_num_args(lbm_value *args, lbm_uint argn, lbm_uint n) {
 	return true;
 }
 
-static seg_t *seg_arg(espled_t *st, lbm_value v) {
+static seg_t *seg_arg(esp_led_t *st, lbm_value v) {
 	int i = VESC_IF->lbm_dec_as_i32(v);
-	if (i < 0 || i >= ESPLED_SEG_MAX) {
+	if (i < 0 || i >= esp_led_SEG_MAX) {
 		return NULL;
 	}
 	return &st->seg[i];
@@ -730,13 +732,13 @@ static seg_t *seg_arg(espled_t *st, lbm_value v) {
 
 // ---- Extensions ---------------------------------------------------------
 
-// (ext-espled-seg-def i pin type len [offset] [timing]) - define segment i
-// before ext-espled-init. type: 0 GRB, 1 RGB, 2 GRBW, 3 RGBW. Segments on
+// (ext-esp_led-seg-def i pin type len [offset] [timing]) - define segment i
+// before ext-esp_led-init. type: 0 GRB, 1 RGB, 2 GRBW, 3 RGBW. Segments on
 // the same pin form one chain; offset is the segment's pixel position in
 // it. timing selects the wire timing preset: 0 generic (default), 1
 // WS2812B, 2 WS2815, 3 SK6812, 4 SK6815.
 static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (argn < 4 || argn > 6) return VESC_IF->lbm_enc_sym_terror;
 	for (lbm_uint i = 0; i < argn; i++) {
 		if (!VESC_IF->lbm_is_number(args[i])) return VESC_IF->lbm_enc_sym_terror;
@@ -749,7 +751,7 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	int offset = argn >= 5 ? VESC_IF->lbm_dec_as_i32(args[4]) : 0;
 	int timing = argn >= 6 ? VESC_IF->lbm_dec_as_i32(args[5]) : 0;
 
-	if (!s || pin < 0 || pin > 255 || type < 0 || type > TYPE_RGBW
+	if (!s || pin < 0 || pin > 255 || type < 0 || type > TYPE_WRGB
 		|| len < 1 || len > 1024 || offset < 0 || offset > 1024
 		|| timing < 0 || timing > 4) {
 		return VESC_IF->lbm_enc_sym_terror;
@@ -757,7 +759,7 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 
 	if (st->running) {
 		VESC_IF->lbm_set_error_reason(
-			"Stop with ext-espled-deinit before redefining segments");
+			"Stop with ext-esp_led-deinit before redefining segments");
 		return VESC_IF->lbm_enc_sym_eerror;
 	}
 
@@ -770,6 +772,7 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->len = (uint16_t)len;
 	s->offset = (uint16_t)offset;
 	s->reverse = false;
+	s->auto_white = false;
 	s->fx = FX_SOLID;
 	s->pal = 1; // Spectrum (0 is the custom palette, empty by default)
 	s->bri = 255;
@@ -792,13 +795,13 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-seg-overlay-def i idx0 idx1 ...) - define up to 8 overlay
-// pixel positions for segment i, before ext-espled-init. Positions are
+// (ext-esp_led-seg-overlay-def i idx0 idx1 ...) - define up to 8 overlay
+// pixel positions for segment i, before ext-esp_led-init. Positions are
 // segment-relative and extend the segment's footprint by one pixel each
 // (effect pixels flow around them). No indices clears the overlay.
 static lbm_value ext_seg_overlay_def(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
-	if (argn < 1 || argn > 1 + ESPLED_OV_MAX) return VESC_IF->lbm_enc_sym_terror;
+	esp_led_t *st = state();
+	if (argn < 1 || argn > 1 + esp_led_OV_MAX) return VESC_IF->lbm_enc_sym_terror;
 	for (lbm_uint i = 0; i < argn; i++) {
 		if (!VESC_IF->lbm_is_number(args[i])) return VESC_IF->lbm_enc_sym_terror;
 	}
@@ -808,12 +811,12 @@ static lbm_value ext_seg_overlay_def(lbm_value *args, lbm_uint argn) {
 
 	if (st->running) {
 		VESC_IF->lbm_set_error_reason(
-			"Stop with ext-espled-deinit before redefining segments");
+			"Stop with ext-esp_led-deinit before redefining segments");
 		return VESC_IF->lbm_enc_sym_eerror;
 	}
 
 	int count = argn - 1;
-	uint8_t idx[ESPLED_OV_MAX];
+	uint8_t idx[esp_led_OV_MAX];
 	for (int k = 0; k < count; k++) {
 		int v = VESC_IF->lbm_dec_as_i32(args[k + 1]);
 		if (v < 0 || v >= s->len + count) {
@@ -833,10 +836,10 @@ static lbm_value ext_seg_overlay_def(lbm_value *args, lbm_uint argn) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-seg-overlay i color bri) - set the overlay color and
+// (ext-esp_led-seg-overlay i color bri) - set the overlay color and
 // brightness at runtime (bri 0 turns the overlay pixels off).
 static lbm_value ext_seg_overlay(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 3)) return VESC_IF->lbm_enc_sym_terror;
 
 	seg_t *s = seg_arg(st, args[0]);
@@ -850,13 +853,13 @@ static lbm_value ext_seg_overlay(lbm_value *args, lbm_uint argn) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-init n) - start rendering the first n segments.
+// (ext-esp_led-init n) - start rendering the first n segments.
 static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
 
 	int n = VESC_IF->lbm_dec_as_i32(args[0]);
-	if (n < 1 || n > ESPLED_SEG_MAX) return VESC_IF->lbm_enc_sym_terror;
+	if (n < 1 || n > esp_led_SEG_MAX) return VESC_IF->lbm_enc_sym_terror;
 
 	if (st->running) {
 		VESC_IF->lbm_set_error_reason("Already running");
@@ -969,7 +972,7 @@ static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
 		for (int gi = 0; gi < st->group_count; gi++) {
 			VESC_IF->rgbled_init(st->group[gi].pin, st->group[gi].timing);
 		}
-		st->thread = VESC_IF->spawn(render_thd, 3072, "espled_render", st);
+		st->thread = VESC_IF->spawn(render_thd, 3072, "esp_led_render", st);
 		alloc_ok = st->thread != NULL;
 	}
 
@@ -996,7 +999,7 @@ static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-static void espled_stop(espled_t *st) {
+static void esp_led_stop(esp_led_t *st) {
 	if (!st->running) {
 		return;
 	}
@@ -1017,7 +1020,7 @@ static void espled_stop(espled_t *st) {
 		}
 	}
 	// Free any manual-mode pixel buffers.
-	for (int i = 0; i < ESPLED_SEG_MAX; i++) {
+	for (int i = 0; i < esp_led_SEG_MAX; i++) {
 		if (st->seg[i].manual) {
 			VESC_IF->free(st->seg[i].manual);
 			st->seg[i].manual = NULL;
@@ -1028,16 +1031,16 @@ static void espled_stop(espled_t *st) {
 	st->seg_count = 0;
 }
 
-// (ext-espled-deinit)
+// (ext-esp_led-deinit)
 static lbm_value ext_deinit(lbm_value *args, lbm_uint argn) {
 	(void)args; (void)argn;
-	espled_stop(state());
+	esp_led_stop(state());
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-seg-look i fx pal color spd bri) - full appearance in one call.
+// (ext-esp_led-seg-look i fx pal color spd bri) - full appearance in one call.
 static lbm_value ext_seg_look(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 6)) return VESC_IF->lbm_enc_sym_terror;
 
 	seg_t *s = seg_arg(st, args[0]);
@@ -1061,7 +1064,8 @@ static lbm_value ext_seg_look(lbm_value *args, lbm_uint argn) {
 
 // Setters shared by the per-segment and all-segment variants. Field ids
 // keep one implementation for all the small setters.
-enum { SET_FX = 0, SET_PAL, SET_BRI, SET_SPD, SET_COLOR, SET_ON, SET_REVERSE, SET_SIZE, SET_LEVEL };
+enum { SET_FX = 0, SET_PAL, SET_BRI, SET_SPD, SET_COLOR, SET_ON, SET_REVERSE, SET_SIZE, SET_LEVEL,
+	SET_AUTO_WHITE };
 
 static void seg_set(seg_t *s, int field, uint32_t v) {
 	switch (field) {
@@ -1074,11 +1078,12 @@ static void seg_set(seg_t *s, int field, uint32_t v) {
 	case SET_REVERSE: s->reverse = v != 0; break;
 	case SET_SIZE:    s->size = (uint8_t)v; break;
 	case SET_LEVEL:   s->level = (uint8_t)v; break;
+	case SET_AUTO_WHITE: s->auto_white = v != 0; break;
 	}
 }
 
 static lbm_value set_one(lbm_value *args, lbm_uint argn, int field) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 2)) return VESC_IF->lbm_enc_sym_terror;
 
 	seg_t *s = seg_arg(st, args[0]);
@@ -1091,45 +1096,45 @@ static lbm_value set_one(lbm_value *args, lbm_uint argn, int field) {
 }
 
 static lbm_value set_all(lbm_value *args, lbm_uint argn, int field) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
 
 	VESC_IF->mutex_lock(st->lock);
-	for (int i = 0; i < ESPLED_SEG_MAX; i++) {
+	for (int i = 0; i < esp_led_SEG_MAX; i++) {
 		seg_set(&st->seg[i], field, VESC_IF->lbm_dec_as_u32(args[0]));
 	}
 	VESC_IF->mutex_unlock(st->lock);
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-seg-fx i fx) / (ext-espled-fx fx)
+// (ext-esp_led-seg-fx i fx) / (ext-esp_led-fx fx)
 static lbm_value ext_seg_fx(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_FX); }
 static lbm_value ext_fx(lbm_value *a, lbm_uint n) { return set_all(a, n, SET_FX); }
 
-// (ext-espled-seg-pal i pal) / (ext-espled-pal pal)
+// (ext-esp_led-seg-pal i pal) / (ext-esp_led-pal pal)
 static lbm_value ext_seg_pal(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_PAL); }
 static lbm_value ext_pal(lbm_value *a, lbm_uint n) { return set_all(a, n, SET_PAL); }
 
-// (ext-espled-seg-bri i bri)
+// (ext-esp_led-seg-bri i bri)
 static lbm_value ext_seg_bri(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_BRI); }
 
-// (ext-espled-seg-spd i spd)
+// (ext-esp_led-seg-spd i spd)
 static lbm_value ext_seg_spd(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_SPD); }
 
-// (ext-espled-seg-size i size) - chase head / comet tail length
+// (ext-esp_led-seg-size i size) - chase head / comet tail length
 static lbm_value ext_seg_size(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_SIZE); }
 
-// (ext-espled-seg-level i level) - gauge fill 0..255
+// (ext-esp_led-seg-level i level) - gauge fill 0..255
 static lbm_value ext_seg_level(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_LEVEL); }
 
-// (ext-espled-seg-col i color) / (ext-espled-col color) - packed 0xWWRRGGBB
+// (ext-esp_led-seg-col i color) / (ext-esp_led-col color) - packed 0xWWRRGGBB
 static lbm_value ext_seg_col(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_COLOR); }
 static lbm_value ext_col(lbm_value *a, lbm_uint n) { return set_all(a, n, SET_COLOR); }
 
-// (ext-espled-seg-on i on)
+// (ext-esp_led-seg-on i on)
 static lbm_value ext_seg_on(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_ON); }
 
-// (ext-espled-seg-reverse i rev)
+// (ext-esp_led-seg-reverse i rev)
 static lbm_value ext_seg_reverse(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_REVERSE); }
 
 // Ensure segment s is in custom mode: allocate its pixel buffer (once) and
@@ -1148,11 +1153,11 @@ static bool seg_custom_ready(seg_t *s) {
 	return true;
 }
 
-// (ext-espled-seg-custom i) - put segment i in custom mode (blank buffer).
-// Consumers then push pixels with ext-espled-seg-pixel / -pixels and run
+// (ext-esp_led-seg-custom i) - put segment i in custom mode (blank buffer).
+// Consumers then push pixels with ext-esp_led-seg-pixel / -pixels and run
 // their own effect; brightness, current limit and channel pooling still apply.
 static lbm_value ext_seg_custom(lbm_value *a, lbm_uint n) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(a, n, 1)) return VESC_IF->lbm_enc_sym_terror;
 	seg_t *s = seg_arg(st, a[0]);
 	if (!s) return VESC_IF->lbm_enc_sym_terror;
@@ -1163,10 +1168,10 @@ static lbm_value ext_seg_custom(lbm_value *a, lbm_uint n) {
 	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
 }
 
-// (ext-espled-seg-pixel i idx color) - set one manual pixel (packed 0xWWRRGGBB).
+// (ext-esp_led-seg-pixel i idx color) - set one manual pixel (packed 0xWWRRGGBB).
 // Enters manual mode if not already. Out-of-range idx is ignored.
 static lbm_value ext_seg_pixel(lbm_value *a, lbm_uint n) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(a, n, 3)) return VESC_IF->lbm_enc_sym_terror;
 	seg_t *s = seg_arg(st, a[0]);
 	if (!s) return VESC_IF->lbm_enc_sym_terror;
@@ -1182,11 +1187,11 @@ static lbm_value ext_seg_pixel(lbm_value *a, lbm_uint n) {
 	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
 }
 
-// (ext-espled-seg-pixels i start colors) - set consecutive manual pixels from
+// (ext-esp_led-seg-pixels i start colors) - set consecutive manual pixels from
 // `start`, where colors is a list of packed 0xWWRRGGBB values. Enters manual
 // mode if not already; pixels past the end of the segment are ignored.
 static lbm_value ext_seg_pixels(lbm_value *a, lbm_uint n) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (n != 3 || !VESC_IF->lbm_is_number(a[0]) || !VESC_IF->lbm_is_number(a[1])) {
 		return VESC_IF->lbm_enc_sym_terror;
 	}
@@ -1210,11 +1215,11 @@ static lbm_value ext_seg_pixels(lbm_value *a, lbm_uint n) {
 	return ok ? VESC_IF->lbm_enc_sym_true : VESC_IF->lbm_enc_sym_merror;
 }
 
-// (ext-espled-seg-palette i c0 c1 c2 c3) - set segment i's custom palette
+// (ext-esp_led-seg-palette i c0 c1 c2 c3) - set segment i's custom palette
 // (4 anchor colours, packed 0xWWRRGGBB) and select it (pal 0), so the built-in
 // gradient effects (rainbow, chase, gauge, ...) render in these colours.
 static lbm_value ext_seg_palette(lbm_value *a, lbm_uint n) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(a, n, 5)) return VESC_IF->lbm_enc_sym_terror;
 	seg_t *s = seg_arg(st, a[0]);
 	if (!s) return VESC_IF->lbm_enc_sym_terror;
@@ -1229,10 +1234,9 @@ static lbm_value ext_seg_palette(lbm_value *a, lbm_uint n) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-col-rgb r g b) / (ext-espled-col-rgbw r g b w) - solid color on
-// all segments, like fled-col-rgb.
+// (ext-esp_led-col-rgb r g b) / (ext-esp_led-col-rgbw r g b w) - solid color on
 static lbm_value ext_col_rgbw(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (argn != 3 && argn != 4) return VESC_IF->lbm_enc_sym_terror;
 	for (lbm_uint i = 0; i < argn; i++) {
 		if (!VESC_IF->lbm_is_number(args[i])) return VESC_IF->lbm_enc_sym_terror;
@@ -1245,7 +1249,7 @@ static lbm_value ext_col_rgbw(lbm_value *args, lbm_uint argn) {
 	uint32_t c = pack(r, g, b, w);
 
 	VESC_IF->mutex_lock(st->lock);
-	for (int i = 0; i < ESPLED_SEG_MAX; i++) {
+	for (int i = 0; i < esp_led_SEG_MAX; i++) {
 		st->seg[i].color = c;
 		st->seg[i].fx = FX_SOLID;
 	}
@@ -1253,35 +1257,32 @@ static lbm_value ext_col_rgbw(lbm_value *args, lbm_uint argn) {
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-bri b) - master brightness 0..255
+// (ext-esp_led-bri b) - master brightness 0..255
 static lbm_value ext_bri(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
 	st->master_bri = (uint8_t)VESC_IF->lbm_dec_as_i32(args[0]);
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-fade rate) - brightness easing: fraction of the remaining
+// (ext-esp_led-fade rate) - brightness easing: fraction of the remaining
 // gap closed per frame, in 32nds (0 = instant, 8 = 25%/frame, 32 = full).
 // Applies to master and segment brightness changes.
 static lbm_value ext_fade(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
 	st->fade = (uint8_t)VESC_IF->lbm_dec_as_i32(args[0]);
 	return VESC_IF->lbm_enc_sym_true;
 }
 
-// (ext-espled-auto-white en) - derive W from RGB on RGBW strips
-static lbm_value ext_auto_white(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
-	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
-	st->auto_white = VESC_IF->lbm_dec_as_i32(args[0]) != 0;
-	return VESC_IF->lbm_enc_sym_true;
-}
+// (ext-esp_led-seg-auto-white i en) - derive W from the common RGB part.
+// Per-segment only: it depends on the strip's colour order, so an
+// all-segments variant would be meaningless on a mixed set of strips.
+static lbm_value ext_seg_auto_white(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_AUTO_WHITE); }
 
-// (ext-espled-ablimit ma) - adaptive current cap in mA, 0 = off
+// (ext-esp_led-ablimit ma) - adaptive current cap in mA, 0 = off
 static lbm_value ext_ablimit(lbm_value *args, lbm_uint argn) {
-	espled_t *st = state();
+	esp_led_t *st = state();
 	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
 	int ma = VESC_IF->lbm_dec_as_i32(args[0]);
 	st->ablimit_ma = ma < 0 ? 0 : (uint32_t)ma;
@@ -1291,26 +1292,26 @@ static lbm_value ext_ablimit(lbm_value *args, lbm_uint argn) {
 // ---- Lifecycle ----------------------------------------------------------
 
 static void stop(void *arg) {
-	espled_t *st = (espled_t*)arg;
+	esp_led_t *st = (esp_led_t*)arg;
 
 	if (st) {
-		espled_stop(st);
+		esp_led_stop(st);
 		VESC_IF->free(st->lock);
 		VESC_IF->free(st);
 	}
 
-	VESC_IF->printf("espled-strip lib stopped");
+	VESC_IF->printf("esp_led-strip lib stopped");
 }
 
 INIT_FUN(lib_info *info) {
 	INIT_START
 
-	espled_t *st = VESC_IF->malloc(sizeof(espled_t));
+	esp_led_t *st = VESC_IF->malloc(sizeof(esp_led_t));
 	if (!st) {
 		return false;
 	}
 
-	for (unsigned int i = 0; i < sizeof(espled_t); i++) {
+	for (unsigned int i = 0; i < sizeof(esp_led_t); i++) {
 		((uint8_t*)st)[i] = 0;
 	}
 
@@ -1326,36 +1327,36 @@ INIT_FUN(lib_info *info) {
 	info->arg = st;
 	info->stop_fun = stop;
 
-	VESC_IF->lbm_add_extension("ext-espled-seg-def", ext_seg_def);
-	VESC_IF->lbm_add_extension("ext-espled-seg-overlay-def", ext_seg_overlay_def);
-	VESC_IF->lbm_add_extension("ext-espled-seg-overlay", ext_seg_overlay);
-	VESC_IF->lbm_add_extension("ext-espled-init", ext_init);
-	VESC_IF->lbm_add_extension("ext-espled-deinit", ext_deinit);
-	VESC_IF->lbm_add_extension("ext-espled-seg-look", ext_seg_look);
-	VESC_IF->lbm_add_extension("ext-espled-seg-fx", ext_seg_fx);
-	VESC_IF->lbm_add_extension("ext-espled-fx", ext_fx);
-	VESC_IF->lbm_add_extension("ext-espled-seg-pal", ext_seg_pal);
-	VESC_IF->lbm_add_extension("ext-espled-pal", ext_pal);
-	VESC_IF->lbm_add_extension("ext-espled-seg-bri", ext_seg_bri);
-	VESC_IF->lbm_add_extension("ext-espled-seg-spd", ext_seg_spd);
-	VESC_IF->lbm_add_extension("ext-espled-seg-size", ext_seg_size);
-	VESC_IF->lbm_add_extension("ext-espled-seg-level", ext_seg_level);
-	VESC_IF->lbm_add_extension("ext-espled-seg-col", ext_seg_col);
-	VESC_IF->lbm_add_extension("ext-espled-col", ext_col);
-	VESC_IF->lbm_add_extension("ext-espled-seg-on", ext_seg_on);
-	VESC_IF->lbm_add_extension("ext-espled-seg-reverse", ext_seg_reverse);
-	VESC_IF->lbm_add_extension("ext-espled-seg-custom", ext_seg_custom);
-	VESC_IF->lbm_add_extension("ext-espled-seg-pixel", ext_seg_pixel);
-	VESC_IF->lbm_add_extension("ext-espled-seg-pixels", ext_seg_pixels);
-	VESC_IF->lbm_add_extension("ext-espled-seg-palette", ext_seg_palette);
-	VESC_IF->lbm_add_extension("ext-espled-col-rgb", ext_col_rgbw);
-	VESC_IF->lbm_add_extension("ext-espled-col-rgbw", ext_col_rgbw);
-	VESC_IF->lbm_add_extension("ext-espled-bri", ext_bri);
-	VESC_IF->lbm_add_extension("ext-espled-fade", ext_fade);
-	VESC_IF->lbm_add_extension("ext-espled-auto-white", ext_auto_white);
-	VESC_IF->lbm_add_extension("ext-espled-ablimit", ext_ablimit);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-def", ext_seg_def);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-overlay-def", ext_seg_overlay_def);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-overlay", ext_seg_overlay);
+	VESC_IF->lbm_add_extension("ext-esp_led-init", ext_init);
+	VESC_IF->lbm_add_extension("ext-esp_led-deinit", ext_deinit);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-look", ext_seg_look);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-fx", ext_seg_fx);
+	VESC_IF->lbm_add_extension("ext-esp_led-fx", ext_fx);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-pal", ext_seg_pal);
+	VESC_IF->lbm_add_extension("ext-esp_led-pal", ext_pal);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-bri", ext_seg_bri);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-spd", ext_seg_spd);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-size", ext_seg_size);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-level", ext_seg_level);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-col", ext_seg_col);
+	VESC_IF->lbm_add_extension("ext-esp_led-col", ext_col);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-on", ext_seg_on);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-reverse", ext_seg_reverse);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-custom", ext_seg_custom);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixel", ext_seg_pixel);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixels", ext_seg_pixels);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-palette", ext_seg_palette);
+	VESC_IF->lbm_add_extension("ext-esp_led-col-rgb", ext_col_rgbw);
+	VESC_IF->lbm_add_extension("ext-esp_led-col-rgbw", ext_col_rgbw);
+	VESC_IF->lbm_add_extension("ext-esp_led-bri", ext_bri);
+	VESC_IF->lbm_add_extension("ext-esp_led-fade", ext_fade);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-auto-white", ext_seg_auto_white);
+	VESC_IF->lbm_add_extension("ext-esp_led-ablimit", ext_ablimit);
 
-	VESC_IF->printf("espled-strip lib loaded");
+	VESC_IF->printf("esp_led-strip lib loaded");
 
 	return true;
 }

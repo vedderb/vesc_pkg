@@ -43,9 +43,6 @@
 (def gnss-context-id -1)
 (def gnss-exit-flag nil)
 
-(def mqtt-context-id -1)
-(def mqtt-exit-flag nil)
-
 ; State
 (def log-running false)
 

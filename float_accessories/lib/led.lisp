@@ -1,18 +1,18 @@
 ;@const-symbol-strings
 @const-start
 
-; LED control on top of the espled_strip native lib. The lib owns the
+; LED control on top of the esp_led_strip native lib. The lib owns the
 ; framebuffers, the render thread and the LED driver; this loop only runs
 ; the state machine (direction, idle, mall grab, brake light, charging)
-; and sets per-segment effect/color/brightness through the ext-espled-*
+; and sets per-segment effect/color/brightness through the ext-esp_led-*
 ; extensions. Strips on the same pin are chained with segment offsets.
 ;
 ; Each strip's timing config doubles as its enable: 0 = disabled, 1+ =
-; wire timing preset (espled preset value + 1).
+; wire timing preset (esp_led preset value + 1).
 ;
 ; Highbeams are described concretely in the config (the named board
 ; presets exist only in the QML page): mode 1 drives a separate PWM pin,
-; mode 2 drives LEDs embedded in the strip as espled overlay pixels, at
+; mode 2 drives LEDs embedded in the strip as esp_led overlay pixels, at
 ; positions packed one per byte in the highbeam-pos int (255 = unused),
 ; with the brightness mapped onto the configured min-max drive range. The
 ; strip facing the direction of travel lights its highbeam and dims by
@@ -77,12 +77,12 @@
     (setq led-update-not-running (get-config 'led-update-not-running))
 })
 
-; Define the espled segments from the config. Strips sharing a pin become
+; Define the esp_led segments from the config. Strips sharing a pin become
 ; one chain: each next strip on the pin gets the accumulated pixel offset.
 ; Chain order matches the original wiring convention: status, front, rear,
 ; then footpad and button.
 (defun led-setup-segments () {
-    (ext-espled-deinit)
+    (ext-esp_led-deinit)
     (setq seg-front -1)
     (setq seg-rear -1)
     (setq seg-status -1)
@@ -102,7 +102,7 @@
 
     ; Segments chained on one pin share one data line, so the whole chain
     ; uses the timing of the first strip defined on that pin. Config
-    ; timing values are espled preset + 1 (0 = strip disabled).
+    ; timing values are esp_led preset + 1 (0 = strip disabled).
     (var chain-timing (fn (pin timing) {
         (var entry (assoc pin-timings pin))
         (if (eq entry nil) {
@@ -112,7 +112,7 @@
     }))
 
     (if (and (> led-status-timing 0) (>= led-status-pin 0) (> led-status-num 0)) {
-        (ext-espled-seg-def idx led-status-pin led-status-type led-status-num (next-offset led-status-pin led-status-num) (chain-timing led-status-pin led-status-timing))
+        (ext-esp_led-seg-def idx led-status-pin led-status-type led-status-num (next-offset led-status-pin led-status-num) (chain-timing led-status-pin led-status-timing))
         (setq seg-status idx)
         (setq idx (+ idx 1))
     })
@@ -128,44 +128,44 @@
     }))
     (var overlay-def (fn (seg ps) {
         (cond
-            ((= (length ps) 1) (ext-espled-seg-overlay-def seg (ix ps 0)))
-            ((= (length ps) 2) (ext-espled-seg-overlay-def seg (ix ps 0) (ix ps 1)))
-            ((= (length ps) 3) (ext-espled-seg-overlay-def seg (ix ps 0) (ix ps 1) (ix ps 2)))
-            ((= (length ps) 4) (ext-espled-seg-overlay-def seg (ix ps 0) (ix ps 1) (ix ps 2) (ix ps 3)))
+            ((= (length ps) 1) (ext-esp_led-seg-overlay-def seg (ix ps 0)))
+            ((= (length ps) 2) (ext-esp_led-seg-overlay-def seg (ix ps 0) (ix ps 1)))
+            ((= (length ps) 3) (ext-esp_led-seg-overlay-def seg (ix ps 0) (ix ps 1) (ix ps 2)))
+            ((= (length ps) 4) (ext-esp_led-seg-overlay-def seg (ix ps 0) (ix ps 1) (ix ps 2) (ix ps 3)))
         )
     }))
 
     (if (and (> led-front-timing 0) (>= led-front-pin 0) (> led-front-num 0)) {
         (var ps (if (= led-front-highbeam-mode 2) (hb-positions led-front-highbeam-pos) nil))
-        (ext-espled-seg-def idx led-front-pin led-front-type led-front-num (next-offset led-front-pin (+ led-front-num (length ps))) (chain-timing led-front-pin led-front-timing))
+        (ext-esp_led-seg-def idx led-front-pin led-front-type led-front-num (next-offset led-front-pin (+ led-front-num (length ps))) (chain-timing led-front-pin led-front-timing))
         (overlay-def idx ps)
         (setq seg-front idx)
         (setq idx (+ idx 1))
     })
     (if (and (> led-rear-timing 0) (>= led-rear-pin 0) (> led-rear-num 0)) {
         (var ps (if (= led-rear-highbeam-mode 2) (hb-positions led-rear-highbeam-pos) nil))
-        (ext-espled-seg-def idx led-rear-pin led-rear-type led-rear-num (next-offset led-rear-pin (+ led-rear-num (length ps))) (chain-timing led-rear-pin led-rear-timing))
+        (ext-esp_led-seg-def idx led-rear-pin led-rear-type led-rear-num (next-offset led-rear-pin (+ led-rear-num (length ps))) (chain-timing led-rear-pin led-rear-timing))
         (overlay-def idx ps)
         (setq seg-rear idx)
         (setq idx (+ idx 1))
     })
     (if (and (> led-footpad-timing 0) (>= led-footpad-pin 0) (> led-footpad-num 0)) {
-        (ext-espled-seg-def idx led-footpad-pin led-footpad-type led-footpad-num (next-offset led-footpad-pin led-footpad-num) (chain-timing led-footpad-pin led-footpad-timing))
+        (ext-esp_led-seg-def idx led-footpad-pin led-footpad-type led-footpad-num (next-offset led-footpad-pin led-footpad-num) (chain-timing led-footpad-pin led-footpad-timing))
         (setq seg-footpad idx)
         (setq idx (+ idx 1))
     })
     (if (and (> led-button-timing 0) (>= led-button-pin 0)) {
-        (ext-espled-seg-def idx led-button-pin 0 1 (next-offset led-button-pin 1) (chain-timing led-button-pin led-button-timing))
+        (ext-esp_led-seg-def idx led-button-pin 0 1 (next-offset led-button-pin 1) (chain-timing led-button-pin led-button-timing))
         (setq seg-button idx)
         (setq idx (+ idx 1))
     })
 
     (if (> idx 0) {
-        (ext-espled-init idx)
-        (if (>= seg-status 0) (ext-espled-seg-reverse seg-status led-status-reversed))
-        (if (>= seg-front 0) (ext-espled-seg-reverse seg-front led-front-reversed))
-        (if (>= seg-rear 0) (ext-espled-seg-reverse seg-rear led-rear-reversed))
-        (if (>= seg-footpad 0) (ext-espled-seg-reverse seg-footpad led-footpad-reversed))
+        (ext-esp_led-init idx)
+        (if (>= seg-status 0) (ext-esp_led-seg-reverse seg-status led-status-reversed))
+        (if (>= seg-front 0) (ext-esp_led-seg-reverse seg-front led-front-reversed))
+        (if (>= seg-rear 0) (ext-esp_led-seg-reverse seg-rear led-rear-reversed))
+        (if (>= seg-footpad 0) (ext-esp_led-seg-reverse seg-footpad led-footpad-reversed))
     })
 
     ; PWM highbeams (highbeam mode 1)
@@ -180,7 +180,7 @@
 })
 
 (defun led-teardown () {
-    (ext-espled-deinit)
+    (ext-esp_led-deinit)
     (if (and (= led-front-highbeam-mode 1) (>= led-front-highbeam-pin 0)) (pwm-stop 0))
     (if (and (= led-rear-highbeam-mode 1) (>= led-rear-highbeam-pin 0)) (pwm-stop 1))
 })
@@ -189,24 +189,24 @@
 
 (defun seg-apply (seg fx pal color spd bri) {
     (if (>= seg 0) {
-        (ext-espled-seg-fx seg fx)
-        (ext-espled-seg-pal seg pal)
-        (ext-espled-seg-col seg color)
-        (ext-espled-seg-spd seg spd)
-        (ext-espled-seg-bri seg bri)
+        (ext-esp_led-seg-fx seg fx)
+        (ext-esp_led-seg-pal seg pal)
+        (ext-esp_led-seg-col seg color)
+        (ext-esp_led-seg-spd seg spd)
+        (ext-esp_led-seg-bri seg bri)
     })
 })
 
 (defun seg-gauge (seg level spd bri) {
     (if (>= seg 0) {
-        (ext-espled-seg-fx seg FX-GAUGE)
+        (ext-esp_led-seg-fx seg FX-GAUGE)
         ; color 0 + palette 0 = the battery gradient; reset the palette so
         ; one left over from another mode cannot recolor the gauge
-        (ext-espled-seg-pal seg 0)
-        (ext-espled-seg-col seg 0)
-        (ext-espled-seg-level seg level)
-        (ext-espled-seg-spd seg spd)
-        (ext-espled-seg-bri seg bri)
+        (ext-esp_led-seg-pal seg 0)
+        (ext-esp_led-seg-col seg 0)
+        (ext-esp_led-seg-level seg level)
+        (ext-esp_led-seg-spd seg spd)
+        (ext-esp_led-seg-bri seg bri)
     })
 })
 
@@ -276,11 +276,11 @@
     (cond
         (handtest-mode {
             (if (>= seg-status 0) {
-                (ext-espled-seg-fx seg-status FX-GAUGE)
-                (ext-espled-seg-col seg-status 0x000000FFu32)
-                (ext-espled-seg-level seg-status (cond ((= switch-state 3) 255) ((or (= switch-state 1) (= switch-state 2)) 128) (t 16)))
-                (ext-espled-seg-spd seg-status 0)
-                (ext-espled-seg-bri seg-status bri)
+                (ext-esp_led-seg-fx seg-status FX-GAUGE)
+                (ext-esp_led-seg-col seg-status 0x000000FFu32)
+                (ext-esp_led-seg-level seg-status (cond ((= switch-state 3) 255) ((or (= switch-state 1) (= switch-state 2)) 128) (t 16)))
+                (ext-esp_led-seg-spd seg-status 0)
+                (ext-esp_led-seg-bri seg-status bri)
             })
         })
         ((= state 15) { ; disabled
@@ -296,22 +296,22 @@
                 ; duty cycle bar
                 (var duty (abs duty-cycle-now))
                 (if (>= seg-status 0) {
-                    (ext-espled-seg-fx seg-status FX-GAUGE)
-                    (ext-espled-seg-col seg-status (cond ((> duty 0.8) 0x00FF0000u32) ((> duty 0.6) 0x00FFFF00u32) (t 0x0000FF00u32)))
-                    (ext-espled-seg-level seg-status (to-i (* 255.0 duty)))
-                    (ext-espled-seg-spd seg-status 0)
-                    (ext-espled-seg-bri seg-status bri)
+                    (ext-esp_led-seg-fx seg-status FX-GAUGE)
+                    (ext-esp_led-seg-col seg-status (cond ((> duty 0.8) 0x00FF0000u32) ((> duty 0.6) 0x00FFFF00u32) (t 0x0000FF00u32)))
+                    (ext-esp_led-seg-level seg-status (to-i (* 255.0 duty)))
+                    (ext-esp_led-seg-spd seg-status 0)
+                    (ext-esp_led-seg-bri seg-status bri)
                 })
             })
         })
         ((or (= switch-state 1) (= switch-state 2) (= switch-state 3)) {
             ; footpad indication
             (if (>= seg-status 0) {
-                (ext-espled-seg-fx seg-status FX-GAUGE)
-                (ext-espled-seg-col seg-status 0x0000FFFFu32)
-                (ext-espled-seg-level seg-status (if (= switch-state 3) 255 128))
-                (ext-espled-seg-spd seg-status 0)
-                (ext-espled-seg-bri seg-status bri)
+                (ext-esp_led-seg-fx seg-status FX-GAUGE)
+                (ext-esp_led-seg-col seg-status 0x0000FFFFu32)
+                (ext-esp_led-seg-level seg-status (if (= switch-state 3) 255 128))
+                (ext-esp_led-seg-spd seg-status 0)
+                (ext-esp_led-seg-bri seg-status bri)
             })
         })
         (t {
@@ -439,8 +439,8 @@
                 (setq current-led-mode led-mode-startup)
             })
 
-            ; Brightness transitions are handled by the espled lib
-            ; (ext-espled-fade), so targets are set directly here.
+            ; Brightness transitions are handled by the esp_led lib
+            ; (ext-esp_led-fade), so targets are set directly here.
             ; Highbeams: the strip facing the direction of travel lights
             ; its highbeam (mode 1 = PWM pin, mode 2 = embedded overlay
             ; pixels) and the rest of that strip dims by the configured
@@ -461,11 +461,11 @@
                 (pwm-set-duty (if hb-rear hb-frac 0.0) 1)
             })
             (if (and (= led-front-highbeam-mode 2) (>= seg-front 0)) {
-                (ext-espled-seg-overlay seg-front 0xFFFFFFFFu32
+                (ext-esp_led-seg-overlay seg-front 0xFFFFFFFFu32
                     (if hb-front (bri255 (+ led-front-highbeam-min (* (- led-front-highbeam-max led-front-highbeam-min) hb-frac))) 0))
             })
             (if (and (= led-rear-highbeam-mode 2) (>= seg-rear 0)) {
-                (ext-espled-seg-overlay seg-rear 0xFFFFFFFFu32
+                (ext-esp_led-seg-overlay seg-rear 0xFFFFFFFFu32
                     (if hb-rear (bri255 (+ led-rear-highbeam-min (* (- led-rear-highbeam-max led-rear-highbeam-min) hb-frac))) 0))
             })
 

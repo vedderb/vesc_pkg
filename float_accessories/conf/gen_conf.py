@@ -24,7 +24,7 @@ LED_MODES = [
 ]
 COLOR_ORDERS = ["GRB", "RGB", "GRBW", "RGBW"]
 # One enum per strip doubles as the enable switch and the wire timing of
-# the espled driver: 0 disables the strip, the other values select the
+# the esp_led driver: 0 disables the strip, the other values select the
 # timing. Universal covers all the listed families; a specific preset can
 # help marginal strips or long data lines.
 STRIP_TIMINGS = ["Disabled", "Universal", "WS2812B", "WS2815", "SK6812",
@@ -281,28 +281,6 @@ PARAMS = [
      "UART baud rate (NMEA type only - the u-blox driver manages its"
      " own)."),
 
-    # --- MQTT --------------------------------------------------------------
-    ("mqtt_enabled", "MQTT Enabled", (B,), 0,
-     "Publish telemetry and accept commands over MQTT. Needs Wi-Fi"
-     " configured and connected (VESC Express Wi-Fi settings)."),
-    ("mqtt_broker_uri", "Broker URI", (S, 96), "",
-     "Broker URI, e.g. mqtt://host:1883 or mqtts://host:8883."),
-    ("mqtt_client_id", "Client ID", (S, 48), "",
-     "MQTT client id. Blank auto-generates one."),
-    ("mqtt_user", "Username", (S, 48), "",
-     "Broker username. Blank for no authentication."),
-    ("mqtt_password", "Password", (S, 64), "",
-     "Broker password."),
-    ("mqtt_topic_prefix", "Topic Prefix", (S, 48), "vesc/float",
-     "Base topic: telemetry is published to <prefix>/telemetry and"
-     " commands are read from <prefix>/cmd."),
-    ("mqtt_qos", "QoS", (I, 0, 2, ""), 0,
-     "Quality of service for publishes and the command subscription."),
-    ("mqtt_keepalive", "Keepalive", (I, 5, 600, " s"), 60,
-     "MQTT keepalive interval."),
-    ("mqtt_publish_rate", "Publish Rate", (I, 1, 30, " Hz"), 1,
-     "Telemetry publish rate."),
-
     # --- Internal ----------------------------------------------------------
     ("accept_tos", "TOS Accepted", (B,), 0,
      "Set once the terms-of-service prompt was accepted."),
@@ -358,9 +336,6 @@ GROUPS = [
         ("Humidity", ["humidity_sda_pin", "humidity_slc_pin"]),
         ("GNSS", ["gnss_type", "gnss_rx_pin", "gnss_tx_pin",
                       "gnss_uart_num", "gnss_rate_ms", "gnss_baud"]),
-        ("MQTT", ["mqtt_enabled", "mqtt_broker_uri", "mqtt_client_id",
-                    "mqtt_user", "mqtt_password", "mqtt_topic_prefix",
-                    "mqtt_qos", "mqtt_keepalive", "mqtt_publish_rate"]),
     ]),
     ("Internal", [
         ("Meta", ["accept_tos"]),
