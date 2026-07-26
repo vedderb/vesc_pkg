@@ -6,6 +6,14 @@
 (define express-can-id 2)
 (define slot-vesc-info 0)       ; this VESC -> Express, registration/telemetry
 (define slot-speed-relay 1)     ; Express -> this VESC, profile-switch speed
+(define slot-external-adc 3)    ; Express -> this VESC, throttle/brake source
+
+; 0 = dashboard ADC (throttle/brake come from 0x100, this script drives the
+; ADC app via app-adc-override). 1 = External ADC: the dashboard's throttle
+; and brake are ignored entirely and the ADC app is handed back its own
+; physical ADC1/ADC2 inputs. Pushed from the Express settings page; the
+; default here matches the app-adc-detach at the bottom of this file.
+(define external-adc 0)
 
 (define can-timeout 500)   ; ms, assumes 1000Hz tick rate
 (define last-msg-time (systime))
@@ -13,11 +21,34 @@
 (define cruise-active nil)
 (define last-speed-x10 -1)
 
+; Only meaningful while this script owns the ADC app -- in external-adc
+; mode a zeroing override would fight the physical throttle.
 (defun check-timeout ()
-    (if (> (- (systime) last-msg-time) can-timeout)
+    (if (and (= external-adc 0) (> (- (systime) last-msg-time) can-timeout))
         (progn
             (app-adc-override 0 0.0)
             (app-adc-override 1 0.0))))
+
+; Releases the overrides before re-attaching, so the ADC app doesn't inherit
+; a stale forced value; detaches again when going back to dashboard control.
+(defun apply-external-adc (val)
+    (if (!= val external-adc)
+        (progn
+            (setq external-adc val)
+            (if (= external-adc 1)
+                (progn
+                    (app-adc-override 0 0.0)
+                    (app-adc-override 1 0.0)
+                    (app-adc-override 3 0.0)
+                    (setq cruise-active nil)
+                    (app-adc-detach 3 0))
+                (app-adc-detach 3 1)))))
+
+(defun external-adc-listener ()
+    (loopwhile t
+        (let ((data (canmsg-recv slot-external-adc -1.0)))
+            (if (not-eq data 'timeout)
+                (apply-external-adc (bufget-u8 data 0))))))
 
 ; speed-x10 (km/h * 10) -> target ERPM.
 (defun apply-speed-limit (speed-x10)
@@ -31,9 +62,14 @@
                     (let ((wheel-rpm (/ (* speed-kmh 1000.0) (* wheel-circum-m 60.0))))
                         (conf-set 'l-max-erpm (* wheel-rpm (/ poles 2.0)))))))))
 
+; In external-adc mode every override below is skipped, so the dashboard's
+; throttle and brake bytes are ignored and the VESC's own ADC inputs drive
+; the motor. last-msg-time is still stamped so the timeout logic stays sane
+; across a switch back to dashboard control.
 (defun handle-throttle (data)
     (progn
         (setq last-msg-time (systime))
+        (if (= external-adc 1) nil
         (let ((gas-raw (bufget-u8 data 0))
               (brake-raw (bufget-u8 data 1))
               (mode-byte (bufget-u8 data 2)))
@@ -65,7 +101,7 @@
                         (t   ; park / any other mode -- zero both
                             (progn
                                 (app-adc-override 0 0.0)
-                                (app-adc-override 1 0.0)))))))))
+                                (app-adc-override 1 0.0))))))))))
 
 (defun dispatch-sid (id data)
     (cond
@@ -113,3 +149,4 @@
 (spawn (fn () (loopwhile t (progn (check-timeout) (sleep 0.1)))))
 (spawn (fn () (loopwhile t (progn (broadcast-vesc-info) (sleep vesc-info-interval)))))
 (spawn speed-relay-listener)
+(spawn external-adc-listener)

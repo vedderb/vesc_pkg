@@ -48,7 +48,7 @@ Item {
 
     // cmd: 0x01 get, 0x02 set
     function buildSettingsBuffer(cmd) {
-        var buffer = new ArrayBuffer(7)
+        var buffer = new ArrayBuffer(8)
         var dv = new DataView(buffer)
         dv.setUint8(0, cmd)
         dv.setUint8(1, disableProfSwSwitch.checked ? 1 : 0)
@@ -57,6 +57,7 @@ Item {
         dv.setUint8(4, bypassSpeedLimitSwitch.checked ? 1 : 0)
         dv.setUint8(5, underglowOnParkSwitch.checked ? 1 : 0)
         dv.setUint8(6, enableChargeLightSwitch.checked ? 1 : 0)
+        dv.setUint8(7, externalAdcSwitch.checked ? 1 : 0)
         return buffer
     }
 
@@ -89,6 +90,9 @@ Item {
                 if (data.byteLength >= 7) {
                     underglowOnParkSwitch.checked = (dv.getUint8(5) !== 0)
                     enableChargeLightSwitch.checked = (dv.getUint8(6) !== 0)
+                }
+                if (data.byteLength >= 8) {
+                    externalAdcSwitch.checked = (dv.getUint8(7) !== 0)
                 }
                 statusText.text = "Loaded from Express"
             } else if (tag === 0x03 && data.byteLength >= 11) {
@@ -229,6 +233,15 @@ Item {
                                 wrapMode: Text.WordWrap
                             }
                             Switch { id: bypassSpeedLimitSwitch; Layout.alignment: Qt.AlignRight }
+
+                            Text {
+                                text: "External ADC"
+                                color: colText
+                                font.pointSize: 12
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                            }
+                            Switch { id: externalAdcSwitch; Layout.alignment: Qt.AlignRight }
                         }
 
                         // Light Control

@@ -7,6 +7,7 @@
 (define pin-indicator-left 5)
 (define pin-rear-light 6)      ; PWM (LEDC)
 (define pin-multipin 7)        ; underglow output
+(define pin-pwr_on 10)
 
 (define pwm-freq 5000)
 (define pwm-channel 0)
@@ -15,7 +16,10 @@
 (gpio-configure pin-indicator-right 'pin-mode-out)
 (gpio-configure pin-indicator-left 'pin-mode-out)
 (gpio-configure pin-multipin 'pin-mode-out)
+(gpio-configure pin-pwr_on 'pin-mode-out)
 (pwm-start pwm-freq 0.0 pwm-channel pin-rear-light pwm-bits)
+
+(gpio-write pin-pwr_on 1)
 
 ; Vehicle constants, learned live from the VESC's registration message.
 (define vesc-can-id 0)
@@ -28,6 +32,7 @@
 (define slot-vesc-info 0)
 (define slot-speed-relay 1)
 (define slot-vesc-register 2)
+(define slot-external-adc 3)   ; Express -> VESC(s), throttle/brake source
 
 (define relay-targets (list))
 
@@ -48,6 +53,27 @@
             (canmsg-send (car targets) slot-speed-relay buf)
             (relay-speed-to-targets (cdr targets) buf))))
 
+; ---- External ADC relay ----
+; external-adc lives here (it's a settings-page toggle) but only the VESC
+; can act on it, so it's pushed to every registered VESC: on change, and
+; again whenever one registers, since a VESC that reboots comes back up
+; with its own default and would otherwise never hear about the setting.
+
+(defun external-adc-buf ()
+    (let ((buf (bufcreate 1)))
+        (progn
+            (bufset-u8 buf 0 external-adc)
+            buf)))
+
+(defun send-external-adc-to (target-id)
+    (canmsg-send target-id slot-external-adc (external-adc-buf)))
+
+(defun relay-external-adc-to-targets (targets)
+    (if (not-eq targets nil)
+        (progn
+            (send-external-adc-to (car targets))
+            (relay-external-adc-to-targets (cdr targets)))))
+
 ; Express-side settings, eeprom-backed, editable via main-settings.qml.
 
 (define ee-addr-sentinel 0)
@@ -57,8 +83,9 @@
 (define ee-addr-bypass-speed-limit-warning 4)
 (define ee-addr-underglow-on-park 5)
 (define ee-addr-enable-charge-light 6)
+(define ee-addr-external-adc 7)
 ; Bump whenever a field is added, so old boards re-seed new defaults.
-(define ee-settings-sentinel 0x5E78)
+(define ee-settings-sentinel 0x5E79)
 
 ; eeprom-read-i returns nil (not 0) on a never-written address, so this
 ; must use not-eq (generic), not != (numeric-only, type-errors on nil).
@@ -71,6 +98,7 @@
             (eeprom-store-i ee-addr-bypass-speed-limit-warning 0)
             (eeprom-store-i ee-addr-underglow-on-park 0)
             (eeprom-store-i ee-addr-enable-charge-light 1)
+            (eeprom-store-i ee-addr-external-adc 0)
             (eeprom-store-i ee-addr-sentinel ee-settings-sentinel))))
 
 (init-settings)
@@ -81,6 +109,7 @@
 (define bypass-speed-limit-warning (eeprom-read-i ee-addr-bypass-speed-limit-warning))
 (define underglow-on-park (eeprom-read-i ee-addr-underglow-on-park))
 (define enable-charge-light (eeprom-read-i ee-addr-enable-charge-light))
+(define external-adc (eeprom-read-i ee-addr-external-adc))
 
 (define parkmode 0)
 
@@ -111,45 +140,55 @@
 
 ; ---- Lights (0x20C) ----
 
-(define indicator-off 0)
-(define indicator-left 1)
-(define indicator-right 2)
-(define indicator-hazard 3)
+; The indicator byte is a bitfield, not an enum -- bit 0 left, bit 1 right.
+; Test the bit, don't compare the whole byte: the dashboard also sets other
+; bits in it (bit 7 = underglow/position light), so a whole-byte compare
+; against a bare 1/2/3 misses every real value.
+(define indicator-mask-left 0x01)
+(define indicator-mask-right 0x02)
 
+; Rear-light byte, grouped by state rather than by variant -- the G3, ZT3
+; and GT3 dashboards send different values for the same physical state
+; (G3 / ZT3 / GT3 in that order). Anything unrecognised means off, so a
+; G3-only table leaves a ZT3's or GT3's rear light dark permanently.
 (define rear-off 0x10)
 (define rear-charge-breathing 0x12)
-(define rear-on 0x14)
-(define rear-brake 0x16)
-(define rear-flashing-brake 0x18)
+(define rear-xlight 0x64)                    ; ZT3 hands off to its own controller
+(define rear-steady (list 0x14 0x44 0x54))
+(define rear-brake (list 0x16 0x56))
+(define rear-flashing (list 0x18 0x48 0x58))
 
-(define last-indicator-byte indicator-off)
+(define last-indicator-byte 0)
 (define last-rear-byte rear-off)
 
-; Two independent blink rates off one tick -- brake flash (~100ms) is
-; faster than turn-signal blink (~300ms).
+; Brake flash only. Turn-signal blinking is not done here -- the dashboard
+; blinks the indicators itself by toggling the bits in 0x20C, so the pins
+; follow the byte directly.
 (define rear-blink-state 0)
-(define indicator-blink-state 0)
-(define blink-tick-count 0)
 
 (defun apply-rear-light (rear-byte)
     (cond
-        ((= rear-byte rear-on) (pwm-set-duty 0.5 pwm-channel))
-        ((= rear-byte rear-brake) (pwm-set-duty 1.0 pwm-channel))
-        ((= rear-byte rear-flashing-brake)
+        ((list-contains rear-steady rear-byte) (pwm-set-duty 0.5 pwm-channel))
+        ((list-contains rear-brake rear-byte) (pwm-set-duty 1.0 pwm-channel))
+        ((list-contains rear-flashing rear-byte)
             (pwm-set-duty (if (= rear-blink-state 1) 1.0 0.0) pwm-channel))
         ((= rear-byte rear-charge-breathing)
             (pwm-set-duty (if (= enable-charge-light 1) 0.5 0.0) pwm-channel))
+        ; ZT3 hands the rear light to its own XLight controller here --
+        ; leave the duty untouched rather than forcing it off.
+        ((= rear-byte rear-xlight) nil)
         (t (pwm-set-duty 0.0 pwm-channel))))
 
 (defun apply-indicators (indicator-byte)
-    (let ((left-active (or (= indicator-byte indicator-left) (= indicator-byte indicator-hazard)))
-          (right-active (or (= indicator-byte indicator-right) (= indicator-byte indicator-hazard))))
-        (progn
-            (gpio-write pin-indicator-left (if (and left-active (= indicator-blink-state 1)) 1 0))
-            (gpio-write pin-indicator-right (if (and right-active (= indicator-blink-state 1)) 1 0)))))
+    (progn
+        (gpio-write pin-indicator-left
+            (if (!= 0 (bitwise-and indicator-byte indicator-mask-left)) 1 0))
+        (gpio-write pin-indicator-right
+            (if (!= 0 (bitwise-and indicator-byte indicator-mask-right)) 1 0))))
 
 (defun apply-underglow ()
-    (gpio-write pin-multipin (if (and (= underglow-on-park 1) (= parkmode 1) (= last-rear-byte rear-on)) 1 0)))
+    (gpio-write pin-multipin
+        (if (and (= underglow-on-park 1) (= parkmode 1) (list-contains rear-steady last-rear-byte)) 1 0)))
 
 (defun handle-lights (data)
     (progn
@@ -161,10 +200,7 @@
 (defun blink-timer ()
     (loopwhile t
         (progn
-            (setq blink-tick-count (mod (+ blink-tick-count 1) 3))
             (setq rear-blink-state (- 1 rear-blink-state))
-            (if (= blink-tick-count 0)
-                (setq indicator-blink-state (- 1 indicator-blink-state)))
             (apply-indicators last-indicator-byte)
             (apply-rear-light last-rear-byte)
             (apply-underglow)
@@ -214,13 +250,15 @@
                 (setq voltage-v (/ (bitwise-or (bufget-u8 data 5) (shl (bufget-u8 data 6) 8)) 10.0))
                 (setq motor-temp-c (bufget-u8 data 7))))
         (add-relay-target vesc-can-id)
-        (send-current-speed-to vesc-can-id)))
+        (send-current-speed-to vesc-can-id)
+        (send-external-adc-to vesc-can-id)))
 
 (defun handle-vesc-register (data)
     (let ((id (bufget-u8 data 0)))
         (progn
             (add-relay-target id)
-            (send-current-speed-to id))))
+            (send-current-speed-to id)
+            (send-external-adc-to id))))
 
 (defun vesc-info-listener ()
     (loopwhile t
@@ -323,31 +361,63 @@
 ; flash phase is deliberately stateless (recomputed every call, not
 ; tracked) -- an earlier stateful version got stuck flashing permanently
 ; on real hardware. Don't "fix" either.
-(define speed-warn-trigger-ms 1000)
-(define speed-warn-flash-ms 100)
-(define speed-warn-period-ms (+ speed-warn-trigger-ms speed-warn-flash-ms))
+; Counted in transmitted 0x211 frames, not wall-clock. 0x211 only goes out
+; every 100ms while patch-telemetry runs every 20ms, so a time-window test
+; gets sampled at an unrelated phase and the fake frames mostly never reach
+; the wire. Deciding once per actual send makes the 1 km/h frame land
+; between the real ones deterministically.
+; Matches the reference firmware's own cadence: its display task ticks every
+; 50ms and counts 20 real ticks (1000ms) then 2 override ticks (100ms). At
+; 0x211's 100ms period that's 10 real frames to 1 fake. Tuning: lower
+; real-frames to reset the dashboard's overspeed timer more often, raise
+; fake-frames if it needs to *see* the low value for longer.
+(define speed-warn-real-frames 10)   ; real 0x211 frames between fake bursts
+(define speed-warn-fake-frames 1)    ; consecutive fake frames per burst
+(define speed-warn-cycle-frames (+ speed-warn-real-frames speed-warn-fake-frames))
+(define speed-warn-fake-01kmh 10)    ; 1.0 km/h
+(define speed-warn-frame-count 0)
+
+(define last-real-speed-01kmh 0)
 
 (defun profile-limit-01kmh ()
     (* last-drive-mode-byte 5))   ; byte/2 km/h, in the same x10 units as real-speed-01kmh
 
+; Resets the counter whenever the speed is legal again, so the burst phase
+; always restarts from a known point and can't latch on.
 (defun display-speed-01kmh (real-speed-01kmh)
     (if (or (= bypass-speed-limit-warning 0) (<= real-speed-01kmh (profile-limit-01kmh)))
-        real-speed-01kmh
-        (if (>= (mod (systime) speed-warn-period-ms) speed-warn-trigger-ms)
-            10
-            real-speed-01kmh)))
+        (progn
+            (setq speed-warn-frame-count 0)
+            real-speed-01kmh)
+        (progn
+            (setq speed-warn-frame-count (mod (+ speed-warn-frame-count 1) speed-warn-cycle-frames))
+            (if (< speed-warn-frame-count speed-warn-fake-frames)
+                speed-warn-fake-01kmh
+                real-speed-01kmh))))
+
+; Called once per transmitted 0x211, from send-mcu-frame-if-due -- 0x211's
+; speed field is owned entirely by this path, patch-telemetry doesn't touch it.
+; 0x212 carries a speed field too ("MCU Throttle/Brake, Boot State, Speed"
+; in the reference's own scheduled-message table). Both frames must carry
+; the same value: publishing the real speed here while faking only 0x211
+; leaves the dashboard a truthful copy to raise its overspeed warning from,
+; which is exactly what defeated the bypass. The reference sidesteps this by
+; never writing 0x212 bytes 4-5 at all -- they stay 0 for its whole runtime.
+(defun patch-display-speed ()
+    (let ((display-01kmh (display-speed-01kmh last-real-speed-01kmh)))
+        (progn
+            (bufset-u8 buf-211 6 (bitwise-and display-01kmh 255))
+            (bufset-u8 buf-211 7 (bitwise-and (shr display-01kmh 8) 255))
+            (bufset-u8 buf-212 4 (bitwise-and display-01kmh 255))
+            (bufset-u8 buf-212 5 (bitwise-and (shr display-01kmh 8) 255)))))
 
 (defun patch-telemetry ()
     (let ((speed-kmh (erpm-to-kmh (canget-rpm vesc-can-id))))
         (let ((speed-01kmh (* (to-i (+ speed-kmh 0.5)) 10))
               (temp-byte (to-i (+ motor-temp-c 20.0))))
-            (let ((display-01kmh (display-speed-01kmh speed-01kmh)))
-                (progn
-                    (bufset-u8 buf-211 6 (bitwise-and display-01kmh 255))
-                    (bufset-u8 buf-211 7 (bitwise-and (shr display-01kmh 8) 255))
-                    (bufset-u8 buf-212 4 (bitwise-and speed-01kmh 255))
-                    (bufset-u8 buf-212 5 (bitwise-and (shr speed-01kmh 8) 255))
-                    (bufset-u8 buf-212 7 (bitwise-and temp-byte 255)))))))
+            (progn
+                (setq last-real-speed-01kmh speed-01kmh)
+                (bufset-u8 buf-212 7 (bitwise-and temp-byte 255))))))
 
 (defun patch-battery ()
     (let ((voltage-001v (to-i (* voltage-v 100.0)))
@@ -370,6 +440,7 @@
               (is-bms (ix entry 3)))
             (if (and (>= (- now last) interval) (or (= is-bms 0) (= bms-mode 0)))
                 (progn
+                    (if (= id 0x211) (patch-display-speed))
                     (can-send-sid id buf)
                     (setix mcu-last-sent idx now))))))
 
@@ -418,7 +489,7 @@
 ; customAppDataReceived on the QML side.
 
 (defun send-settings-reply ()
-    (let ((buf (bufcreate 7)))
+    (let ((buf (bufcreate 8)))
         (progn
             (bufset-u8 buf 0 0x01)
             (bufset-u8 buf 1 disable-prof-sw)
@@ -427,6 +498,7 @@
             (bufset-u8 buf 4 bypass-speed-limit-warning)
             (bufset-u8 buf 5 underglow-on-park)
             (bufset-u8 buf 6 enable-charge-light)
+            (bufset-u8 buf 7 external-adc)
             (send-data buf))))
 
 (defun apply-settings-from-qml (data)
@@ -440,12 +512,16 @@
             (progn
                 (setq underglow-on-park (bufget-u8 data 5))
                 (setq enable-charge-light (bufget-u8 data 6))))
+        (if (>= (buflen data) 8)
+            (setq external-adc (bufget-u8 data 7)))
         (eeprom-store-i ee-addr-disable-prof-sw disable-prof-sw)
         (eeprom-store-i ee-addr-freeze-batt-below-11 freeze-batt-below-11)
         (eeprom-store-i ee-addr-bms-mode bms-mode)
         (eeprom-store-i ee-addr-bypass-speed-limit-warning bypass-speed-limit-warning)
         (eeprom-store-i ee-addr-underglow-on-park underglow-on-park)
         (eeprom-store-i ee-addr-enable-charge-light enable-charge-light)
+        (eeprom-store-i ee-addr-external-adc external-adc)
+        (relay-external-adc-to-targets relay-targets)
         (send-settings-reply)))
 
 (defun handle-qml-data (data)
