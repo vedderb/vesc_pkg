@@ -1,4 +1,11 @@
 ;@const-symbol-strings
+
+; Serialises esp-now-send across contexts - see pubmote-send-packet.
+; Declared above @const-start deliberately: a mutex is a cons cell that
+; mutex-lock/unlock mutate in place, so it must not be allocated in the
+; constant heap.
+(def pubmote-send-mutex (mutex-create))
+
 @const-start
 
 ; Pubmote runtime state and host callback slots.
@@ -11,7 +18,7 @@
 (def pubmote-send-pair-complete-retries 0)
 (def pubmote-pair-complete-status 0)
 (def pubmote-last-pairing-broadcast 0)
-(def pubmote-last-activity-time (systime))
+(def pubmote-last-activity-time 0)
 (def wifi-enabled-on-boot nil)
 (def pubmote-remote-mac '())
 (def pubmote-ble-paired nil)

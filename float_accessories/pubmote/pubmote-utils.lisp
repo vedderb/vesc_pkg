@@ -65,9 +65,12 @@
 
 (defun lock-channel (reason) {
     (print (str-merge "Channel switching disabled. Reason: " reason))
-    (setq channel-locked (wifi-get-chan))
+    (var ch (wifi-get-chan))
     (wifi-disconnect)
     (wifi-auto-reconnect nil)
+    (wifi-set-chan ch)
+    (setq channel-locked ch)
+    (print (str-merge "Pinned to channel " (str-from-n ch)))
 })
 
 (defun unlock-channel (reason) {
@@ -134,7 +137,9 @@
     } {
         ; Never attempt an ESP-NOW send to the BLE placeholder (all-zeros) MAC
         (if (and wifi-enabled-on-boot (is-valid-espnow-mac dest-mac)) {
-            (esp-now-send dest-mac send-buf)
+            (mutex-lock pubmote-send-mutex)
+            (trap (esp-now-send dest-mac send-buf))
+            (mutex-unlock pubmote-send-mutex)
         })
     })
     (free send-buf)
