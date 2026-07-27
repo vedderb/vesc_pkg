@@ -25,8 +25,9 @@ light state, refreshed periodically from Express.
 - **Bypass Speed limit warning** -- when riding over the active profile's 
   speed limit, briefly flashes the dashboard's displayed speed down to 
   1 km/h so the dashboard's own built-in overspeed warning never 
-  triggers. Off by default (dashboard behaves natively); purely cosmetic 
-  either way, never touches actual VESC speed/current limits.
+  triggers. On by default; turn it off to let the dashboard behave 
+  natively. Purely cosmetic either way, never touches actual VESC 
+  speed/current limits.
 
 **Light Control**
 - **Underglow on park** -- turns on the underglow output while the 

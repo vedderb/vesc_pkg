@@ -62,6 +62,20 @@
                     (let ((wheel-rpm (/ (* speed-kmh 1000.0) (* wheel-circum-m 60.0))))
                         (conf-set 'l-max-erpm (* wheel-rpm (/ poles 2.0)))))))))
 
+; ---- Throttle/brake voltage emulation ----
+;
+; 0x100 bytes 0/1 are 0x00-0xC8 (0-200), confirmed from the protocol docs.
+; app-adc-override takes volts (clamped 0-3.3 in app_adc.c), so the full
+; lever travel is emulated as a clean 0-3.3V sweep and nothing is shaped
+; here. Response is configured on the VESC side as it would be for a real
+; throttle: voltage range, deadband and throttle curve in the ADC app.
+(define dash-adc-full 200.0)
+(define dash-adc-vmax 3.3)
+
+(defun dash-to-voltage (raw)
+    (let ((clamped (if (> raw dash-adc-full) dash-adc-full (to-float raw))))
+        (* (/ clamped dash-adc-full) dash-adc-vmax)))
+
 ; In external-adc mode every override below is skipped, so the dashboard's
 ; throttle and brake bytes are ignored and the VESC's own ADC inputs drive
 ; the motor. last-msg-time is still stamped so the timeout logic stays sane
@@ -79,8 +93,8 @@
                 (if (and (= last-mode-byte 0x06) (= mode-byte 0x04))
                     (progn (setq cruise-active nil) (app-adc-override 3 0.0)))
                 (setq last-mode-byte mode-byte)
-                (let ((gas-voltage (* (/ gas-raw 200.0) 3.3))
-                      (brake-voltage (* (/ brake-raw 200.0) 3.3)))
+                (let ((gas-voltage (dash-to-voltage gas-raw))
+                      (brake-voltage (dash-to-voltage brake-raw)))
                     (cond
                         ((= mode-byte 0x06)   ; cruise
                             (if (> brake-raw 0)
@@ -98,7 +112,7 @@
                                 (progn
                                     (app-adc-override 0 gas-voltage)
                                     (app-adc-override 1 0.0))))
-                        (t   ; park / any other mode -- zero both
+                        (t   ; park / any other mode -- idle both
                             (progn
                                 (app-adc-override 0 0.0)
                                 (app-adc-override 1 0.0))))))))))

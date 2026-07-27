@@ -76,7 +76,7 @@
 
 ; Express-side settings, eeprom-backed, editable via main-settings.qml.
 
-(define ee-addr-sentinel 0)
+(define ee-addr-sentinel 0)   ; legacy, unused -- see note below, don't reuse
 (define ee-addr-disable-prof-sw 1)
 (define ee-addr-freeze-batt-below-11 2)
 (define ee-addr-bms-mode 3)
@@ -84,22 +84,40 @@
 (define ee-addr-underglow-on-park 5)
 (define ee-addr-enable-charge-light 6)
 (define ee-addr-external-adc 7)
-; Bump whenever a field is added, so old boards re-seed new defaults.
-(define ee-settings-sentinel 0x5E79)
+(define ee-addr-use-other-profiles 8)   ; reserved, no longer persisted
+(define ee-addr-profile-walk 9)
+(define ee-addr-profile-eco 10)
+(define ee-addr-profile-drive 11)
+(define ee-addr-profile-sport 12)
 
-; eeprom-read-i returns nil (not 0) on a never-written address, so this
-; must use not-eq (generic), not != (numeric-only, type-errors on nil).
+; eeprom-read-i returns nil (not 0) on a never-written address, which is
+; what makes per-field seeding possible: never written -> take the default,
+; already written -> keep whatever the rider set. Must use eq (generic),
+; not = (numeric-only, type-errors on nil).
+;
+; This replaces an all-or-nothing sentinel that had to be bumped whenever a
+; field was added, and re-seeded *every* field when it was -- wiping the
+; rider's saved settings just to introduce one new one. Adding a field now
+; needs no version bump and disturbs nothing. Address 0 still holds a stale
+; sentinel value on boards flashed with the old scheme, so it stays
+; reserved rather than being recycled for a real setting.
+(defun seed-setting (addr default)
+    (if (eq (eeprom-read-i addr) nil)
+        (eeprom-store-i addr default)))
+
 (defun init-settings ()
-    (if (not-eq (eeprom-read-i ee-addr-sentinel) ee-settings-sentinel)
-        (progn
-            (eeprom-store-i ee-addr-disable-prof-sw 0)
-            (eeprom-store-i ee-addr-freeze-batt-below-11 0)
-            (eeprom-store-i ee-addr-bms-mode 0)
-            (eeprom-store-i ee-addr-bypass-speed-limit-warning 0)
-            (eeprom-store-i ee-addr-underglow-on-park 0)
-            (eeprom-store-i ee-addr-enable-charge-light 1)
-            (eeprom-store-i ee-addr-external-adc 0)
-            (eeprom-store-i ee-addr-sentinel ee-settings-sentinel))))
+    (progn
+        (seed-setting ee-addr-disable-prof-sw 0)
+        (seed-setting ee-addr-freeze-batt-below-11 0)
+        (seed-setting ee-addr-bms-mode 0)
+        (seed-setting ee-addr-bypass-speed-limit-warning 1)
+        (seed-setting ee-addr-underglow-on-park 0)
+        (seed-setting ee-addr-enable-charge-light 1)
+        (seed-setting ee-addr-external-adc 0)
+        (seed-setting ee-addr-profile-walk 5)
+        (seed-setting ee-addr-profile-eco 15)
+        (seed-setting ee-addr-profile-drive 20)
+        (seed-setting ee-addr-profile-sport 25)))
 
 (init-settings)
 
@@ -110,24 +128,96 @@
 (define underglow-on-park (eeprom-read-i ee-addr-underglow-on-park))
 (define enable-charge-light (eeprom-read-i ee-addr-enable-charge-light))
 (define external-adc (eeprom-read-i ee-addr-external-adc))
+; Deliberately NOT eeprom-backed. This is a temporary override, not a saved
+; setting: it starts off at boot so the dashboard's own profile speeds apply,
+; and is cleared again whenever the dashboard is switched off (see
+; handle-park-state). The four km/h values below *are* persisted -- only the
+; switch is transient.
+(define use-other-profiles 0)
+(define profile-walk-kmh (eeprom-read-i ee-addr-profile-walk))
+(define profile-eco-kmh (eeprom-read-i ee-addr-profile-eco))
+(define profile-drive-kmh (eeprom-read-i ee-addr-profile-drive))
+(define profile-sport-kmh (eeprom-read-i ee-addr-profile-sport))
+
+; ---- Dashboard drive profile (0x203 byte 0) ----
+; Separate from 0x20C's speed byte: 0x203 says *which* profile the dashboard
+; is in, 0x20C says what speed it wants for it. With use-other-profiles on,
+; the rider's own km/h for the active profile replaces the dashboard's value.
+(define profile-walk 0x01)
+(define profile-eco 0x02)
+(define profile-sport 0x03)
+(define profile-race 0x04)   ; GT3 only
+(define profile-drive 0x05)
+(define last-profile-mode 0)
 
 (define parkmode 0)
 
 (define last-100-msg-time (systime))
 (define dashboard-boot-gap-ms 2000)
 
+; 0x100 byte 2 is the dashboard's mode byte: 0x04 normal drive, 0x06 cruise,
+; anything else parked.
+(define dash-mode-drive 0x04)
+(define dash-mode-cruise 0x06)
+
+; The dashboard won't light its cruise indicator off its own request -- it
+; waits for the controller to acknowledge on 0x212 byte 2, 0x05 while cruise
+; is engaged and 0x00 otherwise. Left at 0x00 the icon never appears, even
+; though the VESC really is holding speed.
+(define mcu-cruise-ack 0x05)
+(define mcu-cruise-idle 0x00)
+
+; Raw 0x100 throttle/brake, 0x00-0xC8 as the dashboard sends them. Express
+; doesn't drive the motor from these -- the master VESC does -- it reads them
+; for the settings page and for the cancel gesture below.
+(define last-throttle-raw 0)
+(define last-brake-raw 0)
+
+; Holding throttle and brake both past half travel for 2s cancels the
+; temporary profile override, so it can be dropped from the bar without
+; reaching for a phone. Half of the 0-200 range is 100.
+(define profile-cancel-threshold 100)
+(define profile-cancel-hold-ms 2000)
+(define profile-cancel-since nil)   ; nil = not currently held
+
+(defun check-profile-cancel (now)
+    (if (and (> last-throttle-raw profile-cancel-threshold)
+             (> last-brake-raw profile-cancel-threshold))
+        (progn
+            (if (eq profile-cancel-since nil)
+                (setq profile-cancel-since now))
+            (if (and (= use-other-profiles 1)
+                     (>= (- now profile-cancel-since) profile-cancel-hold-ms))
+                (progn
+                    (setq use-other-profiles 0)
+                    (relay-active-speed)
+                    ; cleared so a continued hold can't re-fire every frame
+                    (setq profile-cancel-since nil))))
+        (setq profile-cancel-since nil)))
+
 (defun handle-park-state (data)
     (let ((now (systime))
           (mode-byte (bufget-u8 data 2)))
         (progn
-            (if (and (> (- now last-100-msg-time) dashboard-boot-gap-ms) (= disable-prof-sw 0))
-                (relay-speed-to-targets relay-targets (speed-relay-buf last-drive-mode-byte)))
+            ; A gap in the dashboard's ~20ms heartbeat means it was switched
+            ; off (or Express just booted). Drop the temporary profile
+            ; override so the dashboard's own speeds come back, then re-apply.
+            (if (> (- now last-100-msg-time) dashboard-boot-gap-ms)
+                (progn
+                    (setq use-other-profiles 0)
+                    (relay-active-speed)))
             (setq last-100-msg-time now)
-            (setq parkmode (if (or (= mode-byte 0x04) (= mode-byte 0x06)) 0 1)))))
+            (setq last-throttle-raw (bufget-u8 data 0))
+            (setq last-brake-raw (bufget-u8 data 1))
+            (check-profile-cancel now)
+            (bufset-u8 buf-212 2
+                (if (= mode-byte dash-mode-cruise) mcu-cruise-ack mcu-cruise-idle))
+            (setq parkmode (if (or (= mode-byte dash-mode-drive) (= mode-byte dash-mode-cruise)) 0 1)))))
 
 (defun dispatch-sid (id data)
     (cond
         ((= id 0x20C) (progn (handle-lights data) (handle-drive-mode data)))
+        ((= id 0x203) (handle-drive-profile data))
         ((= id 0x100) (handle-park-state data))
         (t nil)))
 
@@ -135,8 +225,241 @@
     (loopwhile t
         (recv
             ((event-can-sid . ((? id) . (? data))) (dispatch-sid id data))
+            ((event-can-eid . ((? id) . (? data))) (dispatch-eid id data))
             ((event-data-rx . (? data)) (handle-qml-data data))
             (_ nil))))
+
+; ---- Extended-ID (29-bit) J1939 traffic ----
+;
+; Addressing: this board answers as the BMS at source address 0x07, the app
+; is 0x3E. Every ID we receive ends ...073E (SA=0x3E -> DA=0x07) and every
+; ID we send ends ...3E07. Note the Ninebot-X3-Protocol repo's docs/j1939.md
+; states the reverse (app 0x07, BMS 0x3E); its own xiaodash-handler map and
+; the reference firmware's actual RX/TX split both contradict it, so the
+; addresses used here follow the firmware, which is known to work.
+
+; The i32 suffixes are load-bearing. A bare hex literal is TOKTYPEI, which
+; LispBM encodes with lbm_enc_i -- a 28-bit fixnum. Every 29-bit CAN ID here
+; would be silently truncated (0x18EC073E stores as -118749378), while the
+; event delivers the ID as a real i32, so the comparisons never match and no
+; extended frame is ever dispatched.
+(define eid-tp-cm-rx 0x18EC073Ei32)   ; app -> us, TP.CM (RTS)
+(define eid-tp-dt-rx 0x18EB073Ei32)   ; app -> us, TP.DT (data)
+(define eid-tp-cm-tx 0x1CEC3E07i32)   ; us -> app, TP.CM (CTS / EOM ACK)
+(define eid-param-rx 0x18EF073Ei32)   ; app -> us, parameter/selector request
+(define eid-param-tx 0x18EF3E07i32)   ; us -> app, parameter response
+
+(define tp-ctl-rts 0x10)
+(define tp-ctl-cts 0x11)
+(define tp-ctl-eom 0x13)
+(define tp-ctl-abort 0xFF)
+
+; ---- BMS timer (0x424) ----
+;
+; Not a seconds counter -- a packed bitfield: bits 0-5 seconds, 6-11 minutes,
+; 12-16 hours, 17+ days. Ticked once a second and written little-endian into
+; 0x424 bytes 0-3. The value the app sends during time sync is in this same
+; packed form, not a Unix epoch, so it can be stored verbatim.
+;
+; Not persisted -- restarting the script resets it to zero and the app has to
+; set the time again, same as the reference firmware.
+;
+; The to-u32 casts are load-bearing, for the same reason the CAN IDs need i32
+; suffixes: shifting a plain fixnum left by 17 or 24 overflows LispBM's 28-bit
+; integer and silently corrupts the day field. Any byte >= 8 shifted by 24
+; already exceeds it.
+(define bms-clock-base 0u32)     ; total seconds at the last set
+(define bms-clock-base-ms 0)     ; systime when that was set
+
+; Pack/unpack between the wire's bitfield and a plain seconds count. Working
+; in total seconds removes the manual carry entirely -- one division chain
+; instead of three conditional roll-overs.
+(defun packed-to-total (p)
+    (+ (bitwise-and p 0x3F)
+       (+ (* (bitwise-and (shr p 6) 0x3F) 60)
+          (+ (* (bitwise-and (shr p 12) 0x1F) 3600)
+             (* (shr p 17) 86400)))))
+
+(defun total-to-packed (tot)
+    (let ((days (/ tot 86400))
+          (rem (mod tot 86400)))
+        (let ((hours (/ rem 3600))
+              (mins (mod (/ rem 60) 60))
+              (secs (mod rem 60)))
+            (bitwise-or (to-u32 secs)
+                (bitwise-or (shl (to-u32 mins) 6)
+                    (bitwise-or (shl (to-u32 hours) 12) (shl (to-u32 days) 17)))))))
+
+; The clock is now a pure function of systime rather than a counter that gets
+; incremented. Nothing accumulates, so no amount of scheduling delay, missed
+; wake-ups or interpreter starvation can shift it -- if the publisher is late
+; the value is simply correct when it does run. Any remaining error is
+; systime's own accuracy, not this script's.
+(defun bms-clock-total ()
+    (+ bms-clock-base (/ (- (systime) bms-clock-base-ms) 1000)))
+
+(defun bms-clock-set-packed (p)
+    (progn
+        (setq bms-clock-base (to-u32 (packed-to-total p)))
+        (setq bms-clock-base-ms (systime))))
+
+(defun bms-timer-publish ()
+    (let ((packed (total-to-packed (bms-clock-total))))
+        (progn
+            (bufset-u8 buf-424 0 (bitwise-and packed 255))
+            (bufset-u8 buf-424 1 (bitwise-and (shr packed 8) 255))
+            (bufset-u8 buf-424 2 (bitwise-and (shr packed 16) 255))
+            (bufset-u8 buf-424 3 (bitwise-and (shr packed 24) 255)))))
+
+(defun bms-timer-task ()
+    (loopwhile t
+        (progn
+            (bms-timer-publish)
+            (sleep 0.2))))
+
+; ---- Time sync (J1939 transport protocol) ----
+;
+; The app pushes the clock as a 2-packet TP transfer: RTS -> we answer CTS ->
+; two TP.DT frames (7 then 5 payload bytes) -> we answer EOM ACK. The clock
+; itself is a little-endian u32 at offset 6 of the reassembled payload.
+
+(define tp-buf (bufcreate 12))
+(define tp-seq 0)                  ; 0 idle, 1 awaiting packet 1, 2 awaiting packet 2
+(define tp-total-size 0)
+(define tp-total-packets 0)
+(define tp-time-offset 6)
+
+(defun tp-store (data dst count)
+    (progn
+        (var i 0)
+        (loopwhile (< i count)
+            (progn
+                (bufset-u8 tp-buf (+ dst i) (bufget-u8 data (+ i 1)))
+                (setq i (+ i 1))))))
+
+(defun tp-send-cts (data)
+    (let ((cts (bufcreate 8)))
+        (progn
+            (bufset-u8 cts 0 tp-ctl-cts)
+            (bufset-u8 cts 1 tp-total-packets)
+            (bufset-u8 cts 2 0x01)          ; next expected sequence number
+            (bufset-u8 cts 3 0xFF)
+            (bufset-u8 cts 4 0xFF)
+            (bufset-u8 cts 5 (bufget-u8 data 5))   ; echo the PGN back
+            (bufset-u8 cts 6 (bufget-u8 data 6))
+            (bufset-u8 cts 7 (bufget-u8 data 7))
+            (can-send-eid eid-tp-cm-tx cts))))
+
+(defun tp-send-eom ()
+    (let ((eom (bufcreate 8)))
+        (progn
+            (bufset-u8 eom 0 tp-ctl-eom)
+            (bufset-u8 eom 1 (bitwise-and tp-total-size 255))
+            (bufset-u8 eom 2 (bitwise-and (shr tp-total-size 8) 255))
+            (bufset-u8 eom 3 tp-total-packets)
+            (bufset-u8 eom 4 0xFF)
+            (bufset-u8 eom 5 0x00)
+            (bufset-u8 eom 6 0xEF)
+            (bufset-u8 eom 7 0x00)
+            (can-send-eid eid-tp-cm-tx eom))))
+
+(defun tp-apply-time ()
+    (progn
+        (if (= debug-eid 1)
+            (print (list "tp payload"
+                (bufget-u8 tp-buf 0) (bufget-u8 tp-buf 1) (bufget-u8 tp-buf 2)
+                (bufget-u8 tp-buf 3) (bufget-u8 tp-buf 4) (bufget-u8 tp-buf 5)
+                (bufget-u8 tp-buf 6) (bufget-u8 tp-buf 7) (bufget-u8 tp-buf 8)
+                (bufget-u8 tp-buf 9) (bufget-u8 tp-buf 10) (bufget-u8 tp-buf 11))))
+        (bms-clock-set-packed
+            (bitwise-or (to-u32 (bufget-u8 tp-buf tp-time-offset))
+                (bitwise-or (shl (to-u32 (bufget-u8 tp-buf (+ tp-time-offset 1))) 8)
+                    (bitwise-or (shl (to-u32 (bufget-u8 tp-buf (+ tp-time-offset 2))) 16)
+                                (shl (to-u32 (bufget-u8 tp-buf (+ tp-time-offset 3))) 24)))))
+        (if (= debug-eid 1) (print (list "clock set to" bms-clock-base)))
+        (bms-timer-publish)))
+
+; Abort frames (control 0xFF) are ignored, matching the reference. The buflen
+; guards are not optional: these read bytes 5-7, and bufget-u8 past the end of
+; a short frame is a hard eval_error that would kill the shared event loop --
+; taking lights and profile switching down with it.
+(defun handle-tp-cm (data)
+    (if (and (>= (buflen data) 8) (= (bufget-u8 data 0) tp-ctl-rts))
+        (progn
+            (setq tp-total-size
+                (bitwise-or (bufget-u8 data 1) (shl (bufget-u8 data 2) 8)))
+            (setq tp-total-packets (bufget-u8 data 3))
+            (setq tp-seq 1)
+            (tp-send-cts data))))
+
+(defun handle-tp-dt (data)
+    (if (>= (buflen data) 8)
+        (let ((seq (bufget-u8 data 0)))
+            (cond
+                ((and (= tp-seq 1) (= seq 0x01))
+                    (progn (tp-store data 0 7) (setq tp-seq 2)))
+                ((and (= tp-seq 2) (= seq 0x02))
+                    (progn
+                        (tp-store data 7 5)
+                        (setq tp-seq 0)
+                        (tp-send-eom)
+                        (tp-apply-time)))
+                (t nil)))))
+
+; ---- Parameter request (0x18EF073E) ----
+;
+; Request is 4 bytes: 01 01 SS 80, where SS selects what's being asked for.
+; Only the two single-value reads the reference answers are implemented:
+; 0x8C pack voltage, 0x8D pack current, both x100 of the real value (same
+; scaling as 0x420). The Xiaodash app also polls SS = 0x00/0x40/0x80/0xC0/
+; 0x82 for whole BMS telemetry pages, which are answered as 133-byte blocks
+; over 19 TP.DT frames on 0x1CEB3E07 -- not implemented here, and not in the
+; reference either. See the protocol repo's xiaodash-handler map.
+(define param-voltage 0x8C)
+(define param-current 0x8D)
+
+(defun param-response-value (param)
+    (if (= param param-voltage)
+        (to-i (* voltage-v 100.0))
+        (to-i (* (canget-current vesc-can-id) 100.0))))
+
+(defun handle-param-req (data)
+    (if (and (= bms-mode 0)
+             (>= (buflen data) 4)
+             (= (bufget-u8 data 0) 0x01)
+             (= (bufget-u8 data 1) 0x01))
+        (let ((param (bufget-u8 data 2)))
+            (if (or (= param param-voltage) (= param param-current))
+                (let ((value (param-response-value param))
+                      (resp (bufcreate 5)))
+                    (progn
+                        (bufset-u8 resp 0 0x01)
+                        (bufset-u8 resp 1 0x04)
+                        (bufset-u8 resp 2 param)
+                        (bufset-u8 resp 3 (bitwise-and value 255))
+                        (bufset-u8 resp 4 (bitwise-and (shr value 8) 255))
+                        (can-send-eid eid-param-tx resp)))))))
+
+; Diagnostic. Off by default; enable live from the VESC Tool Lisp console
+; with (setq debug-eid 1). Only J1939-range IDs are logged -- VESC's own
+; status frames are extended too, but sit below 0x10000000, and printing
+; those would bury everything at their broadcast rate.
+(define debug-eid 0)
+(define eid-j1939-floor 0x10000000i32)   ; i32 for the same reason as above
+
+(defun log-eid (id data)
+    (if (and (= debug-eid 1) (> id eid-j1939-floor) (>= (buflen data) 3))
+        (print (list "eid" id "len" (buflen data) "b0" (bufget-u8 data 0)
+                     "b1" (bufget-u8 data 1) "b2" (bufget-u8 data 2)))))
+
+(defun dispatch-eid (id data)
+    (progn
+        (log-eid id data)
+        (cond
+            ((= id eid-tp-cm-rx) (handle-tp-cm data))
+            ((= id eid-tp-dt-rx) (handle-tp-dt data))
+            ((= id eid-param-rx) (handle-param-req data))
+            (t nil))))
 
 ; ---- Lights (0x20C) ----
 
@@ -210,24 +533,56 @@
 
 (define last-drive-mode-byte 0)
 
-(defun speed-relay-buf (drive-mode-byte)
-    (let ((speed-x10 (to-i (* (/ drive-mode-byte 2.0) 10.0))))
-        (let ((buf (bufcreate 2)))
-            (progn
-                (bufset-u8 buf 0 (bitwise-and speed-x10 255))
-                (bufset-u8 buf 1 (bitwise-and (shr speed-x10 8) 255))
-                buf))))
+(defun speed-buf-x10 (speed-x10)
+    (let ((buf (bufcreate 2)))
+        (progn
+            (bufset-u8 buf 0 (bitwise-and speed-x10 255))
+            (bufset-u8 buf 1 (bitwise-and (shr speed-x10 8) 255))
+            buf)))
+
+; The rider's km/h for whichever profile the dashboard is currently in.
+; Unknown/unset profiles fall back to the dashboard's own value rather than
+; to zero, so an unrecognised mode byte can't strand the vehicle at 0 km/h.
+(defun profile-kmh-for (mode)
+    (cond
+        ((= mode profile-walk) profile-walk-kmh)
+        ((= mode profile-eco) profile-eco-kmh)
+        ((= mode profile-drive) profile-drive-kmh)
+        ((or (= mode profile-sport) (= mode profile-race)) profile-sport-kmh)
+        (t nil)))
+
+; x10 units, matching the VESC side's expectation.
+(defun active-speed-x10 ()
+    (if (= use-other-profiles 1)
+        (let ((kmh (profile-kmh-for last-profile-mode)))
+            (if (eq kmh nil)
+                (* last-drive-mode-byte 5)
+                (* kmh 10)))
+        (* last-drive-mode-byte 5)))   ; 0x20C byte/2 km/h, x10
+
+(defun speed-relay-buf () (speed-buf-x10 (to-i (active-speed-x10))))
+
+(defun relay-active-speed ()
+    (if (= disable-prof-sw 0)
+        (relay-speed-to-targets relay-targets (speed-relay-buf))))
 
 (defun handle-drive-mode (data)
     (let ((drive-mode-byte (bufget-u8 data 2)))
-        (if (and (!= drive-mode-byte last-drive-mode-byte) (= disable-prof-sw 0))
+        (if (!= drive-mode-byte last-drive-mode-byte)
             (progn
                 (setq last-drive-mode-byte drive-mode-byte)
-                (relay-speed-to-targets relay-targets (speed-relay-buf drive-mode-byte))))))
+                (relay-active-speed)))))
+
+(defun handle-drive-profile (data)
+    (let ((mode (bufget-u8 data 0)))
+        (if (!= mode last-profile-mode)
+            (progn
+                (setq last-profile-mode mode)
+                (relay-active-speed)))))
 
 (defun send-current-speed-to (target-id)
     (if (= disable-prof-sw 0)
-        (canmsg-send target-id slot-speed-relay (speed-relay-buf last-drive-mode-byte))))
+        (canmsg-send target-id slot-speed-relay (speed-relay-buf))))
 
 ; ---- Controller (MCU) status frame emulation ----
 ; Byte templates copied verbatim from the reference firmware; only
@@ -366,12 +721,12 @@
 ; gets sampled at an unrelated phase and the fake frames mostly never reach
 ; the wire. Deciding once per actual send makes the 1 km/h frame land
 ; between the real ones deterministically.
-; Matches the reference firmware's own cadence: its display task ticks every
-; 50ms and counts 20 real ticks (1000ms) then 2 override ticks (100ms). At
-; 0x211's 100ms period that's 10 real frames to 1 fake. Tuning: lower
+; Slightly tighter than the reference firmware, which ticks its display task
+; every 50ms and counts 20 real ticks (1000ms) then 2 override ticks (100ms)
+; -- 10 real frames to 1 fake at 0x211's 100ms period. Tuning: lower
 ; real-frames to reset the dashboard's overspeed timer more often, raise
 ; fake-frames if it needs to *see* the low value for longer.
-(define speed-warn-real-frames 10)   ; real 0x211 frames between fake bursts
+(define speed-warn-real-frames 8)    ; real 0x211 frames between fake bursts
 (define speed-warn-fake-frames 1)    ; consecutive fake frames per burst
 (define speed-warn-cycle-frames (+ speed-warn-real-frames speed-warn-fake-frames))
 (define speed-warn-fake-01kmh 10)    ; 1.0 km/h
@@ -379,8 +734,14 @@
 
 (define last-real-speed-01kmh 0)
 
-(defun profile-limit-01kmh ()
-    (* last-drive-mode-byte 5))   ; byte/2 km/h, in the same x10 units as real-speed-01kmh
+; Deliberately the dashboard's own limit (0x20C byte/2 km/h), NOT the active
+; one -- this must not follow use-other-profiles. The dashboard raises its
+; native overspeed warning by comparing the speed *it* displays against the
+; limit *it* thinks is set; it has no idea the limit was overridden. Tracking
+; a custom higher limit here would stop faking exactly when the dashboard
+; starts complaining. A custom lower limit is harmless either way, since the
+; rider never reaches the dashboard's threshold.
+(defun profile-limit-01kmh () (* last-drive-mode-byte 5))
 
 ; Resets the counter whenever the speed is legal again, so the burst phase
 ; always restarts from a known point and can't latch on.
@@ -453,7 +814,7 @@
         (let ((speed-x10 (to-i (* speed-kmh 10.0)))
               (voltage-x10 (to-i (* voltage-v 10.0)))
               (current-x10 (to-i (* current 10.0)))
-              (buf (bufcreate 11)))
+              (buf (bufcreate 18)))
             (progn
                 (bufset-u8 buf 0 0x03)
                 (bufset-u8 buf 1 (bitwise-and speed-x10 255))
@@ -465,7 +826,17 @@
                 (bufset-u8 buf 7 (bitwise-and (shr current-x10 8) 255))
                 (bufset-u8 buf 8 last-indicator-byte)
                 (bufset-u8 buf 9 last-rear-byte)
-                (bufset-u8 buf 10 last-drive-mode-byte)
+                (bufset-u8 buf 10 (bitwise-and (to-i (/ (active-speed-x10) 10)) 255))
+                (bufset-u8 buf 11 last-throttle-raw)
+                (bufset-u8 buf 12 last-brake-raw)
+                ; BMS clock, unpacked here rather than sent as the raw u32 --
+                ; VESC Tool's variable transport is float32, which can't
+                ; resolve a +1/s change at ~1.8e9. Small fields survive it.
+                (bufset-u8 buf 13 (bitwise-and (/ (mod (bms-clock-total) 86400) 3600) 255))
+                (bufset-u8 buf 14 (bitwise-and (mod (/ (bms-clock-total) 60) 60) 255))
+                (bufset-u8 buf 15 (bitwise-and (mod (bms-clock-total) 60) 255))
+                (bufset-u8 buf 16 last-profile-mode)
+                (bufset-u8 buf 17 use-other-profiles)
                 (send-data buf)))))
 
 (defun mcu-scheduler ()
@@ -489,7 +860,7 @@
 ; customAppDataReceived on the QML side.
 
 (defun send-settings-reply ()
-    (let ((buf (bufcreate 8)))
+    (let ((buf (bufcreate 13)))
         (progn
             (bufset-u8 buf 0 0x01)
             (bufset-u8 buf 1 disable-prof-sw)
@@ -499,6 +870,11 @@
             (bufset-u8 buf 5 underglow-on-park)
             (bufset-u8 buf 6 enable-charge-light)
             (bufset-u8 buf 7 external-adc)
+            (bufset-u8 buf 8 use-other-profiles)
+            (bufset-u8 buf 9 profile-walk-kmh)
+            (bufset-u8 buf 10 profile-eco-kmh)
+            (bufset-u8 buf 11 profile-drive-kmh)
+            (bufset-u8 buf 12 profile-sport-kmh)
             (send-data buf))))
 
 (defun apply-settings-from-qml (data)
@@ -514,6 +890,13 @@
                 (setq enable-charge-light (bufget-u8 data 6))))
         (if (>= (buflen data) 8)
             (setq external-adc (bufget-u8 data 7)))
+        (if (>= (buflen data) 13)
+            (progn
+                (setq use-other-profiles (bufget-u8 data 8))
+                (setq profile-walk-kmh (bufget-u8 data 9))
+                (setq profile-eco-kmh (bufget-u8 data 10))
+                (setq profile-drive-kmh (bufget-u8 data 11))
+                (setq profile-sport-kmh (bufget-u8 data 12))))
         (eeprom-store-i ee-addr-disable-prof-sw disable-prof-sw)
         (eeprom-store-i ee-addr-freeze-batt-below-11 freeze-batt-below-11)
         (eeprom-store-i ee-addr-bms-mode bms-mode)
@@ -521,7 +904,14 @@
         (eeprom-store-i ee-addr-underglow-on-park underglow-on-park)
         (eeprom-store-i ee-addr-enable-charge-light enable-charge-light)
         (eeprom-store-i ee-addr-external-adc external-adc)
+        (eeprom-store-i ee-addr-profile-walk profile-walk-kmh)
+        (eeprom-store-i ee-addr-profile-eco profile-eco-kmh)
+        (eeprom-store-i ee-addr-profile-drive profile-drive-kmh)
+        (eeprom-store-i ee-addr-profile-sport profile-sport-kmh)
         (relay-external-adc-to-targets relay-targets)
+        ; Push the new limit immediately -- otherwise it wouldn't reach the
+        ; VESC until the rider next changed profile on the dashboard.
+        (relay-active-speed)
         (send-settings-reply)))
 
 (defun handle-qml-data (data)
@@ -533,9 +923,13 @@
 
 (event-register-handler (spawn event-loop))
 (event-enable 'event-can-sid)
+(event-enable 'event-can-eid)
 (event-enable 'event-data-rx)
 
 (spawn blink-timer)
 (spawn mcu-scheduler)
 (spawn vesc-info-listener)
 (spawn vesc-register-listener)
+; Runs regardless of bms-mode -- 0x424 is in the BMS frame group, so it's
+; already suppressed on the wire when a real BMS owns the bus.
+(spawn bms-timer-task)
