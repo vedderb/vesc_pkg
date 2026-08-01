@@ -10,6 +10,10 @@ To use reverse APP ADC needs to use the mode **Current Reverse Button** or **Cur
 
 ## Changelog
 
+**Version 1.4 (2026-08-01)**
+* Use native lib for setting profile
+* Detach button in all modes
+
 **Version 1.3 (2026-07-18)**
 * Better multi-ESC support
 
