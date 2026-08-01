@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.4.0
+**Version:** 1.4.1
 
 ## License
 
@@ -37,6 +37,12 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.4.1
+
+Bugfix release:
+
+- **Fix: Stuck display in 'off' state** — After the scooter shuts off the display, a transient I2C fault could silently drop the display-off command, leaving the last frame latched on the panel. Fixed by clearing the framebuffer first (so even a partially-delivered write leaves the panel blank) and by retrying the display-off command so that a single dropped transaction cannot keep the display lit indefinitely.
 
 ## What's New in Version 1.4.0
 
