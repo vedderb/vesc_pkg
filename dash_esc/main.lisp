@@ -48,7 +48,7 @@
         (bufset-f32 txb 25 (conf-get 'l-max-duty))
         (bufset-f32 txb 29 (conf-get 'l-watt-min))
         (bufset-f32 txb 33 (conf-get 'l-watt-max))
-        ;(ext-cmd-proc txb)
+        (ext-cmd-proc txb)
 })
 
 (defmacro run-m2 (code) `(atomic {

@@ -6,7 +6,10 @@ CAN-server for the VESC Labs [Dash16](https://www.vesclabs.com/product/vesc-dash
 To use cruise control it needs to be enabled in APP ADC.
 
 **Note**  
-To use reverse APP ADC needs to use the mode **Current Reverse Button** or **Current Reverse ADC2 Brake Button**. On the Dash16 **Current Reverse ADC2 Brake Button** is recommended as it allows using the lever on the dash as a brake while enabling the reverse mode. 
+To use reverse APP ADC needs to use the mode **Current Reverse Button** or **Current Reverse ADC2 Brake Button**. On the Dash16 **Current Reverse ADC2 Brake Button** is recommended as it allows using the lever on the dash as a brake while enabling the reverse mode.
+
+**Note**  
+It is recommended to update to firmware 7.00.5 or later, released 2026-08-01 as the profile updating code is improved there. This package relies on setting the profile for the speed modes.
 
 ## Changelog
 
