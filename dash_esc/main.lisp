@@ -112,6 +112,7 @@
                                 )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (2 { ; 1
                                 (set-profile
@@ -122,6 +123,7 @@
                                 )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (3 { ; 2
                                 (set-profile
@@ -132,6 +134,7 @@
                                 )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (4 { ; 3
                                 (set-profile
@@ -142,6 +145,7 @@
                                 )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                     )
 
