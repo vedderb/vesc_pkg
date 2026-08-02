@@ -23,6 +23,34 @@
 
 @const-start
 
+; Provides ext-cmd-proc
+(def lib-cmd-proc [
+    0x00 0x00 0x00 0x00 0x08 0xb5 0x07 0x4b 0x07 0x49 0x08 0x48 0x7b 0x44 0x79 0x44 0x1b 0x68 0x03 0x4b
+    0x78 0x44 0x1b 0x68 0x98 0x47 0x01 0x20 0x08 0xbd 0x00 0xbf 0x00 0xf8 0x00 0x10 0xf0 0xff 0xff 0xff
+    0x2f 0x00 0x00 0x00 0x18 0x00 0x00 0x00 0x65 0x78 0x74 0x2d 0x63 0x6d 0x64 0x2d 0x70 0x72 0x6f 0x63
+    0x00 0x00 0x00 0x00 0x01 0x29 0x38 0xb5 0x05 0x46 0x0b 0x4c 0x02 0xd0 0xd4 0xf8 0x90 0x00 0x38 0xbd
+    0x63 0x6f 0x00 0x68 0x98 0x47 0x00 0x28 0xf7 0xd0 0xa3 0x6a 0x28 0x68 0x98 0x47 0xd4 0xf8 0x4c 0x32
+    0xd0 0xe9 0x00 0x10 0x00 0x22 0x98 0x47 0xd4 0xf8 0x8c 0x00 0xed 0xe7 0x00 0xbf 0x00 0xf8 0x00 0x10
+])
+
+(defun set-profile (i-min i-max s-min s-max) {
+        (var txb (bufcreate 37))
+        (bufset-u8 txb 0 49) ; COMM_SET_MCCONF_TEMP_SETUP
+        (bufset-u8 txb 1 0) ; Store
+        (bufset-u8 txb 2 1) ; FWD CAN
+        (bufset-u8 txb 3 0) ; ack
+        (bufset-u8 txb 4 0) ; Divide by controllers
+        (bufset-f32 txb 5 i-min)
+        (bufset-f32 txb 9 i-max)
+        (bufset-f32 txb 13 s-min)
+        (bufset-f32 txb 17 s-max)
+        (bufset-f32 txb 21 (conf-get 'l-min-duty))
+        (bufset-f32 txb 25 (conf-get 'l-max-duty))
+        (bufset-f32 txb 29 (conf-get 'l-watt-min))
+        (bufset-f32 txb 33 (conf-get 'l-watt-max))
+        (ext-cmd-proc txb)
+})
+
 (defmacro run-m2 (code) `(atomic {
             (var res nil)
             (select-motor 2)
@@ -61,68 +89,59 @@
 
                     (match drive-mode
                         (0 { ; Reverse
-                                (conf-set 'l-current-max-scale (read-setting 'mode-r-current))
-                                (conf-set 'l-current-min-scale (read-setting 'mode-r-current-brk))
-                                (conf-set 'min-speed (/ (read-setting 'mode-r-speed) -3.6))
-
-                                (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-r-current)))
-                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-r-current-brk)))
-                                        (run-m2 (conf-set 'min-speed (/ (read-setting 'mode-r-speed) -3.6)))
-                                })
+                                (set-profile
+                                    (read-setting 'mode-r-current-brk)
+                                    (read-setting 'mode-r-current)
+                                    (/ (read-setting 'mode-r-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
 
                                 (app-adc-override 2 1)
                                 (app-adc-detach adc-detach-mode 3)
                         })
                         (1 { ; Neutral
-                                (conf-set 'l-current-max-scale 0.0)
-                                (conf-set 'l-current-min-scale (read-setting 'mode-n-current-brk))
-
-                                (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale 0.0))
-                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-n-current-brk)))
-                                })
+                                (set-profile
+                                    (read-setting 'mode-n-current-brk)
+                                    0
+                                    (/ (read-setting 'mode-1-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (2 { ; 1
-                                (conf-set 'l-current-max-scale (read-setting 'mode-1-current))
-                                (conf-set 'l-current-min-scale (read-setting 'mode-1-current-brk))
-                                (conf-set 'max-speed (/ (read-setting 'mode-1-speed) 3.6))
-
-                                (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-1-current)))
-                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-1-current-brk)))
-                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-1-speed) 3.6)))
-                                })
+                                (set-profile
+                                    (read-setting 'mode-1-current-brk)
+                                    (read-setting 'mode-1-current)
+                                    (/ (read-setting 'mode-1-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (3 { ; 2
-                                (conf-set 'l-current-max-scale 0.6)(conf-set 'l-current-max-scale (read-setting 'mode-2-current))
-                                (conf-set 'l-current-min-scale (read-setting 'mode-2-current-brk))
-                                (conf-set 'max-speed (/ (read-setting 'mode-2-speed) 3.6))
-
-                                (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-2-current)))
-                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-2-current-brk)))
-                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-2-speed) 3.6)))
-                                })
+                                (set-profile
+                                    (read-setting 'mode-2-current-brk)
+                                    (read-setting 'mode-2-current)
+                                    (/ (read-setting 'mode-2-speed) -3.6)
+                                    (/ (read-setting 'mode-2-speed) 3.6)
+                                )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                         (4 { ; 3
-                                (conf-set 'l-current-max-scale (read-setting 'mode-3-current))
-                                (conf-set 'l-current-min-scale (read-setting 'mode-3-current-brk))
-                                (conf-set 'max-speed (/ (read-setting 'mode-3-speed) 3.6))
-
-                                (if dual-motors {
-                                        (run-m2 (conf-set 'l-current-max-scale (read-setting 'mode-3-current)))
-                                        (run-m2 (conf-set 'l-current-min-scale (read-setting 'mode-3-current-brk)))
-                                        (run-m2 (conf-set 'max-speed (/ (read-setting 'mode-3-speed) 3.6)))
-                                })
+                                (set-profile
+                                    (read-setting 'mode-3-current-brk)
+                                    (read-setting 'mode-3-current)
+                                    (/ (read-setting 'mode-3-speed) -3.6)
+                                    (/ (read-setting 'mode-3-speed) 3.6)
+                                )
 
                                 (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
                         })
                     )
 
@@ -552,6 +571,8 @@
         (event-enable 'event-shutdown)
         (event-enable 'event-data-rx)
 
+        (load-native-lib lib-cmd-proc)
+
         (var buf-can (array-create 8))
 
         (loopwhile-thd ("Send CAN" 150) t {
@@ -559,14 +580,7 @@
                 (bufset-i16 buf-can 0 (* (get-batt) 1000))
                 (bufset-i16 buf-can 2 (* (abs (get-duty)) 1000))
                 (bufset-i16 buf-can 4 (* (abs (get-speed)) 3.6 10))
-                (if dual-motors
-                    {
-                        (bufset-i16 buf-can 6 (* (+ (get-current-in) (run-m2 (get-current-in))) (get-vin) 0.1))
-                    }
-                    {
-                        (bufset-i16 buf-can 6 (* (get-current-in) (get-vin) 0.1))
-                    }
-                )
+                (bufset-i16 buf-can 6 (* (setup-current-in) (get-vin) 0.1))
                 (can-send-sid 20 buf-can)
 
                 (bufclear buf-can)
@@ -580,16 +594,8 @@
                 (can-send-sid 21 buf-can)
 
                 (bufclear buf-can)
-                (if dual-motors
-                    {
-                        (bufset-u16 buf-can 0 (* (+ (get-wh) (run-m2 (get-wh))) 10.0))
-                        (bufset-u16 buf-can 2 (* (+ (get-wh-chg) (run-m2 (get-wh-chg))) 10.0))
-                    }
-                    {
-                        (bufset-u16 buf-can 0 (* (get-wh) 10.0))
-                        (bufset-u16 buf-can 2 (* (get-wh-chg) 10.0))
-                    }
-                )
+                (bufset-u16 buf-can 0 (* (setup-wh) 10.0))
+                (bufset-u16 buf-can 2 (* (setup-wh-chg) 10.0))
                 (bufset-u16 buf-can 4 (* (/ (get-dist-abs) 1000.0) 10))
                 (bufset-u16 buf-can 6 (get-fault))
                 (can-send-sid 22 buf-can)
