@@ -274,6 +274,16 @@ def simulate_i2c_init_sequence(disp_brightness, scooter_type):
     return commands
 
 
+def simulate_blacktip_display_timeout_sequence():
+    """Mirror the defensive Blacktip display-timeout I2C sequence."""
+    blank_framebuffer = [0] * 16
+    return [
+        (0x70, blank_framebuffer),
+        (0x70, [0x80]),
+        (0x70, [0x80]),
+    ]
+
+
 def state_metrics_reset_simulate(state_store):
     """
     Mirror of state_metrics_reset from blacktip_dpv.lisp.
@@ -512,6 +522,22 @@ def test_i2c_init_sequence():
               "i2c_init: exactly 2 oscillator-enable commands sent to 0x70 (not 1)")
 
 
+def test_blacktip_display_timeout_sequence():
+    """A lost off command must not leave the last display frame latched."""
+    print("\n=== Testing defensive Blacktip display timeout sequence ===")
+
+    cmds = simulate_blacktip_display_timeout_sequence()
+
+    assert_eq(cmds[0], (0x70, [0] * 16),
+              "display_timeout: blank framebuffer is written before display-off")
+    assert_eq(cmds[1], (0x70, [0x80]),
+              "display_timeout: first display-off command targets the Blacktip display")
+    assert_eq(cmds[2], (0x70, [0x80]),
+              "display_timeout: display-off command is retried")
+    assert_eq(len(cmds), 3,
+              "display_timeout: sequence contains blank plus two off writes")
+
+
 def test_state_metrics_reset():
     """
     Test the state_metrics_reset behaviour after the setvar refactor.
@@ -577,6 +603,7 @@ def run_all_tests():
     test_debug_log_format()
     test_brightness_clamp()
     test_i2c_init_sequence()
+    test_blacktip_display_timeout_sequence()
     test_state_metrics_reset()
 
     print("\n══════════════════════════════════════════")
