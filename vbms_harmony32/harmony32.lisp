@@ -775,6 +775,10 @@ loopwhile-thd
                     (< t-max (bms-get-param 't_charge_max))
                     (> t-min (bms-get-param 't_charge_min))
                     (< t-mos (bms-get-param 't_charge_max_mos))
+                    (or
+                        (< (secs-since 0) 5.0)
+                        (> (secs-since charge-ts-below-min-current) 2.0)
+                    )
                     chg-allowed
                     (not (assoc rtc-val 'charge-fault))
             ))
@@ -808,7 +812,15 @@ loopwhile-thd
                 {
                     (if (< (secs-since charge-ts) charger-max-delay)
                         (set-chg true)
-                        (set-chg (> (- iout) (bms-get-param 'min_charge_current)))
+                        (if (> (- iout) (bms-get-param 'min_charge_current))
+                            {
+                                (set-chg true)
+                            }
+                            {
+                                (setq charge-ts-below-min-current (systime))
+                                (set-chg nil)
+                            }
+                        )
                     )
                 }
                 {
@@ -1002,6 +1014,7 @@ loopwhile-thd
         (def charge-dis-ts (systime))
         (def t-last (systime))
         (def charge-ts (systime))
+        (def charge-ts-below-min-current (systime))
 
         ; Buzzer
         (pwm-start 4000 0.0 0 3)
