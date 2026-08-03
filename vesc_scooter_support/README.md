@@ -1,5 +1,5 @@
 # VESC Scooter Support
-Allows you to connect a Xiaomi or Ninebot display to a VESC controller.
+Allows you to connect a Xiaomi or Ninebot display to a VESC-based controller.
 
 ## Installation
 Install this package, then pick your model in the app UI (VESC Tool -> Navigation Bar -> App UI).
@@ -59,23 +59,23 @@ After changing the model, save in the UI - the script restarts on its own with t
 - Original DE-Edition PRO 2 Dashboard
 - Original DE-Edition G30 Dashboard
 
-### Known Compatible VESCs
+### Known Compatible VESC-based ESCs
 - Spintend (Reliable & High Performance):
     - [Ubox Single Lite 100V 100A](https://spintend.com/collections/esc-based-on-vesc/products/single-ubox-aluminum-controller-100v-100a-based-on-vesc?ref=1zuna)
     - [Ubox Single 85V 250A V2](https://spintend.com/collections/esc-based-on-vesc/products/single-ubox-aluminum-controller-85v-250a-v2-based-on-vesc?ref=1zuna)
 
 - Makerbase:
-    - [Makerbase VESC 60100HP V2 60V 100A](https://s.click.aliexpress.com/e/_c4N2B2WD)
-    - [Makerbase VESC 84100HP 84V 100A](https://de.aliexpress.com/item/1005006515708671.html?pdp_npi=4%40dis%21EUR%21%E2%82%AC+164%2C35%21%E2%82%AC+90%2C39%21%21%21186.38%21102.51%21%400b88abba17794626397951757e0f1c%2112000037495490277%21sh%21DE%212612418744%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007473458239.1005006515708671&gatewayAdapt=glo2deu)
-    - [Makerbase VESC 84200HP 84V 200A](https://s.click.aliexpress.com/e/_c4EFhPk1)
+    - [Makerbase 60100HP V2 60V 100A](https://s.click.aliexpress.com/e/_c4N2B2WD)
+    - [Makerbase 84100HP 84V 100A](https://de.aliexpress.com/item/1005006515708671.html?pdp_npi=4%40dis%21EUR%21%E2%82%AC+164%2C35%21%E2%82%AC+90%2C39%21%21%21186.38%21102.51%21%400b88abba17794626397951757e0f1c%2112000037495490277%21sh%21DE%212612418744%21X&spm=a2g0o.store_pc_allItems_or_groupList.new_all_items_2007473458239.1005006515708671&gatewayAdapt=glo2deu)
+    - [Makerbase 84200HP 84V 200A](https://s.click.aliexpress.com/e/_c4EFhPk1)
 
 - 75100 Alu PCB (Not recommended):
     - [Makerbase 75100 Alu PCB](https://s.click.aliexpress.com/e/_DE9TKAl)
     - [Flipsky 75100 Alu PCB](https://s.click.aliexpress.com/e/_DEXNhX3)
 
-- More recommended VESCs:
-    - [MP2 300A 100V/150V VESC](https://github.com/badgineer/MP2-ESC)
+- More recommended VESC-based ESCs:
+    - [MP2 300A 100V/150V](https://github.com/badgineer/MP2-ESC)
     - and many more - use whatever you like.
 
 ## See Also
-https://github.com/Koxx3/SmartESC_STM32_v2 (VESC firmware for Xiaomi ESCs)
+https://github.com/Koxx3/SmartESC_STM32_v2 (VESC-based firmware for Xiaomi ESCs)
