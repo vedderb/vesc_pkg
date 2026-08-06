@@ -155,17 +155,28 @@ Two display frames are reserved for the warning (`BATTERY_IMBALANCE_DISPLAY_PACK
 
 `log_balance_voltages_throttled` emits a `Balance:` line every ~15 s when `debug_enabled = 1`, showing `total`, `upper(slot1)`, `lower(slot2)`, the active multiplier, and whether the EMA is currently held. The string is gated by the `when-debug` macro, so when debug is off there is no string-building work and no allocation. This is the primary tool for verifying or fine-tuning the balance-wire ADC multiplier in the field.
 
-### EEPROM Schema (v2)
+### EEPROM Schema (v3)
 
-The balance-detection feature added two settings in EEPROM slots 30 and 31, and bumped the `EEPROM_SETTINGS_COUNT` from 30 to 32. The migration in `eeprom_set_defaults` is layered on top of the existing v1 (1.0.0) baseline:
+The v2 balance-detection feature added slots 30 and 31 and raised `EEPROM_SETTINGS_COUNT` from 30 to 32. Schema v3 adds the opt-in shutdown setting in slot 32 and raises the count to 33. The migrations in `eeprom_set_defaults` remain layered on the existing v1 (1.0.0) baseline:
 
 | Slot | Setting | Default | Notes |
 |------|---------|---------|-------|
 | 30 | `battery_imbalance_threshold_centi` | `200` | Threshold in 0.01 V units (200 = 2.00 V). `0` disables imbalance detection entirely. |
 | 31 | `adc_balance_wire_multiplier_x10` | `162` (`ADC_BAL_MULT_X10_DEFAULT`) | Balance-wire multiplier × 10 (162 = 16.2x). Bounded `ADC_BAL_MULT_X10_MIN..MAX` (`50..255`, i.e. 5.0x – 25.5x). |
-| 127 | Schema version marker | `2` | Advanced once at the end of the migration so each block is idempotent. |
+| 32 | `enable_five_click_shutdown` | `0` | Opt-in MK5 hardware shutdown. Only `1` enables it; runtime hardware, firmware and stopped-state guards remain authoritative. |
+| 127 | Schema version marker | `3` | Advanced once at the end of the migration so each block is idempotent. |
 
-The migration uses `(< stored_version N)` rather than `(not-eq stored_version N)` so that older blocks do not re-fire after a later block has run. A fresh install on a Poseidon-era device (marker `150` in slot 127) is collapsed to `0` so the 1.0.0 block adds slots 25 – 29 without overwriting the user's existing slots 0 – 24, then the 1.1.0 block adds slots 30 – 31, then the marker is set to `2`.
+The migration uses `(< stored_version N)` rather than `(not-eq stored_version N)` so that older blocks do not re-fire after a later block has run. A fresh install on a Poseidon-era device (marker `150` in slot 127) is collapsed to `0` so the 1.0.0 block adds slots 25 – 29 without overwriting the user's existing slots 0 – 24, the 1.1.0 block adds slots 30 – 31, and the v3 block initializes only slot 32 before advancing the marker to `3`.
+
+Current settings messages are 33 bytes. On upgrade, the v3 migration writes only the new slot 32 default and preserves all settings known to the previous schema. The UI write and both reset-default paths send 33 bytes and explicitly include slot 32.
+
+## Five-click Deep Shutdown
+
+The feature decision is isolated in `five_click_shutdown_rejection_reason`. It requires the persisted opt-in, actual `(sysinfo 'hw-name)` equal to `60_MK5`, supported firmware, and commanded speed off. `request_five_click_shutdown` then runs the short confirmation sequence before calling `(shutdown true)`. Prop coast-down is effectively instantaneous once the motor is off, so RPM/duty telemetry and a delayed second validation stage are unnecessary.
+
+Firmware exposes its beta/test build number as the third member of `(sysinfo 'fw-ver)` and as `isTestFw` in `FwRxParams`. Zero denotes a stable release, so stable 7.00 is `(7 0 0)` and is supported; `(7 0 2)` denotes 7.00 beta 2. Beta 1 is rejected, while beta 2+, stable 7.00, and later releases are accepted. There is no separate safe LispBM extension-introspection API on the older builds, so version gating is used for feature detection. The backend check is independent of QML, so a manually written or corrupted enabled setting cannot bypass it.
+
+Before calling the VESC hardware shutdown path, the request selects the existing `DISPLAY_OFF` power-symbol frame, allows the 4 Hz display loop to render it, and plays four descending tones (700, 575, 450 and 325 Hz) at the configured beep volume. This gives a clear acknowledgement of an accidental as well as an intentional five-click command; when volume is zero, the display remains the confirmation. Success does not return. A returned `nil` is logged as failure/unsupported/held input and is not retried. This feature does not use `shutdown-hold`, alter `OFF_AFTER`, or add another idle timer.
 
 ## Build System
 

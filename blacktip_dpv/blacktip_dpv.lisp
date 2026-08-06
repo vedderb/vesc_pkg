@@ -54,7 +54,14 @@
 (define CLICKS_DOUBLE 2)
 (define CLICKS_TRIPLE 3)
 (define CLICKS_QUADRUPLE 4)
-(define CLICKS_SMART_CRUISE_CHANGE 5)
+(define CLICKS_SHUTDOWN 5)
+
+; Beep event codes (separate from trigger click counts)
+(define BEEP_CLICK_SINGLE 1)
+(define BEEP_CLICK_DOUBLE 2)
+(define BEEP_CLICK_TRIPLE 3)
+(define BEEP_CLICK_QUADRUPLE 4)
+(define BEEP_SMART_CRUISE_CHANGE 5)
 
 ; Smart Cruise states
 (define SMART_CRUISE_OFF 0)
@@ -126,8 +133,8 @@
 ; Masks for 0..8 LEDs lit (ordered per hardware bit mapping)
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
 
-; EEPROM settings buffer size (raised 30 -> 32 for the two balance settings in slots 30/31)
-(define EEPROM_SETTINGS_COUNT 32)
+; EEPROM settings buffer size. Five-click shutdown is stored in slot 32.
+(define EEPROM_SETTINGS_COUNT 33)
 
 ; Battery polynomial coefficients (for voltage-based calculation)
 (define BATTERY_COEFF_4 4.3867)
@@ -179,6 +186,11 @@
 ; Settle time after startup before allowing more beeper indications (e.g. thirds warning)
 (define STARTUP_TUNE_SETTLE 1.0)
 
+; Four descending tones used to acknowledge a five-click hardware shutdown.
+(define SHUTDOWN_TONE_DURATION 0.14)
+(define SHUTDOWN_TONE_GAP 0.18)
+(define SHUTDOWN_DISPLAY_SETTLE 0.3)
+
 ; Lightweight macro to conditionally evaluate debug logging expressions
 ; Only evaluates the logging expression when debug_enabled is 1
 ; This prevents expensive str-merge and to-str calls on memory-constrained targets
@@ -228,6 +240,7 @@
 (define scooter_type 0)
 (define battery_imbalance_threshold_centi 0)
 (define adc_balance_wire_multiplier_x10 ADC_BAL_MULT_X10_DEFAULT)
+(define enable_five_click_shutdown 0)
 
 ; --- Runtime state machine / motor / display vars ---
 (define sw_state 0)
@@ -595,6 +608,74 @@
          (< (abs current) SAFE_START_MAX_CURRENT))
 })
 
+; The shutdown extension is available in stable 7.00 and in 7.00 beta/test
+; build 2 or newer. A zero third element denotes a stable release.
+(defun firmware_supports_shutdown ()
+{
+    (var fw (sysinfo 'fw-ver))
+    (and (not-eq fw nil)
+         (>= (length fw) 3)
+         (or (> (first fw) 7)
+             (and (= (first fw) 7)
+                  (or (> (second fw) 0)
+                      (and (= (second fw) 0)
+                           (or (= (ix fw 2) 0) (>= (ix fw 2) 2)))))))
+})
+
+(defun five_click_shutdown_supported ()
+{
+    (var hw_name (sysinfo 'hw-name))
+    (and (not-eq hw_name nil)
+         (= (str-cmp hw_name "60_MK5") 0)
+         (firmware_supports_shutdown))
+})
+
+; Return nil only when shutdown is enabled, supported, and the commanded motor
+; state is off. The prop stops effectively immediately once speed is off, so
+; coast-down telemetry and a second validation stage add no useful protection.
+(defun five_click_shutdown_rejection_reason ()
+{
+    (var hw_name (sysinfo 'hw-name))
+    (cond
+        ((!= enable_five_click_shutdown 1) "feature disabled")
+        ((or (eq hw_name nil) (!= (str-cmp hw_name "60_MK5") 0)) "hardware is not 60_MK5")
+        ((not (firmware_supports_shutdown)) "unsupported pre-release firmware build")
+        ((!= speed SPEED_OFF) "commanded speed is not off")
+        (t nil)
+    )
+})
+
+(defun request_five_click_shutdown ()
+{
+    (var rejection (five_click_shutdown_rejection_reason))
+    (if (not-eq rejection nil) {
+        (debug_log_format (str-merge "Five-click shutdown rejected: " rejection))
+        nil
+    } {
+        (debug_log "Five-click shutdown: playing confirmation")
+        ; DISPLAY_OFF is the existing power-symbol frame. Give the display loop
+        ; time to render it, then play a high-to-low four-note acknowledgement.
+        ; beeps_vol may be zero; in that case the visible indication remains.
+        (setvar 'disp_num DISPLAY_OFF)
+        (sleep SHUTDOWN_DISPLAY_SETTLE)
+        (foc-beep 700 SHUTDOWN_TONE_DURATION beeps_vol)
+        (sleep SHUTDOWN_TONE_GAP)
+        (foc-beep 575 SHUTDOWN_TONE_DURATION beeps_vol)
+        (sleep SHUTDOWN_TONE_GAP)
+        (foc-beep 450 SHUTDOWN_TONE_DURATION beeps_vol)
+        (sleep SHUTDOWN_TONE_GAP)
+        (foc-beep 325 SHUTDOWN_TONE_DURATION beeps_vol)
+        (sleep SHUTDOWN_TONE_GAP)
+        (debug_log "Five-click shutdown: requesting hardware shutdown")
+        ; A successful shutdown never returns. nil means unsupported, failed,
+        ; or held input and is not retried here.
+        (var shutdown_result (shutdown true))
+        (if (eq shutdown_result nil)
+            (debug_log "Five-click shutdown failed, unsupported, or shutdown input held"))
+        nil
+    })
+})
+
 ; Settings initialization (init-only, but harmless to flash - it only reads
 ; eeprom and writes mutable heap globals via setvar)
 (defun update_settings_from_eeprom ()
@@ -621,6 +702,7 @@
     (setvar 'debug_enabled (eeprom-read-i 29))
     (setvar 'battery_imbalance_threshold_centi (eeprom-read-i 30))
     (setvar 'adc_balance_wire_multiplier_x10 (eeprom-read-i 31))
+    (setvar 'enable_five_click_shutdown (or (eeprom-read-i 32) 0))
 
     (setvar 'speed_set (list
         (eeprom-read-i 0) ; Reverse Speed 2 %
@@ -669,6 +751,7 @@
         "\n- battery_calculation_method: " (to-str (to-i battery_calculation_method))
         "\n- battery_imbalance_threshold_centi: " (to-str (to-i battery_imbalance_threshold_centi))
         "\n- adc_balance_wire_multiplier_x10: " (to-str (to-i adc_balance_wire_multiplier_x10))
+        "\n- enable_five_click_shutdown: " (to-str (to-i enable_five_click_shutdown))
     ))
 })
 
@@ -833,7 +916,7 @@
                     (setvar 'smart_cruise SMART_CRUISE_AUTO_ENGAGED)
                     (setvar 'timer_start (systime))
                     (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-                    (setvar 'click_beep CLICKS_SMART_CRUISE_CHANGE)
+                    (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
                     ; re command actual speed as reverification sets it to 0.8x
                     (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
                 })
@@ -981,7 +1064,7 @@
             (setvar 'timer_start (systime))
             (setvar 'timer_duration TIMER_SMART_CRUISE_TIMEOUT)
             (setvar 'disp_num DISPLAY_SMART_CRUISE_HALF)
-            (setvar 'click_beep CLICKS_SMART_CRUISE_CHANGE)
+            (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
             ; slow scooter to 80% to help people realize cruise is expiring
             (set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))
         })
@@ -1063,7 +1146,7 @@
                     (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
                         ; Long hold before click - change speed down (not allowed during timeout warning)
                         (debug_log "Click action: Single click after hold (Smart Cruise: speed down + timer reset)")
-                        (setvar 'click_beep CLICKS_SINGLE)
+                        (setvar 'click_beep BEEP_CLICK_SINGLE)
                         (setvar 'timer_start (systime))
                         (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
@@ -1082,7 +1165,7 @@
                 } {
                     ; Smart Cruise not active - normal speed down
                     (debug_log "Click action: Single click (speed down)")
-                    (setvar 'click_beep CLICKS_SINGLE)
+                    (setvar 'click_beep BEEP_CLICK_SINGLE)
                     (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (cond
                         ((> speed SPEED_REVERSE_THRESHOLD)
@@ -1095,7 +1178,7 @@
         ((= click_count CLICKS_DOUBLE) {
             (if (= speed SPEED_OFF) {
                 (debug_log_format (str-merge "Click action: Double click (start at speed " (to-str (to-i new_start_speed)) ")"))
-                (setvar 'click_beep CLICKS_DOUBLE)
+                (setvar 'click_beep BEEP_CLICK_DOUBLE)
                 (setvar 'speed_set_via_jump nil) ; Normal start, allow speed to be remembered
                 (set_speed_safe new_start_speed)
             } {
@@ -1104,7 +1187,7 @@
                     (if (and (> initial_press_time TIMER_SMART_CRUISE_HOLD) (!= smart_cruise SMART_CRUISE_HALF_ENABLED)) {
                         ; Long hold before double tap - change speed up (not allowed during timeout warning)
                         (debug_log "Click action: Double click after hold (Smart Cruise: speed up + timer reset)")
-                        (setvar 'click_beep CLICKS_DOUBLE)
+                        (setvar 'click_beep BEEP_CLICK_DOUBLE)
                         (setvar 'timer_start (systime))
                         (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                         ; If in warning mode, upgrade back to fully enabled
@@ -1123,7 +1206,7 @@
                 } {
                     ; Smart Cruise not active - normal speed up
                     (debug_log "Click action: Double click (speed up)")
-                    (setvar 'click_beep CLICKS_DOUBLE)
+                    (setvar 'click_beep BEEP_CLICK_DOUBLE)
                     (setvar 'speed_set_via_jump nil) ; User manually changed speed, allow remembering
                     (if (< speed max_speed_no) {
                         (if (> speed SPEED_UNTANGLE)
@@ -1137,7 +1220,7 @@
             (if (= speed SPEED_OFF) {
                 ; Stopped - jump to preset speed
                 (debug_log_format (str-merge "Click action: Triple click (jump to speed " (to-str (to-i jump_speed)) ")"))
-                (setvar 'click_beep CLICKS_TRIPLE)
+                (setvar 'click_beep BEEP_CLICK_TRIPLE)
                 (setvar 'speed_set_via_jump t) ; Speed set via jump, don't remember unless changed
                 (set_speed_safe jump_speed)
             } {
@@ -1147,13 +1230,13 @@
                     (if (> smart_cruise SMART_CRUISE_OFF) {
                         ; Smart Cruise is active - disable it
                         (debug_log "Click action: Triple click (Smart Cruise disabled)")
-                        (setvar 'click_beep CLICKS_TRIPLE)
+                        (setvar 'click_beep BEEP_CLICK_TRIPLE)
                         (setvar 'smart_cruise SMART_CRUISE_OFF)
                     } {
                         ; Smart Cruise not active - enable it if feature is enabled
                         (if (> enable_smart_cruise 0) {
                             (debug_log "Click action: Triple click (Smart Cruise enabled)")
-                            (setvar 'click_beep CLICKS_TRIPLE)
+                            (setvar 'click_beep BEEP_CLICK_TRIPLE)
                             (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
                             (setvar 'timer_start (systime))
                             (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
@@ -1173,7 +1256,7 @@
             (if (= speed SPEED_OFF) {
                 (if (= enable_reverse 1) {
                     (debug_log "Click action: Quadruple click (untangle)")
-                    (setvar 'click_beep CLICKS_QUADRUPLE)
+                    (setvar 'click_beep BEEP_CLICK_QUADRUPLE)
                     (set_speed_safe SPEED_UNTANGLE)
                 } {
                     (debug_log "Click action: Quadruple click ignored (reverse disabled in settings)")
@@ -1183,6 +1266,8 @@
                 (debug_log "Click action: Quadruple click ignored (scooter running)")
             })
         })
+        ((= click_count CLICKS_SHUTDOWN)
+            (request_five_click_shutdown))
         (t
             (debug_log_format (str-merge "Click action: Unsupported count " (to-str click_count))))
     )
@@ -1847,14 +1932,14 @@
 
         (if (> click_beep 0) {
             (cond
-                ((= click_beep CLICKS_SMART_CRUISE_CHANGE)
+                ((= click_beep BEEP_SMART_CRUISE_CHANGE)
                     (foc-play-tone 1 1500 beeps_vol))
                 ((= enable_trigger_beeps 1) {
                     (cond
-                        ((= click_beep CLICKS_SINGLE) (foc-play-tone 1 2500 beeps_vol))
-                        ((= click_beep CLICKS_DOUBLE) (foc-play-tone 1 3000 beeps_vol))
-                        ((= click_beep CLICKS_TRIPLE) (foc-play-tone 1 3500 beeps_vol))
-                        ((= click_beep CLICKS_QUADRUPLE) (foc-play-tone 1 4000 beeps_vol))
+                        ((= click_beep BEEP_CLICK_SINGLE) (foc-play-tone 1 2500 beeps_vol))
+                        ((= click_beep BEEP_CLICK_DOUBLE) (foc-play-tone 1 3000 beeps_vol))
+                        ((= click_beep BEEP_CLICK_TRIPLE) (foc-play-tone 1 3500 beeps_vol))
+                        ((= click_beep BEEP_CLICK_QUADRUPLE) (foc-play-tone 1 4000 beeps_vol))
                     )
                 })
             )
@@ -1952,7 +2037,7 @@
 ; EEPROM initialization (init-only)
 ; Migration uses a monotonically increasing version marker in slot 127. Each
 ; migration block runs only when the stored version is BELOW the block's target,
-; so once we have migrated to v2 the v1 block will not re-run on subsequent boots.
+; so once we have migrated to v3 older blocks will not re-run on subsequent boots.
 ; The previous code used (not-eq stored target) which caused the v1 block to fire
 ; again after the v2 block had run, silently resetting any user changes to slots
 ; 25-29 on every boot (and also resetting hardware_configuration in slot 19
@@ -2021,10 +2106,17 @@
         (eeprom_store_i_if_changed 31 ADC_BAL_MULT_X10_DEFAULT) ; Balance-wire ADC multiplier * 10 (default 162 = 16.2x)
     })
 
+    ; Migration for five-click deep shutdown. This is opt-in and must stay off
+    ; unless the owner explicitly enables it after completing the MK5 jumper.
+    (if (< stored_version 3) {
+        (puts "EEPROM: Initializing defaults for five-click deep shutdown")
+        (eeprom_store_i_if_changed 32 0)
+    })
+
     ; Advance older markers to this schema version. Do not rewrite markers from
     ; newer firmware, so downgrade/upgrade cycles remain monotonic.
-    (if (< stored_version 2)
-        (eeprom_store_i_if_changed 127 2))
+    (if (< stored_version 3)
+        (eeprom_store_i_if_changed 127 3))
 })
 
 (defun init ()

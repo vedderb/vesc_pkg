@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.4.1
+**Version:** 1.5.0
 
 ## License
 
@@ -37,6 +37,12 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.5.0
+
+Feature release:
+
+- **Optional five-click deep shutdown (MK5 only)** — A reversible phantom-button jumper lets five rapid trigger clicks put supported controllers into true hardware-off mode, allowing batteries to remain installed with very low standby drain. A power-off symbol and four descending tones confirm the command before the controller switches off. See [Five-click deep shutdown](#five-click-deep-shutdown--mk5-only) before enabling it.
 
 ## What's New in Version 1.4.1
 
@@ -163,6 +169,58 @@ Detects when one of the two series battery packs becomes significantly more depl
 - Enabled by default with a 2.00 V threshold (suitable for stock hardware); both the threshold and the balance-wire ADC multiplier are configurable from the Battery Settings dialog
 - **Disable only when using a custom battery pack with an on-board BMS that manages cell balancing independently**
 
+### Five-click deep shutdown — MK5 only
+
+This optional feature is **disabled by default**. It requires all of the following:
+
+- a Flipsky Mini V6 MK5 controller (detected VESC hardware name 60&#95;MK5);
+- stable VESC firmware 7.00, or a 7.00 beta build numbered 2 or newer;
+- the phantom-button hardware modification below; and
+- the **Enable five-click deep shutdown (MK5 only)** checkbox in Battery Configuration.
+
+Five rapid trigger clicks while the motor is off show the power-off symbol and play four descending tones (high, medium-high, medium-low and low) before switching the controller into true hardware-off mode. The tones use the configured beep volume, so the visual confirmation remains available when sound is disabled. The command is ignored while the motor is commanded to run. After shutdown, spin the propeller to wake the controller. The modified controller also starts in the off state after fresh battery insertion and must be woken by spinning the propeller.
+
+There is no `.2` component in the stable release: `7.00` is the complete version and is supported. The extra number is only VESC's beta/test-build field. This package's **Home** tab displays such a pre-release as `7.00 BETA 2`; stable firmware remains `7.00`.
+
+The existing OFF&#95;AFTER&#95;5H setting remains the fallback when manual shutdown is forgotten. On one measured example unit, hardware-off current was approximately **18–20 µA**; this is an observed measurement, not a guaranteed Flipsky specification. The modification is reversible: remove the batteries, remove the jumper, and insulate/reassemble the connector as it was originally.
+
+#### Phantom-button jumper modification
+
+1. Remove both batteries before opening or touching the scooter.
+2. Open the motor assembly using the [existing disassembly instructions](#installation-steps).
+3. Locate the MK5 three-wire power-button connector near the bottom of the ESC.
+4. Identify its cavities by wire colour, not by left/right position, because connector orientation can be reversed:
+   - **BLACK:** ground
+   - **RED:** power-button LED connection
+   - **YELLOW:** shutdown-button sense
+5. Insert a short, insulated and mechanically secure jumper between the connector cavities attached to **BLACK** and **YELLOW**.
+6. Leave **RED** completely unconnected.
+7. Ensure no bare conductor can contact the red terminal, controller, plate or enclosure.
+8. With the jumper inserted, fit heat-shrink tubing around the header/connector to insulate and retain it.
+9. Secure the jumper so vibration cannot loosen it or allow it to rattle.
+10. Reassemble the unit before installing batteries.
+
+![Phantom button jumper between the black and yellow wires](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/phantom_button_jumper.png)
+
+> **Warning:** Hardware modifications are undertaken at the owner's risk. Complete and validate the dry bench test before relying on the DPV, and complete additional dry testing before any in-water test.
+
+#### Required dry bench-test checklist
+
+1. Upgrade to stable firmware 7.00 (or 7.00 BETA 2 or newer) and confirm the version on the package **Home** tab.
+2. Install the jumper with batteries removed.
+3. Insert batteries: the controller should remain in hardware-off state, and the motor must not start.
+4. Spin the propeller by hand: the controller should wake normally.
+5. Read these hardware-modification instructions, then enable the five-click checkbox.
+6. Wake the scooter, leave the motor stopped and perform five rapid clicks: the power-off symbol and descending tones should play before the controller switches off and remains off.
+7. Confirm five clicks do nothing when the checkbox is disabled.
+8. Confirm the shutdown command is ignored while forward or reverse operation is active.
+9. Complete additional dry tests before any in-water test.
+
+#### Optional additional testing
+
+- Temporarily select OFF&#95;AFTER&#95;1M, verify that an idle controller shuts down and remains off, and restore OFF&#95;AFTER&#95;5H immediately afterwards.
+- Where suitable test equipment is available, measure off-state current.
+
 ### Startup Sound
 
 A distinctive musical theme plays on power-up to confirm successful initialization:
@@ -239,36 +297,36 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 
 ### New Features Added
 
-- ✅ **Smart Cruise Control** — Complete hands-free cruising system with auto-engage option
-- ✅ **Smart Cruise Visual Timer Bar** — 8-LED countdown display showing remaining time
-- ✅ **Smart Cruise Warning Mode** — "C?" display and beep when approaching timeout
-- ✅ **Refined Speed Control Logic** — Requires long hold before tap to change speed in Smart Cruise mode
-- ✅ **Intelligent Beep System** — Warning beeps for important events, silent timer resets
-- ✅ **Battery Calculation Method** — Choice between voltage-based or Ah-based calculation
-- ✅ **Auto-engage Smart Cruise** — Automatic activation after maintaining constant speed
-- ✅ **Battery Imbalance Detection** — Per-pack monitoring via the midpoint balance wire, with a latched on-display warning and SOC correction when one pack is significantly more depleted than the other
+- **Smart Cruise Control** — Complete hands-free cruising system with auto-engage option
+- **Smart Cruise Visual Timer Bar** — 8-LED countdown display showing remaining time
+- **Smart Cruise Warning Mode** — "C?" display and beep when approaching timeout
+- **Refined Speed Control Logic** — Requires long hold before tap to change speed in Smart Cruise mode
+- **Intelligent Beep System** — Warning beeps for important events, silent timer resets
+- **Battery Calculation Method** — Choice between voltage-based or Ah-based calculation
+- **Auto-engage Smart Cruise** — Automatic activation after maintaining constant speed
+- **Battery Imbalance Detection** — Per-pack monitoring via the midpoint balance wire, with a latched on-display warning and SOC correction when one pack is significantly more depleted than the other
 
 ### Bug Fixes
 
-- ✅ **EEPROM Wear Protection** — Prevents unnecessary writes, dramatically extending EEPROM life
-- ✅ **Settings Persistence** — All configuration changes properly saved and restored
-- ✅ **Display Timeout Handling** — Speed number disappears after timeout but timer bar persists
-- ✅ **LED Sequence Correction** — Timer bar LEDs turn off in correct order (left to right)
-- ✅ **State Machine Improvements** — More reliable state transitions and click detection
-- ✅ **Division-by-Zero Protection** — Guards against invalid timeout configurations
-- ✅ **Memory Optimization** — Reduced stack usage and optimized variable management
+- **EEPROM Wear Protection** — Prevents unnecessary writes, dramatically extending EEPROM life
+- **Settings Persistence** — All configuration changes properly saved and restored
+- **Display Timeout Handling** — Speed number disappears after timeout but timer bar persists
+- **LED Sequence Correction** — Timer bar LEDs turn off in correct order (left to right)
+- **State Machine Improvements** — More reliable state transitions and click detection
+- **Division-by-Zero Protection** — Guards against invalid timeout configurations
+- **Memory Optimization** — Reduced stack usage and optimized variable management
 
 ### Enhanced Functionality
 
-- ✅ **Better Click Detection** — Improved timing windows for reliable multi-click recognition
-- ✅ **Display Caching** — Reduces I2C traffic for better performance and reliability
-- ✅ **Comprehensive Debug Logging** — Easier troubleshooting and development
-- ✅ **Code Documentation** — Extensively commented codebase for maintainability
-- ✅ **Modular Architecture** — Cleaner separation of concerns for easier updates
+- **Better Click Detection** — Improved timing windows for reliable multi-click recognition
+- **Display Caching** — Reduces I2C traffic for better performance and reliability
+- **Comprehensive Debug Logging** — Easier troubleshooting and development
+- **Code Documentation** — Extensively commented codebase for maintainability
+- **Modular Architecture** — Cleaner separation of concerns for easier updates
 
 ### General Improvements
 
-- ✅ **Runs on the latest (7.00) VESC release** — Smoother running with latest FOC algorithms, improved safety features
+- **Runs on the latest (7.00) VESC release** — Smoother running with latest FOC algorithms, improved safety features
 
 ---
 
@@ -277,7 +335,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 ### Requirements
 
 - Dive Xtras Blacktip or CudaX scooter
-- the latest 'blacktip\_dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases) or the latest official Package Store in VESC Tool
+- the latest 'blacktip&#95;dpv.vescpkg' file from [GitHub](https://github.com/mikeller/vesc_pkg/releases) or the latest official Package Store in VESC Tool
 - VESC Tool (PC) or VESC mobile app (iOS/Android), version 7.00 or higher from [VESC Project](https://vesc-project.com/vesc_tool)
 - USB cable (for models without Bluetooth)
 
@@ -288,7 +346,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 **Blacktip generations:**
 
 - **First generation** (Flipsky 4.10 based): Has a short USB cable with type A connector at the motor end
-- **Second generation** (Flipsky 6.0 based): No USB cable visible, and no Bluetooth capability\*
+- **Second generation** (Flipsky 6.0 based): No USB cable visible, and no Bluetooth capability (see note below)
 - **Third generation** (Flipsky 6.0 MK5 based): Supports Bluetooth connectivity
 
 **CudaX generations:**
@@ -343,7 +401,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - **VESC Tool (PC):**
 
 - Go to the "VESC Packages" tab, then the "Load Custom" sub-tab
-- Click the "load file" icon and select "blacktip\_dpv.vescpkg"
+- Click the "load file" icon and select "blacktip&#95;dpv.vescpkg"
 - Click "Install" and wait for completion
 
 - **VESC Mobile App:**
@@ -351,7 +409,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Navigate to the packages section
 - Click "..."
 - Select "Install Package"
-- Choose "blacktip\_dpv.vescpkg"
+- Choose "blacktip&#95;dpv.vescpkg"
 - Confirm installation
 
 5. **Reset to defaults:**
@@ -369,7 +427,7 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Configure to suit your preferences
 - Test basic functionality in a safe environment
 
-\* this model can be upgraded with a Bluetooth module to enable Bluetooth connectivity, see [these instructions](https://github.com/vedderb/vesc_pkg/blob/main/blacktip_dpv/BLUETOOTH_UPGRADE.md)
+**Note:** The Blacktip second generation can be upgraded with a Bluetooth module to enable Bluetooth connectivity; see [these instructions](https://github.com/vedderb/vesc_pkg/blob/main/blacktip_dpv/BLUETOOTH_UPGRADE.md).
 
 ### First-Time Configuration
 
@@ -478,4 +536,4 @@ Contributions are welcome! Whether you're fixing bugs, adding features, or impro
 
 ---
 
-**Dive safely and enjoy your enhanced scooter** 🦈⚡
+**Dive safely and enjoy your enhanced scooter**
