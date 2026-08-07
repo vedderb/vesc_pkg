@@ -19,9 +19,8 @@
 
 // ext-esp_led-*: segmented addressable-LED strip engine as a native library.
 //
-// Lisp sets high-level segment /
-// effect state and a background render thread animates, applies
-// brightness / auto-white / an adaptive current limit and pushes pixels.
+// Lisp sets high-level segment / effect state and a background render thread
+// animates, applies brightness / auto-white and pushes pixels.
 // The hardware path is the firmware rgbled driver through the C interface,
 // addressed by pin: strips are registered with rgbled_init at start and each
 // frame's changed groups are pushed with rgbled_update(pin, ...). The
@@ -164,8 +163,8 @@ typedef struct {
 
 	// Custom mode: a consumer-supplied pixel buffer (len packed colors) shown
 	// by FX_CUSTOM, so consumers can run their own effects while still getting
-	// this engine's brightness, current limit and channel pooling. NULL until
-	// the segment is put in custom mode.
+	// this engine's brightness and channel pooling. NULL until the segment is
+	// put in custom mode.
 	uint32_t *manual;
 
 	// Custom palette: 4 anchor colours used when pal == 0, so the built-in
@@ -206,13 +205,6 @@ typedef struct {
 	uint8_t master_bri;  // target
 	uint8_t master_cur;  // eased current
 	uint8_t fade;        // gap fraction closed per frame in 32nds, 0 = instant
-	uint32_t ablimit_ma; // 0 = off
-
-	// Current limiting is global: each frame sums the unscaled demand of
-	// all segments and the scale derived from it is applied on the next
-	// frame (one frame of lag instead of a second render pass).
-	uint32_t ma_frame;   // demand accumulated this frame
-	uint8_t ma_scale;    // 0..255 output scale, 255 = no limiting
 
 	uint16_t buf_len;    // pixels the work buffer holds
 	uint32_t *work;      // packed 0xWWRRGGBB, buf_len entries
@@ -508,8 +500,8 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	} break;
 
 	case FX_CUSTOM: {
-		// Consumer-driven pixels; brightness / current limit / overlay still
-		// apply downstream in render_seg.
+		// Consumer-driven pixels; brightness / overlay still apply
+		// downstream in render_seg.
 		if (s->manual) {
 			for (int i = 0; i < n; i++) work[i] = s->manual[i];
 		} else {
@@ -561,7 +553,6 @@ static void render_seg(esp_led_t *st, seg_t *s) {
 	// Combined per-segment and master brightness
 	uint32_t bri = ((uint32_t)s->bri_cur * st->master_cur) / 255;
 
-	uint32_t sum = 0; // channel sum for the current estimate
 	for (int i = 0; i < n; i++) {
 		uint32_t c = scale(work[i], bri);
 
@@ -577,19 +568,6 @@ static void render_seg(esp_led_t *st, seg_t *s) {
 		}
 
 		work[i] = pack(r, g, b, w);
-		sum += r + g + b + w;
-	}
-
-	// Adaptive current limit: ~20 mA per full channel + 1 mA idle per LED.
-	// The demand goes into the frame total and last frame's scale is
-	// applied, so the cap holds across all segments together.
-	if (st->ablimit_ma) {
-		st->ma_frame += (sum * 20) / 255 + n;
-		if (st->ma_scale < 255) {
-			for (int i = 0; i < n; i++) {
-				work[i] = scale(work[i], st->ma_scale);
-			}
-		}
 	}
 
 	// Pack the wire bytes. Overlay pixels take their footprint positions,
@@ -637,20 +615,13 @@ static void render_thd(void *arg) {
 	esp_led_t *st = (esp_led_t*)arg;
 
 	while (!VESC_IF->should_terminate()) {
-		// Ease brightness toward the targets and derive the current-limit
-		// scale from last frame's total demand, once per frame.
+		// Ease brightness toward the targets, once per frame.
 		VESC_IF->mutex_lock(st->lock);
 		st->master_cur = ease_u8(st->master_cur, st->master_bri, st->fade);
 		for (int i = 0; i < st->seg_count; i++) {
 			seg_t *s = &st->seg[i];
 			s->bri_cur = ease_u8(s->bri_cur, s->bri, st->fade);
 		}
-		if (st->ablimit_ma && st->ma_frame > st->ablimit_ma) {
-			st->ma_scale = (uint8_t)((st->ablimit_ma * 255) / st->ma_frame);
-		} else {
-			st->ma_scale = 255;
-		}
-		st->ma_frame = 0;
 		VESC_IF->mutex_unlock(st->lock);
 
 		for (int gi = 0; gi < st->group_count; gi++) {
@@ -992,8 +963,6 @@ static lbm_value ext_init(lbm_value *args, lbm_uint argn) {
 		return VESC_IF->lbm_enc_sym_merror;
 	}
 
-	st->ma_frame = 0;
-	st->ma_scale = 255;
 	st->running = true;
 
 	return VESC_IF->lbm_enc_sym_true;
@@ -1137,6 +1106,38 @@ static lbm_value ext_seg_on(lbm_value *a, lbm_uint n) { return set_one(a, n, SET
 // (ext-esp_led-seg-reverse i rev)
 static lbm_value ext_seg_reverse(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_REVERSE); }
 
+// (ext-esp_led-sync) - restart every segment's animation from phase 0, so
+// effects set up at different times run in step. Every segment advances its
+// phase once per render pass, so segments zeroed together stay locked as long
+// as their speeds match; different speeds drift apart again from here.
+// Segments are zeroed under one lock hold, i.e. within the same frame.
+static lbm_value ext_sync(lbm_value *args, lbm_uint argn) {
+	esp_led_t *st = state();
+	if (!check_num_args(args, argn, 0)) return VESC_IF->lbm_enc_sym_terror;
+
+	VESC_IF->mutex_lock(st->lock);
+	for (int i = 0; i < esp_led_SEG_MAX; i++) {
+		st->seg[i].phase = 0;
+	}
+	VESC_IF->mutex_unlock(st->lock);
+	return VESC_IF->lbm_enc_sym_true;
+}
+
+// (ext-esp_led-seg-sync i) - restart segment i's animation from phase 0,
+// leaving the other segments running.
+static lbm_value ext_seg_sync(lbm_value *args, lbm_uint argn) {
+	esp_led_t *st = state();
+	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
+
+	seg_t *s = seg_arg(st, args[0]);
+	if (!s) return VESC_IF->lbm_enc_sym_terror;
+
+	VESC_IF->mutex_lock(st->lock);
+	s->phase = 0;
+	VESC_IF->mutex_unlock(st->lock);
+	return VESC_IF->lbm_enc_sym_true;
+}
+
 // Ensure segment s is in custom mode: allocate its pixel buffer (once) and
 // switch it to the custom effect. Must be called with the lock held.
 static bool seg_custom_ready(seg_t *s) {
@@ -1155,7 +1156,7 @@ static bool seg_custom_ready(seg_t *s) {
 
 // (ext-esp_led-seg-custom i) - put segment i in custom mode (blank buffer).
 // Consumers then push pixels with ext-esp_led-seg-pixel / -pixels and run
-// their own effect; brightness, current limit and channel pooling still apply.
+// their own effect; brightness and channel pooling still apply.
 static lbm_value ext_seg_custom(lbm_value *a, lbm_uint n) {
 	esp_led_t *st = state();
 	if (!check_num_args(a, n, 1)) return VESC_IF->lbm_enc_sym_terror;
@@ -1280,15 +1281,6 @@ static lbm_value ext_fade(lbm_value *args, lbm_uint argn) {
 // all-segments variant would be meaningless on a mixed set of strips.
 static lbm_value ext_seg_auto_white(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_AUTO_WHITE); }
 
-// (ext-esp_led-ablimit ma) - adaptive current cap in mA, 0 = off
-static lbm_value ext_ablimit(lbm_value *args, lbm_uint argn) {
-	esp_led_t *st = state();
-	if (!check_num_args(args, argn, 1)) return VESC_IF->lbm_enc_sym_terror;
-	int ma = VESC_IF->lbm_dec_as_i32(args[0]);
-	st->ablimit_ma = ma < 0 ? 0 : (uint32_t)ma;
-	return VESC_IF->lbm_enc_sym_true;
-}
-
 // ---- Lifecycle ----------------------------------------------------------
 
 static void stop(void *arg) {
@@ -1345,6 +1337,8 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->lbm_add_extension("ext-esp_led-col", ext_col);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-on", ext_seg_on);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-reverse", ext_seg_reverse);
+	VESC_IF->lbm_add_extension("ext-esp_led-sync", ext_sync);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-sync", ext_seg_sync);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-custom", ext_seg_custom);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixel", ext_seg_pixel);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixels", ext_seg_pixels);
@@ -1354,7 +1348,6 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->lbm_add_extension("ext-esp_led-bri", ext_bri);
 	VESC_IF->lbm_add_extension("ext-esp_led-fade", ext_fade);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-auto-white", ext_seg_auto_white);
-	VESC_IF->lbm_add_extension("ext-esp_led-ablimit", ext_ablimit);
 
 	VESC_IF->printf("esp_led-strip lib loaded");
 
