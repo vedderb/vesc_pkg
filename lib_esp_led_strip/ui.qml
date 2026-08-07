@@ -286,7 +286,15 @@ Item {
                                         // index / modelData come from the Repeater delegate context and
                                         // are valid at creation (before the child controls initialize).
                                         property int seg: index
-                                            property var d: modelData
+                                            // The live element of `strips`, NOT modelData: a JS array
+                                            // model hands the delegate a *copy* of the element, so
+                                            // every edit written through modelData was lost to
+                                            // `strips` - and applyStructure(), which replays from
+                                            // `strips`, then pushed each strip's creation values
+                                            // (solid red) back over the user's settings. Re-binds on
+                                            // add / remove, when indices shift.
+                                            property var d: index >= 0 && index < strips.length
+                                                ? strips[index] : makeStrip(0, 1, 0, 0, 0)
                                                 // d is a plain JS object, so QML cannot see fields
                                                 // being mutated inside it and bindings on d.<field>
                                                 // never re-evaluate. Anything the UI has to react to
@@ -714,15 +722,22 @@ Component {
         }
     }
 
-    Label { text: "Current limit (mA)" }
-    SpinBox {
-        from: 0; to: 20000; value: 0
-        stepSize: 100
-        editable: true
-        Layout.fillWidth: true
-        onValueModified: sendCode("(ext-esp_led-ablimit " + value + ")")
-    }
 }
+}
+
+// Restarts every strip's animation from phase 0 in one call, so effects
+// set up at different times line up. Nothing else about the strips
+// changes; strips running different speeds drift apart again from here.
+Button {
+    text: "Sync animations"
+    Layout.fillWidth: true
+    onClicked: {
+        // Flush first: a queued slider value landing after the sync
+        // would not disturb the phase, but the strips should be at the
+        // speed the user sees before they are lined up.
+        flushTx()
+        sendCode("(ext-esp_led-sync)")
+    }
 }
 
 Button {
