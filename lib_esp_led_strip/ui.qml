@@ -56,6 +56,7 @@ Item {
                         readonly property int defLevel: 255
                             readonly property int defBri: 255
                             readonly property bool defAutoWhite: false
+                            readonly property bool defReverse: false
 
                                 // One object per strip; array index == segment index on the device.
                                 property var strips: []
@@ -126,7 +127,7 @@ Item {
                                     fx: defFx, pal: defPal,
                                     w: 0, r: 255, g: 0, b: 0,
                                     speed: defSpeed, size: defSize, level: defLevel, bri: defBri,
-                                    autoWhite: defAutoWhite
+                                    autoWhite: defAutoWhite, reverse: defReverse
                                 }
                             }
 
@@ -215,6 +216,8 @@ Item {
                                     if (s.bri !== defBri) c.push("(ext-esp_led-seg-bri " + i + " " + s.bri + ")")
                                 if (s.autoWhite !== defAutoWhite)
                                     c.push("(ext-esp_led-seg-auto-white " + i + " " + (s.autoWhite ? 1 : 0) + ")")
+                                if (s.reverse !== defReverse)
+                                    c.push("(ext-esp_led-seg-reverse " + i + " " + (s.reverse ? 1 : 0) + ")")
                                 var col = packColor(s.w, s.r, s.g, s.b)
                                 if (col !== 0) c.push("(ext-esp_led-seg-col " + i + " " + col + ")")
                                 if (c.length > 0) {
@@ -503,6 +506,18 @@ Item {
                                         queueSend("bri" + page.seg,
                                         "(ext-esp_led-seg-bri " + page.seg + " " + item.value.toFixed(0) + ")")
                                     })
+                                }
+                            }
+
+                            // Mirrors the effect pixels as they are packed for the
+                            // wire, so moving effects run the other way - for strips
+                            // mounted with the data-in end at the far side.
+                            Label { text: "Reverse" }
+                            Switch {
+                                checked: page.d.reverse
+                                onToggled: {
+                                    page.d.reverse = checked
+                                    sendCode("(ext-esp_led-seg-reverse " + page.seg + " " + (checked ? 1 : 0) + ")")
                                 }
                             }
 
