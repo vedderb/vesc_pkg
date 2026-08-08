@@ -6,8 +6,10 @@ ESP_TARGETS = esp32c3 esp32c6 esp32s3 esp32p4
 
 all: esp_led_strip.vescpkg
 
-esp_led_strip.vescpkg: libs
-	$(VESC_TOOL) --buildPkg "esp_led_strip.vescpkg:esp_led_strip.lisp:ui.qml:0:README.md:ESP LED Strip"
+esp_led_strip.vescpkg: libs pkgdesc.qml
+	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml \
+	--testPkgDesc 'custom:Devkit C3' --testPkgDesc 'custom:Avaspark RGB V3' \
+	--testPkgDesc 'vesc bms:VESC BMS' --testPkgDesc 'vesc:test' 
 
 # Shared lisp constants, generated from the C enums so consumers cannot drift.
 defs: esp_led_defs.lisp
