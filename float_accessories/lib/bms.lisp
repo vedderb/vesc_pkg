@@ -33,7 +33,7 @@
         (free packet)
         (return ret)
     }{
-        (print "Haven't received current bms-charge-state yet")
+        (dbg-warn "bms no charge state yet")
         (return false)
     })
 })
@@ -132,6 +132,13 @@
         (set-bms-val 'bms-v-cell-min v-cell-min)
         (set-bms-val 'bms-v-cell-max v-cell-max)
     })
+    (if (dbg-tick DBG-BMS 'bms-val 5.0)
+        (dbg DBG-BMS (str-merge "bms v " (str-from-n (to-float total-voltage) "%.2f")
+            " n " (str-from-n cell-index "%d")
+            " min " (str-from-n v-cell-min "%.3f")
+            " max " (str-from-n v-cell-max "%.3f")
+            " soc " (str-from-n (* 100 (get-bms-val 'bms-soc)) "%.0f")
+            " A " (str-from-n (get-bms-val 'bms-i-in-ic) "%.2f"))))
 })
 
 (defun parse-soc (data){
@@ -150,6 +157,8 @@
     (var current (* (bufget-i16 data (if bms-use-crypto 6 4)) current-scaler))
 
     (if (and (not bms-charge-only) (>= current current-limit)) {
+        (if (= is-current-over-limit 0)
+            (dbg-warn (str-merge "bms current at limit " (str-from-n current "%.2f"))))
         (setq is-current-over-limit 1)
     }{
         (setq is-current-over-limit 0)
@@ -158,7 +167,10 @@
 })
 
 (defun parse-status (data) {
+    (var prev-status bms-status)
     (setq bms-status (bufget-u8 data (if bms-use-crypto 6 4)))
+    (if (and (!= bms-status prev-status) (dbg-active DBG-BMS))
+        (dbg DBG-BMS (str-from-n bms-status "bms status 0x%02x")))
     (setq is-charging (if (= (bitwise-and bms-status 0x20) 0) 0 1))
     (setq is-battery-empty (if (= (bitwise-and bms-status 0x4) 0) 0 1))
     (setq is-battery-temp-out-of-range (if (= (bitwise-and bms-status 0x3) 0) 0 1))
@@ -249,7 +261,7 @@
                     (return (factory-init-accept))
                 })
                 (if (= handshake 1) {
-                (print "second ack")
+                (dbg DBG-BMS "bms ack2")
                     (if (!= (bufget-u16 data (if bms-use-crypto 6 4)) 1) { (return false)})
                     (send-msg "Success")
                     (return true)
@@ -284,7 +296,8 @@
             ;(print "charge state cmd")
         ;})
         (t {
-            ;(print (str-from-n command "Unknown Command: 0x%0x"))
+            (if (dbg-active DBG-BMS)
+                (dbg DBG-BMS (str-from-n command "bms cmd ? 0x%02x")))
             (return false)
         })
         )
@@ -308,7 +321,12 @@
     (looprange i 0 (length key-crc) {
         (if (and (= (ix key-crc i) key-crc-calc) (= (ix counter-crc i) counter-crc-calc)) (return true))
     })
-    (print key)
+    ; Gated: this dumps the raw AES key, so it must not appear in a console
+    ; log someone pastes into a support thread unless they asked for it.
+    (if (dbg-active DBG-BMS) {
+        (dbg DBG-BMS (str-merge "bms key crc " (to-str key-crc-calc) " " (to-str counter-crc-calc)))
+        (print key)
+    })
     (return false)
 })
 
@@ -349,7 +367,12 @@
             (if (process-packet packet) {
                 (var command (bufget-u8 packet (if bms-use-crypto 5 3))) ; Adjust for crypto/non-crypto
 
-                (print (str-from-n command "Command: %0x"))
+                ; Gated: the BMS emits packets continuously, so this line
+                ; used to print several times a second forever and made the
+                ; lisp console unusable for anything else.
+                (if (dbg-active DBG-BMS)
+                    (dbg DBG-BMS (str-merge (str-from-n command "bms cmd 0x%02x")
+                        " len " (str-from-n packet-length "%d"))))
                 (if (and (>= cmd-ack 0) (= command cmd-ack)) {
                     (var result (process-cmd command packet t handshake))
                     (free packet)
@@ -363,7 +386,12 @@
             (setq start (+ start 1)) ; Move to the next byte if magic bytes not found
         })
     })
-    (if found-packet (send-bms-can))
+    (if found-packet
+        (send-bms-can)
+        ; No magic bytes anywhere in the read: wrong pins, wrong BMS type or
+        ; the crypto/plain magic byte does not match what the BMS speaks.
+        (if (dbg-tick DBG-BMS 'bms-rx 5.0)
+            (dbg DBG-BMS (str-merge "bms no packet in " (str-from-n bytes-read "%d")))))
     (return (< cmd-ack 0));if we're looking for an ack we failed to find one
 })
 
@@ -372,22 +400,24 @@
     (sleep 1)
     (if bms-use-crypto{
         (if (< fw-num 6.06){
+            (dbg-err "bms crypto needs fw 6.06")
             (send-msg "hw-express needs to be running 6.06")
             (return false)
         })
         (load-keys)
         (if (eq (verify-keys key counter key-crc counter-crc) false){
+            (dbg-err "bms bad keys - re-pair")
             (send-msg "Invalid keys")
             (return false)
-        } {
-
         })
         (if (= bms-rs485-chip 1){
             (if (or (< bms-rs485-di-pin 0) (not-eq (first (trap (gpio-configure bms-rs485-di-pin 'pin-mode-out))) 'exit-ok)){
+                (dbg-err (str-merge "bms bad di pin " (str-from-n bms-rs485-di-pin "%d")))
                 (send-msg "Invalid Pin: bms-rs485-di-pin")
                 (return false)
             })
             (if (or (< bms-rs485-dere-pin 0) (not-eq (first (trap (gpio-configure bms-rs485-dere-pin 'pin-mode-out))) 'exit-ok)){
+                (dbg-err (str-merge "bms bad dere pin " (str-from-n bms-rs485-dere-pin "%d")))
                 (send-msg "Invalid Pin: bms-rs485-dere-pin")
                 (return false)
             })
@@ -402,15 +432,18 @@
             (setq ret (first (trap (gpio-configure bms-rs485-ro-pin 'pin-mode-in-pu))))
         })
         (if (not-eq ret 'exit-ok) {
+            (dbg-err (str-merge "bms bad ro pin " (str-from-n bms-rs485-ro-pin "%d")))
             (send-msg "Invalid Pin: rs485-ro-pin")
             (return false)
         })
     }{
+        (dbg-err "bms ro pin not set")
         (send-msg "Invalid Pin: rs485-ro-pin")
         (return false)
     })
     (if (and (= bms-charge-only 1) (>= bms-wakeup-pin 0)){
         (if (not-eq (first (trap (gpio-configure bms-wakeup-pin 'pin-mode-out))) 'exit-ok) {
+            (dbg-err (str-merge "bms bad wakeup pin " (str-from-n bms-wakeup-pin "%d")))
             (send-msg "Invalid Pin: bms-wakeup-pin")
             (return false)
         })
@@ -422,6 +455,7 @@
     (bufset-u8 magic 2 (if bms-use-crypto 0xbb 0xaa))
     (yield 100000);Gotta make sure uart is ready
     ;now we're cookin'
+    (dbg DBG-BMS "bms init ok")
     (return true)
 })
 
@@ -437,37 +471,65 @@
     (setq bms-rs485-chip (get-config 'bms-rs485-chip))
     (setq bms-loop-delay (get-config 'bms-loop-delay))
     (setq bms-charge-only (get-config 'bms-charge-only))
+    (dbg DBG-BMS (str-merge "bms type " (str-from-n bms-type "%d")
+        " chip " (str-from-n bms-rs485-chip "%d")
+        " pins " (str-from-n bms-rs485-di-pin "%d")
+        " " (str-from-n bms-rs485-ro-pin "%d")
+        " " (str-from-n bms-rs485-dere-pin "%d")
+        " " (str-from-n bms-wakeup-pin "%d")
+        " hz " (str-from-n bms-loop-delay "%d")))
 })
 
 (defunret bms-loop () {
     (load-bms-settings)
+    (if (= bms-type 0) {
+        (dbg-warn "bms type None - parked")
+        (loopwhile (not bms-exit-flag) (sleep 1))
+        (setq bms-exit-flag nil)
+        (return nil)
+    })
     (if (and (> bms-type 0) (init-bms)) {
 
         (var next-run-time (secs-since 0))  ; Set first run time
         (var loop-start-time 0)
         (var loop-end-time 0)
         (def bms-buf (bufcreate (get-config 'bms-buff-size)))
+        (if (< bms-loop-delay 1) {
+            (dbg-warn "bms bad rate, using 20Hz")
+            (setq bms-loop-delay 20)
+        })
         (var bms-loop-delay-sec (/ 1.0 bms-loop-delay))
         (loopwhile t{
+        (if (!= dbg-mask 0) (setq dbg-ticks-bms (+ dbg-ticks-bms 1)))
         (setq loop-start-time (secs-since 0))
 
             (if bms-exit-flag {
-                (break)
+                    (break)
             })
             ;lets check if there's a user command
             (if (!= bms-user-cmd -1) {
+                 (dbg DBG-BMS (str-from-n bms-user-cmd "bms user cmd 0x%02x"))
                  (if (and (= bms-rs485-chip 1) bms-use-crypto (< (secs-since bms-last-activity-time) 1)) {
                     (loopwhile (not (if (= bms-user-cmd 0x0e) (factory-init) (set-charge-state 0x00 0x01 bms-charge-state))) {(sleep 0.01)})
                  }{
                     ;error
+                    (dbg-err "bms not connected")
                     (send-msg "BMS not connected")
                  })
                  (setq bms-user-cmd -1)
             }{
                 (recv-packets -1 -1)
             })
+            (if (dbg-active DBG-BMS) {
+                (var conn (if (< (secs-since bms-last-activity-time) 1) 1 0))
+                (if (!= conn dbg-prev-bms-conn) {
+                    (setq dbg-prev-bms-conn conn)
+                    (dbg DBG-BMS (if (= conn 1) "bms up" "bms down"))
+                })
+            })
             (if (and (= bms-charge-only 1) (>= bms-wakeup-pin 0)) {
                 (if (and (> (secs-since bms-last-activity-time) bms-timeout) (< (secs-since can-last-activity-time) 1) (not (running-state))) { ;also check can bus has fresh data and float pacakge state is not running just incase someone with discharge enabled configures the bms-wakeup-button for some reason.
+                    (dbg DBG-BMS "bms wakeup pulse")
                     (gpio-write bms-wakeup-pin 1)
                     (yield 10000)
                     (gpio-write bms-wakeup-pin 0)
@@ -486,6 +548,14 @@
         })
         (free bms-buf)
         (setq bms-exit-flag nil)
+    } {
+        (dbg-warn "bms init failed - parked")
+        ; Park rather than return: spawn-with-restart would otherwise respawn
+        ; this every second forever, repeating the init errors and the "Invalid
+        ; Pin" dialog at 1 Hz. Same pattern gnss-loop already uses.
+        (loopwhile (not bms-exit-flag) (sleep 1))
+        (setq bms-exit-flag nil)
     })
+    (return t)
 })
 @const-end

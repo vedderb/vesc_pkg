@@ -39,9 +39,22 @@
 
 
 (defun set-pairing-state (new-state) {
+    ; Pairing is the single most support-heavy part of the remote, and the
+    ; state transitions are otherwise invisible - always printed.
+    (if (!= new-state pairing-state)
+        (print (str-merge "Pubmote pair state " (str-from-n new-state "%d"))))
     (setq pairing-state new-state)
     (if (not-eq pubmote-on-pairing-state nil) {
         (pubmote-on-pairing-state new-state)
+    })
+})
+
+; Connected / disconnected edge for the remote link.
+(defun dbg-rem-transitions () {
+    (var conn (pubmote-connected))
+    (if (!= conn dbg-prev-rem-conn) {
+        (setq dbg-prev-rem-conn conn)
+        (dbg DBG-REM (if (= conn 1) "rem up" "rem down"))
     })
 })
 
@@ -68,7 +81,7 @@
     (if pubmote-ble-paired {
         (print "Pubmote BLE paired with remote")
     } {
-        (print "Pubmote ESP-NOW paired with remote:" pubmote-remote-mac)
+        (print (str-merge "Pubmote ESP-NOW paired with " (to-str pubmote-remote-mac)))
     })
 
     ; Read as bytes, convert to i so we can compare lists
@@ -102,6 +115,7 @@
         ; Pairing accepted
         ((= pairing -1) {
             (if (= (length pubmote-remote-mac) 6) {
+                (print (str-merge "Pubmote paired " (to-str pubmote-remote-mac)))
                 (pubmote-set-cfg 'pubmote-remote-mac-a (pubmote-pack-u32 (take pubmote-remote-mac 4)))
                 (pubmote-set-cfg 'pubmote-remote-mac-b (pubmote-pack-u32 (append (drop pubmote-remote-mac 4) '(0 0))))
             })
@@ -136,6 +150,7 @@
         ; A zero/negative configured rate would divide-by-zero below and put
         ; the loop into a crash-restart cycle
         (if (< pubmote-loop-delay 1) {
+            (dbg-warn "rem bad rate, using 20Hz")
             (setq pubmote-loop-delay 20)
         })
         (var next-run-time (secs-since 0))
@@ -146,8 +161,10 @@
 
         (loopwhile t {
                 (if (pubmote-get-cfg 'pubmote-enabled) {
+                (if (!= dbg-mask 0) (setq dbg-ticks-rem (+ dbg-ticks-rem 1)))
                 ; Check last pubmote activity
                 (should-unlock-channel pubmote-last-activity-time)
+                (dbg-rem-transitions)
 
                 (setq loop-start-time  (secs-since 0))
 
@@ -161,7 +178,7 @@
                     (var tmpbuf (bufcreate 2))
                     (bufset-u8 tmpbuf 0 REM_PAIR_COMPLETE)
                     (bufset-u8 tmpbuf 1 pubmote-pair-complete-status)
-                    (print "Sending pairing complete message to:" pubmote-remote-mac)
+                    (dbg DBG-REM "rem pair complete tx")
                     (pubmote-send-packet pubmote-remote-mac tmpbuf nil)
                     (if (connected-ble) {
                         (pubmote-send-packet '() tmpbuf t)
@@ -231,8 +248,10 @@
                         (serialize-telemetry data (pubmote-get-telemetry))
                     })
 
-                    (if (> (- (systime) last-log-time-telemetry-tx) 2000) {
+                    (if (dbg-tick DBG-REM 'rem-tx 2.0) {
                         (setq last-log-time-telemetry-tx (systime))
+                        (dbg DBG-REM (str-merge "rem tx, last rx "
+                            (str-from-n (secs-since pubmote-last-activity-time) "%.2f")))
                     })
                     ; Push telemetry on the transport the remote paired with.
                     ; Pushing over BLE (rather than only replying to input
@@ -276,7 +295,7 @@
             (if (= (buflen data) 8) {
                 (reset-last-activity-time)
                 (setq pubmote-version (list (bufget-u8 data 5) (bufget-u8 data 6) (bufget-u8 data 7)))
-                (print (str-merge (if is-ble "Remote BLE version: " "Remote version: ") (to-str (ix pubmote-version 0)) "." (to-str (ix pubmote-version 1)) "." (to-str (ix pubmote-version 2))))
+                (print (str-merge "Pubmote remote version " (to-str pubmote-version)))
             })
         })
 
@@ -293,9 +312,12 @@
         })
 
         ((= cmd REM_SET_INPUT_STATE) {
-            (if (> (- (systime) last-log-time-telemetry-rx) 2000) {
+            (if (dbg-tick DBG-REM 'rem-in 2.0) {
                 (setq last-log-time-telemetry-rx (systime))
+                (dbg DBG-REM "rem input rx")
             })
+            (if (!= (buflen data) 17)
+                (dbg DBG-REM (str-merge "rem bad input len " (str-from-n (buflen data) "%d"))))
             (if (= (buflen data) 17) {
                 (reset-last-activity-time)
 
@@ -312,9 +334,10 @@
         })
 
         (t {
-            (if (not is-ble) {
-                (print (str-join (list "No command found: " (to-str cmd))))
-            })
+            ; Gated: an unpaired remote nearby sends these at input rate and
+            ; an ungated print floods the console.
+            (if (and (not is-ble) (dbg-active DBG-REM))
+                (dbg DBG-REM (str-merge "rem cmd ? " (to-str cmd))))
         })
     )
 })
@@ -346,19 +369,26 @@
                 ; until the pairing timeout expires.
                 (if (= cmd REM_PAIR_BOND) {
                     (if (or (= pairing-state PAIR_STATE_INITIATED) (and (= pairing-state PAIR_STATE_BONDING) (eq pubmote-remote-mac src))) {
+                        (print (str-merge "Pubmote bond req " (to-str src)))
                         (setq pubmote-remote-mac src)
                         (esp-now-add-peer pubmote-remote-mac)
                         (var tmpbuf (bufcreate 5))
                         (bufset-u8 tmpbuf 0 REM_PAIR_BOND)
                         (bufset-i32 tmpbuf 1 (pubmote-get-cfg 'pubmote-secret-code))
 
-                        (print "Responding with pairing code")
                         (pubmote-send-packet pubmote-remote-mac tmpbuf nil)
                         (free tmpbuf)
                         (esp-now-del-peer pubmote-remote-mac)
 
                         (set-pairing-state PAIR_STATE_BONDING)
                     })
+                } {
+                    ; Not our remote, or our remote with the wrong secret
+                    ; code. Distinguishing those two is exactly what people
+                    ; need when a remote "connects to the wrong board".
+                    (if (dbg-tick DBG-REM 'rem-drop 2.0)
+                        (dbg DBG-REM (str-merge "rem drop from " (to-str src)
+                            (if (eq pubmote-remote-mac src) " bad code" " bad mac"))))
                 })
             })
         })
@@ -380,7 +410,6 @@
             } {
                 ; BLE pairing request
                 (if (= cmd REM_PAIR_BOND) {
-                    (print "pubmote-ble-rx: Received REM_PAIR_BOND")
                     ; Respond while INITIATED, or while BONDING if the bond in
                     ; progress is already a BLE one (all-zeros MAC): the remote
                     ; may have missed our first response, and refusing to
@@ -388,23 +417,25 @@
                     ; timeout. The BONDING guard prevents a BLE request from
                     ; clobbering an in-progress ESP-NOW bond's MAC.
                     (if (or (= pairing-state PAIR_STATE_INITIATED) (and (= pairing-state PAIR_STATE_BONDING) (not (is-valid-espnow-mac pubmote-remote-mac)))) {
+                        (print "Pubmote bond req (BLE)")
                         (setq pubmote-remote-mac '(0 0 0 0 0 0)) ; Initialize with dummy all-zeros MAC for BLE
                         (var tmpbuf (bufcreate 5))
                         (bufset-u8 tmpbuf 0 REM_PAIR_BOND)
                         (bufset-i32 tmpbuf 1 (pubmote-get-cfg 'pubmote-secret-code))
 
-                        (print "pubmote-ble-rx: Responding with pairing code over BLE")
                         (pubmote-send-packet '() tmpbuf t)
                         (free tmpbuf)
 
                         (set-pairing-state PAIR_STATE_BONDING)
                     } {
-                        (print "pubmote-ble-rx: Ignored REM_PAIR_BOND because pairing-state != PAIR_STATE_INITIATED")
+                        (dbg DBG-REM "rem bond req ignored, wrong state")
                     })
                 })
-                ; No print for other unmatched packets: a secret-code mismatch
-                ; (remote paired to a different board) arrives at input rate
-                ; and would flood the console
+                ; Throttled: a secret-code mismatch (remote paired to a
+                ; different board) arrives at input rate, so this is gated
+                ; and rate-limited rather than printed per packet.
+                (if (and (!= cmd REM_PAIR_BOND) (dbg-tick DBG-REM 'rem-drop 2.0))
+                    (dbg DBG-REM (str-merge "rem drop ble cmd " (to-str cmd))))
             })
             (free payload)
         })

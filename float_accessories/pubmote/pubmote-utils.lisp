@@ -138,8 +138,13 @@
         ; Never attempt an ESP-NOW send to the BLE placeholder (all-zeros) MAC
         (if (and wifi-enabled-on-boot (is-valid-espnow-mac dest-mac)) {
             (mutex-lock pubmote-send-mutex)
-            (trap (esp-now-send dest-mac send-buf))
+            (var r (trap (esp-now-send dest-mac send-buf)))
             (mutex-unlock pubmote-send-mutex)
+            ; esp-now-send fails when the peer is gone or the channel moved.
+            ; The symptom is a remote that shows "connected" on the remote
+            ; side but never receives telemetry.
+            (if (and (eq (ix r 0) 'exit-error) (dbg-tick DBG-REM 'rem-txerr 2.0))
+                (dbg-warn (str-merge "rem send " (to-str (ix r 1)))))
         })
     })
     (free send-buf)

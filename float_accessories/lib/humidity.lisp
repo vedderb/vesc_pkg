@@ -10,6 +10,8 @@
 (def has-aht20 nil)
 
 (defunret init-humidity () {
+    (dbg DBG-HUM (str-merge "hum i2c sda " (str-from-n (get-config 'humidity-sda-pin) "%d")
+        " slc " (str-from-n (get-config 'humidity-slc-pin) "%d")))
     (i2c-start 'rate-400k (get-config 'humidity-sda-pin) (get-config 'humidity-slc-pin))
     (setq has-si7021 (i2c-detect-addr 0x40))
     (setq has-aht20 (i2c-detect-addr 0x38))
@@ -50,9 +52,9 @@
                 (setq hum (* (/ (bufget-u16 rx-si7021 2 'little-endian) 65536.0) 100.0))
                 (setq hum-temp (- (* (/ (bufget-u16 rx-si7021 0 'little-endian) 65536.0) 165.0) 40.5))
 
-                ;(print (str-merge "[Si7021] Humidity: " (str-from-n hum "%.2f%%")
-                ;                   ", Temp: " (str-from-n (+ (* hum-temp 1.8) 32) "%.2fF")
-                ;                   " / " (str-from-n hum-temp "%.2fC")))
+                (if (dbg-tick DBG-HUM 'hum-read 10.0)
+                    (dbg DBG-HUM (str-merge "hum " (str-from-n hum "%.1f")
+                        " " (str-from-n hum-temp "%.2f"))))
             })
 
             (if has-aht20 {
@@ -69,14 +71,21 @@
 
                 (setq hum (* (/ hum-raw 1048576.0) 100.0))
                 (setq hum-temp (- (* (/ temp-raw 1048576.0) 200.0) 50.0))
-                ;(print (str-merge "[AHT20] Humidity: " (str-from-n hum "%.2f%%")
-                ;                   ", Temp: " (str-from-n (+ (* hum-temp 1.8) 32) "%.2fF")
-                ;                   " / " (str-from-n hum-temp "%.2fC")))
+                (if (dbg-tick DBG-HUM 'hum-read 10.0)
+                    (dbg DBG-HUM (str-merge "hum " (str-from-n hum "%.1f")
+                        " " (str-from-n hum-temp "%.2f"))))
             })
             (sleep 1)
         })
         (free rx-si7021)
         (free rx-aht20)
+        (setq humidity-exit-flag nil)
+    } {
+        ; Park rather than return: spawn-with-restart would respawn this
+        ; every second, repeating the "No humidity sensor detected." dialog
+        ; at 1 Hz. Same pattern gnss-loop uses.
+        (dbg-warn "hum no sensor - parked")
+        (loopwhile (not humidity-exit-flag) (sleep 1))
         (setq humidity-exit-flag nil)
     })
 })

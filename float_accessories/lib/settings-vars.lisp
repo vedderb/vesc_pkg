@@ -7,18 +7,22 @@
 ; and persisted by the firmware. get-config/set-config in settings.lisp
 ; access it through the ext-facfg-* extensions.
 
+; Firmware version as major.minor (e.g. 6.06), set once in setup(). Global
+; because bms.lisp gates its crypto paths on it.
+(def fw-num 0.0)
+
 ; Runtime state (not persisted)
 (def bms-context-id -1)
 (def bms-exit-flag nil)
 (def humidity-exit-flag nil)
-(def bms-last-activity-time (systime))
+(def bms-last-activity-time 0)
 (def pubmote-context-id -1)
 (def led-context-id -1)
 (def led-exit-flag nil)
 (def led-reinit-flag nil)
-(def led-last-activity-time (systime))
+(def led-last-activity-time 0)
 (def can-context-id -1)
-(def can-last-activity-time (systime))
+(def can-last-activity-time 0)
 (def bms-charge-state 0) ;0 if 100, 1 if 90
 (def log-context-id -1)
 ; systime of the last live control change (brightness/on-off from the QML

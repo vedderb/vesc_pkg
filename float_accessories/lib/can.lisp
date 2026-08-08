@@ -48,91 +48,94 @@
     (COMMAND_GET_INFO . 0)
     (COMMAND_RUN_LISP . 1)
     (COMMAND_BMS_STATUS . 2)
-    (COMMAND_STATE_SYNC . 3)      ; master -> slaves: packed telemetry
-    (COMMAND_CONFIG_PUSH . 4)     ; master -> slaves: shared LED settings
-    (COMMAND_CONFIG_REQUEST . 5)  ; slave  -> master: please (re)send config
 ))
 
 (def discover-can-id -1)
-
-; CAN controller id 255 is treated as a broadcast by the firmware
-; (comm_can: `if (id == 255 || id == controller_id)`), so a single send
-; reaches every node on the bus.
-(def CAN_BROADCAST_ID 255)
-
-; Master/slave role. The role lives in the config (node-role: 0 Master,
-; 1 Slave; default Master). Anything that is not an explicit Slave counts as
-; Master, so an older config that predates this field still behaves as before.
-(defun is-master () (!= (get-config 'node-role) 1))
-
-; Behavioural LED settings the master keeps in sync across all slaves. Only
-; appearance/behaviour is shared - physical wiring (pins, LED counts, strip
-; timing, highbeam hardware) is deliberately left out so each node keeps its
-; own strip layout. (name . type) where type is 'i or 'f, matching the
-; qml-config-params convention in settings.lisp.
-(def config-sync-params '(
-    (led-on i) (led-highbeam-on i) (led-mode i) (led-mode-idle i)
-    (led-mode-startup i) (led-mode-status i) (led-mode-button i)
-    (led-mode-footpad i) (led-mall-grab-enabled i) (led-brake-light-enabled i)
-    (led-brake-light-min-amps f) (idle-timeout i) (idle-timeout-shutoff i)
-    (led-brightness f) (led-brightness-highbeam f) (led-brightness-idle f)
-    (led-brightness-status f) (led-max-brightness f)
-    (led-dim-on-highbeam-ratio f) (led-startup-timeout i)
-    (led-update-not-running i) (led-show-battery-charging i)
-    (soc-type i) (cell-type i)
-))
 
 (defun running-state (){
     (let ret (and (>= state 1) (<= state 5)))
 })
 
-; Entry point spawned by init(). Master and slave behave very differently on
-; the CAN bus, so branch once here. The role is fixed for the lifetime of the
-; loop - changing it takes effect on the next reboot.
-(defun can-loop () {
-    (if (is-master)
-        (master-can-loop)
-        (slave-can-loop))
-})
-
-; Slave: never polls the VESC. Telemetry arrives via COMMAND_STATE_SYNC and
-; the shared settings via COMMAND_CONFIG_PUSH (both handled in the event
-; thread). All we do here is ask the master for the current config on boot,
-; and keep asking while we are not hearing any state broadcasts (freshly
-; booted / just reconnected).
-(defun slave-can-loop () {
-    (print "Running as CAN slave - telemetry and shared settings come from the master")
-    (request-config)
-    (var last-request (systime))
-    (loopwhile t {
-        (if (and (> (secs-since can-last-activity-time) 3) (> (secs-since last-request) 5)) {
-            (request-config)
-            (setq last-request (systime))
+; Edge-triggered telemetry logging.
+; Only logs on change so a board sitting still produces no output, but every
+; state / fault / footpad / link transition is timestamped in the console.
+(defun dbg-can-transitions () {
+    (if (dbg-active DBG-CAN) {
+        (var conn (if (< (secs-since can-last-activity-time) 1) 1 0))
+        (if (!= conn dbg-prev-can-conn) {
+            (setq dbg-prev-can-conn conn)
+            (dbg DBG-CAN (if (= conn 1) "can up" "can down"))
         })
-        (sleep 1.0)
+        (if (!= state dbg-prev-state) {
+            (setq dbg-prev-state state)
+            (dbg DBG-CAN (str-merge "can state " (str-from-n state "%d")))
+        })
+        (if (!= switch-state dbg-prev-switch) {
+            (setq dbg-prev-switch switch-state)
+            (dbg DBG-CAN (str-merge "can sw " (str-from-n switch-state "%d")
+                " adc " (str-from-n (to-float footpad-adc1-t) "%.2f")
+                " " (str-from-n (to-float footpad-adc2-t) "%.2f")))
+        })
+    })
+    ; A fault is worth printing even with DBG-CAN off, but only on the edge.
+    (if (!= fault-code dbg-prev-fault) {
+        (setq dbg-prev-fault fault-code)
+        (if (!= fault-code 0)
+            (dbg-warn (str-merge "can fault " (str-from-n fault-code "%d")))
+            (dbg DBG-CAN "can fault clear"))
     })
 })
 
-(defun master-can-loop (){
+; Every node polls the ESC for itself. There is no master: at the two or
+; three nodes a board realistically carries, the bus cost of each asking its
+; own questions is far cheaper than the coordination a single poller needed.
+(defun can-loop (){
     (setq can-loop-delay (get-config 'can-loop-delay))
     (var next-run-time (secs-since 0))
     (var loop-start-time 0)
     (var loop-end-time 0)
     (var can-loop-delay-sec (/ 1.0 can-loop-delay))
-    (init-can)
+    ; init-can returns 1/0, and 0 is truthy in lisp - compare explicitly.
+    (if (!= (init-can) 1) (dbg-warn "can no ESC found"))
+    ; Discovery can take seconds; without this the first pass reports the
+    ; whole of it as a loop overrun.
+    (setq next-run-time (secs-since 0))
+    (var last-rediscover (secs-since 0))
     (loopwhile t {
+        (if (!= dbg-mask 0) (setq dbg-ticks-can (+ dbg-ticks-can 1)))
+
+        ; Discovery failed (or the ESC was powered up later). Keep looking,
+        ; but only with the passive probe - it reads the CAN status table and
+        ; blocks nobody. The ping sweep is never repeated here: it stalls the
+        ; whole lisp evaluator and would restart the LED stutter every 5 s.
+        (if (and (< can-id 0) (> (- (secs-since 0) last-rediscover) 5)) {
+            (setq last-rediscover (secs-since 0))
+            (var heard (can-devices-heard))
+            (if heard {
+                (dbg DBG-CAN (str-merge "can heard " (to-str heard)))
+                (if (try-can-devices heard) (finish-can-init -1))
+            })
+        })
         (setq loop-start-time  (secs-since 0))
-        (float-cmd can-id (list (assoc float-cmds 'COMMAND_GET_ALLDATA) 3))
-        (if (and refloat-humidity (get-config 'humidity-enabled)) (float-cmd can-id (list (assoc float-cmds 'COMMAND_HUMIDITY) (to-byte hum))))
+        ; Only poll once an ESC has actually been found: can-id is -1 until
+        ; then, and sending to id -1 at 20 Hz puts frames on the bus that
+        ; nothing can ack.
+        (if (>= can-id 0) {
+            (float-cmd can-id (list (assoc float-cmds 'COMMAND_GET_ALLDATA) 3))
+            (if (and refloat-humidity (get-config 'humidity-enabled)) (float-cmd can-id (list (assoc float-cmds 'COMMAND_HUMIDITY) (to-byte hum))))
+        })
 
         (if (or (>= bms-can-id 0) (< (secs-since bms-last-activity-time) 1)){
             (var prev-charging-state bms-is-charging)
             (setq bms-is-charging (and (> (get-bms-val 'bms-v-charge) 10.0) (> (abs(get-bms-val 'bms-i-in-ic)) 0.1)))
 
             (if (and bms-is-charging (not prev-charging-state)){
+                    (dbg DBG-CAN "can charger in")
                     (setq bms-charger-just-plugged t)
                     (setq bms-charger-plug-in-time (secs-since 0))
             })
+            (if (and prev-charging-state (not bms-is-charging))
+                (dbg DBG-CAN "can charger out"))
             ; Check if we're within 5 seconds of initial plug-in and charging started
             (if (not (and bms-charger-just-plugged (<= (- (secs-since 0) bms-charger-plug-in-time) 5))){
                 ; Reset the flag if more than 5 seconds have passed
@@ -150,13 +153,26 @@
             (apply-battery-config (get-config 'soc-type) (get-config 'cell-type))
         })
 
-        ; Forward the freshly polled telemetry to any slaves on the bus.
-        (broadcast-state)
+        (dbg-can-transitions)
+        (if (dbg-tick DBG-CAN 'can-tel 2.0)
+            (dbg DBG-CAN (str-merge "can age " (str-from-n (secs-since can-last-activity-time) "%.2f")
+                " vin " (str-from-n (to-float vin) "%.1f")
+                " soc " (str-from-n (* 100.0 battery-percent-remaining) "%.0f")
+                " rpm " (str-from-n (to-float rpm) "%.0f")
+                " kmh " (str-from-n (to-float speed) "%.1f")
+                " A " (str-from-n (to-float tot-current) "%.1f")
+                " duty " (str-from-n (to-float duty-cycle-now) "%.2f")
+                " fet " (str-from-n (to-float fet-temp-filtered) "%.0f")
+                " work " (str-from-n actual-loop-time "%.4f"))))
 
         (var time-to-wait (- next-run-time (secs-since 0)))
         (if (> time-to-wait 0) {
             (yield (* time-to-wait 1000000))
         } {
+            ; Overrun: the poll took longer than the configured period, so
+            ; the effective CAN rate is below what the user set.
+            (if (dbg-tick DBG-CAN 'can-overrun 5.0)
+                (dbg-warn (str-merge "can overrun " (str-from-n (- 0 time-to-wait) "%.4f"))))
             (setq next-run-time (secs-since 0))
         })
         (setq next-run-time (+ next-run-time can-loop-delay-sec))
@@ -239,49 +255,117 @@
     )
 )
 
+; --- CAN discovery --------------------------------------------------------
+;
+; Finding the ESC is staged cheapest-first, because the obvious approach is
+; expensive in a way that is invisible from lisp:
+;
+;   can-ping -> comm_can_ping() -> xSemaphoreTake(ping_sem, 10ms)
+;
+; That is a blocking wait inside a lisp extension, and extensions run on the
+; evaluator thread - so it stalls EVERY lisp thread, not just this one, for
+; up to 10 ms per probe. Sweeping 0..254 that way froze the LED loop down to
+; 2-10 Hz for the first minute after boot. The `(sleep 0.005)` that used to
+; sit between probes does not help: it yields the 5 ms it owns, but the 10 ms
+; inside can-ping is not ours to give away.
+;
+; So: stored id -> nodes we can already hear -> narrow ping scan -> full ping
+; scan. In the normal case only the first two run and nothing blocks at all.
+
+; Nodes that have sent a CAN status message. comm_can keeps that table
+; anyway, so reading it costs nothing and blocks nobody. Trapped because it
+; is the one extension here that a much older firmware might not have.
+(defun can-devices-heard () {
+    (var r (trap (can-list-devs)))
+    (if (eq (ix r 0) 'exit-ok) (ix r 1) '())
+})
+
+; Blocking ping sweep - see the note above. Yields 20 ms between probes
+; (rather than the old 5 ms) so the LED loop keeps a usable share while this
+; runs; it only runs when passive discovery has already failed, so the extra
+; wall-clock costs nothing in the common case.
+(defun can-scan-range (from to) {
+    (var found '())
+    (looprange probe-id from to {
+        (if (can-ping probe-id) {
+            (print (str-merge "Found CAN device at ID: " (str-from-n probe-id)))
+            (setq found (append found (list probe-id)))
+        })
+        (sleep 0.02)
+    })
+    found
+})
+
+; Ask each candidate whether it runs the Float/Refloat package. The answer
+; arrives asynchronously on the event thread (float-pkg-telemetry-rx), which
+; is what sets can-id in the config - so all we do here is send and wait.
+(defunret try-can-devices (ids) {
+    (loopforeach id ids {
+        (setq discover-can-id id)
+        (dbg DBG-CAN (str-merge "can probe " (str-from-n id "%d")))
+        (float-cmd id (list (assoc float-cmds 'COMMAND_GET_ALLDATA) 3))
+        (yield 500000)
+        (if (>= (get-config 'can-id) 0) (return t))
+    })
+    (return nil)
+})
+
+; Shared tail of a successful discovery.
+; float-pkg-telemetry-rx already prints "Float package found on CAN id N"
+; when it acquires, so this stays quiet.
+(defun finish-can-init (original-can-id) {
+    (var found (get-config 'can-id))
+    (if (not-eq found original-can-id) (ext-facfg-store))
+    (fetch-series-cells)
+    (float-cmd found (list (assoc float-cmds 'COMMAND_HUMIDITY)))
+    (apply-battery-config (get-config 'soc-type) (get-config 'cell-type))
+    1
+})
+
 (defunret init-can () {
-    (var can-devices '())
     (var original-can-id (get-config 'can-id ))
     (set-config 'can-id -1)
     (var init-time (systime))
-    (loopwhile (<= (secs-since init-time) 10) {
-        (if (and (>= original-can-id 0) (<= (secs-since init-time) 5)){
-            (setq can-devices (list original-can-id))
-        }{
-            ; `can-scan` is a native C function that halts LispBM for ~2.5 seconds.
-            ; We reimplement it cooperatively using `can-ping` and yielding in between
-            ; (supported on firmware 6.6 and newer).
-            (setq can-devices '())
-            (if (not (is-606-or-newer)) {
-                (setq can-devices (can-scan))
-                (loopforeach probe-id can-devices {
-                    (print (str-merge "Found CAN device at ID: " (str-from-n probe-id)))
-                })
-            } {
-                (looprange probe-id 0 254 {
-                    (if (can-ping probe-id) {
-                        (print (str-merge "Found CAN device at ID: " (str-from-n probe-id)))
-                        (setq can-devices (append can-devices (list probe-id)))
-                    })
-                    (sleep 0.005) ; 5ms cooperative yield to let LEDs run without stutter
-                })
-            })
-        })
-        (loopforeach can-id can-devices {
-            (setq discover-can-id can-id)
-            (float-cmd can-id (list (assoc float-cmds 'COMMAND_GET_ALLDATA) 3))
-            (yield 500000)
-            (if (>= (get-config 'can-id ) 0) {
-                (if (not-eq (get-config 'can-id ) original-can-id) {
-                    (ext-facfg-store)
-                })
-                (fetch-series-cells)
-                (float-cmd can-id (list (assoc float-cmds 'COMMAND_HUMIDITY)))
-                (apply-battery-config (get-config 'soc-type) (get-config 'cell-type))
-                (return 1)
-            })
-        })
+
+    ; Stage 1: the id that answered last time. One frame, no scanning.
+    (if (>= original-can-id 0) {
+        (dbg DBG-CAN (str-merge "can try stored id " (str-from-n original-can-id "%d")))
+        (if (try-can-devices (list original-can-id))
+            (return (finish-can-init original-can-id)))
     })
+
+    ; Stage 2: passive. Free, and it covers the normal case. Polled for a few
+    ; seconds because the ESC's first status message may not have arrived yet
+    ; (it also catches an ESC that powers up slightly after this module).
+    (loopwhile (< (secs-since init-time) 5) {
+        (var heard (can-devices-heard))
+        (if heard {
+            (dbg DBG-CAN (str-merge "can heard " (to-str heard)))
+            (if (try-can-devices heard)
+                (return (finish-can-init original-can-id)))
+        })
+        (sleep 0.25)
+    })
+
+    ; Stage 3: active scan - the last resort, because it stalls every lisp
+    ; thread (see can-scan-range).
+    (dbg-warn "can nothing heard, ping scanning")
+    (if (not (is-606-or-newer)) {
+        ; can-ping needs 6.06. can-scan halts LispBM for ~2.5s in one go,
+        ; but on 6.05 it is the only option.
+        (if (try-can-devices (can-scan))
+            (return (finish-can-init original-can-id)))
+    } {
+        ; Low ids first: a controller id is nearly always small, and every
+        ; probe costs ~10ms of frozen evaluator.
+        (var scanned (can-scan-range 0 32))
+        (if (try-can-devices scanned)
+            (return (finish-can-init original-can-id)))
+        (setq scanned (can-scan-range 32 254))
+        (if (try-can-devices scanned)
+            (return (finish-can-init original-can-id)))
+    })
+
     (return 0)
 })
 
@@ -289,113 +373,9 @@
     (send-data (append (list FLOAT_MAGIC) cmd) 2 can-id)
 })
 
-; --- Master/slave state + config sync -------------------------------------
-
-; Master: pack the telemetry the LED logic consumes into one frame and
-; broadcast it. Fixed 32-byte layout, get/set with the same buffer ops so
-; endianness is self-consistent. Slaves unpack it in apply-state-sync.
-(defun broadcast-state () {
-    (var b (bufcreate 32))
-    (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
-    (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_STATE_SYNC))
-    (bufset-u8 b 2 (to-byte fault-code))
-    (bufset-u8 b 3 (to-byte state))
-    (bufset-u8 b 4 (to-byte switch-state))
-    (bufset-u8 b 5 (+ (if handtest-mode 1 0)
-                      (if bms-is-charging 2 0)
-                      (if bms-charger-just-plugged 4 0)))
-    (bufset-i16 b 6 (to-i (* pitch-angle 10)))
-    (bufset-i16 b 8 (to-i (* roll-angle 10)))
-    (bufset-f32 b 10 (to-float rpm))
-    (bufset-i16 b 14 (to-i (* speed 10)))
-    (bufset-i16 b 16 (to-i (* tot-current 10)))
-    (bufset-i16 b 18 (to-i (* vin 10)))
-    (bufset-u8 b 20 (to-byte (+ 128 (to-i (* duty-cycle-now 100)))))
-    (bufset-u8 b 21 (to-byte (min 255 (to-i (* battery-percent-remaining 200)))))
-    (bufset-u8 b 22 (to-byte (to-i (* fet-temp-filtered 2))))
-    (bufset-u8 b 23 (to-byte (to-i (* motor-temp-filtered 2))))
-    (bufset-f32 b 24 (to-float distance-abs))
-    (bufset-u32 b 28 (to-u32 odometer))
-    (send-data b 2 CAN_BROADCAST_ID)
-    (free b)
-})
-
-; Slave: unpack a state frame from the master into the same telemetry vars the
-; LED loop already reads, so no LED code needs to change. Bumping
-; can-last-activity-time keeps the LED "CAN alive" checks happy.
-(defun apply-state-sync (data) {
-    (setq can-last-activity-time (systime))
-    (setq fault-code (bufget-u8 data 2))
-    (setq state (bufget-u8 data 3))
-    (setq switch-state (bufget-u8 data 4))
-    (var flags (bufget-u8 data 5))
-    (setq handtest-mode (= (bitwise-and flags 1) 1))
-    (setq bms-is-charging (= (bitwise-and flags 2) 2))
-    (setq bms-charger-just-plugged (= (bitwise-and flags 4) 4))
-    (setq pitch-angle (/ (to-float (bufget-i16 data 6)) 10))
-    (setq roll-angle (/ (to-float (bufget-i16 data 8)) 10))
-    (setq rpm (bufget-f32 data 10))
-    (setq speed (/ (to-float (bufget-i16 data 14)) 10))
-    (setq tot-current (/ (to-float (bufget-i16 data 16)) 10))
-    (setq vin (/ (to-float (bufget-i16 data 18)) 10))
-    (setq duty-cycle-now (/ (to-float (- (bufget-u8 data 20) 128)) 100))
-    (setq battery-percent-remaining (/ (to-float (bufget-u8 data 21)) 200))
-    (setq fet-temp-filtered (/ (to-float (bufget-u8 data 22)) 2))
-    (setq motor-temp-filtered (/ (to-float (bufget-u8 data 23)) 2))
-    (setq distance-abs (bufget-f32 data 24))
-    (setq odometer (bufget-u32 data 28))
-})
-
-; Master: serialize config-sync-params as a lisp list literal and broadcast it.
-; The payload is read back with (read ...) on the slave, exactly like the
-; existing COMMAND_RUN_LISP path.
-(defun push-config-to-slaves () {
-    (if (is-master) {
-        (var vals (map (fn (p)
-            (if (eq (second p) 'f)
-                (str-from-n (to-float (get-config (first p))) "%.4f")
-                (str-from-n (to-i (get-config (first p))) "%d")))
-            config-sync-params))
-        (var payload (str-merge "(" (str-join vals " ") ")"))
-        (var plen (- (buflen payload) 1)) ; drop the trailing null
-        (var b (bufcreate (+ 2 plen)))
-        (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
-        (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_CONFIG_PUSH))
-        (bufcpy b 2 payload 0 plen)
-        (send-data b 2 CAN_BROADCAST_ID)
-        (free b)
-    })
-})
-
-; Slave: apply a config list pushed by the master (same order as
-; config-sync-params), persist it and re-apply so the LED loop reinitialises
-; with the new behaviour.
-(defun apply-synced-config (vals) {
-    (if (not (is-master)) {
-        (var i 0)
-        (loopforeach p config-sync-params {
-            (var v (ix vals i))
-            (if (eq (second p) 'f)
-                (set-config (first p) (to-float v))
-                (set-config (first p) (to-i v)))
-            (setq i (+ i 1))
-        })
-        (ext-facfg-store)
-        (apply-config)
-        (send-status "Settings synced from master")
-    })
-})
-
-; Slave: broadcast a request for the master to (re)push the shared config.
-(defun request-config () {
-    (var b (bufcreate 2))
-    (bufset-u8 b 0 FLOAT_ACCESSORIES_MAGIC)
-    (bufset-u8 b 1 (assoc float-accessories-cmds 'COMMAND_CONFIG_REQUEST))
-    (send-data b 2 CAN_BROADCAST_ID)
-    (free b)
-})
-
 (defun float-accessories-command-rx (data) {
+    (if (dbg-active DBG-CMD)
+        (dbg DBG-CMD (str-merge "cmd " (to-str (cossa float-accessories-cmds (bufget-u8 data 1))))))
     (match (cossa float-accessories-cmds (bufget-u8 data 1))
         ;(COMMAND_GET_INFO {
         ;})
@@ -403,7 +383,13 @@
             (var payload-len (- (buflen data) 2))
             (var payload (bufcreate payload-len))
             (bufcpy payload 0 data 2 payload-len)
-            (eval (read payload))
+            ; Trapped and logged: a typo in a QML-sent expression used to
+            ; kill the event thread, costing a >=1s control blackout with
+            ; nothing in the console to say why.
+            (if (dbg-active DBG-CMD) (dbg DBG-CMD (str-merge "cmd " (to-str payload))))
+            (var res (trap (eval (read payload))))
+            (if (eq (ix res 0) 'exit-error)
+                (dbg-err (str-merge "cmd " (to-str (ix res 1)) " in " (to-str payload))))
             (free payload)
         })
         (COMMAND_BMS_STATUS {
@@ -414,24 +400,8 @@
             (send-data send-buffer 2 can-id)
             (free send-buffer)
         })
-        (COMMAND_STATE_SYNC {
-            ; Only a slave consumes broadcast state; a master ignores it.
-            (if (not (is-master)) (apply-state-sync data))
-        })
-        (COMMAND_CONFIG_PUSH {
-            (if (not (is-master)) {
-                (var payload-len (- (buflen data) 2))
-                (var payload (bufcreate payload-len))
-                (bufcpy payload 0 data 2 payload-len)
-                (apply-synced-config (read payload))
-                (free payload)
-            })
-        })
-        (COMMAND_CONFIG_REQUEST {
-            ; A slave asked for the shared config - only the master answers.
-            (if (is-master) (push-config-to-slaves))
-        })
-        (_ nil) ; Ignore other commands
+        (_ (if (dbg-active DBG-CMD)
+               (dbg DBG-CMD (str-merge "cmd ? " (str-from-n (bufget-u8 data 1) "%d"))))) ; Ignore other commands
     )
 })
 
@@ -441,6 +411,7 @@
     (match (cossa float-cmds (bufget-u8 data 1))
         (COMMAND_GET_ALLDATA {
             (if (or (< can-id 0) (> time-since-last-can 5000000)) {
+                (print (str-merge "Float package found on CAN id " (str-from-n discover-can-id)))
                 (set-config 'can-id discover-can-id)
                 (setq can-id discover-can-id)
                 (setq bms-can-id (get-bms-val 'bms-can-id))
@@ -456,6 +427,12 @@
                     (setq fault-code (bufget-u8 data 3))
                 }{
                     (setq fault-code 0)
+                    ; A short frame means the ESC answered with a mode the
+                    ; parser below cannot read - worth seeing, since the
+                    ; symptom is telemetry that never updates.
+                    (if (and (< (buflen data) 32) (dbg-tick DBG-CAN 'can-frame 5.0))
+                        (dbg-warn (str-merge "can short telem frame "
+                            (str-from-n (buflen data) "%d"))))
                     (if (>= (buflen data) 32) {
                         (setq roll-angle (/ (to-float (bufget-i16 data 7)) 10))
                         (var state-byte (bufget-u8 data 9))
@@ -503,7 +480,6 @@
         })
         (COMMAND_HUMIDITY {
             (setq refloat-humidity t)
-            ;(print "Refloat Humidity supported")
         })
         (_ nil)
     )

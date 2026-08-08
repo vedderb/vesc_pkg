@@ -32,17 +32,24 @@
 ; control/telemetry blackout while the restart monitor respawns it.
 (defun dispatch-trapped (name res)
     (if (eq (ix res 0) 'exit-error)
-        (print (str-merge name " error: " (to-str (ix res 1))))
+        (dbg-err (str-merge name " " (to-str (ix res 1))))
     )
 )
 
 (defun event-handler ()
     (loopwhile t
         (recv
-            ((event-esp-now-rx (? src) (? des) (? data) (? rssi))
-                (dispatch-trapped "pubmote-rx" (trap (pubmote-rx src des data rssi))))
-            ((event-data-rx . (? data))
-                (dispatch-trapped "command-rx" (trap (command-rx data))))
+            ((event-esp-now-rx (? src) (? des) (? data) (? rssi)) {
+                (if (!= dbg-mask 0) (setq dbg-ticks-evt (+ dbg-ticks-evt 1)))
+                (if (dbg-tick DBG-REM 'rem-rx 2.0)
+                    (dbg DBG-REM (str-merge "rem rx " (str-from-n (buflen data) "%d")
+                        " rssi " (str-from-n rssi "%d"))))
+                (dispatch-trapped "pubmote-rx" (trap (pubmote-rx src des data rssi)))
+            })
+            ((event-data-rx . (? data)) {
+                (if (!= dbg-mask 0) (setq dbg-ticks-evt (+ dbg-ticks-evt 1)))
+                (dispatch-trapped "command-rx" (trap (command-rx data)))
+            })
             (_ nil)
         )
     )
@@ -86,6 +93,10 @@
     ;(setq series-cells (get-config 'series-cells))
     (setq voltage-curve (get-voltage-curve cell-type))
     (print (str-merge "Cell info: type=" (str-from-n cell-type) " soc-type=" (str-from-n soc-type) " series-cells=" (str-from-n series-cells)))
+    ; A voltage-curve SoC with an unknown cell count silently reports
+    ; nonsense (vin / -1), which shows up as a stuck battery gauge.
+    (if (and (= (to-i soc-type) 1) (< series-cells 1))
+        (dbg-warn "curve SoC but cell count unknown"))
 })
 
 (defun estimate-soc (v voltage-curve) {

@@ -248,6 +248,11 @@ Item {
     property bool statusTimeout: true
     property bool readConfig: false
     property bool wasConnected: false
+    // Verbose-logging category mask, mirrored from the board. Not part of the
+    // config - it lives in RAM on the device and resets on reboot, so it is
+    // read back with (send-debug) on connect rather than from the settings
+    // string.
+    property int debugMask: 0
     property int floatPackageLastStatusTime: 0
     property int pubmoteLastStatusTime: 0
     property bool floatPackageConnected: false
@@ -3353,44 +3358,6 @@ Item {
                     }
 
                     GroupBox {
-                        title: "Node Role"
-                        Layout.fillWidth: true
-                        background: Loader { sourceComponent: cardBg }
-                        label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "Node Role" }
-                        topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            spacing: cardStyle.labelSpacing
-
-                            Text {
-                                color: fieldLabelStyle.color
-                                font.pixelSize: fieldLabelStyle.pixelSize
-                                font.bold: fieldLabelStyle.bold
-                                text: "CAN Role"
-                            }
-                            ComboBox {
-                                id: nodeRole
-                                Layout.fillWidth: true
-                                model: ["Master", "Slave"]
-                                // onActivated only fires on user interaction, not
-                                // when the loaded value is applied below, so this
-                                // never echoes the role straight back on connect.
-                                onActivated: {
-                                    sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(set-node-role " + currentIndex + ")")
-                                }
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                color: fieldLabelStyle.color
-                                font.pixelSize: fieldLabelStyle.pixelSize - 2
-                                text: "Master polls the VESC and broadcasts telemetry plus the shared lighting settings over CAN. Slaves render their own strips from the master's broadcast and do not poll the VESC. Pins, LED counts and strip timing stay local to each node. Reboot after changing the role."
-                            }
-                        }
-                    }
-
-                    GroupBox {
                         title: "State of Charge Reporting"
                         Layout.fillWidth: true
                         background: Loader { sourceComponent: cardBg }
@@ -3522,6 +3489,92 @@ Item {
                                     value: 7
                                     editable: true
                                 }
+                            }
+                        }
+                    }
+
+                    // Diagnostics. Unlike everything else on this page these
+                    // switches are NOT part of the config: they are applied
+                    // the moment they are toggled, live in RAM on the board
+                    // and reset to off on the next reboot. That is deliberate
+                    // - verbose logging is a debugging aid, not a setting.
+                    GroupBox {
+                        title: "Diagnostics"
+                        Layout.fillWidth: true
+                        background: Loader { sourceComponent: cardBg }
+                        label: Loader { sourceComponent: cardTitleLabel; onLoaded: item.title = "Diagnostics" }
+                        topPadding: cardStyle.topPadding; leftPadding: cardStyle.sidePadding; rightPadding: cardStyle.sidePadding; bottomPadding: cardStyle.bottomPadding
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: cardStyle.fieldSpacing
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: fieldLabelStyle.color
+                                font.pixelSize: fieldLabelStyle.pixelSize - 2
+                                text: "Verbose logging prints to the VESC Tool Lisp console (Dev Tools → Lisp → Console). " +
+                                      "Pick only the areas you are chasing - everything on at once is a lot of output. " +
+                                      "This is stored in RAM only: it is not saved to the config and turns itself off when the board reboots."
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                color: debugMask === 0 ? fieldLabelStyle.color : "#8fdc8f"
+                                font.pixelSize: fieldLabelStyle.pixelSize
+                                font.bold: true
+                                text: debugMask === 0
+                                      ? "Verbose logging: OFF"
+                                      : ("Verbose logging: ON (mask " + debugMask + ")")
+                            }
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: 2
+                                columnSpacing: 12
+                                rowSpacing: 0
+
+                                CheckBox { id: dbgCore;  text: "Core / threads";  onToggled: sendDebugMask() }
+                                CheckBox { id: dbgCfg;   text: "Config";          onToggled: sendDebugMask() }
+                                CheckBox { id: dbgCan;   text: "CAN / telemetry"; onToggled: sendDebugMask() }
+                                CheckBox { id: dbgLed;   text: "Lighting";        onToggled: sendDebugMask() }
+                                CheckBox { id: dbgBms;   text: "BMS";             onToggled: sendDebugMask() }
+                                CheckBox { id: dbgRem;   text: "Pubmote";         onToggled: sendDebugMask() }
+                                CheckBox { id: dbgGnss;  text: "GNSS";            onToggled: sendDebugMask() }
+                                CheckBox { id: dbgHum;   text: "Humidity";        onToggled: sendDebugMask() }
+                                CheckBox { id: dbgSdlog; text: "SD logging";      onToggled: sendDebugMask() }
+                                CheckBox { id: dbgCmd;   text: "Commands";        onToggled: sendDebugMask() }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Button {
+                                    text: "Enable All"
+                                    enabled: !statusTimeout
+                                    onClicked: { applyDebugMask(1023); sendDebugMaskValue(1023) }
+                                }
+                                Button {
+                                    text: "Disable All"
+                                    enabled: !statusTimeout
+                                    onClicked: { applyDebugMask(0); sendDebugMaskValue(0) }
+                                }
+                                Item { Layout.fillWidth: true }
+                                Button {
+                                    text: "Print Report"
+                                    enabled: !statusTimeout
+                                    onClicked: sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(diag)")
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: fieldLabelStyle.color
+                                font.pixelSize: fieldLabelStyle.pixelSize - 2
+                                text: "Print Report dumps a one-shot snapshot (versions, thread ids, CAN/BMS/GNSS state, LED segment map) to the same console. It works with logging off."
                             }
                         }
                     }
@@ -3852,6 +3905,48 @@ Item {
         mCommands.sendCustomAppData(str + '\0')
     }
 
+    // ---- Diagnostics (verbose logging) ----
+    // The checkboxes are the source of truth for the mask we send; the board
+    // echoes back what it applied and applyDebugMask() pushes that back into
+    // the checkboxes. Bit values must match the DBG-* constants in
+    // lib/debug.lisp.
+    function debugMaskFromUi() {
+        return (dbgCore.checked  ? 1   : 0)
+             | (dbgCfg.checked   ? 2   : 0)
+             | (dbgCan.checked   ? 4   : 0)
+             | (dbgLed.checked   ? 8   : 0)
+             | (dbgBms.checked   ? 16  : 0)
+             | (dbgRem.checked   ? 32  : 0)
+             | (dbgGnss.checked  ? 64  : 0)
+             | (dbgHum.checked   ? 128 : 0)
+             | (dbgSdlog.checked ? 256 : 0)
+             | (dbgCmd.checked   ? 512 : 0)
+    }
+
+    function applyDebugMask(m) {
+        debugMask = m
+        dbgCore.checked  = (m & 1)   !== 0
+        dbgCfg.checked   = (m & 2)   !== 0
+        dbgCan.checked   = (m & 4)   !== 0
+        dbgLed.checked   = (m & 8)   !== 0
+        dbgBms.checked   = (m & 16)  !== 0
+        dbgRem.checked   = (m & 32)  !== 0
+        dbgGnss.checked  = (m & 64)  !== 0
+        dbgHum.checked   = (m & 128) !== 0
+        dbgSdlog.checked = (m & 256) !== 0
+        dbgCmd.checked   = (m & 512) !== 0
+    }
+
+    function sendDebugMaskValue(m) {
+        sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(dbg-set " + m + ")")
+    }
+
+    function sendDebugMask() {
+        var m = debugMaskFromUi()
+        debugMask = m
+        sendDebugMaskValue(m)
+    }
+
     function hexStringToLispList(hexString) {
         var result = "'(";
         for (var i = 0; i < hexString.length; i += 2) {
@@ -3883,6 +3978,9 @@ Item {
                 if (!readConfig) {
                     sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-config)")
                 }
+                // The verbose-logging mask is not part of the config, so it
+                // has to be asked for separately.
+                sendCode(String.fromCharCode(102) + String.fromCharCode(1) + "(send-debug)")
             }
 
             if (str.startsWith("settings")) {
@@ -4019,8 +4117,10 @@ Item {
                 isPubmotePaired = (Number(tokens[46]) != -1);
                 pubmoteMacAddress.text = !isPubmotePaired ? "MAC: Not Paired" : (isPubmoteBle ? "Connection: BLE" : "MAC: " + macAddress.toUpperCase());
                 readConfig = true;
-            } else if (str.startsWith("node-role ")) {
-                nodeRole.currentIndex = Number(str.split(" ")[1])
+            } else if (str.startsWith("debug ")) {
+                // parseInt rather than Number: it stops at the trailing NUL
+                // the lisp string carries instead of returning NaN.
+                applyDebugMask(parseInt(str.split(" ")[1], 10) || 0)
             } else if (str.startsWith("msg")) {
                 var msg = str.substring(4)
                 VescIf.emitMessageDialog("Float Accessories", msg, false, false)

@@ -21,6 +21,9 @@
 (import "../lib_esp_led_strip/esp_led_strip/esp_led_strip_esp32p4.bin" 'esp_led-esp32p4)
 
 @const-start
+; debug.lisp first: every other module logs through it.
+(import "lib/debug.lisp" 'debug)
+(read-eval-program debug)
 (import "lib/utils.lisp" 'utils)
 (read-eval-program utils)
 (import "lib/settings-vars.lisp" 'settings-vars)
@@ -68,8 +71,16 @@
     (if (eq libs nil) {
         (exit-error (str-merge "No native libs for target " target))
     })
-    (load-native-lib (ix libs 0))
-    (load-native-lib (ix libs 1))
+    ; Trapped individually: without this a failed load shows up much later
+    ; as "undefined extension ext-facfg-get" from whichever thread touches
+    ; the config first, which points at the wrong thing entirely.
+    (var r-cfg (trap (load-native-lib (ix libs 0))))
+    (if (eq (ix r-cfg 0) 'exit-error)
+        (dbg-err (str-merge "fa_cfg load: " (to-str (ix r-cfg 1)))))
+    (var r-led (trap (load-native-lib (ix libs 1))))
+    (if (eq (ix r-led 0) 'exit-error)
+        (dbg-err (str-merge "esp_led load: " (to-str (ix r-led 1)))))
+    (dbg DBG-CORE "libs loaded")
 })
 
 (defun main () {
@@ -83,10 +94,16 @@
             (if stack-size
                 (spawn-trap stack-size func)
                 (spawn-trap func))
-            (recv   ((exit-error (? tid) (? e))
-                        (print (str-merge name " error: " (to-str e)))
-                    )
-                    ((exit-ok (? tid) (? v)) 'ok))
+            (dbg DBG-CORE (str-merge "spawn " name))
+            (recv   ((exit-error (? tid) (? e)) {
+                        ; Always printed: a worker dying is the single most
+                        ; useful thing to see, and it is followed by a >=1 s
+                        ; blackout of whatever that loop drives.
+                        (dbg-err (str-merge name " " (to-str e)))
+                    })
+                    ((exit-ok (? tid) (? v)) {
+                        (dbg DBG-CORE (str-merge "exit " name))
+                    }))
             (sleep 1.0)
         })
     ))
@@ -103,8 +120,9 @@
     (spawn (fn ()
         (loopwhile t {
             (event-register-handler (spawn-trap event-handler))
+            (dbg DBG-CORE "spawn event-handler")
             (recv   ((exit-error (? tid) (? e))
-                        (print (str-merge "event-handler error: " (to-str e)))
+                        (dbg-err (str-merge "event-handler " (to-str e)))
                     )
                     ((exit-ok (? tid) (? v)) 'ok))
             (sleep 1.0)
@@ -113,7 +131,18 @@
 })
 
 (defun setup () {
-    (var fw-num (+ (first (sysinfo 'fw-ver)) (* (second (sysinfo 'fw-ver)) 0.01)))
+    ; fw-num is a global (settings-vars.lisp): bms.lisp gates two crypto
+    ; paths on it, and as a local `var` here it was unbound by the time the
+    ; BMS loop read it.
+    (setq fw-num (+ (first (sysinfo 'fw-ver)) (* (second (sysinfo 'fw-ver)) 0.01)))
+    (print (str-merge "Float Accessories " (to-str (get-version))
+        " on " (sysinfo 'hw-target)
+        " fw " (str-from-n fw-num "%.2f")))
+
+    (setq can-last-activity-time (systime))
+    (setq bms-last-activity-time (systime))
+    (setq led-last-activity-time (systime))
+
     (spawn-event-handler-with-restart)
     (event-enable 'event-data-rx)
     (event-enable 'event-esp-now-rx)
@@ -137,6 +166,10 @@
 })
 
 (defun init () {
+    ; The heartbeat thread first, so a crash in any loop spawned below is
+    ; visible as a dead tick counter straight away.
+    (spawn-with-restart "dbg-loop" nil dbg-loop)
+
     ; Spawn the event handler thread and pass the ID it returns to C
     (if (= (get-config 'led-enabled) 1) {
         (setq led-context-id (spawn-with-restart "led-loop" nil led-loop))

@@ -14,6 +14,12 @@
     (var rx (get-config 'gnss-rx-pin))
     (var tx (get-config 'gnss-tx-pin))
 
+    (dbg DBG-GNSS (str-merge "gnss type " (str-from-n (get-config 'gnss-type) "%d")
+        " uart " (str-from-n (get-config 'gnss-uart-num) "%d")
+        " rx " (str-from-n rx "%d")
+        " tx " (str-from-n tx "%d")
+        " baud " (str-from-n (get-config 'gnss-baud) "%d")))
+
     (if (< rx 0) {
         ; Enabled but not wired up: skip init quietly (print, not send-msg)
         ; so it doesn't pop an alert dialog on every boot.
@@ -43,6 +49,23 @@
     })
 })
 
+; Fix acquired / lost is the one GNSS event worth a line, plus a throttled
+; position while a fix is held. Same fix definition the status feed uses.
+(defun dbg-gnss-fix-transitions () {
+    (var ll (gnss-lat-lon))
+    (var age (gnss-age))
+    (var fix (if (and (< age 5.0) (or (!= (ix ll 0) 0.0) (!= (ix ll 1) 0.0))) 1 0))
+    (if (!= fix dbg-prev-gnss-fix) {
+        (setq dbg-prev-gnss-fix fix)
+        (print (if (= fix 1) "GNSS fix" "GNSS fix lost"))
+    })
+    (if (and (= fix 1) (dbg-tick DBG-GNSS 'gnss-pos 10.0))
+        (dbg DBG-GNSS (str-merge "gnss " (str-from-n (ix ll 0) "%.6f")
+            " " (str-from-n (ix ll 1) "%.6f")
+            " hdop " (str-from-n (gnss-hdop) "%.1f")
+            " age " (str-from-n age "%.1f"))))
+})
+
 (defun gnss-loop () {
     (var mode (init-gnss))
     (cond
@@ -51,12 +74,29 @@
             ; sentence split by the read timeout just fails the checksum in
             ; nmea-parse and is skipped.
             (var buf (bufcreate 128))
+            (var sentences 0)
+            (var empty-reads 0)
             (loopwhile (not gnss-exit-flag) {
                 (var n (uart-read buf 127 0 10 1.0))
                 (if (> n 0) {
+                    (setq sentences (+ sentences 1))
+                    (setq empty-reads 0)
                     (bufset-u8 buf n 0)
-                    (nmea-parse buf)
+                    ; Trapped: a truncated sentence used to take the whole
+                    ; GNSS loop down through nmea-parse.
+                    (var r (trap (nmea-parse buf)))
+                    (if (eq (ix r 0) 'exit-error)
+                        (if (dbg-tick DBG-GNSS 'gnss-err 5.0)
+                            (dbg-warn (str-merge "gnss parse " (to-str (ix r 1))))))
+                    (if (dbg-tick DBG-GNSS 'gnss-nmea 5.0)
+                        (dbg DBG-GNSS (str-merge "gnss rx " (str-from-n sentences "%d"))))
+                } {
+                    (setq empty-reads (+ empty-reads 1))
+                    ; 1 s read timeout, so 10 empty reads is ~10 s of silence
+                    (if (= empty-reads 10)
+                        (dbg-warn "gnss no UART data"))
                 })
+                (dbg-gnss-fix-transitions)
             })
             (free buf)
             (uart-stop)
@@ -67,6 +107,7 @@
             ; driver itself keeps running; a restart re-inits it with the
             ; new settings.
             (loopwhile (not gnss-exit-flag) {
+                (dbg-gnss-fix-transitions)
                 (sleep 1)
             })
         })

@@ -66,12 +66,19 @@
 
 (defun log-thd (rate lst) {
     (loopwhile log-running {
-            (log-send-f32 -2 0
+            ; Trapped: one bad field expression used to kill the writer
+            ; thread silently, leaving log-running true and the UI claiming
+            ; the log was still recording.
+            (var r (trap (log-send-f32 -2 0
                 (map
                     (fn (x) (eval (ix x -1)))
                     lst
                 )
-            )
+            )))
+            (if (eq (ix r 0) 'exit-error) {
+                (dbg-err (str-merge "sdlog write " (to-str (ix r 1))))
+                (def log-running false)
+            })
             (sleep (/ 1.0 rate))
             ;(print-loglist loglist)
     })
@@ -82,11 +89,15 @@
         (stop-log)
         (def loglist loglist-local)
         (if (eq loglist nil)
-            (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
+            (progn
+                (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
+            )
 
             (progn
                 (loglist-parse -2 loglist-local 'log-config-field)
-                
+
+                (if (= (second (f-fatinfo)) 0) (dbg-warn "sdlog no SD card"))
+
                 (log-start
                     -2 ; CAN id
                     (length loglist) ; Field num
@@ -97,6 +108,8 @@
 
                 (def log-running true)
                 (def log-thd-id (spawn log-thd rate loglist))
+                (dbg DBG-SDLOG (str-merge "sdlog start " (str-from-n (length loglist) "%d")
+                    " fields " (str-from-n rate "%.1f") "Hz"))
                 (send-msg "Log Started")
         ))
 ))
@@ -109,13 +122,21 @@
                 (def log-running false)
                 (wait log-thd-id)
                 (send-msg "Log stopped")
-                (if (= (second (f-fatinfo)) 0) (send-msg "SD Card Error"))
+                (if (= (second (f-fatinfo)) 0) {
+                    (send-msg "SD Card Error")
+                })
         ))
 ))
 ; Voltage monitor thread that stops logging if the voltage drops too low
 (defun logger-monitor () {
     (loopwhile t {
-        (if  (or (and (< vin vin-min) (!= vin -1)) (and log-running (= (second (f-fatinfo)) 0))) {
+        (var low-vin (and (< vin vin-min) (!= vin -1)))
+        (var no-card (and log-running (= (second (f-fatinfo)) 0)))
+        (if (or low-vin no-card) {
+            (if log-running
+                (dbg-warn (if low-vin
+                    (str-merge "sdlog stop, vin " (str-from-n (to-float vin) "%.1f"))
+                    "sdlog stop, no SD card")))
             (stop-log)
             (sleep 1)
         })

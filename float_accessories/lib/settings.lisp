@@ -13,16 +13,23 @@
     (ext-facfg-get (sym2str name))
 )
 
-(defun set-config (name value)
+; Every write goes through here, so DBG-CFG gives a complete audit trail of
+; who changed what - the fastest way to find a setting being clobbered at
+; runtime (master push, mall-grab toggle, QML slider) rather than by the user.
+(defun set-config (name value) {
+    (if (and (dbg-active DBG-CFG) (not-eq (ext-facfg-get (sym2str name)) value))
+        (dbg DBG-CFG (str-merge "cfg " (sym2str name) " = " (to-str value))))
     (ext-facfg-set (sym2str name) value)
-)
+})
 
 (defun save-config () {
+    (dbg DBG-CFG "cfg store")
     (ext-facfg-store)
     (send-status "Settings saved")
 })
 
 (defun restore-config () {
+    (dbg-warn "cfg restore defaults")
     (ext-facfg-restore)
     (send-status "Settings restored")
 })
@@ -34,6 +41,7 @@
 ; Applies runtime feature changes after the config was edited (from VESC
 ; Tool or from lisp). Starts/stops the feature loops to match the config.
 (defun apply-config () {
+    (dbg DBG-CFG "cfg apply")
     (setq led-on (get-config 'led-on))
     (setq led-highbeam-on (get-config 'led-highbeam-on))
     (setq led-brightness (get-config 'led-brightness))
@@ -47,67 +55,92 @@
 
     ; LED loop: reinit in place when running, spawn/stop on enable change
     (if (and (>= led-context-id 0) (!= (get-config 'led-enabled) 1)) {
+        (dbg DBG-CFG "cfg stop led")
         (var start-time (systime))
         (setq led-exit-flag t)
         (loopwhile (and led-exit-flag (< (- (systime) start-time) 2000000))
             (yield 10000))
-        (if led-exit-flag (send-msg "WARNING: LED loop did not exit in time."))
+        (if led-exit-flag {
+            (dbg-warn "led loop stuck")
+            (send-msg "WARNING: LED loop did not exit in time.")
+        })
         (setq led-context-id -1)
     })
     (if (and (>= led-context-id 0) (= (get-config 'led-enabled) 1)) {
+        (dbg DBG-CFG "cfg reinit led")
         (setq led-reinit-flag t)
     })
     (if (and (= led-context-id -1) (= (get-config 'led-enabled) 1)) {
         (setq led-context-id (spawn led-loop))
+        (dbg DBG-CFG "cfg start led")
     })
 
     ; BMS loop: restart to pick up new pins/settings
     (if (>= bms-context-id 0) {
+        (dbg DBG-CFG "cfg stop bms")
         (var start-time (systime))
         (setq bms-exit-flag t)
         (loopwhile (and bms-exit-flag (< (- (systime) start-time) 2000000))
             (yield 10000))
-        (if bms-exit-flag (send-msg "WARNING: BMS loop did not exit in time."))
+        (if bms-exit-flag {
+            (dbg-warn "bms loop stuck")
+            (send-msg "WARNING: BMS loop did not exit in time.")
+        })
     })
     (setq bms-context-id (if (= (get-config 'bms-enabled) 1) (spawn bms-loop) -1))
 
     ; Humidity loop
     (if (and (>= humidity-context-id 0) (!= (get-config 'humidity-enabled) 1)) {
+        (dbg DBG-CFG "cfg stop hum")
         (var start-time (systime))
         (setq humidity-exit-flag t)
         (loopwhile (and humidity-exit-flag (< (- (systime) start-time) 2000000))
             (yield 10000))
-        (if humidity-exit-flag (send-msg "WARNING: Humidity loop did not exit in time."))
+        (if humidity-exit-flag {
+            (dbg-warn "hum loop stuck")
+            (send-msg "WARNING: Humidity loop did not exit in time.")
+        })
         (setq humidity-context-id -1)
     })
     (if (and (= humidity-context-id -1) (= (get-config 'humidity-enabled) 1)) {
         (setq humidity-context-id (spawn humidity-loop))
+        (dbg DBG-CFG "cfg start hum")
     })
 
     ; GNSS: restart to pick up new pins/type
     (if (>= gnss-context-id 0) {
+        (dbg DBG-CFG "cfg stop gnss")
         (var start-time (systime))
         (setq gnss-exit-flag t)
         (loopwhile (and gnss-exit-flag (< (- (systime) start-time) 2000000))
             (yield 10000))
-        (if gnss-exit-flag (send-msg "WARNING: GNSS loop did not exit in time."))
+        (if gnss-exit-flag {
+            (dbg-warn "gnss loop stuck")
+            (send-msg "WARNING: GNSS loop did not exit in time.")
+        })
         (setq gnss-context-id -1)
     })
     (if (= (get-config 'gnss-enabled) 1) {
         (setq gnss-context-id (spawn gnss-loop))
+        (dbg DBG-CFG "cfg start gnss")
     })
 
     ; Pubmote loop
     (if (and (>= pubmote-context-id 0) (!= (get-config 'pubmote-enabled) 1)) {
+        (dbg DBG-CFG "cfg stop rem")
         (var start-time (systime))
         (setq pubmote-exit-flag t)
         (loopwhile (and pubmote-exit-flag (< (- (systime) start-time) 2000000))
             (yield 10000))
-        (if pubmote-exit-flag (send-msg "WARNING: Pubmote loop did not exit in time."))
+        (if pubmote-exit-flag {
+            (dbg-warn "rem loop stuck")
+            (send-msg "WARNING: Pubmote loop did not exit in time.")
+        })
         (setq pubmote-context-id -1)
     })
     (if (and (= pubmote-context-id -1) (= (get-config 'pubmote-enabled) 1)) {
         (setq pubmote-context-id (spawn pubmote-loop))
+        (dbg DBG-CFG "cfg start rem")
     })
 
     ; Logging
@@ -120,18 +153,13 @@
     }{
         (stop-log)
     })
-
-    ; Master: propagate the shared LED settings to the slaves whenever the
-    ; config is (re)applied - VESC Tool edit, QML save, or a control change.
-    ; is-master guards this so a slave applying a pushed config never echoes
-    ; it back (which would otherwise loop).
-    (if (is-master) (push-config-to-slaves))
 })
 
 ; Poll for config writes from VESC Tool and apply them.
 (defun config-watch-loop ()
     (loopwhile t {
         (if (ext-facfg-changed) {
+            (dbg DBG-CFG "cfg changed in VESC Tool")
             (send-status "Settings updated")
             (apply-config)
         })
@@ -140,10 +168,8 @@
         ; sample; write the config once it has settled for ~0.75 s.
         (if (and control-store-pending (> (secs-since control-store-pending) 0.75)) {
             (setq control-store-pending nil)
+            (dbg DBG-CFG "cfg store (control settled)")
             (ext-facfg-store)
-            ; Master: propagate live on-off / brightness changes to slaves once
-            ; the slider has settled (recv-control doesn't run apply-config).
-            (if (is-master) (push-config-to-slaves))
         })
         (sleep 0.5)
     })
@@ -205,7 +231,7 @@
             (str-from-n (to-i value) "%d")
         )
     }) qml-config-params)) " "))
-    (send-node-role)
+    (send-debug)
     (send-status "Settings loaded")
 })
 
@@ -227,6 +253,7 @@
     in-led-rear-highbeam-mode in-led-rear-highbeam-pos in-led-rear-highbeam-min in-led-rear-highbeam-max
     in-gnss-enabled in-gnss-type in-gnss-rx-pin in-gnss-tx-pin in-gnss-uart-num in-gnss-rate-ms in-gnss-baud
 ) {
+    (dbg DBG-CFG "cfg write from QML")
     (set-config 'led-enabled (to-i in-led-enabled))
     (set-config 'bms-enabled (to-i in-bms-enabled))
     (set-config 'pubmote-enabled (to-i in-pubmote-enabled))
@@ -335,6 +362,12 @@
 
 ; Quick controls from the QML page (brightness / on-off), persisted.
 (defun recv-control (in-led-on in-led-highbeam-on in-led-brightness in-led-brightness-highbeam in-led-brightness-idle in-led-brightness-status in-bms-charge-state) {
+    ; Throttled: dragging a brightness slider calls this at the QML repeat
+    ; rate, and an unthrottled line here would bury everything else.
+    (if (dbg-tick DBG-CFG 'cfg-ctl 1.0)
+        (dbg DBG-CFG (str-merge "ctl on " (str-from-n (to-i in-led-on) "%d")
+            " hb " (str-from-n (to-i in-led-highbeam-on) "%d")
+            " bri " (str-from-n (to-float in-led-brightness) "%.2f"))))
     (setq led-on (to-i in-led-on))
     (setq led-highbeam-on (to-i in-led-highbeam-on))
     (setq led-brightness (to-float in-led-brightness))
@@ -362,6 +395,8 @@
 (defun bms-trigger-factory-init () {
     (if (and (= (get-config 'bms-enabled) 1) (> bms-type 1) (= bms-rs485-chip 1) ) {
         (setq bms-user-cmd 0x0e)
+    } {
+        (dbg-warn "bms factory init needs an enabled crypto BMS on an RS485 chip")
     })
 })
 
@@ -404,21 +439,6 @@
 (defun accept-tos() {
     (set-config 'accept-tos 1)
     (ext-facfg-store)
-})
-
-; Master/slave role. Sent on its own line (independent of the positional
-; settings string) so the QML page can show it without touching the legacy
-; token layout. The role only takes effect on the next reboot because
-; can-loop picks its path once at startup.
-(defun send-node-role () {
-    (send-data (str-merge "node-role " (str-from-n (to-i (get-config 'node-role)) "%d")))
-})
-
-(defun set-node-role (role) {
-    (set-config 'node-role (to-i role))
-    (ext-facfg-store)
-    (send-node-role)
-    (send-status "Node role saved - reboot to apply")
 })
 
 (defun status () {
