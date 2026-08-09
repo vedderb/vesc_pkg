@@ -605,7 +605,9 @@ static uint8_t ease_u8(uint8_t cur, uint8_t target, uint8_t fade,
 }
 
 // Render one segment into its place in the pin group's chain buffer.
-static void render_seg(esp_led_t *st, seg_t *s) {
+// Brightness is sampled once per frame under the ease lock instead of being
+// re-read here.
+static void render_seg(esp_led_t *st, const seg_t *s, uint8_t master_cur) {
 	group_t *grp = &st->group[s->group];
 	int n = s->len;
 	uint32_t *work = st->work;
@@ -615,7 +617,7 @@ static void render_seg(esp_led_t *st, seg_t *s) {
 	fx_render(s, work);
 
 	// Combined per-segment and master brightness
-	uint32_t bri = ((uint32_t)s->bri_cur * st->master_cur) / 255;
+	uint32_t bri = ((uint32_t)s->bri_cur * master_cur) / 255;
 
 	for (int i = 0; i < n; i++) {
 		uint32_t c = scale(work[i], bri);
@@ -695,31 +697,34 @@ static void render_thd(void *arg) {
 			seg_t *s = &st->seg[i];
 			s->bri_cur = ease_u8(s->bri_cur, s->bri, st->fade, elapsed);
 		}
+		uint8_t master_cur = st->master_cur;
 		VESC_IF->mutex_unlock(st->lock);
 
 		for (int gi = 0; gi < st->group_count; gi++) {
 			group_t *g = &st->group[gi];
 
-			VESC_IF->mutex_lock(st->lock);
+			// One lock hold per segment instead of one across the whole pass.
 			bool any = false;
 			for (int i = 0; i < st->seg_count; i++) {
+				VESC_IF->mutex_lock(st->lock);
 				seg_t *s = &st->seg[i];
 				if (s->defined && s->group == gi && s->len > 0
 					&& s->len <= st->buf_len) {
 					if (s->on) {
-						render_seg(st, s);
+						render_seg(st, s, master_cur);
 					} else {
 						memset(g->txbuf[g->cur] + (uint32_t)s->offset * g->colors,
 							0, (uint32_t)(s->len + s->ov_count) * g->colors);
 					}
-					// Accumulate speed so speed changes take effect
-					// in place, without moving the animation position.
+					// Accumulate speed so speed changes take effect in place,
+					// without moving the animation position.
 					uint32_t spd = s->spd ? s->spd : esp_led_SPD_DEF;
 					uint32_t inc = spd * elapsed + s->phase_rem;
 					s->phase += inc / esp_led_PHASE_REF_MS;
 					s->phase_rem = (uint8_t)(inc % esp_led_PHASE_REF_MS);
 					any = true;
 				}
+				VESC_IF->mutex_unlock(st->lock);
 			}
 			int pin = g->pin;
 			uint8_t *tx = g->txbuf[g->cur];
@@ -740,7 +745,6 @@ static void render_thd(void *arg) {
 					g->quiet_ms += elapsed;
 				}
 			}
-			VESC_IF->mutex_unlock(st->lock);
 
 			// Hardware IO outside the lock - the firmware driver can block
 			// while a previous transmission finishes. The firmware pools RMT
@@ -867,20 +871,18 @@ static lbm_value ext_seg_overlay_def(lbm_value *args, lbm_uint argn) {
 	}
 
 	int count = argn - 1;
-	uint8_t idx[esp_led_OV_MAX];
 	for (int k = 0; k < count; k++) {
 		int v = VESC_IF->lbm_dec_as_i32(args[k + 1]);
 		if (v < 0 || v >= s->len + count) {
 			VESC_IF->lbm_set_error_reason("Overlay index outside the strip");
 			return VESC_IF->lbm_enc_sym_terror;
 		}
-		idx[k] = (uint8_t)v;
 	}
 
 	VESC_IF->mutex_lock(st->lock);
 	s->ov_count = (uint8_t)count;
 	for (int k = 0; k < count; k++) {
-		s->ov_idx[k] = idx[k];
+		s->ov_idx[k] = (uint8_t)VESC_IF->lbm_dec_as_i32(args[k + 1]);
 	}
 	VESC_IF->mutex_unlock(st->lock);
 
@@ -1417,6 +1419,64 @@ static lbm_value ext_seg_auto_white(lbm_value *a, lbm_uint n) { return set_one(a
 
 // ---- Lifecycle ----------------------------------------------------------
 
+// The extension list, written once and consumed two different ways.
+//
+// On the S3 it becomes a table walked at init. That is a code-size
+// decision, and a sharp one: the S3 linker script puts .rodata in the data
+// region but .literal - where the name and function pointers of each inline
+// call land - in the *code* region (c_libs/express/link_esp32s3.ld). As a
+// table those 30 pointer pairs move to the data region, which has room to
+// spare, leaving just a short loop behind. That is 571 bytes off the code
+// region, which is the region this package actually runs out of.
+//
+// On the RISC-V targets it stays a run of inline calls. They execute in
+// place from flash with no relocation pass at load (see the XIP branch of
+// ext_load_native_lib in the firmware), so a stored function pointer would
+// keep the link-time address it was given and be wrong at runtime - GCC
+// puts a table like this in .data.rel.ro precisely because it needs
+// relocating. Inline calls materialise each pointer PC-relatively, which is
+// position independent, and those targets are not short of code space.
+#define esp_led_EXTENSIONS(X) \
+	X("ext-esp_led-seg-def", ext_seg_def) \
+	X("ext-esp_led-seg-overlay-def", ext_seg_overlay_def) \
+	X("ext-esp_led-seg-overlay", ext_seg_overlay) \
+	X("ext-esp_led-init", ext_init) \
+	X("ext-esp_led-deinit", ext_deinit) \
+	X("ext-esp_led-seg-look", ext_seg_look) \
+	X("ext-esp_led-seg-fx", ext_seg_fx) \
+	X("ext-esp_led-fx", ext_fx) \
+	X("ext-esp_led-seg-pal", ext_seg_pal) \
+	X("ext-esp_led-pal", ext_pal) \
+	X("ext-esp_led-seg-bri", ext_seg_bri) \
+	X("ext-esp_led-seg-spd", ext_seg_spd) \
+	X("ext-esp_led-seg-size", ext_seg_size) \
+	X("ext-esp_led-seg-fx-val", ext_seg_fx_val) \
+	X("ext-esp_led-seg-col", ext_seg_col) \
+	X("ext-esp_led-col", ext_col) \
+	X("ext-esp_led-seg-on", ext_seg_on) \
+	X("ext-esp_led-seg-reverse", ext_seg_reverse) \
+	X("ext-esp_led-sync", ext_sync) \
+	X("ext-esp_led-seg-sync", ext_seg_sync) \
+	X("ext-esp_led-seg-custom", ext_seg_custom) \
+	X("ext-esp_led-seg-pixel", ext_seg_pixel) \
+	X("ext-esp_led-seg-pixels", ext_seg_pixels) \
+	X("ext-esp_led-seg-palette", ext_seg_palette) \
+	X("ext-esp_led-col-rgb", ext_col_rgbw) \
+	X("ext-esp_led-col-rgbw", ext_col_rgbw) \
+	X("ext-esp_led-bri", ext_bri) \
+	X("ext-esp_led-fade", ext_fade) \
+	X("ext-esp_led-fps", ext_fps) \
+	X("ext-esp_led-seg-auto-white", ext_seg_auto_white)
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#define X(name_, fn_) {name_, fn_},
+static const struct {
+	char *name;
+	extension_fptr fn;
+} extensions[] = { esp_led_EXTENSIONS(X) };
+#undef X
+#endif
+
 static void stop(void *arg) {
 	esp_led_t *st = (esp_led_t*)arg;
 
@@ -1454,36 +1514,15 @@ INIT_FUN(lib_info *info) {
 	info->arg = st;
 	info->stop_fun = stop;
 
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-def", ext_seg_def);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-overlay-def", ext_seg_overlay_def);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-overlay", ext_seg_overlay);
-	VESC_IF->lbm_add_extension("ext-esp_led-init", ext_init);
-	VESC_IF->lbm_add_extension("ext-esp_led-deinit", ext_deinit);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-look", ext_seg_look);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-fx", ext_seg_fx);
-	VESC_IF->lbm_add_extension("ext-esp_led-fx", ext_fx);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-pal", ext_seg_pal);
-	VESC_IF->lbm_add_extension("ext-esp_led-pal", ext_pal);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-bri", ext_seg_bri);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-spd", ext_seg_spd);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-size", ext_seg_size);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-fx-val", ext_seg_fx_val);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-col", ext_seg_col);
-	VESC_IF->lbm_add_extension("ext-esp_led-col", ext_col);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-on", ext_seg_on);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-reverse", ext_seg_reverse);
-	VESC_IF->lbm_add_extension("ext-esp_led-sync", ext_sync);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-sync", ext_seg_sync);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-custom", ext_seg_custom);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixel", ext_seg_pixel);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-pixels", ext_seg_pixels);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-palette", ext_seg_palette);
-	VESC_IF->lbm_add_extension("ext-esp_led-col-rgb", ext_col_rgbw);
-	VESC_IF->lbm_add_extension("ext-esp_led-col-rgbw", ext_col_rgbw);
-	VESC_IF->lbm_add_extension("ext-esp_led-bri", ext_bri);
-	VESC_IF->lbm_add_extension("ext-esp_led-fade", ext_fade);
-	VESC_IF->lbm_add_extension("ext-esp_led-fps", ext_fps);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-auto-white", ext_seg_auto_white);
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+	for (unsigned int i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
+		VESC_IF->lbm_add_extension(extensions[i].name, extensions[i].fn);
+	}
+#else
+#define X(name_, fn_) VESC_IF->lbm_add_extension(name_, fn_);
+	esp_led_EXTENSIONS(X)
+#undef X
+#endif
 
 	VESC_IF->printf("esp_led-strip lib loaded");
 
