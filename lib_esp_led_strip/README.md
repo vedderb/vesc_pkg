@@ -6,7 +6,7 @@ Works on all Express targets (ESP32-C3, C6, S3, P4) - the package contains one b
 
 ## Test UI
 
-The package includes a VESC Tool page for testing. Each LED strip is a tab: use **+ Add** to add a strip, set its pin / LED count / type / timing, then play with effects, palettes, colour, per-strip level and RGBW auto-white (enabled only on strips with a white channel). Several strips on different pins run at once (the firmware pools the chip's RMT channels behind the pins). A **Global** tab holds master brightness and fade, plus **Sync animations** (lines up the effects on every strip, which otherwise start whenever they were set) and **Stop all**. The controls send LispBM expressions to the device as custom app data, which `esp_led_strip.lisp` evaluates. The page opens with no strips, leaving the device running whatever it already had until a strip is added.
+The package includes a VESC Tool page for testing. Each LED strip is a tab: use **+ Add** to add a strip, set its pin / LED count / type / timing, then play with effects, palettes, colour, per-strip level and RGBW auto-white (enabled only on strips with a white channel). Several strips on different pins run at once (the firmware drives them all from one re-routed RMT channel). A **Global** tab holds master brightness and fade, plus **Sync animations** (lines up the effects on every strip, which otherwise start whenever they were set) and **Stop all**. The controls send LispBM expressions to the device as custom app data, which `esp_led_strip.lisp` evaluates. The page opens with no strips, leaving the device running whatever it already had until a strip is added.
 
 ## Extensions
 
@@ -23,14 +23,14 @@ The package includes a VESC Tool page for testing. Each LED strip is a tab: use 
 | `ext-esp_led-seg-bri` | `(i bri)` | per-segment brightness 0..255 |
 | `ext-esp_led-seg-spd` | `(i spd)` | animation speed 0..255 |
 | `ext-esp_led-seg-size` | `(i size)` | chase head / comet tail length |
-| `ext-esp_led-seg-level` | `(i level)` | gauge fill level 0..255 |
+| `ext-esp_led-seg-level` | `(i level)` | gauge fill level 0..255, or the turn-signal mode on effect 17 |
 | `ext-esp_led-seg-overlay-def` | `(i idx...)` | define up to 8 fixed overlay pixel positions (e.g. embedded highbeam LEDs) before init; effect pixels flow around them. No indices clears the overlay |
 | `ext-esp_led-seg-overlay` | `(i color bri)` | overlay color and brightness at runtime (bri 0 = off) |
 | `ext-esp_led-seg-on` | `(i on)` | enable/disable a segment |
 | `ext-esp_led-seg-reverse` | `(i rev)` | reverse pixel order |
 | `ext-esp_led-sync` / `ext-esp_led-seg-sync` | `()` / `(i)` | restart animations from phase 0: every segment (all in the same frame, so segments running the same speed line up) or one segment. Changes nothing else about the segments |
 | `ext-esp_led-seg-auto-white` | `(i en)` | derive W from the common RGB part on segment `i`. Only affects 4-colour strips, and only pixels whose white byte is 0, so an explicitly set W always wins. Off by default, and reset by `ext-esp_led-seg-def` |
-| `ext-esp_led-seg-custom` | `(i)` | put segment `i` in custom mode (effect 1): a blank consumer-driven pixel buffer, so you can run your own effect while still getting brightness / channel pooling |
+| `ext-esp_led-seg-custom` | `(i)` | put segment `i` in custom mode (effect 1): a blank consumer-driven pixel buffer, so you can run your own effect while still getting brightness and the shared transmit path |
 | `ext-esp_led-seg-pixel` | `(i idx color)` | set one custom pixel (packed `0xWWRRGGBB`); enters custom mode automatically |
 | `ext-esp_led-seg-pixels` | `(i start colors)` | set consecutive custom pixels from `start`, `colors` a list of packed values; enters custom mode automatically |
 | `ext-esp_led-seg-palette` | `(i c0 c1 c2 c3)` | set segment `i`'s custom palette (4 anchor colours) and select it (palette 0), to recolour the gradient effects |
