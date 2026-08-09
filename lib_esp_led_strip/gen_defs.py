@@ -25,7 +25,7 @@ GROUPS = [
     ("PAL_",    "Palette ids (values for ext-esp_led-seg-pal / -pal)"),
     ("TYPE_",   "Pixel byte order (GRBW / RGBW are 4 bytes per pixel)"),
     ("TIMING_", "Wire timing presets"),
-    ("TURN_",   "Turn-signal modes, carried in the FX-TURN level param"),
+    ("TURN_",   "Turn-signal modes, carried in the FX-TURN fx_val param"),
 ]
 
 

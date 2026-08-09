@@ -89,13 +89,13 @@ HEADER
 enum {
 	FX_OFF = 0,   // all pixels off (ignores the colour) - the zeroed default
 	FX_CUSTOM,    // consumer-supplied pixels (ext-esp_led-seg-pixel / -pixels)
-	FX_SOLID,     // steady colour
+	FX_SOLID,     // full strip of the segment colour (or palette if colour = 0)
 	FX_BREATHE,
 	FX_CHASE,
 	FX_RAINBOW,
 	FX_SPARKLE,
 	FX_COMET,
-	FX_GAUGE,     // fill by the level param; battery gradient when color = 0
+	FX_GAUGE,     // fill by the fx_val param; battery gradient when color = 0
 	FX_STROBE,    // hard on/off flash
 	FX_LARSON,    // bouncing eye with tail (knight rider)
 	FX_FELONY,    // halves alternate red/blue
@@ -104,10 +104,10 @@ enum {
 	FX_WAVES,     // overlapping slow waves (pacifica-like)
 	FX_CANDLE,    // warm uneven flicker
 	FX_HEARTBEAT, // thump-thump double pulse
-	FX_TURN,      // turn signal - the `level` param selects the mode (see below)
+	FX_TURN,      // turn signal - the fx_val param selects the mode (see below)
 };
 
-// Turn-signal mode, carried in seg.level for the FX_TURN effect. The strip is
+// Turn-signal mode, carried in seg.fx_val for the FX_TURN effect. The strip is
 // split in half; a mode selects a side (left half / right half / both) and a
 // style (solid = steady, blink = flash on/off, sweep = fill centre -> edge).
 // Laid out so (mode-1)/3 gives the side and (mode-1)%3 gives the style.
@@ -181,7 +181,10 @@ typedef struct {
 	uint8_t bri_cur;   // eased current brightness
 	uint8_t spd;       // 0..255
 	uint8_t size;      // chase head / comet tail length
-	uint8_t level;     // gauge fill 0..255
+	// Per-effect parameter: what it means is defined by the effect reading
+	// it - the gauge fill 0..255, the turn-signal mode (see the TURN_ enum).
+	// Effects that want no parameter simply ignore it.
+	uint8_t fx_val;
 	uint16_t offset;   // pixel offset within the pin's chain
 	uint32_t color;    // packed 0xWWRRGGBB
 	uint32_t phase;    // effect position, advanced by elapsed real time
@@ -374,13 +377,13 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	} break;
 
 	case FX_GAUGE: {
-		// Fill the first level/255 of the strip. Fill color: the segment
+		// Fill the first fx_val/255 of the strip. Fill color: the segment
 		// color if set; else the palette as a gradient along the strip,
 		// revealed by the fill; else (color 0, palette 0) a battery-style
 		// gradient - red when nearly empty, green when full. spd > 0
 		// pulses the fill (e.g. while charging).
-		int lit = (n * s->level + 254) / 255;
-		if (s->level > 0 && lit < 1) lit = 1;
+		int lit = (n * s->fx_val + 254) / 255;
+		if (s->fx_val > 0 && lit < 1) lit = 1;
 		uint32_t b = s->spd ? 140 + triangle(ph / 8) * 115 / 255
 			: 255;
 		if (!s->color && s->pal) {
@@ -394,10 +397,10 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		uint32_t c;
 		if (s->color) {
 			c = s->color;
-		} else if (s->level < 51) { // < 20%: red
+		} else if (s->fx_val < 51) { // < 20%: red
 			c = 0xFF0000;
 		} else {
-			uint32_t g = ((uint32_t)s->level * 255) / 204; // level/0.8
+			uint32_t g = ((uint32_t)s->fx_val * 255) / 204; // fx_val/0.8
 			if (g > 255) g = 255;
 			c = pack(255 - g, g, 0, 0);
 		}
@@ -509,11 +512,11 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	} break;
 
 	case FX_TURN: {
-		// Turn signal. seg.level selects side + style (see the TURN_* enum);
+		// Turn signal. seg.fx_val selects side + style (see the TURN_* enum);
 		// the strip is split at the midpoint. Colour is the segment colour, or
 		// amber when none is set. Blank whenever off or the mode is invalid.
 		for (int i = 0; i < n; i++) work[i] = 0;
-		int mode = s->level;
+		int mode = s->fx_val;
 		if (mode < TURN_LEFT_SOLID || mode > TURN_HAZARD_SWEEP) {
 			break;
 		}
@@ -565,9 +568,11 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		break;
 
 	case FX_SOLID:
-	default:
-		for (int i = 0; i < n; i++) work[i] = s->color;
-		break;
+	default: {
+		uint32_t c = s->color ? s->color
+			: seg_palette_at(s,(uint8_t)(ph / 128));
+		for (int i = 0; i < n; i++) work[i] = c;
+	} break;
 	}
 }
 
@@ -824,7 +829,7 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->bri_cur = 255;
 	s->spd = esp_led_SPD_DEF;
 	s->size = 8;
-	s->level = 255;
+	s->fx_val = 255;
 	s->color = 0;
 	s->phase = 0;
 	s->phase_rem = 0;
@@ -1070,6 +1075,15 @@ static void esp_led_stop(esp_led_t *st) {
 	st->running = false;
 
 	for (int gi = 0; gi < st->group_count; gi++) {
+		group_t *g = &st->group[gi];
+		uint32_t bytes = (uint32_t)g->chain_len * g->colors;
+		if (g->txbuf[g->cur]) {
+			memset(g->txbuf[g->cur], 0, bytes);
+			VESC_IF->rgbled_update(g->pin, g->txbuf[g->cur], bytes);
+		}
+	}
+
+	for (int gi = 0; gi < st->group_count; gi++) {
 		VESC_IF->rgbled_deinit(st->group[gi].pin);
 	}
 
@@ -1128,7 +1142,7 @@ static lbm_value ext_seg_look(lbm_value *args, lbm_uint argn) {
 
 // Setters shared by the per-segment and all-segment variants. Field ids
 // keep one implementation for all the small setters.
-enum { SET_FX = 0, SET_PAL, SET_BRI, SET_SPD, SET_COLOR, SET_ON, SET_REVERSE, SET_SIZE, SET_LEVEL,
+enum { SET_FX = 0, SET_PAL, SET_BRI, SET_SPD, SET_COLOR, SET_ON, SET_REVERSE, SET_SIZE, SET_FX_VAL,
 	SET_AUTO_WHITE };
 
 static void seg_set(seg_t *s, int field, uint32_t v) {
@@ -1142,7 +1156,7 @@ static void seg_set(seg_t *s, int field, uint32_t v) {
 	case SET_ON:      s->on = v != 0; break;
 	case SET_REVERSE: s->reverse = v != 0; break;
 	case SET_SIZE:    s->size = (uint8_t)v; break;
-	case SET_LEVEL:   s->level = (uint8_t)v; break;
+	case SET_FX_VAL:  s->fx_val = (uint8_t)v; break;
 	case SET_AUTO_WHITE: s->auto_white = v != 0; break;
 	}
 }
@@ -1189,8 +1203,10 @@ static lbm_value ext_seg_spd(lbm_value *a, lbm_uint n) { return set_one(a, n, SE
 // (ext-esp_led-seg-size i size) - chase head / comet tail length
 static lbm_value ext_seg_size(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_SIZE); }
 
-// (ext-esp_led-seg-level i level) - gauge fill 0..255
-static lbm_value ext_seg_level(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_LEVEL); }
+// (ext-esp_led-seg-fx-val i v) - the selected effect's parameter: the gauge
+// fill 0..255, the turn-signal mode. Named for the slot rather than any one
+// meaning, because a magnitude and a mode selector share it.
+static lbm_value ext_seg_fx_val(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_FX_VAL); }
 
 // (ext-esp_led-seg-col i color) / (ext-esp_led-col color) - packed 0xWWRRGGBB
 static lbm_value ext_seg_col(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_COLOR); }
@@ -1451,7 +1467,7 @@ INIT_FUN(lib_info *info) {
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-bri", ext_seg_bri);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-spd", ext_seg_spd);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-size", ext_seg_size);
-	VESC_IF->lbm_add_extension("ext-esp_led-seg-level", ext_seg_level);
+	VESC_IF->lbm_add_extension("ext-esp_led-seg-fx-val", ext_seg_fx_val);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-col", ext_seg_col);
 	VESC_IF->lbm_add_extension("ext-esp_led-col", ext_col);
 	VESC_IF->lbm_add_extension("ext-esp_led-seg-on", ext_seg_on);
