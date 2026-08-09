@@ -35,7 +35,8 @@ The package includes a VESC Tool page for testing. Each LED strip is a tab: use 
 | `ext-esp_led-seg-pixels` | `(i start colors)` | set consecutive custom pixels from `start`, `colors` a list of packed values; enters custom mode automatically |
 | `ext-esp_led-seg-palette` | `(i c0 c1 c2 c3)` | set segment `i`'s custom palette (4 anchor colours) and select it (palette 0), to recolour the gradient effects |
 | `ext-esp_led-bri` | `(b)` | master brightness 0..255 |
-| `ext-esp_led-fade` | `(rate)` | brightness easing: fraction of the remaining gap closed per frame in 32nds (0 = instant, default 15 = ~47%/frame) |
+| `ext-esp_led-fade` | `(rate)` | brightness easing: fraction of the remaining gap closed per 33 ms in 32nds (0 = instant, default 15 = ~47%/33 ms) |
+| `ext-esp_led-fps` | `(n)` | target frame rate, default 30. Clamped to 5..200. Purely a smoothness / CPU trade: animation and fade speeds are held in real time, so they do not change with it |
 
 Effects: 0 off (all pixels dark, whatever the colour), 1 custom (consumer-supplied pixels via `ext-esp_led-seg-pixel` / `-pixels`), 2 solid, 3 breathe, 4 chase, 5 rainbow, 6 sparkle, 7 comet, 8 gauge (fill by `level`, pulses when `spd` > 0), 9 strobe, 10 larson/knight-rider, 11 felony (halves alternate red/blue), 12 theater (marching marquee), 13 wipe (fill then wipe to black), 14 waves (overlapping slow waves), 15 candle (warm flicker), 16 heartbeat (double pulse), 17 turn signal (splits the strip in half; `level` selects the mode - 0 off, then left/right/hazard x solid/blink/sweep as `1 + side*3 + style`; defaults to amber when no colour is set).
 
@@ -144,15 +145,18 @@ QML page has to provide its own command handling.
 (ext-esp_led-seg-fx 0 5)        ; rainbow - see the effect ids above
 ```
 
-Segments can sit on different pins. The firmware pools the chip's RMT TX channels (2 on the ESP32-C3/C6, 4 on the S3) behind the LED driver, so any number of pins works: strips that fit the pool are driven continuously, and beyond that pins share a channel and are refreshed in turn (each strip holds its last frame between refreshes). The default timing is the firmware's universal preset, which covers WS2812B / WS2815 / SK6812 / SK6815; a strip-specific preset can be picked per pin with the `timing` argument of `ext-esp_led-seg-def`.
+Segments can sit on different pins. Behind the LED driver the firmware drives every strip from a single RMT TX channel, re-routed to the target pin through the GPIO matrix on each update, so any number of pins works - the strips latch and hold their last frame between updates. The cost is that transmissions serialise: a frame's wire time is the sum over every pin group that changed (roughly 30 us per pixel), which is what a high `ext-esp_led-fps` runs into first on multi-pin setups. The firmware tracks at most 8 distinct pins at once, shared with anything else using `rgbled-init`; `ext-esp_led-init` fails with an error if a pin cannot be claimed. The default timing is the firmware's universal preset, which covers WS2812B / WS2815 / SK6812 / SK6815; a strip-specific preset can be picked per pin with the `timing` argument of `ext-esp_led-seg-def`.
 
 Frames are only transmitted when they differ from what the strip already shows (WLED-style dirty tracking), so static content keeps the data line quiet - useful on setups prone to EMF pickup. A keepalive retransmit every ~2 s heals pixels corrupted by line noise.
+
+The render loop targets 30 fps and holds that cadence: it sleeps the frame time minus the work it just did, rather than a fixed interval on top of it. Animation, fade and keepalive timing all advance by measured elapsed time, so `ext-esp_led-fps` is purely a smoothness / CPU trade - retuning it does not change how fast anything runs. It also means a frame that lands late is caught up rather than dropped, which holds real-world speed at the cost of a small jump; catch-up is capped at 250 ms so a long stall resumes the animation instead of teleporting it.
 
 ## Quirks and limitations
 
 - The library draws whatever the strips ask for: there is no current limiting, so sizing the supply (and capping brightness where it matters) is the consumer's job.
 - Overlay pixels deliberately bypass master brightness and fading - they are meant for headlights that must not dim with the effects. Turning a segment off (`ext-esp_led-seg-on i 0`) blanks its overlay pixels too.
-- The effect phase is a 32-bit frame accumulator; at maximum speed it wraps about once a week, causing a single one-frame jump in the animation.
+- The effect phase is a 32-bit accumulator advanced by elapsed time; at maximum speed it wraps about once a week, causing a single one-frame jump in the animation.
+- A very high `ext-esp_led-fps` does not guarantee that rate: the loop paces itself against the work it actually did, so long chains (transmission runs at roughly 30 us per pixel) and busy setups simply settle at whatever they can sustain. Animation speed is unaffected either way.
 - `ext-esp_led-sync` lines animations up only at the moment it is called. Segments then keep their own phase, so any difference in speed makes them drift apart again, and the position-based effects (chase, comet, larson, wipe, theater, turn sweep) still look different on strips of different lengths because their period follows the LED count.
 - The C interface has no way to destroy a mutex, so each load/unload cycle of the lib leaks one FreeRTOS mutex (~80 bytes of kernel heap). This only matters if LispBM is restarted very many times without a reboot.
 - Segments on one pin must not overlap on the chain (validated at `ext-esp_led-init`), and must share the same color depth (3 vs 4 bytes per pixel) and timing preset.

@@ -737,6 +737,26 @@ Component {
         }
     }
 
+    // Smoothness / CPU trade only: the firmware advances animations by
+    // elapsed real time, so effects run at the same speed whatever this
+    // is set to. Long strips may not reach a high setting - the loop
+    // paces itself against the work it actually did.
+    Label { text: "Frame rate" }
+    Loader {
+        sourceComponent: customValueSlider
+        Layout.fillWidth: true
+        onLoaded: {
+            item.from = 5; item.to = 120; item.value = 30
+            item.formatValue = function(val) { return val.toFixed(0) + " fps" }
+            item.valueChanged.connect(function() {
+            queueSend("fps", "(ext-esp_led-fps " + item.value.toFixed(0) + ")")
+        })
+        item.interactionReleased.connect(function() {
+        queueSend("fps", "(ext-esp_led-fps " + item.value.toFixed(0) + ")")
+    })
+}
+    }
+
 }
 }
 
