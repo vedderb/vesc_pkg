@@ -34,6 +34,7 @@
         <file>mt6701_config/mt6701_config.vescpkg</file>
         <file>dash_esc/dash_esc.vescpkg</file>
         <file>vesc_scooter_support/vesc_scooter_support.vescpkg</file>
+        <file>lib_esp_led_strip/esp_led_strip.vescpkg</file>
    </qresource>
 </RCC>
 
