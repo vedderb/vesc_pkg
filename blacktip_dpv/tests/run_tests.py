@@ -6,6 +6,7 @@ Tests pure functions to catch regressions before flashing hardware
 
 import struct
 import sys
+from pathlib import Path
 
 # Test counters
 test_passes = 0
@@ -91,6 +92,52 @@ def calculate_rpm(speed_index, divisor, max_erpm=50000):
         return -base_rpm
     else:
         return base_rpm
+
+
+# Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
+# zero denotes a stable release.
+SPEED_OFF = 99
+def firmware_supports_shutdown(fw_ver):
+    if fw_ver is None or len(fw_ver) < 3:
+        return False
+    major, minor, patch = fw_ver[:3]
+    return major > 7 or (major == 7 and
+                         (minor > 0 or (minor == 0 and (patch == 0 or patch >= 2))))
+
+
+def five_click_shutdown_rejection_reason(state):
+    if state['enable_five_click_shutdown'] != 1:
+        return 'feature disabled'
+    if state['hw_name'] != '60_MK5':
+        return 'hardware is not 60_MK5'
+    if not firmware_supports_shutdown(state['fw_ver']):
+        return 'unsupported pre-release firmware build'
+    if state['speed'] != SPEED_OFF:
+        return 'commanded speed is not off'
+    return None
+
+
+def request_five_click_shutdown_simulate(state):
+    """Return shutdown call count for the immediate stopped-state decision."""
+    return 0 if five_click_shutdown_rejection_reason(state) is not None else 1
+
+
+def migrate_eeprom_v3(eeprom, stored_version):
+    """Mirror only the layered v3 migration relevant to an existing schema."""
+    result = dict(eeprom)
+    if stored_version < 3:
+        result[32] = 0
+        result[127] = 3
+    return result
+
+
+def receive_settings_simulate(eeprom, payload):
+    if len(payload) < 33:
+        return False, dict(eeprom)
+    result = dict(eeprom)
+    for index, value in enumerate(payload[:33]):
+        result[index] = value
+    return True, result
 
 # =============================================================================
 # Test Suites
@@ -583,6 +630,135 @@ def test_state_metrics_reset():
               "state_metrics_reset: idempotent — second call still gives 'startup'")
 
 
+def test_five_click_settings_and_migration():
+    print("\n=== Testing five-click setting persistence and migration ===")
+
+    defaults = bytes([0] * 33)
+    assert_eq(defaults[32], 0, "five-click setting: default disabled")
+
+    eeprom = {index: (index * 7) % 256 for index in range(32)}
+    before = dict(eeprom)
+    migrated = migrate_eeprom_v3(eeprom, 2)
+    assert_eq(migrated[32], 0, "EEPROM v3: slot 32 initialized disabled")
+    assert_eq({index: migrated[index] for index in range(32)}, before,
+              "EEPROM v3: slots 0-31 preserved")
+    assert_eq(migrated[127], 3, "EEPROM v3: schema marker advanced to 3")
+
+    current = bytes(list(range(32)) + [1])
+    accepted, received = receive_settings_simulate(migrated, current)
+    assert_eq(accepted, True, "settings receive: 33-byte buffer accepted")
+    assert_eq(received[32], 1, "settings receive: slot 32 round-trips enabled")
+
+    accepted, rejected = receive_settings_simulate(received, bytes(32))
+    assert_eq(accepted, False, "settings receive: buffer shorter than 33 rejected")
+    assert_eq(rejected, received, "settings receive: rejected buffer changes nothing")
+
+
+def _safe_shutdown_state():
+    return {
+        'enable_five_click_shutdown': 1,
+        'hw_name': '60_MK5',
+        'fw_ver': (7, 0, 2),
+        'speed': SPEED_OFF,
+    }
+
+
+def test_five_click_shutdown_decision():
+    print("\n=== Testing five-click shutdown safety decision ===")
+    safe = _safe_shutdown_state()
+
+    cases = [
+        ('feature disabled', 'enable_five_click_shutdown', 0),
+        ('non-MK5 hardware', 'hw_name', '60'),
+        ('unsupported beta 1 firmware', 'fw_ver', (7, 0, 1)),
+        ('speed not off', 'speed', 4),
+    ]
+    for name, key, value in cases:
+        state = dict(safe)
+        state[key] = value
+        assert_eq(request_five_click_shutdown_simulate(state), 0,
+                  f"five clicks: {name} does not request shutdown")
+
+    assert_eq(request_five_click_shutdown_simulate(safe), 1,
+              "five clicks: valid stopped MK5 requests shutdown exactly once")
+    stable = dict(safe, fw_ver=(7, 0, 0))
+    assert_eq(request_five_click_shutdown_simulate(stable), 1,
+              "firmware guard: stable 7.00 is supported")
+    assert_eq(firmware_supports_shutdown((7, 1, 0)), True,
+              "firmware guard: later 7.x release supported")
+    assert_eq(firmware_supports_shutdown((7, 0)), False,
+              "firmware guard: missing build component fails safe")
+
+
+def test_click_and_beep_regressions():
+    print("\n=== Testing click and beep regressions ===")
+    # Existing stopped-state actions: 1=no-op, 2=start, 3=jump, 4=untangle.
+    actions = {1: 'no-op', 2: 'start', 3: 'jump', 4: 'untangle', 5: 'shutdown'}
+    assert_eq([actions[count] for count in range(1, 5)],
+              ['no-op', 'start', 'jump', 'untangle'],
+              "click actions: one through four unchanged")
+    assert_eq(actions.get(6, 'unsupported'), 'unsupported',
+              "click actions: six or more remain unsupported")
+
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+    assert_eq('(define CLICKS_SHUTDOWN 5)' in source, True,
+              "click namespace: shutdown count is five")
+    assert_eq('(define BEEP_SMART_CRUISE_CHANGE 5)' in source, True,
+              "beep namespace: Smart Cruise event remains five")
+    assert_eq("(setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)" in source, True,
+              "Smart Cruise beep behaviour uses separated event constant")
+    assert_eq('(shutdown true)' in source, True,
+              "shutdown action: hardware shutdown extension used")
+    assert_eq('(str-cmp hw_name "60_MK5")' in source, True,
+              "shutdown capability: runtime recognizes the reported MK5 hardware name")
+    assert_eq('(shutdown-hold ' in source, False,
+              "shutdown action: shutdown-hold is never called")
+
+    shutdown_start = source.index('(defun request_five_click_shutdown')
+    shutdown_end = source.index('; Settings initialization', shutdown_start)
+    shutdown_source = source[shutdown_start:shutdown_end]
+    confirmation_steps = [
+        "(setvar 'disp_num DISPLAY_OFF)",
+        '(foc-beep 700 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 575 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 450 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 325 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(shutdown true)',
+    ]
+    confirmation_positions = [shutdown_source.index(step) for step in confirmation_steps]
+    assert_eq(confirmation_positions, sorted(confirmation_positions),
+              "shutdown confirmation: power symbol and descending tones precede shutdown")
+
+    readme_source = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
+    assert_eq('**Version:** 1.5.0' in readme_source, True,
+              "package version: README declares 1.5.0")
+    assert_eq('OFF&#95;AFTER&#95;' in readme_source, True,
+              "README rendering: shutdown settings use Qt-safe underscores")
+    assert_eq('blacktip\\_dpv' in readme_source, False,
+              "README rendering: package filenames do not use broken backslash escapes")
+    assert_eq('\\* this model' in readme_source, False,
+              "README rendering: Bluetooth note does not use a broken star escape")
+    assert_eq('\u2705' in readme_source, False,
+              "README rendering: unsupported check-mark glyphs are absent")
+
+    ui_source = (Path(__file__).resolve().parents[1] / 'ui.qml').read_text()
+    assert_eq(ui_source.count('new ArrayBuffer(33)'), 3,
+              "QML settings: write and both reset buffers are 33 bytes")
+    assert_eq(ui_source.count('setUint8(32, 0)'), 2,
+              "QML defaults: Blacktip and CudaX disable five-click shutdown")
+    payload_guard = 'if (dv.byteLength < 31)'
+    first_settings_read = 'hardware_configuration.currentIndex =  dv.getUint8(19)'
+    assert_eq(payload_guard in ui_source and
+              ui_source.index(payload_guard) < ui_source.index(first_settings_read), True,
+              "QML settings: truncated baseline payload is rejected before any reads")
+    assert_eq('dv.byteLength > 32 && dv.getUint8(32) === 1' in ui_source, True,
+              "QML settings: missing slot 32 safely defaults shutdown to disabled")
+    assert_eq('params.hw === "60_MK5"' in ui_source, True,
+              "QML shutdown capability: VESC Tool MK5 hardware name is recognized")
+    assert_eq('enabled: fiveClickShutdownHardwareSupported && fiveClickShutdownFirmwareSupported' in ui_source,
+              True, "QML shutdown option: unsupported hardware or firmware disables it")
+
+
 # =============================================================================
 # Test Runner
 # =============================================================================
@@ -605,6 +781,9 @@ def run_all_tests():
     test_i2c_init_sequence()
     test_blacktip_display_timeout_sequence()
     test_state_metrics_reset()
+    test_five_click_settings_and_migration()
+    test_five_click_shutdown_decision()
+    test_click_and_beep_regressions()
 
     print("\n══════════════════════════════════════════")
     print(f"  Results: {test_passes} passed, {test_failures} failed")

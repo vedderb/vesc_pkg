@@ -51,6 +51,8 @@ Item {
 
     property string detectedHardwareModel: "<unknown>"
     property string possibleScooterModels: ""
+    property bool fiveClickShutdownHardwareSupported: false
+    property bool fiveClickShutdownFirmwareSupported: false
 
     Component.onCompleted: {
         mCommands.emitEmptySetupValues()
@@ -730,6 +732,10 @@ Item {
         }
 
         detectedHardwareModel = params.hw
+        fiveClickShutdownHardwareSupported = params.hw === "60_MK5"
+        fiveClickShutdownFirmwareSupported = params.major > 7 ||
+                (params.major === 7 && (params.minor > 0 ||
+                (params.minor === 0 && (params.isTestFw === 0 || params.isTestFw >= 2))))
 
         if (detectedHardwareModel == "410") {
             possibleScooterModels = "\n- " + const_SCOOTER_MODELS[2]
@@ -787,7 +793,7 @@ Item {
             return
         }
 
-        var buffer = new ArrayBuffer(32)
+        var buffer = new ArrayBuffer(33)
         var da = new DataView(buffer)
 
         da.setUint8(0, reverse_speed.realValue)
@@ -822,13 +828,14 @@ Item {
         da.setUint8(29, debug_enabled.checked ? 1 : 0)
         da.setUint8(30, enable_battery_imbalance_detection.checked ? Math.round(battery_imbalance_threshold.realValue * 100) : 0)
         da.setUint8(31, receivedAdcMultiplierX10) // Balance-wire ADC multiplier x10 (5.0..25.5x, default 16.2x)
+        da.setUint8(32, enable_five_click_shutdown.checked ? 1 : 0)
         mCommands.sendCustomAppData(buffer)
 
         console.log("Sent values")
     }
 
     function reset_defaults_blacktip() {
-        var buffer1 = new ArrayBuffer(32)
+        var buffer1 = new ArrayBuffer(33)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
         da1.setUint8(1, 20)
@@ -862,6 +869,7 @@ Item {
         da1.setUint8(29, 0) // Debug enabled default: off
         da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
         da1.setUint8(31, 162) // Balance-wire ADC multiplier x10 default: 162 = 16.2x (measured on reference Blacktip)
+        da1.setUint8(32, 0) // Five-click deep shutdown default: off
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/master/datatypes.h
@@ -936,7 +944,7 @@ Item {
     }
 
     function reset_defaults_cudax() {
-        var buffer1 = new ArrayBuffer(32)
+        var buffer1 = new ArrayBuffer(33)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
         da1.setUint8(1, 10)
@@ -970,6 +978,7 @@ Item {
         da1.setUint8(29, 0) // Debug enabled default: off
         da1.setUint8(30, 200) // Battery imbalance threshold default: 200 cV = 2.00 V (enabled)
         da1.setUint8(31, 162) // Balance-wire ADC multiplier x10 default: 162 = 16.2x (measured on reference Blacktip)
+        da1.setUint8(32, 0) // Five-click deep shutdown default: off
         mCommands.sendCustomAppData(buffer1)
 
         // All available settings here https://github.com/vedderb/bldc/blob/f6b06bc9f8d02d2ba262166127c3f2ffaedbb17e/datatypes.h#L369
@@ -1053,6 +1062,10 @@ Item {
 
         function onCustomAppDataReceived (data) {
             var dv = new DataView(data)
+            if (dv.byteLength < 31) {
+                console.warn("Settings payload too short:", dv.byteLength)
+                return
+            }
             loading_values = true;
 
             hardware_configuration.currentIndex =  dv.getUint8(19) // set first so U spinbox range is opened up for cuda x
@@ -1093,6 +1106,7 @@ Item {
                 receivedAdcMultiplierX10 = dv.getUint8(31)
                 adc_balance_wire_multiplier.realValue = receivedAdcMultiplierX10 / 10.0
             }
+            enable_five_click_shutdown.checked = dv.byteLength > 32 && dv.getUint8(32) === 1
 
             ramp_rate.realValue = mMcConf.getParamDouble("s_pid_ramp_erpms_s")
             battery_ah.realValue = mMcConf.getParamDouble("si_battery_ah")
@@ -1506,6 +1520,37 @@ Item {
                     font.pixelSize: 11
                     text: "Converts the balance-wire pin voltage to the lower-pack voltage. The default (16.2x) is correct for stock hardware. To verify or fine-tune: enable Debug Logging below, then in the VESC Tool log watch the periodic 'Balance:' lines and compare the 'lower(slot2)' reading to a multimeter measurement at the slot-2 battery terminals. Adjust this value until they match."
                     visible: enable_battery_imbalance_detection.checked
+                }
+
+                CheckBox {
+                    id: enable_five_click_shutdown
+                    Layout.fillWidth: true
+                    text: "Enable five-click deep shutdown (MK5 only)"
+                    checked: false
+                    enabled: fiveClickShutdownHardwareSupported && fiveClickShutdownFirmwareSupported
+                    onClicked: {
+                        batteryDialog.valuesChanged()
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    visible: fiveClickShutdownHardwareSupported && fiveClickShutdownFirmwareSupported
+                    text: "Read the hardware-modification and dry-test instructions in the package README before enabling this option. It requires a Flipsky Mini V6 MK5, stable firmware 7.00 (or 7.00 BETA 2 or newer), and the phantom-button jumper between the BLACK and YELLOW wires. After battery insertion the scooter starts powered off; spin the prop to wake it."
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: 11
+                    visible: !fiveClickShutdownHardwareSupported || !fiveClickShutdownFirmwareSupported
+                    text: !fiveClickShutdownHardwareSupported
+                            ? "Unavailable: the detected controller hardware is not 60_MK5. Any stored enabled value is ignored by the controller."
+                            : "Unavailable: stable firmware 7.00 (or 7.00 BETA 2 or newer) is required. Any stored enabled value is ignored by the controller."
                 }
             }
         }
