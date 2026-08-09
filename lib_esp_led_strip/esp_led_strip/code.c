@@ -107,7 +107,8 @@ enum {
 
 // A palette is 4 anchor colors, interpolated across pos 0..255. The
 // PAL_<NAME> tag on each row is the canonical id; gen_defs.py mirrors it into
-// esp_led_defs.lisp, with the row's position as the value. Keep tags unique
+// esp_led_defs.lisp as the row's position + 1, because seg_palette_at()
+// reserves 0 for the segment's custom palette (see there). Keep tags unique
 // and the rows in id order.
 typedef struct { uint32_t c[4]; } palette_t;
 static const palette_t palettes[] = {

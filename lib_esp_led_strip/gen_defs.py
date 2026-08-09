@@ -8,7 +8,8 @@ enums. Run `make defs` in this directory; the package build runs it too.
 
 Sources parsed from code.c:
   - the FX_ / TYPE_ / TIMING_ / TURN_ enums (values follow C rules)
-  - the palettes[] table, one PAL_<NAME> per row (index = row position)
+  - the palettes[] table, one PAL_<NAME> per row (id = row position + 1, see
+    parse_palettes)
 """
 
 import re
@@ -21,7 +22,7 @@ OUT = HERE / "esp_led_defs.lisp"
 # Exported groups, in output order: (C prefix, section header).
 GROUPS = [
     ("FX_",     "Effect ids"),
-    ("PAL_",    "Palette ids (index into the palettes[] table)"),
+    ("PAL_",    "Palette ids (values for ext-esp_led-seg-pal / -pal)"),
     ("TYPE_",   "Pixel byte order (GRBW / RGBW are 4 bytes per pixel)"),
     ("TIMING_", "Wire timing presets"),
     ("TURN_",   "Turn-signal modes, carried in the FX-TURN level param"),
@@ -56,16 +57,23 @@ def parse_enums(text):
 
 
 def parse_palettes(text):
-    """{PAL_NAME: (index, comment)} in array order."""
+    """{PAL_NAME: (id, comment)} in array order.
+
+    The ids are what ext-esp_led-seg-pal takes, NOT the raw row positions:
+    seg_palette_at() reserves 0 for the segment's custom palette and maps
+    1..N onto palettes[id - 1], so a row's id is its position + 1.
+    """
     block = re.search(r"palettes\[\]\s*=\s*\{(.*?)\};", text, flags=re.S)
     out = {}
     if block:
-        idx = 0
+        idx = 1
         for line in block.group(1).splitlines():
             m = re.search(r"//\s*(PAL_\w+)\s*(.*)", line)
             if m:
                 out[m.group(1)] = (idx, m.group(2).strip())
                 idx += 1
+        out["PAL_CUSTOM"] = (
+            0, "4 anchor colours set with ext-esp_led-seg-palette")
     return out
 
 
