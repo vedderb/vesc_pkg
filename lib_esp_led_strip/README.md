@@ -12,7 +12,7 @@ The package includes a VESC Tool page for testing. Each LED strip is a tab: use 
 
 | Extension | Args | Notes |
 |---|---|---|
-| `ext-esp_led-seg-def` | `(i pin type len [offset] [timing])` | define segment `i` (type: 0 GRB, 1 RGB, 2 GRBW, 3 RGBW, 4 WRGB - white first, e.g. WS2814. Types 2+ are 4 bytes per pixel). Segments on the same pin form one chained strip; `offset` is the segment's pixel position in the chain. `timing` selects the wire timing: 0 generic (default), 1 WS2812B, 2 WS2815, 3 SK6812, 4 SK6815 |
+| `ext-esp_led-seg-def` | `(i pin type len [offset] [timing])` | define segment `i` (type: 0 GRB, 1 RGB, 2 GRBW, 3 RGBW, 4 WRGB - white first, e.g. WS2814. Types 2+ are 4 bytes per pixel). Segments on the same pin form one chained strip; `offset` is the segment's pixel position in the chain. `timing` selects the wire timing: 0 generic (default), 1 WS2812B, 2 WS2815, 3 SK6812, 4 SK6815. A new segment starts at brightness 0, so it stays dark until you set one - the render thread starts at `ext-esp_led-init`, and anything else would light the strip at full brightness until your first appearance update lands |
 | `ext-esp_led-init` | `(n)` | start rendering the first `n` segments |
 | `ext-esp_led-deinit` | `()` | blank the strips, stop rendering and release the LED driver. The blank matters because the pixels latch: releasing a pin on its own would leave them lit on their last frame |
 | `ext-esp_led-seg-look` | `(i fx pal color spd bri)` | full appearance in one call |

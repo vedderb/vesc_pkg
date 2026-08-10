@@ -829,8 +829,8 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->auto_white = false;
 	s->fx = FX_SOLID;
 	s->pal = 1; // Spectrum (0 is the custom palette, empty by default)
-	s->bri = 255;
-	s->bri_cur = 255;
+	s->bri = 0;
+	s->bri_cur = 0;
 	s->spd = esp_led_SPD_DEF;
 	s->size = 8;
 	s->fx_val = 255;
