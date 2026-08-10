@@ -54,7 +54,7 @@ Item {
                 readonly property int defSpeed: 32
                     readonly property int defSize: 8
                         readonly property int defFxVal: 255
-                            readonly property int defBri: 255
+                            readonly property int defBri: 0
                             readonly property bool defAutoWhite: false
                             readonly property bool defReverse: false
 
@@ -126,7 +126,7 @@ Item {
                                     pin: pin, len: len, ledType: type, timing: timing, offset: offset,
                                     fx: defFx, pal: defPal,
                                     w: 0, r: 255, g: 0, b: 0,
-                                    speed: defSpeed, size: defSize, fxVal: defFxVal, bri: defBri,
+                                    speed: defSpeed, size: defSize, fxVal: defFxVal, bri: 255,
                                     autoWhite: defAutoWhite, reverse: defReverse
                                 }
                             }
