@@ -187,11 +187,6 @@ typedef struct {
 	uint8_t fx_val;
 	uint16_t offset;   // pixel offset within the pin's chain
 	uint32_t color;    // packed 0xWWRRGGBB - the target
-	// Eased current colour, and the per-segment rate that gets it there. Same
-	// units as the brightness fade (32nds of the gap closed per PHASE_REF_MS),
-	// and 0 - the default - means colour changes land instantly, so a segment
-	// behaves exactly as it did before a consumer opts in. Rendering reads
-	// color_cur; everything that sets an appearance writes color.
 	uint32_t color_cur;
 	uint8_t color_fade;
 	uint32_t phase;    // effect position, advanced by elapsed real time
