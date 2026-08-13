@@ -144,14 +144,11 @@ static bool set_cfg(uint8_t *buffer) {
 }
 
 // Called for COMM_GET_CUSTOM_CONFIG_XML. data_exampleconfig_ is the compiled
-// settings.xml emitted into confxml.c.
-//
-// Note: unlike the STM32 example (c_libs/examples/config), no PROG_ADDR is
-// added here. On the Express the lib is either executed in place with
-// PC-relative addressing (RISC-V) or relocated at load time (esp32s3), so the
-// address of the array is already correct at runtime.
+// settings.xml emitted into confxml.c. No PROG_ADDR here, unlike the STM32
+// example (c_libs/examples/config), but a plain &sym does not work either - it is
+// defined in another file, so it needs VESC_LIB_SYM_ADDR.
 static int get_cfg_xml(uint8_t **buffer) {
-	*buffer = data_exampleconfig_;
+	*buffer = VESC_LIB_SYM_ADDR(data_exampleconfig_);
 	return DATA_EXAMPLECONFIG__SIZE;
 }
 
