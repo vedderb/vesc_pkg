@@ -186,7 +186,9 @@ typedef struct {
 	// Effects that want no parameter simply ignore it.
 	uint8_t fx_val;
 	uint16_t offset;   // pixel offset within the pin's chain
-	uint32_t color;    // packed 0xWWRRGGBB
+	uint32_t color;    // packed 0xWWRRGGBB - the target
+	uint32_t color_cur;
+	uint8_t color_fade;
 	uint32_t phase;    // effect position, advanced by elapsed real time
 	uint8_t phase_rem; // sub-unit phase carried between frames (render_thd)
 
@@ -330,7 +332,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 	switch (s->fx) {
 	case FX_BREATHE: {
 		uint32_t b = triangle(ph / 4);
-		uint32_t c0 = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
+		uint32_t c0 = s->color_cur ? s->color_cur : seg_palette_at(s,(uint8_t)(ph / 128));
 		uint32_t c = scale(c0, b);
 		for (int i = 0; i < n; i++) work[i] = c;
 	} break;
@@ -341,7 +343,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			int d = i - head;
 			if (d < 0) d += n;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
-			uint32_t c = s->color ? s->color
+			uint32_t c = s->color_cur ? s->color_cur
 				: seg_palette_at(s,(uint8_t)((i * 255) / (n ? n : 1)));
 			work[i] = scale(c, b);
 		}
@@ -358,7 +360,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		for (int i = 0; i < n; i++) {
 			// Deterministic twinkle from phase + index
 			uint32_t h = ((uint32_t)i * 2654435761u) ^ ((ph / 128) * 40503u);
-			uint32_t c = s->color ? s->color
+			uint32_t c = s->color_cur ? s->color_cur
 				: seg_palette_at(s,(uint8_t)(h >> 16));
 			work[i] = ((h >> 8) & 0xFF)
 				< ((uint32_t)(s->spd ? s->spd : esp_led_SPD_DEF) / 2 + 1) ? c : 0;
@@ -371,7 +373,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			int d = head - i;
 			if (d < 0) d += n;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
-			uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 32));
+			uint32_t c = s->color_cur ? s->color_cur : seg_palette_at(s,(uint8_t)(ph / 32));
 			work[i] = scale(c, b);
 		}
 	} break;
@@ -386,7 +388,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		if (s->fx_val > 0 && lit < 1) lit = 1;
 		uint32_t b = s->spd ? 140 + triangle(ph / 8) * 115 / 255
 			: 255;
-		if (!s->color && s->pal) {
+		if (!s->color_cur && s->pal) {
 			for (int i = 0; i < n; i++) {
 				work[i] = i < lit
 					? scale(seg_palette_at(s,(uint8_t)((i * 255) / n)), b)
@@ -395,8 +397,8 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			break;
 		}
 		uint32_t c;
-		if (s->color) {
-			c = s->color;
+		if (s->color_cur) {
+			c = s->color_cur;
 		} else if (s->fx_val < 51) { // < 20%: red
 			c = 0xFF0000;
 		} else {
@@ -410,7 +412,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 
 	case FX_STROBE: {
 		uint32_t flash = ph / 64;
-		uint32_t c = s->color ? s->color
+		uint32_t c = s->color_cur ? s->color_cur
 			: seg_palette_at(s,(uint8_t)(flash * 61)); // new hue per flash
 		bool lit = flash & 1;
 		for (int i = 0; i < n; i++) work[i] = lit ? c : 0;
@@ -420,7 +422,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		int span = n > 1 ? n - 1 : 1;
 		int pos = (int)((ph / 16) % (uint32_t)(2 * span));
 		if (pos > span) pos = 2 * span - pos;
-		uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
+		uint32_t c = s->color_cur ? s->color_cur : seg_palette_at(s,(uint8_t)(ph / 128));
 		for (int i = 0; i < n; i++) {
 			int d = i > pos ? i - pos : pos - i;
 			uint32_t b = d < size ? 255 - (d * 255) / size : 0;
@@ -442,7 +444,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		int offset = (int)((ph / 64) % 3);
 		for (int i = 0; i < n; i++) {
 			bool lit = ((i + 3 - offset) % 3) == 0;
-			uint32_t c = s->color ? s->color
+			uint32_t c = s->color_cur ? s->color_cur
 				: seg_palette_at(s,(uint8_t)((i * 255) / n + ph / 64));
 			work[i] = lit ? c : 0;
 		}
@@ -455,7 +457,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		uint32_t pos = (ph / 32) % period;
 		bool filling = pos < (uint32_t)n;
 		int edge = (int)(filling ? pos : pos - (uint32_t)n);
-		uint32_t c = s->color ? s->color
+		uint32_t c = s->color_cur ? s->color_cur
 			: seg_palette_at(s,(uint8_t)(((ph / 32) / period) * 47));
 		for (int i = 0; i < n; i++) {
 			bool lit = filling ? (i <= edge) : (i > edge);
@@ -472,7 +474,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			uint32_t w1 = triangle(p * 2 + ph / 8);
 			uint32_t w2 = triangle(p * 3 + 170 + 1024 - ph / 12);
 			uint32_t w3 = triangle(p + 85 + ph / 20);
-			uint32_t c0 = s->color ? s->color
+			uint32_t c0 = s->color_cur ? s->color_cur
 				: seg_palette_at(s,(uint8_t)((w1 + w3) / 2));
 			work[i] = scale(c0, 64 + (w2 * 191) / 255);
 		}
@@ -484,7 +486,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		// (this effect does not cycle the palette).
 		uint32_t t = ph / 128;
 		uint32_t f = (ph & 127) * 2; // 0..254 between flicker steps
-		uint32_t c0 = s->color ? s->color : 0xFF9329;
+		uint32_t c0 = s->color_cur ? s->color_cur : 0xFF9329;
 		for (int i = 0; i < n; i++) {
 			uint32_t h1 = ((uint32_t)i * 2654435761u) ^ (t * 40503u);
 			uint32_t h2 = ((uint32_t)i * 2654435761u) ^ ((t + 1) * 40503u);
@@ -506,7 +508,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 			b = 180 - (d * 180) / 80;
 		}
 		if (b < 16) b = 16; // faint glow between beats
-		uint32_t c = s->color ? s->color : seg_palette_at(s,(uint8_t)(ph / 128));
+		uint32_t c = s->color_cur ? s->color_cur : seg_palette_at(s,(uint8_t)(ph / 128));
 		c = scale(c, b);
 		for (int i = 0; i < n; i++) work[i] = c;
 	} break;
@@ -525,7 +527,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 		int style = m % 3;   // 0 solid, 1 blink, 2 sweep
 		bool do_left  = (side == 0 || side == 2);
 		bool do_right = (side == 1 || side == 2);
-		uint32_t c = s->color ? s->color : 0xFF6400; // amber default
+		uint32_t c = s->color_cur ? s->color_cur : 0xFF6400; // amber default
 		int half = n / 2;
 
 		if (style == 0) {          // solid
@@ -569,7 +571,7 @@ static void fx_render(const seg_t *s, uint32_t *work) {
 
 	case FX_SOLID:
 	default: {
-		uint32_t c = s->color ? s->color
+		uint32_t c = s->color_cur ? s->color_cur
 			: seg_palette_at(s,(uint8_t)(ph / 128));
 		for (int i = 0; i < n; i++) work[i] = c;
 	} break;
@@ -602,6 +604,28 @@ static uint8_t ease_u8(uint8_t cur, uint8_t target, uint8_t fade,
 	if (step < 1) step = 1;
 	if (step > mag) step = mag;
 	return d > 0 ? cur + step : cur - step;
+}
+
+// Per-channel colour ease, reusing the brightness curve so the two settle at the
+// same rate. Colour 0 means "take it from the palette" for every effect, so a
+// fade is only meaningful between two real colours: with either end at 0, or with
+// no rate set, the target lands immediately. That also avoids fading up from
+// black when a segment switches from a palette effect to a solid one.
+static uint32_t ease_color(uint32_t cur, uint32_t target, uint8_t fade,
+	uint32_t elapsed) {
+	if (fade == 0 || cur == 0 || target == 0) {
+		return target;
+	}
+	if (cur == target) {
+		return cur;
+	}
+	uint32_t out = 0;
+	for (int sh = 0; sh < 32; sh += 8) {
+		uint8_t c = (uint8_t)((cur >> sh) & 0xFF);
+		uint8_t t = (uint8_t)((target >> sh) & 0xFF);
+		out |= (uint32_t)ease_u8(c, t, fade, elapsed) << sh;
+	}
+	return out;
 }
 
 // Render one segment into its place in the pin group's chain buffer.
@@ -696,6 +720,8 @@ static void render_thd(void *arg) {
 		for (int i = 0; i < st->seg_count; i++) {
 			seg_t *s = &st->seg[i];
 			s->bri_cur = ease_u8(s->bri_cur, s->bri, st->fade, elapsed);
+			s->color_cur = ease_color(s->color_cur, s->color,
+				s->color_fade, elapsed);
 		}
 		uint8_t master_cur = st->master_cur;
 		VESC_IF->mutex_unlock(st->lock);
@@ -835,6 +861,8 @@ static lbm_value ext_seg_def(lbm_value *args, lbm_uint argn) {
 	s->size = 8;
 	s->fx_val = 255;
 	s->color = 0;
+	s->color_cur = 0;
+	s->color_fade = 0;
 	s->phase = 0;
 	s->phase_rem = 0;
 	s->ov_count = 0;
@@ -1145,7 +1173,7 @@ static lbm_value ext_seg_look(lbm_value *args, lbm_uint argn) {
 // Setters shared by the per-segment and all-segment variants. Field ids
 // keep one implementation for all the small setters.
 enum { SET_FX = 0, SET_PAL, SET_BRI, SET_SPD, SET_COLOR, SET_ON, SET_REVERSE, SET_SIZE, SET_FX_VAL,
-	SET_AUTO_WHITE };
+	SET_AUTO_WHITE, SET_COLOR_FADE };
 
 static void seg_set(seg_t *s, int field, uint32_t v) {
 	switch (field) {
@@ -1160,6 +1188,7 @@ static void seg_set(seg_t *s, int field, uint32_t v) {
 	case SET_SIZE:    s->size = (uint8_t)v; break;
 	case SET_FX_VAL:  s->fx_val = (uint8_t)v; break;
 	case SET_AUTO_WHITE: s->auto_white = v != 0; break;
+	case SET_COLOR_FADE: s->color_fade = (uint8_t)(v > 32 ? 32 : v); break;
 	}
 }
 
@@ -1216,6 +1245,12 @@ static lbm_value ext_col(lbm_value *a, lbm_uint n) { return set_all(a, n, SET_CO
 
 // (ext-esp_led-seg-on i on)
 static lbm_value ext_seg_on(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_ON); }
+
+// (ext-esp_led-seg-color-fade i rate) - how fast this segment's colour follows
+// a change, in 32nds of the remaining gap per 33 ms. 0 (the default) is instant.
+// Per segment rather than global because some colours are information, not
+// decoration: an alarm that fades in reads as a slow one.
+static lbm_value ext_seg_color_fade(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_COLOR_FADE); }
 
 // (ext-esp_led-seg-reverse i rev)
 static lbm_value ext_seg_reverse(lbm_value *a, lbm_uint n) { return set_one(a, n, SET_REVERSE); }
@@ -1451,6 +1486,7 @@ static lbm_value ext_seg_auto_white(lbm_value *a, lbm_uint n) { return set_one(a
 	X("ext-esp_led-seg-spd", ext_seg_spd) \
 	X("ext-esp_led-seg-size", ext_seg_size) \
 	X("ext-esp_led-seg-fx-val", ext_seg_fx_val) \
+	X("ext-esp_led-seg-color-fade", ext_seg_color_fade) \
 	X("ext-esp_led-seg-col", ext_seg_col) \
 	X("ext-esp_led-col", ext_col) \
 	X("ext-esp_led-seg-on", ext_seg_on) \
