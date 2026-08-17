@@ -3,10 +3,6 @@
 ; The protocol itself lives in the native library under boosted/: CAN
 ; transmit and receive, the keep-alive ping, reassembly and parsing of the
 ; AFE cell report, and the "data:status" / "data:cells" replies ui.qml reads.
-;
-; What is left here is the one thing the C interface cannot do. set-bms-val
-; has no C equivalent, so this polls ext-boosted-bms for the decoded state
-; and republishes it as VESC BMS values.
 
 (import "boosted/boosted_esp32c3.bin" 'lib-esp32c3)
 (import "boosted/boosted_esp32c6.bin" 'lib-esp32c6)
@@ -28,6 +24,10 @@
 (define bms-off-soc 16)
 (define bms-off-cells 20)
 
+; Matches BD_CELL_MV_NONE. A cell with no reading yet, as distinct from a cell
+; genuinely reading 0 mV.
+(define bms-cell-mv-none 0xFFFF)
+
 ; Native libs only run on the chip they were built for. On VESC Express that
 ; needs firmware new enough to report (sysinfo 'hw-target); everything else
 ; is an STM32 VESC.
@@ -48,52 +48,79 @@
       lib-stm32
     )
   ))
-  (if (eq (car res) 'exit-ok) (ix res 1) nil)
+  (if (eq (ix res 0) 'exit-ok) (ix res 1) nil)
 })
 
 (defun bms-loop ()
   (loopwhile t {
     (sleep bms-poll-interval)
 
-    (var b (ext-boosted-bms))
-    (var n (bufget-u8 b bms-off-cell-count))
+    ; nil while the "Publish as VESC BMS" setting is off. Read every poll, so
+    ; toggling it in VESC Tool takes effect on the next one.
+    (var pack (ext-boosted-bms))
 
-    (set-bms-val 'bms-cell-num n)
-    (set-bms-val 'bms-v-tot (/ (bufget-i32 b bms-off-pack-mv 'little-endian) 1000.0))
+    (if pack {
+      (var num-cells (bufget-u8 pack bms-off-cell-count))
 
-    ; The pack reports discharge as positive current, VESC expects the
-    ; opposite sign.
-    (set-bms-val 'bms-i-in-ic (/ (bufget-i32 b bms-off-current-ma 'little-endian) -1000.0))
+      (set-bms-val 'bms-cell-num num-cells)
+      (set-bms-val 'bms-v-tot (/ (bufget-i32 pack bms-off-pack-mv 'little-endian) 1000.0))
 
-    (set-bms-val 'bms-soc (/ (bufget-u8 b bms-off-soc) 100.0))
-    (set-bms-val 'bms-v-cell-min (/ (bufget-u16 b bms-off-cell-min 'little-endian) 1000.0))
-    (set-bms-val 'bms-v-cell-max (/ (bufget-u16 b bms-off-cell-max 'little-endian) 1000.0))
+      ; The pack reports discharge as positive current, VESC expects the
+      ; opposite sign.
+      (set-bms-val 'bms-i-in-ic (/ (bufget-i32 pack bms-off-current-ma 'little-endian) -1000.0))
 
-    ; A cell still reading zero has not appeared in an AFE report yet - leave
-    ; whatever VESC already holds rather than publishing it as 0 V.
-    (looprange i 0 n {
-      (var mv (bufget-u16 b (+ bms-off-cells (* i 2)) 'little-endian))
-      (if (> mv 0) (set-bms-val 'bms-v-cell i (/ mv 1000.0)))
+      (set-bms-val 'bms-soc (/ (bufget-u8 pack bms-off-soc) 100.0))
+      (set-bms-val 'bms-v-cell-min (/ (bufget-u16 pack bms-off-cell-min 'little-endian) 1000.0))
+      (set-bms-val 'bms-v-cell-max (/ (bufget-u16 pack bms-off-cell-max 'little-endian) 1000.0))
+
+      ; 0 mV is a real reading - a shorted or disconnected cell reports it,
+      ; and that is what this package is for - so only the explicit "no
+      ; reading yet" marker is skipped.
+      (looprange i 0 num-cells {
+        (var mv (bufget-u16 pack (+ bms-off-cells (* i 2)) 'little-endian))
+        (if (!= mv bms-cell-mv-none) (set-bms-val 'bms-v-cell i (/ mv 1000.0)))
+      })
+
+      ; set-bms-val only fills this device's local BMS state. Broadcasting it
+      ; is what lets the rest of the bus see the pack - which is the normal
+      ; case for this package, where a VESC Express bridges the battery to a
+      ; separate motor controller.
+      (send-bms-can)
     })
   })
 )
 
+(defun main () {
+  (print "Starting Boosted VESC Driver...")
+
+  (var lib (select-lib))
+
+  (if (eq lib nil)
+    (print "Boosted Doctor: no native lib for this hardware (VESC Express needs firmware that reports (sysinfo 'hw-target))")
+    {
+      (var res (trap (load-native-lib lib)))
+
+      (cond
+        ((eq (ix res 0) 'exit-error)
+          (print (str-merge "Boosted Doctor: native lib failed to load: " (to-str (ix res 1)))))
+
+        ; load-native-lib reports false when the library's own init did.
+        ((not (ix res 1))
+          (print "Boosted Doctor: native lib rejected by firmware (version mismatch?)"))
+
+        (t {
+          ; Uncomment for a per-frame decode trace in the lisp console.
+          ;(ext-boosted-debug 1)
+
+          (spawn bms-loop)
+          (print "Driver Started. Waiting for Battery...")
+        })
+      )
+    }
+  )
+})
+
+(image-save)
+(main)
+
 @const-end
-
-; --- Main Entry ---
-(print "Starting Boosted VESC Driver...")
-
-(define lib (select-lib))
-
-(if (eq lib nil)
-  (print "Boosted Doctor: no native lib for this hardware (VESC Express needs firmware that reports (sysinfo 'hw-target))")
-  {
-    (load-native-lib lib)
-
-    ; Uncomment for a per-frame decode trace in the lisp console.
-    ;(ext-boosted-debug 1)
-
-    (spawn bms-loop)
-    (print "Driver Started. Waiting for Battery...")
-  }
-)

@@ -3,3 +3,10 @@
 *.lisp
 *.map
 *.d
+
+# Generated from conf/settings.xml by 'vesc_tool --xmlConfToCode'.
+conf/confparser.c
+conf/confparser.h
+conf/confxml.c
+conf/confxml.h
+conf/conf_default.h

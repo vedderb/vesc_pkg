@@ -26,6 +26,7 @@ Rectangle {
     readonly property int commPfailReset: 3
     property double amps: 0.0
     property int valBtnState: 0
+    property int btnSrc: 0          // 0 = SRB numbering, 1 = XRB numbering
     property var cellVoltages: []
 
     readonly property color colorRed: "#FF5252"
@@ -53,6 +54,10 @@ Rectangle {
 
     function getBtnStateString(s) {
         if (s === 0x00) return "none"
+        return btnSrc === 1 ? getBtnStateStringXrb(s) : getBtnStateStringSrb(s)
+    }
+
+    function getBtnStateStringSrb(s) {
         if (s === 0x01) return "1x press"
         if (s === 0x02) return "2x press"
         if (s === 0x03) return "3x press"
@@ -65,6 +70,26 @@ Rectangle {
         if (s === 0x0A) return "was held <1.5s"
         if (s === 0x0B) return "was held <2s"
         if (s === 0x0C) return "was held >2s"
+        return "0x" + s.toString(16).toUpperCase()
+    }
+
+    function getBtnStateStringXrb(s) {
+        if (s === 0x05) return "charging"
+        if (s === 0x06) return "shutting down"
+        if (s === 0x07) return "pressed"
+        if (s === 0x08) return "finalizing"
+        if (s === 0x09) return "1x press"
+        if (s === 0x0A) return "2x press"
+        if (s === 0x0B) return "3x press"
+        if (s === 0x0C) return "4x press"
+        if (s === 0x0D) return "5x press"
+        if (s === 0x0E) return "held <1s"
+        if (s === 0x0F) return "held <1.5s"
+        if (s === 0x10) return "held <2s"
+        if (s === 0x11) return "held <2.5s"
+        if (s === 0x12) return "was held <1.5s"
+        if (s === 0x13) return "was held <2s"
+        if (s === 0x14) return "was held >2.5s"
         return "0x" + s.toString(16).toUpperCase()
     }
 
@@ -381,7 +406,8 @@ Rectangle {
             if (str.startsWith("data:status ")) {
                 lastUpdateTime = new Date();
                 var tokens = str.split(" ");
-                // Order: <connected> <type> <vMaj> <vMin> <vPatch> <volt> <soc> <min> <max> <amps>
+                // Order: <connected> <type> <vMaj> <vMin> <vPatch> <volt>
+                //        <soc> <min> <max> <amps> <btnState> <btnSrc>
                 connected = Number(tokens[1]) > 0;
                 batType = Number(tokens[2]);
                 verMajor = Number(tokens[3]);
@@ -391,11 +417,9 @@ Rectangle {
                 soc = Number(tokens[7]);
                 minCellVolt = Number(tokens[8]);
                 maxCellVolt = Number(tokens[9]);
-                maxCellVolt = Number(tokens[9]);
                 amps = Number(tokens[10]);
-                if (tokens.length > 11) {
-                    valBtnState = Number(tokens[11]);
-                }
+                valBtnState = Number(tokens[11]);
+                btnSrc = Number(tokens[12]);
             }
             else if (str.startsWith("data:cells ")) {
                 var tokens = str.split(" ");

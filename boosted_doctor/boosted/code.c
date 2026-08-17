@@ -19,33 +19,26 @@
 
 // Boosted Board / Rev Scooter battery bridge, as a native library.
 //
-// The whole CAN side of the protocol lives here: the keep-alive ping that
-// stops the pack shutting down after ten minutes, the cell-report request,
-// the RLOD (PFAILRESET) recovery command, decoding of the periodic 0x334xx
-// broadcasts, and reassembly of the AFE's ASCII cell report - which arrives
-// as a byte stream chopped across CAN frames, not as fixed-layout data. That
-// text reassembly is why this is C: it is a line buffer and a digit loop
-// here, where in lisp it was several hundred lines of buffer arithmetic.
+// The whole CAN side lives here: the keep-alive ping that stops the pack
+// shutting down after ten minutes, the cell-report request, RLOD
+// (PFAILRESET) recovery, the periodic 0x334xx broadcasts, and reassembly of
+// the AFE's ASCII cell report - a byte stream chopped across CAN frames
+// rather than fixed-layout data. ui.qml is served from here too, over custom
+// app data.
 //
-// The ui.qml side is served from here too, over custom app data, in exactly
-// the "data:status ..." / "data:cells ..." format the QML already parses.
+// code.lbm only republishes the result through set-bms-val, which has no
+// C-interface equivalent. That is the only reason there is any lisp left.
 //
-// What stays in lisp: set-bms-val has no C-interface equivalent, so code.lbm
-// polls ext-boosted-bms and republishes the values as VESC BMS state. That
-// is the only reason there is any lisp left.
-//
-// Native-lib constraints shape two things. On the RISC-V Express targets the
-// lib executes in place from flash, so there are no writable globals - all
-// state lives in one allocated struct reached through ARG, including from
-// the CAN rx callback, which gets no user pointer of its own. And there is
-// no snprintf worth linking into a blob this size, so the status strings are
-// formatted by hand; every value is a whole number of mV or mA anyway, so
-// the decimal point is placed with integer division.
+// Two constraints shape the code. On the RISC-V Express targets the lib runs
+// in place from flash, so there are no writable globals - all state lives in
+// one allocated struct reached through ARG, including from the CAN rx
+// callback, which gets no user pointer of its own. And there is no snprintf
+// worth linking into a blob this size, so status strings are formatted by
+// hand from integer mV and mA.
 //
 // Concurrency: the CAN rx callback is the only writer of decoded state, and
-// every field it writes is a naturally aligned word or halfword. Readers
-// (the tx thread, the app-data handler, the lisp extension) can therefore
-// never observe a torn value, and no lock is taken on a path that may run in
+// every field it writes is a naturally aligned word or halfword, so readers
+// cannot see a torn value and nothing locks on a path that may run in
 // interrupt context.
 
 #ifdef ESP_PLATFORM
@@ -53,6 +46,13 @@
 #else
 #include "vesc_c_if.h"
 #endif
+
+#include "conf/conf_general.h"
+#include "conf/confparser.h"
+#include "conf/confxml.h"
+#include "conf/datatypes.h"
+
+#include <string.h>
 
 HEADER
 
@@ -75,13 +75,13 @@ HEADER
 #define BD_HDR_IDENTIFIER		0x33443
 #define BD_HDR_VOLTAGE			0x33445
 #define BD_HDR_AMPERAGE			0x33447
-#define BD_HDR_COUNTER			0x33448
+#define BD_HDR_UNKNOWN_CTR		0x33448
 #define BD_HDR_SOC				0x33449
 #define BD_HDR_STATE			0x3344A
 #define BD_HDR_BUTTON_SRB		0x3344C
 #define BD_HDR_TIMESTAMP		0x3344E
-#define BD_HDR_COUNTER_B		0x1B418
-#define BD_HDR_COUNTER_C		0x2B418
+#define BD_HDR_UNKNOWN_A		0x1B418
+#define BD_HDR_UNKNOWN_B		0x2B418
 #define BD_HDR_BUTTON_XRB		0x3B41A
 
 // Battery type, mirrored in ui.qml.
@@ -89,6 +89,12 @@ HEADER
 #define BD_BAT_SRB				1
 #define BD_BAT_XRB				2
 #define BD_BAT_REV				3
+
+#define BD_BTN_SRC_SRB			0
+#define BD_BTN_SRC_XRB			1
+
+#define BD_BTN_HELD_SRB			0x06
+#define BD_BTN_HELD_XRB			0x07
 
 // Commands from ui.qml, first byte of a custom-app-data packet.
 #define BD_COMM_GET_STATUS		1
@@ -98,8 +104,11 @@ HEADER
 // ---- Tuning -------------------------------------------------------------
 
 #define BD_CELL_MAX				15
-#define BD_CELL_COUNT_DEF		12	// until the AFE report says otherwise
+#define BD_CELL_COUNT_DEF		12
 #define BD_LINE_MAX				64	// longest AFE report line kept
+
+// "No reading yet" marker for the cell table.
+#define BD_CELL_MV_NONE			0xFFFF
 
 #define BD_TICK_MS				100
 #define BD_PING_INTERVAL		0.1f
@@ -107,19 +116,30 @@ HEADER
 #define BD_LINK_TIMEOUT			1.0f	// pack considered gone, stop talking
 #define BD_STATUS_TIMEOUT		2.0f	// what ui.qml is told
 #define BD_BTN_TIMEOUT			1.0f	// latched button state expires
+#define BD_BMS_TIMEOUT			5.0f
 
-// A cell reading more than this fraction away from the previous one for the
-// same cell is a mis-framed line rather than a real jump, and is dropped.
-#define BD_OUTLIER_DIV			10
+// Integer digits an AFE cell voltage must have, exactly. Readings are
+// millivolts at a fixed four-digit width, zero padded: fewer digits means the
+// line was truncated, more means a line boundary was lost and two readings
+// ran together. The fixed width is also why a collapsed cell still reads
+// correctly - 412 mV arrives as "0412", not as something indistinguishable
+// from "4123" minus its last byte.
+#define BD_CELL_DIGITS			4
 
-// Shortest plausible integer part of an AFE cell voltage. The AFE reports
-// millivolts, so a good reading always has at least four digits; a shorter
-// one means the line was truncated.
-#define BD_CELL_MIN_DIGITS		4
+// Never accumulate more than this many digits, so a corrupted line cannot
+// overflow the accumulator before the digit count rejects it.
+#define BD_DIGITS_MAX			9
 
-// Size of the blob ext-boosted-bms hands to lisp. Layout is documented at
-// the extension itself and mirrored in code.lbm.
-#define BD_BMS_LEN				50
+// The blob ext-boosted-bms hands to lisp: fixed header, then one u16 per
+// cell. Layout is at the extension; offsets are mirrored in code.lbm. Derived
+// from BD_CELL_MAX so raising the ceiling cannot leave the buffer behind.
+#define BD_BMS_CELLS_OFF		20
+#define BD_BMS_LEN				(BD_BMS_CELLS_OFF + BD_CELL_MAX * 2)
+
+// Where the serialized config lives in the firmware's eeprom vars, which are
+// 32-bit NVS-backed slots. This package uses no others, so it starts at 0.
+#define BD_EEPROM_BASE			0
+#define BD_CONFIG_WORDS			((SERIALIZED_CONFIG_LENGTH - 1) / 4 + 1)
 
 // ---- State --------------------------------------------------------------
 
@@ -136,24 +156,154 @@ typedef struct {
 	volatile int32_t soc_pct;
 	volatile int32_t bat_type;
 	volatile int32_t btn_state;
+	volatile int32_t btn_src;	// BD_BTN_SRC_*, which table btn_state uses
 	volatile int32_t ver_major;
 	volatile int32_t ver_minor;
 	volatile int32_t ver_patch;
 	volatile int32_t cell_count;
 	volatile uint16_t cell_mv[BD_CELL_MAX];
 
-	// AFE line assembly. Touched only by the rx callback.
+	// AFE line assembly and report sequencing. Touched only by the rx
+	// callback. expect_cell is the cell number the current report should
+	// carry next, or 0 while waiting for a report to start.
 	char line[BD_LINE_MAX];
 	int line_len;
+	bool line_ovf;
+	int expect_cell;
+	int last_report_n;	// cells in the previous clean report, for shrinking
 
 	// Touched only by the tx thread.
 	uint32_t ping_counter;
+
+	// Written by set_cfg on the comms thread, read by the lisp extension.
+	// One byte, so a reader cannot catch it half updated.
+	BoostedConfig cfg;
 
 	volatile bool debug;
 } bd_state;
 
 static bd_state *state(void) {
 	return (bd_state*)ARG;
+}
+
+// ---- Config persistence -------------------------------------------------
+//
+// Express takes a base index and a count and does the whole config in one NVS
+// transaction; bldc stores one 32-bit slot per call.
+
+static bool cfg_write(bd_state *st) {
+	uint32_t buf[BD_CONFIG_WORDS];
+	memset(buf, 0, sizeof(buf));
+
+	int32_t len = confparser_serialize_boostedconfig((uint8_t*)buf, &st->cfg);
+	if (len > (int32_t)sizeof(buf)) {
+		VESC_IF->printf("boosted: serialized config too big");
+		return false;
+	}
+
+#ifdef ESP_PLATFORM
+	if (!VESC_IF->store_eeprom_var(
+			(eeprom_var*)buf, BD_EEPROM_BASE, BD_CONFIG_WORDS)) {
+		VESC_IF->printf("boosted: eeprom write failed");
+		return false;
+	}
+#else
+	for (uint32_t i = 0; i < BD_CONFIG_WORDS; i++) {
+		eeprom_var v;
+		v.as_u32 = buf[i];
+		if (!VESC_IF->store_eeprom_var(&v, BD_EEPROM_BASE + (int)i)) {
+			VESC_IF->printf("boosted: eeprom write failed");
+			return false;
+		}
+	}
+#endif
+
+	return true;
+}
+
+static void cfg_read(bd_state *st) {
+	uint32_t buf[BD_CONFIG_WORDS];
+	bool read_ok = true;
+
+#ifdef ESP_PLATFORM
+	read_ok = VESC_IF->read_eeprom_var(
+			(eeprom_var*)buf, BD_EEPROM_BASE, BD_CONFIG_WORDS);
+#else
+	for (uint32_t i = 0; i < BD_CONFIG_WORDS; i++) {
+		eeprom_var v;
+		if (!VESC_IF->read_eeprom_var(&v, BD_EEPROM_BASE + (int)i)) {
+			read_ok = false;
+			break;
+		}
+		buf[i] = v.as_u32;
+	}
+#endif
+
+	// The deserializer checks the signature VESC Tool derived from
+	// settings.xml, so anything written by an older parameter layout is
+	// rejected and the defaults are used. No magic number of our own needed.
+	if (!read_ok ||
+			!confparser_deserialize_boostedconfig((uint8_t*)buf, &st->cfg)) {
+		VESC_IF->printf("boosted: no stored config, using defaults");
+		confparser_set_defaults_boostedconfig(&st->cfg);
+	}
+}
+
+// ---- Custom config interface (VESC Tool) --------------------------------
+
+// COMM_GET_CUSTOM_CONFIG / COMM_GET_CUSTOM_CONFIG_DEFAULT.
+static int get_cfg(uint8_t *buffer, bool is_default) {
+	bd_state *st = state();
+	if (st == 0) {
+		return 0;
+	}
+
+	if (is_default) {
+		// Built into a heap copy so asking for the defaults does not disturb
+		// the live config.
+		BoostedConfig *cfg = VESC_IF->malloc(sizeof(BoostedConfig));
+		if (cfg == 0) {
+			return 0;
+		}
+		confparser_set_defaults_boostedconfig(cfg);
+		int res = confparser_serialize_boostedconfig(buffer, cfg);
+		VESC_IF->free(cfg);
+		return res;
+	}
+
+	return confparser_serialize_boostedconfig(buffer, &st->cfg);
+}
+
+// COMM_SET_CUSTOM_CONFIG, i.e. the user pressed write in VESC Tool.
+// Persisting here is what makes the setting survive a reboot.
+static bool set_cfg(uint8_t *buffer) {
+	bd_state *st = state();
+	if (st == 0) {
+		return false;
+	}
+
+	bool res = confparser_deserialize_boostedconfig(buffer, &st->cfg);
+	if (res) {
+		cfg_write(st);
+		VESC_IF->printf("boosted: BMS publishing %s",
+				st->cfg.bms_enabled ? "enabled" : "disabled");
+	}
+
+	return res;
+}
+
+// COMM_GET_CUSTOM_CONFIG_XML. data_boostedconfig_ is the compiled
+// settings.xml emitted into confxml.c, so it needs the target's own way of
+// resolving a symbol defined in another translation unit.
+static int get_cfg_xml(uint8_t **buffer) {
+#ifdef ESP_PLATFORM
+	*buffer = VESC_LIB_SYM_ADDR(data_boostedconfig_);
+#else
+	// The address is relative to where the symbol sits in the linked binary,
+	// so PROG_ADDR turns it into where it ended up on the STM32.
+	*buffer = data_boostedconfig_ + PROG_ADDR;
+#endif
+	return DATA_BOOSTEDCONFIG__SIZE;
 }
 
 // ---- Little-endian readers ---------------------------------------------
@@ -173,9 +323,9 @@ static int32_t rd_i32(const uint8_t *d, int i) {
 
 // ---- Number formatting --------------------------------------------------
 //
-// Hand-rolled because linking a float-capable snprintf would dwarf the rest
-// of the library. Every quantity is already an integer count of mV or mA, so
-// put_milli just places the point.
+// Hand-rolled because a float-capable snprintf would dwarf the rest of the
+// library. Every quantity is already integer mV or mA, so put_milli just
+// places the point.
 
 static int put_uint(char *p, uint32_t v) {
 	char tmp[12];
@@ -317,8 +467,35 @@ static void send_ping(bd_state *st) {
 
 // ---- AFE cell report ----------------------------------------------------
 
+// Read a run of decimal digits starting at *i. Stops accumulating past
+// BD_DIGITS_MAX so a corrupted line cannot overflow the accumulator, but
+// keeps counting, so the caller still sees how long the run really was.
+static int32_t read_digits(const char *line, int len, int *i, int *digits) {
+	int32_t v = 0;
+	int n = 0;
+
+	while (*i < len && line[*i] >= '0' && line[*i] <= '9') {
+		if (n < BD_DIGITS_MAX) {
+			v = v * 10 + (line[*i] - '0');
+		}
+		(*i)++;
+		n++;
+	}
+
+	*digits = n;
+
+	return v;
+}
+
 // Parse one reassembled report line, e.g. "Cell 3: 4123.45", and fold the
 // reading into the cell table. Returns true when a value was accepted.
+//
+// A frame lost on the bus splices the byte stream rather than announcing
+// itself, so a reading is trusted only if it has exactly four integer digits
+// - catching both "Cell 3: 41" and "Cell 3: 41234130" - and is the line the
+// report should carry next. The AFE answers GETAFECELLS with one line per
+// cell ascending, so a gap discards the rest of that report until the next
+// one starts at cell 1.
 static bool parse_cell_line(bd_state *st, const char *line, int len) {
 	if (len <= 5 || line[0] != 'C' || line[1] != 'e' ||
 			line[2] != 'l' || line[3] != 'l') {
@@ -330,14 +507,9 @@ static bool parse_cell_line(bd_state *st, const char *line, int len) {
 		i++;
 	}
 
-	int cell = 0;
 	int digits = 0;
-	while (i < len && line[i] >= '0' && line[i] <= '9') {
-		cell = cell * 10 + (line[i] - '0');
-		i++;
-		digits++;
-	}
-	if (digits == 0) {
+	int cell = (int)read_digits(line, len, &i, &digits);
+	if (digits == 0 || cell < 1 || cell > BD_CELL_MAX) {
 		return false;
 	}
 
@@ -351,37 +523,64 @@ static bool parse_cell_line(bd_state *st, const char *line, int len) {
 		i++;
 	}
 
-	int32_t mv = 0;
-	digits = 0;
-	while (i < len && line[i] >= '0' && line[i] <= '9') {
-		mv = mv * 10 + (line[i] - '0');
-		i++;
-		digits++;
-	}
-
 	// The fractional part is read past but not used: the table holds whole
 	// millivolts, which is the resolution the rest of the package works in.
-	if (digits < BD_CELL_MIN_DIGITS || mv <= 0 ||
-			cell < 1 || cell > BD_CELL_MAX) {
+	int32_t mv = read_digits(line, len, &i, &digits);
+
+	// No digits at all is some other line that happens to begin with "Cell",
+	// not a damaged reading, so it leaves the report sequence alone.
+	if (digits == 0) {
 		return false;
 	}
 
-	int idx = cell - 1;
-	int32_t old_mv = st->cell_mv[idx];
-
-	if (old_mv > 0) {
-		int32_t diff = mv - old_mv;
-		if (diff < 0) {
-			diff = -diff;
+	// mv of 0 is accepted: see BD_CELL_MV_NONE. digits == BD_CELL_DIGITS
+	// already bounds it to 0..9999.
+	if (digits != BD_CELL_DIGITS) {
+		// Only the first failure in a report is reported; expect_cell is
+		// already 0 for the rest of it.
+		if (st->expect_cell != 0) {
+			VESC_IF->printf("Dropped malformed cell %d: %d digits (%d)",
+					cell, digits, (int)mv);
 		}
-		if (diff > old_mv / BD_OUTLIER_DIV) {
-			VESC_IF->printf("Ignored outlier cell %d: %d (prev: %d)",
-					cell, (int)mv, (int)old_mv);
-			return false;
-		}
+		st->expect_cell = 0;
+		return false;
 	}
 
-	st->cell_mv[idx] = (uint16_t)mv;
+	if (cell == 1) {
+		// Start of a fresh report, and the point at which the previous one
+		// can be sized: a report that ran cleanly from cell 1 to N says the
+		// pack has N cells. Nothing else does, and packs differ (SR 12S,
+		// XR 13S) and can be swapped without a reboot.
+		if (st->expect_cell > 1) {
+			int n = st->expect_cell - 1;
+
+			if (n > st->cell_count) {
+				st->cell_count = n;
+			} else if (n < st->cell_count && n == st->last_report_n) {
+				// Shrink only once two reports agree, so a report that lost
+				// its tail cannot drop a live cell. Clear above the new count
+				// so stale readings cannot reappear on a larger pack.
+				st->cell_count = n;
+				for (int i = n; i < BD_CELL_MAX; i++) {
+					st->cell_mv[i] = BD_CELL_MV_NONE;
+				}
+			}
+
+			st->last_report_n = n;
+		}
+
+		st->expect_cell = 1;
+	} else if (st->expect_cell == 0 || cell != st->expect_cell) {
+		if (st->expect_cell != 0) {
+			VESC_IF->printf("Dropped out-of-sequence cell %d (expected %d)",
+					cell, st->expect_cell);
+		}
+		st->expect_cell = 0;
+		return false;
+	}
+
+	st->cell_mv[cell - 1] = (uint16_t)mv;
+	st->expect_cell = cell + 1;
 
 	if (cell > st->cell_count) {
 		st->cell_count = cell;
@@ -390,27 +589,35 @@ static bool parse_cell_line(bd_state *st, const char *line, int len) {
 	return true;
 }
 
-// Feed AFE stream bytes through the line buffer. CR is dropped, LF ends a
-// line, and an over-long line is truncated rather than allowed to run on.
+// Feed AFE stream bytes through the line buffer. CR is dropped and LF ends a
+// line. A line longer than the buffer is discarded whole rather than parsed
+// as its own truncated prefix.
 static void afe_feed(bd_state *st, const uint8_t *data, int len) {
 	for (int i = 0; i < len; i++) {
 		char c = (char)data[i];
 
 		if (c == '\n') {
-			if (st->line_len > 0 &&
+			if (st->line_ovf) {
+				st->expect_cell = 0;
+			} else if (st->line_len > 0 &&
 					parse_cell_line(st, st->line, st->line_len) && st->debug) {
 				VESC_IF->printf("RX: Parsed cell line");
 			}
 			st->line_len = 0;
-		} else if (c != '\r' && st->line_len < BD_LINE_MAX) {
-			st->line[st->line_len++] = c;
+			st->line_ovf = false;
+		} else if (c != '\r') {
+			if (st->line_len < BD_LINE_MAX) {
+				st->line[st->line_len++] = c;
+			} else {
+				st->line_ovf = true;
+			}
 		}
 	}
 }
 
 // ---- CAN receive --------------------------------------------------------
 
-static const char *btn_state_str(int32_t s) {
+static const char *btn_state_str_srb(int32_t s) {
 	switch (s) {
 	case 0x01: return "Pressed 1x";
 	case 0x02: return "Pressed 2x";
@@ -424,6 +631,28 @@ static const char *btn_state_str(int32_t s) {
 	case 0x0A: return "Was Held <1.5s";
 	case 0x0B: return "Was Held <2s";
 	case 0x0C: return "Was Held >2s";
+	default: return 0;
+	}
+}
+
+static const char *btn_state_str_xrb(int32_t s) {
+	switch (s) {
+	case 0x05: return "Charging";
+	case 0x06: return "Shutting Down";
+	case 0x07: return "Pressed Now";
+	case 0x08: return "Finalizing";
+	case 0x09: return "Pressed 1x";
+	case 0x0A: return "Pressed 2x";
+	case 0x0B: return "Pressed 3x";
+	case 0x0C: return "Pressed 4x";
+	case 0x0D: return "Pressed 5x";
+	case 0x0E: return "Held <1s";
+	case 0x0F: return "Held <1.5s";
+	case 0x10: return "Held <2s";
+	case 0x11: return "Held <2.5s";
+	case 0x12: return "Was Held <1.5s";
+	case 0x13: return "Was Held <2s";
+	case 0x14: return "Was Held >2.5s";
 	default: return 0;
 	}
 }
@@ -535,9 +764,10 @@ static bool can_rx(uint32_t id, uint8_t *data, uint8_t len) {
 	case BD_HDR_BUTTON_SRB:
 		if (len >= 2) {
 			st->btn_state = data[0];
+			st->btn_src = BD_BTN_SRC_SRB;
 			st->last_btn_time = now;
 
-			const char *s = btn_state_str(data[0]);
+			const char *s = btn_state_str_srb(data[0]);
 			if (s != 0) {
 				VESC_IF->printf("  -> [BUTTON] %s (Pairing: %d)", s, (int)data[1]);
 			} else {
@@ -550,8 +780,15 @@ static bool can_rx(uint32_t id, uint8_t *data, uint8_t len) {
 	case BD_HDR_BUTTON_XRB:
 		if (len >= 2) {
 			st->btn_state = data[1];
+			st->btn_src = BD_BTN_SRC_XRB;
 			st->last_btn_time = now;
-			VESC_IF->printf("  -> [XRB BUTTON] State: 0x%02X", (int)data[1]);
+
+			const char *s = btn_state_str_xrb(data[1]);
+			if (s != 0) {
+				VESC_IF->printf("  -> [XRB BUTTON] %s", s);
+			} else {
+				VESC_IF->printf("  -> [XRB BUTTON] 0x%02X", (int)data[1]);
+			}
 		}
 		break;
 
@@ -569,9 +806,9 @@ static bool can_rx(uint32_t id, uint8_t *data, uint8_t len) {
 		}
 		break;
 
-	case BD_HDR_COUNTER:
-	case BD_HDR_COUNTER_B:
-	case BD_HDR_COUNTER_C:
+	case BD_HDR_UNKNOWN_CTR:
+	case BD_HDR_UNKNOWN_A:
+	case BD_HDR_UNKNOWN_B:
 	default:
 		break;
 	}
@@ -617,6 +854,8 @@ static void send_status(bd_state *st) {
 	n += put_milli(buf + n, st->current_ma, 2);
 	buf[n++] = ' ';
 	n += put_int(buf + n, st->btn_state);
+	buf[n++] = ' ';
+	n += put_int(buf + n, st->btn_src);
 
 	VESC_IF->send_app_data((unsigned char*)buf, (unsigned int)n);
 }
@@ -637,8 +876,11 @@ static void send_cells(bd_state *st) {
 	}
 
 	for (int i = 0; i < count; i++) {
+		uint16_t mv = st->cell_mv[i];
 		buf[n++] = ' ';
-		n += put_uint(buf + n, st->cell_mv[i]);
+		// ui.qml divides by 1000 unconditionally, so an unread cell goes out
+		// as 0 and renders 0.000 V - as does a real 0000 mV reading.
+		n += put_uint(buf + n, mv == BD_CELL_MV_NONE ? 0 : mv);
 	}
 
 	VESC_IF->send_app_data((unsigned char*)buf, (unsigned int)n);
@@ -697,10 +939,12 @@ static void tx_thd(void *arg) {
 			}
 		}
 
-		// A press is latched so the UI can show it; "pressed now" (0x06) is
-		// a level rather than an event and clears itself.
+		// A press is latched so the UI can show it. "Pressed now" is a level
+		// the pack re-sends, not an event, so it is the one state left alone.
 		int32_t btn = st->btn_state;
-		if (btn > 0 && btn != 0x06 &&
+		int32_t held = st->btn_src == BD_BTN_SRC_XRB
+				? BD_BTN_HELD_XRB : BD_BTN_HELD_SRB;
+		if (btn > 0 && btn != held &&
 				(now - st->last_btn_time) > BD_BTN_TIMEOUT) {
 			st->btn_state = 0;
 		}
@@ -723,10 +967,13 @@ static void tx_thd(void *arg) {
 //  17  u8   firmware major
 //  18  u8   firmware minor
 //  19  u8   firmware patch
-//  20  u16  cell voltages, mV, BD_CELL_MAX entries
+//  20  u16  cell voltages, mV, BD_CELL_MAX entries, 0xFFFF where no reading
+//           has arrived yet. 0 is a real value, not a placeholder.
 //
-// code.lbm unpacks this and republishes it through set-bms-val, which has no
-// C-interface equivalent.
+// Returns nil when nothing should be published - the "Publish as VESC BMS"
+// setting is off, or the pack has been quiet longer than BD_BMS_TIMEOUT - so
+// code.lbm skips set-bms-val and send-bms-can. Both are re-checked every
+// poll, so enabling the setting or reconnecting takes effect on the next one.
 static lbm_value ext_bms(lbm_value *args, lbm_uint argn) {
 	(void)args;
 	(void)argn;
@@ -736,13 +983,21 @@ static lbm_value ext_bms(lbm_value *args, lbm_uint argn) {
 		return VESC_IF->lbm_enc_sym_eerror;
 	}
 
+	if (!st->cfg.bms_enabled) {
+		return VESC_IF->lbm_enc_sym_nil;
+	}
+
+	if ((VESC_IF->system_time() - st->last_rx_time) > BD_BMS_TIMEOUT) {
+		return VESC_IF->lbm_enc_sym_nil;
+	}
+
 	lbm_value res;
 	if (!VESC_IF->lbm_create_byte_array(&res, BD_BMS_LEN)) {
 		return VESC_IF->lbm_enc_sym_merror;
 	}
 
-	uint8_t *b = (uint8_t*)VESC_IF->lbm_dec_str(res);
-	if (b == 0) {
+	uint8_t *out = (uint8_t*)VESC_IF->lbm_dec_str(res);
+	if (out == 0) {
 		return VESC_IF->lbm_enc_sym_eerror;
 	}
 
@@ -753,37 +1008,37 @@ static lbm_value ext_bms(lbm_value *args, lbm_uint argn) {
 
 	float age = VESC_IF->system_time() - st->last_rx_time;
 
-	b[0] = age < BD_STATUS_TIMEOUT ? 1 : 0;
-	b[1] = (uint8_t)count;
-	b[2] = (uint8_t)st->bat_type;
-	b[3] = (uint8_t)st->btn_state;
+	out[0] = age < BD_STATUS_TIMEOUT ? 1 : 0;
+	out[1] = (uint8_t)count;
+	out[2] = (uint8_t)st->bat_type;
+	out[3] = (uint8_t)st->btn_state;
 
 	uint32_t pack = (uint32_t)st->pack_mv;
-	b[4] = (uint8_t)pack;
-	b[5] = (uint8_t)(pack >> 8);
-	b[6] = (uint8_t)(pack >> 16);
-	b[7] = (uint8_t)(pack >> 24);
+	out[4] = (uint8_t)pack;
+	out[5] = (uint8_t)(pack >> 8);
+	out[6] = (uint8_t)(pack >> 16);
+	out[7] = (uint8_t)(pack >> 24);
 
 	uint32_t cur = (uint32_t)st->current_ma;
-	b[8] = (uint8_t)cur;
-	b[9] = (uint8_t)(cur >> 8);
-	b[10] = (uint8_t)(cur >> 16);
-	b[11] = (uint8_t)(cur >> 24);
+	out[8] = (uint8_t)cur;
+	out[9] = (uint8_t)(cur >> 8);
+	out[10] = (uint8_t)(cur >> 16);
+	out[11] = (uint8_t)(cur >> 24);
 
-	b[12] = (uint8_t)st->cell_min_mv;
-	b[13] = (uint8_t)(st->cell_min_mv >> 8);
-	b[14] = (uint8_t)st->cell_max_mv;
-	b[15] = (uint8_t)(st->cell_max_mv >> 8);
+	out[12] = (uint8_t)st->cell_min_mv;
+	out[13] = (uint8_t)(st->cell_min_mv >> 8);
+	out[14] = (uint8_t)st->cell_max_mv;
+	out[15] = (uint8_t)(st->cell_max_mv >> 8);
 
-	b[16] = (uint8_t)st->soc_pct;
-	b[17] = (uint8_t)st->ver_major;
-	b[18] = (uint8_t)st->ver_minor;
-	b[19] = (uint8_t)st->ver_patch;
+	out[16] = (uint8_t)st->soc_pct;
+	out[17] = (uint8_t)st->ver_major;
+	out[18] = (uint8_t)st->ver_minor;
+	out[19] = (uint8_t)st->ver_patch;
 
 	for (int i = 0; i < BD_CELL_MAX; i++) {
 		uint16_t mv = st->cell_mv[i];
-		b[20 + i * 2] = (uint8_t)mv;
-		b[21 + i * 2] = (uint8_t)(mv >> 8);
+		out[BD_BMS_CELLS_OFF + i * 2] = (uint8_t)mv;
+		out[BD_BMS_CELLS_OFF + i * 2 + 1] = (uint8_t)(mv >> 8);
 	}
 
 	return res;
@@ -813,6 +1068,7 @@ static void stop(void *arg) {
 	VESC_IF->can_set_eid_cb(0);
 #endif
 	VESC_IF->set_app_data_handler(0);
+	VESC_IF->conf_custom_clear_configs();
 
 	if (st != 0) {
 		if (st->thd != 0) {
@@ -838,10 +1094,18 @@ INIT_FUN(lib_info *info) {
 
 	st->cell_count = BD_CELL_COUNT_DEF;
 
-	// Published before anything that can call state(): the CAN callback has
-	// no user pointer and reaches the state through ARG.
+	for (int i = 0; i < BD_CELL_MAX; i++) {
+		st->cell_mv[i] = BD_CELL_MV_NONE;
+	}
+
+	// Published before anything that can call state(): the CAN callback and
+	// the config callbacks have no user pointer and reach the state through
+	// ARG.
 	info->arg = st;
 	info->stop_fun = stop;
+
+	cfg_read(st);
+	VESC_IF->conf_custom_add_config(get_cfg, set_cfg, get_cfg_xml);
 
 	VESC_IF->lbm_add_extension("ext-boosted-bms", ext_bms);
 	VESC_IF->lbm_add_extension("ext-boosted-debug", ext_debug);

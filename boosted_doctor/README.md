@@ -14,6 +14,31 @@ Boosted Doctor implements the CAN commands and response parsing for Boosted's pr
 - View individual cell voltages in VESC Tool
 - Clear Red Light of Death (RLOD) directly from VESC Tool
 
+## Settings
+
+The package registers a custom config, so its settings appear in VESC Tool
+under the usual parameter editor rather than in the package UI.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| Publish as VESC BMS | **off** | Report the pack as a VESC BMS — pack voltage, current, state of charge and cell voltages — published locally and broadcast on CAN so a separate motor controller can see them. |
+
+It is off by default because enabling it puts BMS frames on the CAN bus,
+which should not fight an existing BMS. **Turn it on if you want the pack to
+appear as the VESC's battery** — that is the usual setup where a VESC Express
+bridges a Boosted pack to a motor controller.
+
+Leaving it off changes nothing else: the keep-alive ping, the cell report,
+RLOD recovery and the Boosted Doctor page all keep working. The setting is
+read on every publish cycle, so it takes effect within 200 ms of writing it —
+no reboot. Values already sent to the VESC are left alone and age out on
+their own.
+
+Settings are stored in the firmware's eeprom vars from index 0 and survive a
+reboot. The generated deserializer checks a signature derived from
+`conf/settings.xml`, so a stored config from an older parameter layout is
+rejected and the defaults are used instead.
+
 ## Implementation
 
 The protocol runs as a native C library (`boosted/code.c`): CAN transmit and
@@ -37,12 +62,25 @@ it; on older firmware the package prints a message and does nothing.
 
 ## Building
 
-`make` builds every binary and then the package, so it needs the ESP32
-RISC-V, ESP32-S3 Xtensa and `arm-none-eabi` toolchains on `PATH`. The
-RISC-V targets also need RVfplib checked out under `c_libs/express/RVfplib`.
+`make` generates the config sources, builds every binary and then the
+package, so it needs `vesc_tool` plus the ESP32 RISC-V, ESP32-S3 Xtensa and
+`arm-none-eabi` toolchains on `PATH`. The RISC-V targets also need RVfplib
+checked out under `c_libs/express/RVfplib`:
+
+```
+git submodule update --init c_libs/express/RVfplib
+```
+
+`boosted/conf/confparser.*`, `confxml.*` and `conf_default.h` are generated
+from `boosted/conf/settings.xml` by `vesc_tool --xmlConfToCode` and are not in
+git. `make conf` regenerates them on their own. When adding a parameter, edit
+`settings.xml` and `boosted/conf/datatypes.h` together — nothing checks that
+they agree, and a mismatch silently corrupts every field after it.
+
 To work on a single target while developing:
 
 ```
+make conf
 make -C boosted ARCH=esp32 ESP_TARGET=esp32c3
 make -C boosted ARCH=stm32
 ```
