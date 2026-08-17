@@ -14,6 +14,11 @@
     (pf3-brake . (8 f))
     (pf3-accel . (9 f))
     (pf-active . (10 i))
+
+    (whl-active . (11 i))
+    (whl-start . (12 f))
+    (whl-end . (13 f))
+    (whl-kd . (14 f))
 ))
 
 (defun print-settings ()
@@ -21,27 +26,8 @@
         (print (list (first it) (read-setting (first it))))
 ))
 
-(defun save-settings (  pf1-speed pf1-brake pf1-accel
-                        pf2-speed pf2-brake pf2-accel
-                        pf3-speed pf3-brake pf3-accel
-                        pf-active
-)
-    (progn
-        (write-setting 'pf1-speed pf1-speed)
-        (write-setting 'pf1-brake pf1-brake)
-        (write-setting 'pf1-accel pf1-accel)
-        (write-setting 'pf2-speed pf2-speed)
-        (write-setting 'pf2-brake pf2-brake)
-        (write-setting 'pf2-accel pf2-accel)
-        (write-setting 'pf3-speed pf3-speed)
-        (write-setting 'pf3-brake pf3-brake)
-        (write-setting 'pf3-accel pf3-accel)
-        (write-setting 'pf-active pf-active)
-        (print "Settings Saved!")
-))
-
 ; Settings version
-(def settings-version 42i32)
+(def settings-version 43i32)
 
 (defun read-setting (name)
     (let (
@@ -77,6 +63,12 @@
         (write-setting 'pf3-brake 0.2)
         (write-setting 'pf3-accel 0.4)
         (write-setting 'pf-active 0)
+
+        (write-setting 'whl-active 0)
+        (write-setting 'whl-start 20)
+        (write-setting 'whl-end 43)
+        (write-setting 'whl-kd 0.005)
+
         (write-setting 'ver-code settings-version)
         (print "Settings Restored!")
 ))

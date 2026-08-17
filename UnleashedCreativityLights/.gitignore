@@ -1,0 +1,22 @@
+# macOS Finder metadata
+.DS_Store
+._*
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
+
+# Windows Explorer / recycle bin metadata
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editor and shell swap files
+*~
+*.swp
+*.swo
+
+# Build artifacts
+*.code-workspace
+*.vescpkg
+!UCLights.vescpkg

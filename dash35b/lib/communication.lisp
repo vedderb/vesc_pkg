@@ -146,6 +146,14 @@
 (defun comm-tx-thread () {
         (loopwhile t {
                 (can-send-sid 201 (list drive-mode (if light-on 1 0) 0 0 0 0 0 0))
+
+                (var buf (bufcreate 8))
+                (bufset-i8 buf 0 (read-setting 'whl-active))
+                (bufset-i16 buf 2 (* (read-setting 'whl-start) 10.0))
+                (bufset-i16 buf 4 (* (read-setting 'whl-end) 10.0))
+                (bufset-i16 buf 6 (* (read-setting 'whl-kd) 10000.0))
+                (can-send-sid 202 buf)
+
                 (sleep 0.1)
         })
 })

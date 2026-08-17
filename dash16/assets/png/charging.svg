@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="53.655819mm"
+   height="20.453382mm"
+   viewBox="0 0 53.655819 20.453382"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="charging.svg"
+   inkscape:export-filename="/home/benjamin/Nextcloud/vesc_ab/git/display-ui-v900/assets/png/charging.png"
+   inkscape:export-xdpi="75.900002"
+   inkscape:export-ydpi="75.900002"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#000000"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="4.1577349"
+     inkscape:cx="91.27566"
+     inkscape:cy="34.874758"
+     inkscape:window-width="2490"
+     inkscape:window-height="1370"
+     inkscape:window-x="70"
+     inkscape:window-y="33"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Lager 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-21.426601,-14.604588)">
+    <rect
+       style="fill:none;stroke:#ffffff;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect846"
+       width="50.254642"
+       height="19.453382"
+       x="21.926601"
+       y="15.104588"
+       ry="2.0154107" />
+    <rect
+       style="fill:none;stroke:#ffffff;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect892"
+       width="2.397644"
+       height="9.2362537"
+       x="72.184776"
+       y="20.213152"
+       ry="2.0154107"
+       rx="0" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.54813;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 27.365202,29.699391 44.193763,19.910718 48.832234,25.41616 66.742643,21.924313 48.733726,29.75184 43.846027,24.75896 Z"
+       id="path1315"
+       sodipodi:nodetypes="ccccccc" />
+  </g>
+</svg>

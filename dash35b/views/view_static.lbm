@@ -260,7 +260,13 @@
 
                         (var imgbuf (img-buffer dm-pool 'indexed4 74 20))
                         (img-clear imgbuf)
-                        (var str (str-merge (str-from-n (+ page 1) "Page %d/") (str-from-n page-num)))
+
+                        (var str 0)
+                        (if (>= page page-num)
+                            (setq str "Settings")
+                            (setq str (str-merge (str-from-n (+ page 1) "Page %d/") (str-from-n page-num)))
+                        )
+
                         (ttf-txt-center str font-16 imgbuf)
                         (disp-render imgbuf 393 297 colors-text-aa)
                 })

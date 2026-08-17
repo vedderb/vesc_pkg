@@ -1,4 +1,3 @@
-
 (def tca9535-regs '(
         (addr . 0x20) ; Device address
         (out0 . 0xFF)
@@ -6,6 +5,8 @@
         (conf0 . 0xFF)
         (conf1 . 0xFF)
 ))
+
+@const-start
 
 (defun tca9535-write-regs () {
         (loopforeach i (rest-args) {
@@ -104,9 +105,6 @@
                         (setix res i (bits-dec-int (bufget-u8 reg1 0) (- pin 10) 1))
                 })
         })
-
-        (free reg0)
-        (free reg1)
 
         (if (= (length (rest-args)) 1) (first res) res)
 })

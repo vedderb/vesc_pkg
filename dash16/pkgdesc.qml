@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "Dash35B ESC"
-    property string pkgDescriptionMd: "README_ESC-gen.md"
-    property string pkgLisp: "main-esc.lisp"
-    property string pkgQml: ""
+    property string pkgName: "Dash16"
+    property string pkgDescriptionMd: "README_Disp-gen.md"
+    property string pkgLisp: "main.lisp"
+    property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "dash35b_esc.vescpkg"
+    property string pkgOutput: "dash16.vescpkg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device
@@ -27,10 +27,16 @@ Item {
             return false
         }
         
-        if (hwType != "vesc") {
+        // VBMS32 is a custom module
+        if (hwType != "custom module") {
             return false
         }
 
-        return true
+        var res = false
+        if (hwName == "dash16") {
+            res = true
+        }
+
+        return res
     }
 }

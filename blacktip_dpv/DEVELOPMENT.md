@@ -24,20 +24,171 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Configuration and EEPROM:**
   * Settings are stored in EEPROM and loaded at startup; configuration is managed via QML UI in VESC Tool.
   * Battery calculation supports voltage-based or ampere-hour-based methods.
+* **Battery Imbalance Detection:**
+  * Dedicated balance-wire thread monitors the midpoint between the two series battery packs.
+  * At-rest-only sampling with a settle window, EMA smoothing, latched warnings, and SOC scaling — see [Battery Imbalance Detection](#battery-imbalance-detection) below for the algorithm.
 
 For more details, see the sections below and refer to `blacktip_dpv.lisp` for implementation specifics.
 
 This document contains information for developers working on the BlackTip DPV VESC package.
 
+## VESC 7.00 Compatibility
+
+### Flash / Heap Layout Strategy
+
+VESC firmware 7.00 introduced a persistent flash heap using `@const-start` / `@const-end` blocks that replaces the older `move-to-flash` pattern. The runtime is structured as two const blocks with mutable state defined between them:
+
+```lisp
+@const-start       ; Block 1: constants and the debug-logging macro (flashed, immutable)
+  (define SLEEP_STATE_MACHINE …)
+  …
+  (define debug_log_format …)
+@const-end
+
+; MUTABLE GLOBAL STATE — heap-resident (NOT flashed), so setvar/set works at runtime.
+(define sw_state 0)
+…
+
+(import "generated/display_lut.bin" 'display_lut_bin)
+
+@const-start       ; Block 2: all functions (flashed, immutable)
+  (defun eeprom_store_i_if_changed …)
+  …
+@const-end
+
+; Boot sequence: init, then (progn (image-save) (main)) as a single top-level form.
+(init)
+(progn
+    (image-save)
+    (main))
+```
+
+**Rules that govern this layout:**
+
+**(a) Mutable globals must live outside the const blocks.**
+Flashed bindings are immutable. Every variable written at runtime via `setvar` or `set` must be defined on the working heap, between the two const blocks. These heap globals are pre-defined at the top level so their initialisers can reference already-flashed constants.
+
+**(b) Const-block initialisers are evaluated in source order.**
+A constant that references an earlier constant (e.g. `SOFT_START_DURATION` referencing `SAFE_START_TIMEOUT`) must come after it in the file. Function bodies have no such ordering constraint; LispBM resolves symbols at call time, not at definition time.
+
+**(c) Hardware init runs on every boot.**
+`image-save` does not restore external hardware state. All hardware initialisation (`i2c-start`, `gpio-configure`, oscillator setup) must live in the `init` / `main` call path so it re-executes on each cold boot.
+
+**(d) `import` must be a top-level form, not inside a flashed function.**
+When an `import` lives inside a flashed const-block function, the binding action is lost on subsequent boots; the imported symbol resolves to `nil`, causing `bufget-u32` type errors at runtime. The `import` for `display_lut.bin` is therefore placed as a top-level form between the two const blocks, where it runs once each time the package source is evaluated.
+
+**(e) `image-save` and `main` must be wrapped in a single `(progn …)` form.**
+`image-save` relocates the heap and serialises the environment, which invalidates the reader's source channel. If `image-save` and `main` are separate top-level forms, the reader tries to read `main` from the channel after `image-save` has run and fails with `read_error / ~CHANNEL~`. Wrapping both in one `(progn …)` means the entire form is parsed first, then `image-save` and `main` execute back-to-back with no intervening read.
+
+**(f) On subsequent boots the saved image is loaded and `main` is auto-invoked.**
+Only `init` runs from source on the very first boot after a fresh package upload. From the second boot onwards, the saved image is restored and `main` is invoked directly, bypassing the reader entirely.
+
+### VESC 7.00 Known Bugs and Workarounds
+
+#### I2C First-Message Bug
+
+On VESC firmware 7.00, the first `i2c-tx-rx` call issued after `i2c-start` — i.e. the first transaction on a freshly muxed bus, which happens on every cold boot — is silently swallowed and never reaches the I2C device.
+
+**Effect on cold boot:** The HT16K33 display controller's oscillator-enable command (`0x21`) was dropped on every cold boot. The oscillator never started, so the display chip stayed dormant and the screen remained dark. On firmware 6.06 the same single `0x21` was delivered correctly and the panel lit up.
+
+**Workaround:** Send the oscillator-enable command twice. The first write is sacrificial (absorbed by the firmware bug); the second is delivered to the controller.
+
+```lisp
+(i2c-tx-rx 0x70 (list 0x21)) ; sacrificial — absorbs the dropped first transaction
+(i2c-tx-rx 0x70 (list 0x21)) ; real oscillator-enable, reaches the HT16K33
+(i2c-tx-rx 0x70 (list 0x81)) ; display ON, blink off
+```
+
+This bug only affects the first transaction on a freshly muxed bus. Subsequent commands on the same bus configuration are delivered normally. The second display controller (`0x71` on CudaX) does not need the doubled command because by the time it is initialised the bus is already exercised by the `0x70` sequence.
+
+## Battery Imbalance Detection
+
+The runtime monitors the midpoint balance wire (ADC1, exposed as `(get-adc 0)`) and warns when one of the two series battery packs becomes significantly more depleted than the other. The detection logic is implemented in `blacktip_dpv.lisp` as a small set of helpers (`update_lower_voltage_smooth`, `update_imbalance_latch`, `get_battery_imbalance_warning`, `log_balance_voltages_throttled`) driven by a dedicated balance loop thread.
+
+### Hardware Path
+
+* The balance wire is brought out through a resistor divider (default 141k / 10k → 15.0x). With the stock ADC reference this gives a calibrated multiplier of **16.2x** (`ADC_BAL_MULT_X10_DEFAULT = 162`), measured empirically on a reference Blacktip.
+* `get-adc 0` returns the raw pin voltage (0 – 3.3 V); the lower-pack voltage is `pin × multiplier`.
+* The multiplier is user-tunable from the UI in 0.1x steps (`5.0` – `25.5x`) to compensate for resistor tolerances; the periodic balance log (see below) emits the running readings so the user can dial it in against a multimeter.
+
+### At-Rest-Only Sampling
+
+The midpoint balance-wire reading is **skewed HIGH under load**. The IR drop across the pack and wiring lifts the measured midpoint, so the lower-pack reading runs ~1.3 V above its true resting value while the motor is running (observed ~21.2 – 21.8 V under load vs a true resting ~19.9 V). This offset is a permanent property of running, not a transient that settles — confirmed by swapping the two batteries between slots and observing the skew stay in the SAME direction (lower-slot reads high) regardless of which physical battery is where.
+
+Consequently, **live imbalance readings while running are meaningless** and must never be fed into the EMA. The runtime enforces this with two mechanisms:
+
+1. **Hold while running.** `update_lower_voltage_smooth` evaluates "running" as `(commanded speed != OFF)` OR `(|measured duty| > DUTY_AT_REST_THRESHOLD)`. A `nil` duty (very early boot) is treated as running so the EMA cannot be poisoned with garbage. While running, the smoothing is held — the EMA retains its last good at-rest value.
+2. **Post-stop settle window.** After the motor stops, the hold is extended for `BALANCE_SETTLE_SAMPLES` (32 samples × 0.25 s = 8 s) so the post-stop recovery transient is skipped. The settle counter is re-armed every iteration while running, so the quiet-down period only starts after the motor has actually been at rest.
+
+At-rest readings feed an EMA with `alpha = 0.05` (~5 s time constant at the 4 Hz balance-loop rate). Both `lower_voltage_smooth` and `total_voltage_smooth` are tracked so the imbalance can be derived consistently from smoothed values, preventing motor sag (which hits `get-vin` instantly but `lower_voltage_smooth` only slowly) from flipping the sign or inflating the magnitude.
+
+### Latch Hysteresis
+
+Because the imbalance can only be measured reliably at rest, it is sampled on every stop and then **latched** (`battery_imbalance_latched`). Once a warning is detected, it keeps showing even if the user sets off again and stops once more — a depleting pack cannot be "driven away from" unnoticed.
+
+The latch state machine in `update_imbalance_latch`:
+
+* Acts only on a settled, at-rest reading (`balance_smoothing_held = 0` and the EMA initialised), so a load-corrupted or transient sample can never latch.
+* **Set / refresh:** a settled reading over the warn threshold latches the warning. If the imbalance direction flips (e.g. `PACK_1` → `PACK_2`), the latch is updated.
+* **Clear (hysteresis):** the latch only releases once a settled reading shows `|imbalance|` below `BATTERY_IMBALANCE_CLEAR_FRACTION` (currently `0.5`) of the warn threshold — i.e. the pack has actually been re-balanced or charged, not just nudged under the boundary. The gap between clear and warn thresholds also debounces the boundary.
+
+Direction convention: `imbalance = upper_smooth − lower_smooth` (upper = slot 1 top pack, lower = slot 2 / ADC pack). Positive imbalance → slot 2 depleted → `BATTERY_IMBALANCE_WARN_PACK_2`. Negative imbalance → slot 1 depleted → `BATTERY_IMBALANCE_WARN_PACK_1`.
+
+### Display Integration
+
+The imbalance warning replaces only the `DISPLAY_SENTINEL` (idle) frame, so it appears AFTER any user-triggered frame (speed indicator, battery bar, smart-cruise bar) has completed its normal timer duration. The displayed warning comes from `battery_imbalance_latched`, NOT the live reading, so it persists across motor restarts.
+
+* **At rest** (`speed = SPEED_OFF`): the warning is shown continuously.
+* **While running:** the warning flashes on for `IMBALANCE_RUN_FLASH_ON` (1 s) out of every `IMBALANCE_RUN_FLASH_PERIOD` (5 s). This keeps reminding the rider mid-ride without permanently clobbering the smart-cruise timer bar / speed display.
+
+Two display frames are reserved for the warning (`BATTERY_IMBALANCE_DISPLAY_PACK_1 = 31`, `BATTERY_IMBALANCE_DISPLAY_PACK_2 = 32`). Frames 124 – 131 in `assets/display_lut.csv` ("Display Battery 1 Low" / "Display Battery 2 Low", 4 rotations each) provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
+
+### SOC Correction
+
+`calculate_corrected_battery` scales the raw battery percentage by `display_pack_voltage / total_voltage` (where `display_pack_voltage = 2 × lower_voltage_smooth`) when imbalance detection is active. The result is clamped to `[0.0, 1.0]`. This makes the displayed SOC, the bar graph, and the capacity beeps track the weaker pack rather than the pack average — so an imbalanced scooter does not over-report remaining capacity. When detection is disabled (`battery_imbalance_threshold_centi = 0`), the scaling is skipped and behaviour matches the pre-1.4.0 voltage-based calculation.
+
+### Dedicated Thread
+
+`start_balance_loop` runs `update_lower_voltage_smooth`, `update_imbalance_latch`, and `log_balance_voltages_throttled` at 4 Hz on a dedicated thread (`THREAD_STACK_BALANCE = 100` words). Keeping the balance work off the display thread isolates any fault in the balance code (or the periodic `puts` of a long log string) from the screen update loop. Each helper is invoked through `trap` so early-boot nils from `get-duty` / `get-adc` cannot kill the thread.
+
+### Tuning Aid: Periodic Balance Log
+
+`log_balance_voltages_throttled` emits a `Balance:` line every ~15 s when `debug_enabled = 1`, showing `total`, `upper(slot1)`, `lower(slot2)`, the active multiplier, and whether the EMA is currently held. The string is gated by the `when-debug` macro, so when debug is off there is no string-building work and no allocation. This is the primary tool for verifying or fine-tuning the balance-wire ADC multiplier in the field.
+
+### EEPROM Schema (v3)
+
+The v2 balance-detection feature added slots 30 and 31 and raised `EEPROM_SETTINGS_COUNT` from 30 to 32. Schema v3 adds the opt-in shutdown setting in slot 32 and raises the count to 33. The migrations in `eeprom_set_defaults` remain layered on the existing v1 (1.0.0) baseline:
+
+| Slot | Setting | Default | Notes |
+|------|---------|---------|-------|
+| 30 | `battery_imbalance_threshold_centi` | `200` | Threshold in 0.01 V units (200 = 2.00 V). `0` disables imbalance detection entirely. |
+| 31 | `adc_balance_wire_multiplier_x10` | `162` (`ADC_BAL_MULT_X10_DEFAULT`) | Balance-wire multiplier × 10 (162 = 16.2x). Bounded `ADC_BAL_MULT_X10_MIN..MAX` (`50..255`, i.e. 5.0x – 25.5x). |
+| 32 | `enable_five_click_shutdown` | `0` | Opt-in MK5 hardware shutdown. Only `1` enables it; runtime hardware, firmware and stopped-state guards remain authoritative. |
+| 127 | Schema version marker | `3` | Advanced once at the end of the migration so each block is idempotent. |
+
+The migration uses `(< stored_version N)` rather than `(not-eq stored_version N)` so that older blocks do not re-fire after a later block has run. A fresh install on a Poseidon-era device (marker `150` in slot 127) is collapsed to `0` so the 1.0.0 block adds slots 25 – 29 without overwriting the user's existing slots 0 – 24, the 1.1.0 block adds slots 30 – 31, and the v3 block initializes only slot 32 before advancing the marker to `3`.
+
+Current settings messages are 33 bytes. On upgrade, the v3 migration writes only the new slot 32 default and preserves all settings known to the previous schema. The UI write and both reset-default paths send 33 bytes and explicitly include slot 32.
+
+## Five-click Deep Shutdown
+
+The feature decision is isolated in `five_click_shutdown_rejection_reason`. It requires the persisted opt-in, actual `(sysinfo 'hw-name)` equal to `60_MK5`, supported firmware, and commanded speed off. `request_five_click_shutdown` then runs the short confirmation sequence before calling `(shutdown true)`. Prop coast-down is effectively instantaneous once the motor is off, so RPM/duty telemetry and a delayed second validation stage are unnecessary.
+
+Firmware exposes its beta/test build number as the third member of `(sysinfo 'fw-ver)` and as `isTestFw` in `FwRxParams`. Zero denotes a stable release, so stable 7.00 is `(7 0 0)` and is supported; `(7 0 2)` denotes 7.00 beta 2. Beta 1 is rejected, while beta 2+, stable 7.00, and later releases are accepted. There is no separate safe LispBM extension-introspection API on the older builds, so version gating is used for feature detection. The backend check is independent of QML, so a manually written or corrupted enabled setting cannot bypass it.
+
+Before calling the VESC hardware shutdown path, the request selects the existing `DISPLAY_OFF` power-symbol frame, allows the 4 Hz display loop to render it, and plays four descending tones (700, 575, 450 and 325 Hz) at the configured beep volume. This gives a clear acknowledgement of an accidental as well as an intentional five-click command; when volume is zero, the display remains the confirmation. Success does not return. A returned `nil` is logged as failure/unsupported/held input and is not retried. This feature does not use `shutdown-hold`, alter `OFF_AFTER`, or add another idle timer.
+
 ## Build System
 
 The project uses GNU Make for building the VESC package:
 
-    make              # Build blacktip_dpv.vescpkg
-    make clean        # Remove generated files
-    make test         # Run code quality checks and smoke tests
-    make smoke-tests  # Run unit-style smoke tests only
-    make binary       # Generate binary LUT files only
+```text
+make              # Build blacktip_dpv.vescpkg
+make clean        # Remove generated files
+make test         # Run code quality checks and smoke tests
+make smoke-tests  # Run unit-style smoke tests only
+make binary       # Generate binary LUT files only
+```
 
 ### Version Management
 
@@ -64,7 +215,9 @@ To update the version:
 
 The project includes smoke tests for pure functions to catch regressions before flashing hardware:
 
-    make smoke-tests  # Run 30+ unit tests for pure functions
+```text
+make smoke-tests  # Run 30+ unit tests for pure functions
+```
 
 **Tested functions:**
 
@@ -105,16 +258,18 @@ This CSV file is the source of truth. The build system automatically generates t
 
 Visualize and verify display artwork before building:
 
-    // List all available screens
-    python tools/preview_display.py --list
-    // Preview a specific frame by index
-    python tools/preview_display.py --index 0
-    // Preview by name and rotation
-    python tools/preview_display.py --name "Display Battery 4 Bars" --rotation 0
-    // Show all screens for a given rotation
-    python tools/preview_display.py --show-all-rotation 0
-    // Export as PGM image
-    python tools/preview_display.py --index 0 --output preview.pgm
+```text
+// List all available screens
+python tools/preview_display.py --list
+// Preview a specific frame by index
+python tools/preview_display.py --index 0
+// Preview by name and rotation
+python tools/preview_display.py --name "Display Battery 4 Bars" --rotation 0
+// Show all screens for a given rotation
+python tools/preview_display.py --show-all-rotation 0
+// Export as PGM image
+python tools/preview_display.py --index 0 --output preview.pgm
+```
 
 The preview tool applies the correct 90° clockwise rotation and vertical flip to match the physical hardware orientation.
 
@@ -159,7 +314,9 @@ Each display frame consists of:
 
 ### Testing
 
-    make test  # Runs whitespace checks
+```text
+make test  # Runs whitespace checks
+```
 
 ### Code Style
 
@@ -179,15 +336,19 @@ Two mechanisms are available for debug logging:
 
 **`debug_log` function** - For static strings:
 
-    (debug_log "Motor: Stopping motor")
+```lisp
+(debug_log "Motor: Stopping motor")
+```
 
-**`when-debug` macro** - For dynamic strings with expensive operations:
+**`debug_log_format` macro** - For dynamic strings with expensive operations:
 
-    (when-debug (str-merge "Speed: Set to " (to-str clamped_speed)))
+```lisp
+(debug_log_format (str-merge "Speed: Set to " (to-str clamped_speed)))
+```
 
-### When to Use `when-debug`
+### When to Use `debug_log_format`
 
-Use the `when-debug` macro when logging requires:
+Use the `debug_log_format` macro when logging requires:
 
 * String concatenation (`str-merge`)
 * Number-to-string conversion (`to-str`)
@@ -195,7 +356,7 @@ Use the `when-debug` macro when logging requires:
 
 The macro only evaluates these expressions when `debug_enabled` is 1, preventing unnecessary memory allocation and CPU cycles in hot paths.
 
-### Hot Paths Requiring `when-debug`
+### Hot Paths Requiring `debug_log_format`
 
 * `set_speed_safe` - Called every speed change (multiple times per second)
 * Motor control loop - Runs continuously
@@ -206,11 +367,15 @@ The macro only evaluates these expressions when `debug_enabled` is 1, preventing
 
 **Bad** (evaluates `str-merge` even when debug is off):
 
-    (debug_log (str-merge "Speed: Set to " (to-str speed)))
+```lisp
+(debug_log (str-merge "Speed: Set to " (to-str speed)))
+```
 
 **Good** (only evaluates when debug is enabled):
 
-    (when-debug (str-merge "Speed: Set to " (to-str speed)))
+```lisp
+(debug_log_format (str-merge "Speed: Set to " (to-str speed)))
+```
 
 ## Testing Best Practices
 
@@ -228,6 +393,10 @@ When adding new pure functions (functions without side effects), add correspondi
 * Error conditions
 
 4. **Run tests before committing**:
+
+```text
+make test
+```
 
 ### What to Test
 
@@ -248,36 +417,42 @@ Each test function should:
 
 Example:
 
-    def test_new_function():
-        print("\n=== Testing new_function ===")
-        assert_eq(new_function(5), 10, "new_function: basic case")
-        assert_eq(new_function(0), 0, "new_function: zero input")
-        assert_eq(new_function(-1), 0, "new_function: negative clamped")
+```text
+def test_new_function():
+    print("\n=== Testing new_function ===")
+    assert_eq(new_function(5), 10, "new_function: basic case")
+    assert_eq(new_function(0), 0, "new_function: zero input")
+    assert_eq(new_function(-1), 0, "new_function: negative clamped")
+```
 
 ## Binary Loading Implementation
 
 The runtime uses LispBM's `import` statement to load binary data at runtime:
 
-    ; Import binary files
-    (import "generated/display_lut.bin" 'display-lut-bin)
-    ; Validate headers
-    (defun validate-lut-header (data magic expected-version) { ... })
-    ; Access display data (offset by 8-byte header)
-    (bufcpy pixbuf 0 display-lut-bin (+ 8 start_pos) 16)
+```lisp
+; Import binary file as a top-level form (NOT inside a flashed function — see VESC 7.00 notes)
+(import "generated/display_lut.bin" 'display_lut_bin)
+; Validate headers
+(defun validate_lut_header (data magic expected_version) { … })
+; Access display data (offset by 8-byte header)
+(bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+```
 
 ### Why `pixbuf` is Required
 
 The `pixbuf` variable is a 16-byte working buffer that is essential to the display system and **cannot be removed**:
 
-    (let ((start_pos 0)
-             (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
-          ...
-          // Copy 16 bytes from binary file to pixbuf
-          (bufcpy pixbuf 0 display-lut-bin (+ 8 start_pos) 16)
+```lisp
+(let ((start_pos 0)
+         (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
+      …
+      // Copy 16 bytes from binary file to pixbuf
+      (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
 
-          // Send pixbuf to display via I2C
-          (i2c-tx-rx mpu-addr pixbuf)
-    })
+      // Send pixbuf to display via I2C
+      (i2c-tx-rx mpu-addr pixbuf)
+})
+```
 
 **Why it's needed:**
 

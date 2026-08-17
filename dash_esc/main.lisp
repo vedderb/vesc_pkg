@@ -1,0 +1,670 @@
+(import "pkg@://vesc_packages/lib_code_server/code_server.vescpkg" 'code-server)
+(read-eval-program code-server)
+
+(def light-on 0)
+(def drive-mode 1)
+(def val-brk 0.0)
+(def volts-brk 0.0)
+
+; 2 is buttons only, 3 is buttons and ADC. Initially only
+; the buttons are detached, but once throttle is received
+; ADC2 is detached and replaced by the dash16 throttle
+(def adc-detach-mode 2)
+
+(def cruise-on 0)
+(def cruise-ts 0)
+
+(def battery-a-charging false)
+(def battery-a-chg-time 0.0)
+(def stats-battery-ah 0.0)
+
+(def log-running false)
+(def last-can-id -1)
+
+@const-start
+
+; Provides ext-cmd-proc
+(def lib-cmd-proc [
+    0x00 0x00 0x00 0x00 0x08 0xb5 0x07 0x4b 0x07 0x49 0x08 0x48 0x7b 0x44 0x79 0x44 0x1b 0x68 0x03 0x4b
+    0x78 0x44 0x1b 0x68 0x98 0x47 0x01 0x20 0x08 0xbd 0x00 0xbf 0x00 0xf8 0x00 0x10 0xf0 0xff 0xff 0xff
+    0x2f 0x00 0x00 0x00 0x18 0x00 0x00 0x00 0x65 0x78 0x74 0x2d 0x63 0x6d 0x64 0x2d 0x70 0x72 0x6f 0x63
+    0x00 0x00 0x00 0x00 0x01 0x29 0x38 0xb5 0x05 0x46 0x0b 0x4c 0x02 0xd0 0xd4 0xf8 0x90 0x00 0x38 0xbd
+    0x63 0x6f 0x00 0x68 0x98 0x47 0x00 0x28 0xf7 0xd0 0xa3 0x6a 0x28 0x68 0x98 0x47 0xd4 0xf8 0x4c 0x32
+    0xd0 0xe9 0x00 0x10 0x00 0x22 0x98 0x47 0xd4 0xf8 0x8c 0x00 0xed 0xe7 0x00 0xbf 0x00 0xf8 0x00 0x10
+])
+
+(defun set-profile (i-min i-max s-min s-max) {
+        (var txb (bufcreate 37))
+        (bufset-u8 txb 0 49) ; COMM_SET_MCCONF_TEMP_SETUP
+        (bufset-u8 txb 1 0) ; Store
+        (bufset-u8 txb 2 1) ; FWD CAN
+        (bufset-u8 txb 3 0) ; ack
+        (bufset-u8 txb 4 0) ; Divide by controllers
+        (bufset-f32 txb 5 i-min)
+        (bufset-f32 txb 9 i-max)
+        (bufset-f32 txb 13 s-min)
+        (bufset-f32 txb 17 s-max)
+        (bufset-f32 txb 21 (conf-get 'l-min-duty))
+        (bufset-f32 txb 25 (conf-get 'l-max-duty))
+        (bufset-f32 txb 29 (conf-get 'l-watt-min))
+        (bufset-f32 txb 33 (conf-get 'l-watt-max))
+        (ext-cmd-proc txb)
+})
+
+(defmacro run-m2 (code) `(atomic {
+            (var res nil)
+            (select-motor 2)
+            (setq res ,code)
+            (select-motor 1)
+            res
+}))
+
+(defun has-dual-motors () {
+        (atomic
+            (var motor-before (get-selected-motor))
+            (select-motor 2)
+            (var res (= (get-selected-motor) 2))
+            (select-motor motor-before)
+            res
+        )
+})
+
+(def dual-motors (has-dual-motors))
+
+(defun proc-sid (id data) {
+        (cond
+            ((= id 35) {
+                    (setq battery-a-charging (= (bufget-u8 data 2) 1))
+                    (setq battery-a-chg-time (bufget-u16 data 3))
+                    (setq stats-battery-ah (/ (bufget-u16 data 5) 10.0))
+            })
+
+            ((= id 201) {
+                    (var drive-mode-new (bufget-u8 data 0))
+                    (setq light-on (bufget-u8 data 1))
+
+                    (if (!= drive-mode drive-mode-new) (setq cruise-on 0))
+
+                    (setq drive-mode drive-mode-new)
+
+                    (match drive-mode
+                        (0 { ; Reverse
+                                (set-profile
+                                    (read-setting 'mode-r-current-brk)
+                                    (read-setting 'mode-r-current)
+                                    (/ (read-setting 'mode-r-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
+
+                                (app-adc-override 2 1)
+                                (app-adc-detach adc-detach-mode 3)
+                        })
+                        (1 { ; Neutral
+                                (set-profile
+                                    (read-setting 'mode-n-current-brk)
+                                    0
+                                    (/ (read-setting 'mode-1-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
+
+                                (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
+                        })
+                        (2 { ; 1
+                                (set-profile
+                                    (read-setting 'mode-1-current-brk)
+                                    (read-setting 'mode-1-current)
+                                    (/ (read-setting 'mode-1-speed) -3.6)
+                                    (/ (read-setting 'mode-1-speed) 3.6)
+                                )
+
+                                (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
+                        })
+                        (3 { ; 2
+                                (set-profile
+                                    (read-setting 'mode-2-current-brk)
+                                    (read-setting 'mode-2-current)
+                                    (/ (read-setting 'mode-2-speed) -3.6)
+                                    (/ (read-setting 'mode-2-speed) 3.6)
+                                )
+
+                                (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
+                        })
+                        (4 { ; 3
+                                (set-profile
+                                    (read-setting 'mode-3-current-brk)
+                                    (read-setting 'mode-3-current)
+                                    (/ (read-setting 'mode-3-speed) -3.6)
+                                    (/ (read-setting 'mode-3-speed) 3.6)
+                                )
+
+                                (app-adc-override 2 0)
+                                (app-adc-detach adc-detach-mode 3)
+                        })
+                    )
+
+                    (if (= light-on 1)
+                        {
+                            (set-aux 1 1)
+                            (set-aux 2 1)
+                        }
+                        {
+                            (set-aux 1 0)
+                            (set-aux 2 0)
+                        }
+                    )
+            })
+
+            ((= id 203) {
+                    (setq val-brk (/ (bufget-i16 data 0) 1000.0))
+                    (setq volts-brk (/ (bufget-i16 data 2) 1000.0))
+
+                    (setq adc-detach-mode 3)
+                    (app-adc-override 1 volts-brk)
+                    (app-adc-detach adc-detach-mode 3) ; Detach ADC2
+            })
+
+            ; Event
+            ((= id 250) {
+                    (cond
+                        ((= (bufget-u8 data 0) 0) { ; Toggle cruise control
+                                (setq cruise-on (if (= cruise-on 0) 1 0))
+                                (if (= cruise-on 1) (setq cruise-ts (systime)))
+                        })
+
+                        ((= (bufget-u8 data 0) 1) { ; About to turn off
+                                ; store-backup is very new, so fall back to conf-store
+                                ; if it does not exist using trap
+                                (match (trap (store-backup))
+                                    ((exit-ok (? a)) t)
+                                    (_ (conf-store))
+                                )
+                        })
+                    )
+            })
+        )
+})
+
+(defun event-handler ()
+    (loopwhile t
+        (recv
+            ((event-data-rx . (? data)) (trap (eval (read data))))
+            (event-shutdown (stop-log last-can-id))
+            ((event-can-sid . ((? id) . (? data))) (proc-sid id data))
+            (_ nil)
+)))
+
+; Local data to log
+;
+; Format
+; (optKey optName optUnit optPrecision optIsRel optIsTime value-function)
+;
+; All entries except value-function are optional and
+; default values will be used if they are left out.
+(def loglist-local '(
+        ("Input Voltage" "V"            (get-vin))
+        ("Current" "A"                  (get-current 1))
+        ("Current In" "A"               (get-current-in 1))
+        ("Duty"                         (get-duty))
+        ("RPM"                          (get-rpm))
+        ("Temp Fet" "degC" 1            (get-temp-fet))
+        ("Temp Motor" "degC" 1          (get-temp-mot))
+        ("Batt" "%"                     (* (get-batt) 100))
+        ("kmh_vesc" "km/h" "Speed VESC" (* (get-speed) 3.6))
+        ("roll"                         (ix (get-imu-rpy) 0))
+        ("pitch"                        (ix (get-imu-rpy) 1))
+        ("yaw"                          (ix (get-imu-rpy) 2))
+        ("fault"                        (get-fault))
+        ("trip_vesc" "m"                (get-dist))
+        ("trip_vesc_abs" "m"            (get-dist-abs))
+        ("cnt_ah" "Ah" "Amp Hours"      (get-ah))
+        ("cnt_wh" "Wh" "Watt Hours"     (get-wh))
+        ("cnt_ah_chg" "Ah" "Ah Chg"     (get-ah-chg))
+        ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
+        ("ADC1" "V"                     (get-adc 0))
+        ("ADC2" "V"                     (get-adc 1))
+        ("iq" "A"                       (get-iq 1))
+        ("id" "A"                       (get-id 1))
+        ("vq" "V"                       (get-vq 1))
+        ("vd" "V"                       (get-vd 1))
+        ("Fault"                        (get-fault))
+        ("Drive Mode"                   (+ drive-mode 0))
+))
+
+; CAN-data template. Same format as above, but all %d in strings will
+; be replaced with can-id. Id in the last field will also be replaced
+; with can id.
+(def loglist-can-template '(
+        ("V%d Current" "A"              (canget-current id))
+        ("V%d Current In" "A"           (canget-current-in id))
+        ("V%d Duty"                     (canget-duty id))
+        ("V%d RPM"                      (canget-rpm id))
+        ("V%d Temp Fet" "degC" 1        (canget-temp-fet id))
+        ("V%d Temp Motor" "degC" 1      (canget-temp-motor id))
+        ("V%d ADC1" "V"                 (canget-adc id 0))
+        ("V%d ADC2" "V"                 (canget-adc id 1))
+        ("V%d Input Voltage" "V"        (canget-vin id))
+))
+
+(defun merge-lists (list-with-lists) (foldl append () list-with-lists))
+
+; Scan CAN-bus and make loglists for all devices
+(defun canlist-create ()
+    (merge-lists
+        (map
+            (fn (id) ; For every CAN ID
+                (map
+                    (fn (row) ; For every row in template
+                        (map
+                            (fn (e) ; For every element in that row
+                                (cond
+                                    ((eq (type-of e) type-array) (str-from-n id e))
+                                    ((eq (type-of e) type-list) (map (fn (x) (if (eq x 'id) id x)) e))
+                                    (true e)
+                                )
+                            )
+                            row
+                        )
+                    )
+                    loglist-can-template
+                )
+            )
+            (can-list-devs)
+        )
+    )
+)
+
+(defun bmslist-create()
+    (let (
+            (res ())
+            (add (fn (x) (setvar 'res (append res (list x)))))
+        )
+        (if (< (get-bms-val 'bms-msg-age) 2)
+            (progn
+                (add '("bms_v_tot" "V" "BMS Voltage" (get-bms-val 'bms-v-tot)))
+                (looprange i 0 (get-bms-val 'bms-cell-num)
+                    (add (list (str-from-n (+ i 1) "BMS_C%d") "V" 3 (list 'get-bms-val ''bms-v-cell i)))
+                )
+                (add '("bms_i_in_ic" "A" "BMS Current" (get-bms-val 'bms-i-in-ic)))
+                (add '("bms_soc" "%" "BMS SOC" (* (get-bms-val 'bms-soc) 100.0)))
+                (add '("bms_hum" "%" "BMS Hum" (get-bms-val 'bms-hum)))
+                (add '("bms_temp_hum" "degC" "BMS Temp Hum" (get-bms-val 'bms-temp-hum)))
+                (looprange i 0 (get-bms-val 'bms-temp-adc-num)
+                    (add (list (str-from-n (+ i 1) "BMS_T%d") "degC" 3 (list 'get-bms-val ''bms-temps-adc i)))
+                )
+                res
+            )
+            res
+
+)))
+
+(defun loglist-parse (id lst res-fun)
+    (looprange row 0 (length lst)
+        (let (
+                (field (ix lst row))
+                (get-field
+                    (fn (type default)
+                        (let ((f (first field)))
+                            (if (eq (type-of f) type)
+                                (progn
+                                    (setvar 'field (rest field))
+                                    f
+                                )
+                                default
+                ))))
+                (key       (get-field type-array (str-from-n row "Field %d")))
+                (unit      (get-field type-array ""))
+                (name      (get-field type-array key))
+                (precision (get-field type-i 2))
+                (is-rel    (get-field type-symbol false))
+                (is-time   (get-field type-symbol false))
+            )
+            (res-fun
+                id ; CAN id
+                row ; Field
+                key ; Key
+                name ; Name
+                unit ; Unit
+                precision ; Precision
+                is-rel ; Is relative
+                is-time ; Is timestamp
+            )
+)))
+
+; Confiure all log fields based on loglist lst
+(defun log-configure (id lst) (loglist-parse id lst 'log-config-field))
+
+; Print all parsed fields of loglist lst
+(defun print-loglist (lst) (loglist-parse 0 lst
+        (fn (id row key name unit precision is-rel is-time)
+            (print (list key name unit precision is-rel is-time (ix (ix lst row) -1)))
+)))
+
+(defun log-thd (id rate lst)
+    (loopwhile log-running
+        (progn
+            (log-send-f32 id 0
+                (map
+                    (fn (x) (eval (ix x -1)))
+                    lst
+                )
+            )
+            (sleep (/ 1.0 rate))
+)))
+
+(defun start-log (id append-gnss log-local log-can log-bms rate)
+    (progn
+        (def last-can-id id)
+        (stop-log id)
+
+        (def loglist (merge-lists
+                (list
+                    (if log-local loglist-local ())
+                    (if log-can (canlist-create) ())
+                    (if log-bms (bmslist-create) ())
+        )))
+
+        (if (eq loglist nil)
+            (send-msg "Nothing to log. Make sure that everything on the CAN-bus has status messages enabled.")
+
+            (progn
+                (log-configure id loglist)
+
+                (log-start
+                    id ; CAN id
+                    (length loglist) ; Field num
+                    rate ; Rate Hz
+                    true ; Append time
+                    append-gnss ; Append gnss
+                )
+
+                (def log-running true)
+                (def log-thd-id (spawn log-thd id rate loglist))
+                (send-data "Log Started")
+        ))
+))
+
+(defun stop-log (id) {
+        (log-stop id)
+        (if log-running {
+                (def log-running false)
+                (wait log-thd-id)
+                (send-data "Log stopped")
+        })
+})
+
+(defun save-config (id append-gnss log-local log-can log-bms rate at-boot) {
+        (write-setting 'can-id id)
+        (write-setting 'log-at-boot at-boot)
+        (write-setting 'log-rate rate)
+        (write-setting 'append-gnss append-gnss)
+        (write-setting 'log-local log-local)
+        (write-setting 'log-can log-can)
+        (write-setting 'log-bms log-bms)
+        (send-data "Settings Saved!")
+})
+
+(defun save-modes () {
+        (write-setting 'mode-r-speed (rest-args 0))
+        (write-setting 'mode-r-current (rest-args 1))
+        (write-setting 'mode-r-current-brk (rest-args 2))
+        (write-setting 'mode-n-current-brk (rest-args 3))
+        (write-setting 'mode-1-speed (rest-args 4))
+        (write-setting 'mode-1-current (rest-args 5))
+        (write-setting 'mode-1-current-brk (rest-args 6))
+        (write-setting 'mode-2-speed (rest-args 7))
+        (write-setting 'mode-2-current (rest-args 8))
+        (write-setting 'mode-2-current-brk (rest-args 9))
+        (write-setting 'mode-3-speed (rest-args 10))
+        (write-setting 'mode-3-current (rest-args 11))
+        (write-setting 'mode-3-current-brk (rest-args 12))
+})
+
+; Persistent settings
+; Format: (label . (offset type))
+(def eeprom-addrs '(
+        (ver-code    . (0 i))
+        (can-id      . (1 i))
+        (log-at-boot . (2 b))
+        (append-gnss . (3 b))
+        (log-rate    . (4 f))
+        (log-local   . (5 b))
+        (log-can     . (6 b))
+        (log-bms     . (7 b))
+
+        (mode-r-speed       . (8 f))
+        (mode-r-current     . (9 f))
+        (mode-r-current-brk . (10 f))
+        (mode-n-current-brk . (11 f))
+        (mode-1-speed       . (12 f))
+        (mode-1-current     . (13 f))
+        (mode-1-current-brk . (14 f))
+        (mode-2-speed       . (15 f))
+        (mode-2-current     . (16 f))
+        (mode-2-current-brk . (17 f))
+        (mode-3-speed       . (18 f))
+        (mode-3-current     . (19 f))
+        (mode-3-current-brk . (20 f))
+))
+
+(defun print-settings ()
+    (loopforeach it eeprom-addrs
+        (print (list (first it) (read-setting (first it))))
+))
+
+; Settings version
+(def settings-version 240i32)
+
+(defun read-setting (name)
+    (let (
+            (addr (first (assoc eeprom-addrs name)))
+            (type (second (assoc eeprom-addrs name)))
+        )
+        (cond
+            ((eq type 'i) (eeprom-read-i addr))
+            ((eq type 'f) (eeprom-read-f addr))
+            ((eq type 'b) (!= (eeprom-read-i addr) 0))
+)))
+
+(defun write-setting (name val)
+    (let (
+            (addr (first (assoc eeprom-addrs name)))
+            (type (second (assoc eeprom-addrs name)))
+        )
+        (cond
+            ((eq type 'i) (eeprom-store-i addr val))
+            ((eq type 'f) (eeprom-store-f addr val))
+            ((eq type 'b) (eeprom-store-i addr (if val 1 0)))
+)))
+
+(defun restore-settings () {
+        (write-setting 'can-id (if (eq (sysinfo 'hw-type) 'hw-express) -2 2))
+        (write-setting 'log-at-boot false)
+        (write-setting 'log-rate 10)
+        (write-setting 'append-gnss false)
+        (write-setting 'log-local true)
+        (write-setting 'log-can true)
+        (write-setting 'log-bms false)
+        (write-setting 'ver-code settings-version)
+
+        (write-setting 'mode-r-speed 15.0)
+        (write-setting 'mode-r-current 0.5)
+        (write-setting 'mode-r-current-brk 1.0)
+
+        (write-setting 'mode-n-current-brk 1.0)
+
+        (write-setting 'mode-1-speed 20.0)
+        (write-setting 'mode-1-current 0.5)
+        (write-setting 'mode-1-current-brk 1.0)
+
+        (write-setting 'mode-2-speed 25.0)
+        (write-setting 'mode-2-current 0.6)
+        (write-setting 'mode-2-current-brk 1.0)
+
+        (write-setting 'mode-3-speed 250.0)
+        (write-setting 'mode-3-current 1.0)
+        (write-setting 'mode-3-current-brk 1.0)
+})
+
+(defun send-settings ()
+    (send-data (str-merge
+            "settings "
+            (str-from-n (read-setting 'can-id) "%d ")
+            (if (read-setting 'log-at-boot) "1 " "0 ")
+            (str-from-n (read-setting 'log-rate) "%.2f ")
+            (if (read-setting 'append-gnss) "1 " "0 ")
+            (if (read-setting 'log-local) "1 " "0 ")
+            (if (read-setting 'log-can) "1 " "0 ")
+            (if (read-setting 'log-bms) "1 " "0 ")
+)))
+
+(defun send-modes ()
+    (send-data (str-merge
+            "modes "
+            (str-from-n (read-setting 'mode-r-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-r-current) "%.2f ")
+            (str-from-n (read-setting 'mode-r-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-n-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-1-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-1-current) "%.2f ")
+            (str-from-n (read-setting 'mode-1-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-2-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-2-current) "%.2f ")
+            (str-from-n (read-setting 'mode-2-current-brk) "%.2f ")
+            (str-from-n (read-setting 'mode-3-speed) "%.2f ")
+            (str-from-n (read-setting 'mode-3-current) "%.2f ")
+            (str-from-n (read-setting 'mode-3-current-brk) "%.2f ")
+)))
+
+(defun send-msg (text)
+    (send-data (str-merge "msg " text))
+)
+
+(defun main () {
+        (set-print-prefix "ESC-")
+
+        (if (has-dual-motors) {
+                (setq loglist-local (append
+                        loglist-local
+                        '(
+                            ("M2 Current" "A"                  (run-m2 (get-current)))
+                            ("M2 Current In" "A"               (run-m2 (get-current-in)))
+                            ("M2 Duty"                         (run-m2 (get-duty)))
+                            ("M2 RPM"                          (run-m2 (get-rpm)))
+                            ("M2 Temp Fet" "degC" 1            (run-m2 (get-temp-fet)))
+                            ("M2 Temp Motor" "degC" 1          (run-m2 (get-temp-mot)))
+                            ("M2 iq" "A"                       (run-m2 (get-iq)))
+                            ("M2 id" "A"                       (run-m2 (get-id)))
+                            ("M2 Fault"                        (run-m2 (get-fault)))
+                        )
+                ))
+        })
+
+        ; Restore settings if version number does not match
+        ; as that probably means something else is in eeprom
+        (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-can-sid)
+        (event-enable 'event-shutdown)
+        (event-enable 'event-data-rx)
+
+        (load-native-lib lib-cmd-proc)
+
+        (var buf-can (array-create 8))
+
+        (loopwhile-thd ("Send CAN" 150) t {
+                (bufclear buf-can)
+                (bufset-i16 buf-can 0 (* (get-batt) 1000))
+                (bufset-i16 buf-can 2 (* (abs (get-duty)) 1000))
+                (bufset-i16 buf-can 4 (* (abs (get-speed)) 3.6 10))
+                (bufset-i16 buf-can 6 (* (setup-current-in) (get-vin) 0.1))
+                (can-send-sid 20 buf-can)
+
+                (bufclear buf-can)
+                (if (> (get-bms-val 'bms-temp-adc-num) 2)
+                    (bufset-i16 buf-can 0 (* (get-bms-val 'bms-temps-adc 2) 10))
+                    (bufset-i16 buf-can 0 0)
+                )
+                (bufset-i16 buf-can 2 (* (get-temp-fet) 10))
+                (bufset-i16 buf-can 4 (* (get-temp-mot) 10))
+                (bufset-i16 buf-can 6 (* (ix (get-imu-rpy) 1) 100))
+                (can-send-sid 21 buf-can)
+
+                (bufclear buf-can)
+                (bufset-u16 buf-can 0 (* (setup-wh) 10.0))
+                (bufset-u16 buf-can 2 (* (setup-wh-chg) 10.0))
+                (bufset-u16 buf-can 4 (* (/ (get-dist-abs) 1000.0) 10))
+                (bufset-u16 buf-can 6 (get-fault))
+                (can-send-sid 22 buf-can)
+
+                (bufclear buf-can)
+                (if dual-motors
+                    {
+                        (bufset-u16 buf-can 0 (to-i (+ (stats 'stat-current-avg) (run-m2 (stats 'stat-current-avg)))))
+                        (bufset-u16 buf-can 2 (to-i (+ (stats 'stat-current-max) (run-m2 (stats 'stat-current-max)))))
+                        (bufset-i16 buf-can 4 (to-i (+ (get-current) (run-m2 (get-current)))))
+                    }
+                    {
+                        (bufset-u16 buf-can 0 (to-i (stats 'stat-current-avg)))
+                        (bufset-u16 buf-can 2 (to-i (stats 'stat-current-max)))
+                        (bufset-i16 buf-can 4 (to-i (get-current)))
+                    }
+                )
+                (bufset-u16 buf-can 6 (to-i (conf-get 'si-battery-ah)))
+                (can-send-sid 23 buf-can)
+
+                (bufclear buf-can)
+                (bufset-u16 buf-can 0 (* (get-vin) 10))
+                (bufset-u32 buf-can 2 (* (/ (sysinfo 'odometer) 1000.0) 10))
+                (bufset-u16 buf-can 6 (* (abs (get-speed-set)) 3.6 10)) ; Cruise control speed
+                ; Reserved space
+                (can-send-sid 24 buf-can)
+
+                (bufclear buf-can)
+                (bufset-u8 buf-can 0 cruise-on)
+                (can-send-sid 202 buf-can)
+
+                (sleep 0.1)
+        })
+
+        (loopwhile-thd ("Cruise" 150) t {
+                (if (and (> (secs-since cruise-ts) 1) (< (* (abs (get-speed-set)) 3.6) 5.0)) {
+                        (setq cruise-on 0)
+                })
+
+                (if (or
+                        (< drive-mode 2)
+                        (and (> (secs-since cruise-ts) 2) (> (abs (get-adc-decoded)) 0.05))
+                    )
+                    (setq cruise-on 0)
+                )
+
+                (app-adc-override 3 cruise-on)
+
+                (sleep 0.05)
+        })
+
+        (start-code-server)
+
+        ; Wait for things to start up
+        (sleep 10)
+
+        ; Start logging at boot if configured
+        (if (read-setting 'log-at-boot)
+            (start-log
+                (read-setting 'can-id)
+                (read-setting 'append-gnss)
+                (read-setting 'log-local)
+                (read-setting 'log-can)
+                (read-setting 'log-bms)
+                (read-setting 'log-rate)
+        ))
+})
+
+@const-end
+
+(image-save)
+(main)

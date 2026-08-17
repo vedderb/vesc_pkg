@@ -2,7 +2,9 @@ PKGS = balance blacktip_dpv refloat tnt vbms32 vbms32_micro
 PKGS += lib_files lib_interpolation lib_nau7802 lib_pn532
 PKGS += lib_ws2812 logui lib_code_server lib_midi lib_disp_ui
 PKGS += vdisp lib_tca9535 vbms_harmony32 vbms_harmony16
-PKGS += dash35b vl_bike_39p lib_bq27441 boosted_doctor
+PKGS += dash35b vl_bike_39p lib_bq27441 boosted_doctor dash16
+PKGS += lib_tca9534 UnleashedCreativityLights wheelie_limiter
+PKGS += mt6701_config dash_esc vesc_scooter_support lib_esp_led_strip vl_link_status
 
 TEST_PKGS = blacktip_dpv
 

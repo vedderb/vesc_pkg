@@ -169,10 +169,47 @@
 
         (def init-complete true)
 
-        (def on-btn-0-pressed (fn () (setq page-now (mod (+ page-now 1) page-num))))
-        (def on-btn-1-pressed (fn () (if (> drive-mode 0) (setq drive-mode (- drive-mode 1)))))
-        (def on-btn-2-pressed (fn () (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))))
-        (def on-btn-3-pressed (fn () (setq light-on (not light-on))))
+        (def on-btn-0-pressed (fn () {
+                    (if (= page-now 3)
+                        (setq setting-now (mod (+ setting-now 1) setting-num))
+                        (setq page-now (mod (+ page-now 1) page-num))
+                    )
+        }))
+
+        (def on-btn-0-long-pressed (fn () {
+                    (setq page-now (if (= page-now 3) 0 3))
+        }))
+
+        (var setting-update (fn (op) {
+                    (var setting (ix setting-list-page1 setting-now))
+                    (var lim (ix setting-lim-page1 setting-now))
+                    (var step (ix setting-step-page1 setting-now))
+
+                    (write-setting setting
+                        (clamp
+                            (eval (list op (read-setting setting) step))
+                            (first lim)
+                            (second lim)
+                    ))
+        }))
+
+        (def on-btn-1-pressed (fn () {
+                    (if (= page-now 3)
+                        (setting-update -)
+                        (if (> drive-mode 0) (setq drive-mode (- drive-mode 1)))
+                    )
+        }))
+
+        (def on-btn-2-pressed (fn () {
+                    (if (= page-now 3)
+                        (setting-update +)
+                        (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))
+                    )
+        }))
+
+        (def on-btn-3-pressed (fn () {
+                    (setq light-on (not light-on))
+        }))
 
         (def on-btn-1-long-pressed (fn () {
                     (comm-send-event 0)

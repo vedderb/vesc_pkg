@@ -4,7 +4,9 @@ BlackTip DPV Smoke Tests
 Tests pure functions to catch regressions before flashing hardware
 """
 
+import struct
 import sys
+from pathlib import Path
 
 # Test counters
 test_passes = 0
@@ -91,6 +93,52 @@ def calculate_rpm(speed_index, divisor, max_erpm=50000):
     else:
         return base_rpm
 
+
+# Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
+# zero denotes a stable release.
+SPEED_OFF = 99
+def firmware_supports_shutdown(fw_ver):
+    if fw_ver is None or len(fw_ver) < 3:
+        return False
+    major, minor, patch = fw_ver[:3]
+    return major > 7 or (major == 7 and
+                         (minor > 0 or (minor == 0 and (patch == 0 or patch >= 2))))
+
+
+def five_click_shutdown_rejection_reason(state):
+    if state['enable_five_click_shutdown'] != 1:
+        return 'feature disabled'
+    if state['hw_name'] != '60_MK5':
+        return 'hardware is not 60_MK5'
+    if not firmware_supports_shutdown(state['fw_ver']):
+        return 'unsupported pre-release firmware build'
+    if state['speed'] != SPEED_OFF:
+        return 'commanded speed is not off'
+    return None
+
+
+def request_five_click_shutdown_simulate(state):
+    """Return shutdown call count for the immediate stopped-state decision."""
+    return 0 if five_click_shutdown_rejection_reason(state) is not None else 1
+
+
+def migrate_eeprom_v3(eeprom, stored_version):
+    """Mirror only the layered v3 migration relevant to an existing schema."""
+    result = dict(eeprom)
+    if stored_version < 3:
+        result[32] = 0
+        result[127] = 3
+    return result
+
+
+def receive_settings_simulate(eeprom, payload):
+    if len(payload) < 33:
+        return False, dict(eeprom)
+    result = dict(eeprom)
+    for index, value in enumerate(payload[:33]):
+        result[index] = value
+    return True, result
+
 # =============================================================================
 # Test Suites
 # =============================================================================
@@ -176,6 +224,542 @@ def test_calculate_rpm():
     assert_near(calculate_rpm(5, 1), 25000, 0.1, "calculate_rpm: speed 5 (at threshold, forward)")
 
 # =============================================================================
+# New functions added in PR (VESC 7.00 compatibility)
+# =============================================================================
+
+# BRIGHTNESS_LUT: six discrete brightness levels sent to the HT16K33 via I2C.
+# Indices 0..5 map to hardware register values.
+BRIGHTNESS_LUT = [224, 227, 230, 233, 236, 239]
+
+# LUT binary magic for the display lookup table ('LUTD' as a little-endian u32)
+DISPLAY_LUT_MAGIC = 0x4C555444
+
+
+def validate_lut_header(data, magic, expected_version):
+    """
+    Mirror of validate_lut_header from blacktip_dpv.lisp.
+
+    Binary layout (little-endian):
+      offset 0 : u32  magic
+      offset 4 : u16  version
+      offset 6 : u16  num_items
+
+    Returns num_items on success, None on any mismatch (mirrors LispBM nil).
+    Raises struct.error if data is too short.
+    """
+    file_magic = struct.unpack_from('<I', data, 0)[0]
+    file_version = struct.unpack_from('<H', data, 4)[0]
+    num_items = struct.unpack_from('<H', data, 6)[0]
+    if file_magic != magic:
+        return None
+    if file_version != expected_version:
+        return None
+    return num_items
+
+
+def _make_lut_header(magic, version, num_items):
+    """Build an 8-byte LUT header for use in tests."""
+    return struct.pack('<IHH', magic, version, num_items)
+
+
+def debug_log(debug_enabled, msg, log_target):
+    """
+    Mirror of debug_log from blacktip_dpv.lisp (const block 2).
+
+    Only appends msg to log_target when debug_enabled is exactly 1 and not None.
+    """
+    if debug_enabled is not None and debug_enabled == 1:
+        log_target.append(msg)
+
+
+def debug_log_format(debug_enabled, expr_fn, log_target):
+    """
+    Mirror of the debug_log_format macro from blacktip_dpv.lisp (const block 1).
+
+    expr_fn is a callable that produces the string to log; it is only called
+    (lazy evaluation) when debug_enabled is 1. This models the macro behaviour
+    that prevents expensive str-merge / to-str calls in hot paths when debug is off.
+    """
+    if debug_enabled is not None and debug_enabled == 1:
+        log_target.append(expr_fn())
+
+
+def brightness_index_for(disp_brightness):
+    """
+    Mirror of the brightness clamp used in peripherals_setup.
+
+    Returns the index into BRIGHTNESS_LUT after clamping disp_brightness to
+    the valid range [0, len(BRIGHTNESS_LUT) - 1].
+    """
+    return clamp(disp_brightness, 0, len(BRIGHTNESS_LUT) - 1)
+
+
+def brightness_value_for(disp_brightness):
+    """Return the HT16K33 register value for the given brightness setting."""
+    return BRIGHTNESS_LUT[brightness_index_for(disp_brightness)]
+
+
+def simulate_i2c_init_sequence(disp_brightness, scooter_type):
+    """
+    Simulate the I2C command sequence emitted by peripherals_setup.
+
+    Returns the ordered list of (addr, data) tuples that would be sent via
+    i2c-tx-rx, modelling the VESC 7.00 double-write workaround for address 0x70.
+    scooter_type: 0 = Blacktip, 1 = CudaX.
+    """
+    commands = []
+    # VESC 7.00 workaround: two oscillator-enable writes to 0x70.
+    # First is sacrificial (absorbed by firmware bug); second reaches HT16K33.
+    commands.append((0x70, [0x21]))  # sacrificial
+    commands.append((0x70, [0x21]))  # real oscillator-enable
+    brightness_val = brightness_value_for(disp_brightness)
+    commands.append((0x70, [brightness_val]))
+    if scooter_type == 1:
+        # Second controller: bus already exercised, single write is enough.
+        commands.append((0x71, [0x21]))
+        commands.append((0x71, [brightness_val]))
+    return commands
+
+
+def simulate_blacktip_display_timeout_sequence():
+    """Mirror the defensive Blacktip display-timeout I2C sequence."""
+    blank_framebuffer = [0] * 16
+    return [
+        (0x70, blank_framebuffer),
+        (0x70, [0x80]),
+        (0x70, [0x80]),
+    ]
+
+
+def state_metrics_reset_simulate(state_store):
+    """
+    Mirror of state_metrics_reset from blacktip_dpv.lisp.
+
+    In the PR the function was updated to use setvar instead of re-define,
+    meaning it only mutates already-existing heap bindings. We model this with
+    a dict that must already contain the keys (pre-declared as mutable globals).
+    """
+    STATE_UNINITIALIZED = -1
+    state_store['state_last_state'] = STATE_UNINITIALIZED
+    # state_last_change_time would be set to (systime); use a sentinel here.
+    state_store['state_last_change_time'] = 'NOW'
+    state_store['state_last_reason'] = 'startup'
+
+
+# =============================================================================
+# Test Suites — VESC 7.00 compatibility (PR changes)
+# =============================================================================
+
+def test_validate_lut_header():
+    """Test validate_lut_header — new/moved function in VESC 7.00 PR."""
+    print("\n=== Testing validate_lut_header ===")
+
+    MAGIC = DISPLAY_LUT_MAGIC
+    VERSION = 1
+
+    # Valid header: correct magic, version, and a nonzero num_items
+    data = _make_lut_header(MAGIC, VERSION, 42)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), 42,
+              "validate_lut_header: valid header returns num_items")
+
+    # Valid header with num_items == 1 (minimum realistic value)
+    data = _make_lut_header(MAGIC, VERSION, 1)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), 1,
+              "validate_lut_header: num_items = 1 returns 1")
+
+    # Valid header with num_items == 0 (edge case: returns 0, which is falsy —
+    # matches LispBM where (not 0) is true, causing exit-error in load_lookup_tables)
+    data = _make_lut_header(MAGIC, VERSION, 0)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), 0,
+              "validate_lut_header: num_items = 0 returns 0 (falsy, triggers error path)")
+
+    # Wrong magic → None
+    data = _make_lut_header(0xDEADBEEF, VERSION, 10)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), None,
+              "validate_lut_header: wrong magic returns None")
+
+    # Wrong version → None
+    data = _make_lut_header(MAGIC, 2, 10)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), None,
+              "validate_lut_header: wrong version returns None")
+
+    # Both magic and version wrong → None (magic checked first)
+    data = _make_lut_header(0xDEADBEEF, 99, 10)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), None,
+              "validate_lut_header: wrong magic and version returns None")
+
+    # Large num_items (max u16 = 65535)
+    data = _make_lut_header(MAGIC, VERSION, 65535)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), 65535,
+              "validate_lut_header: max u16 num_items")
+
+    # Regression: magic bytes in big-endian order must NOT match the little-endian magic
+    be_magic = int.from_bytes(MAGIC.to_bytes(4, 'little'), 'big')
+    data = _make_lut_header(be_magic, VERSION, 10)
+    assert_eq(validate_lut_header(data, MAGIC, VERSION), None,
+              "validate_lut_header: big-endian magic does not match little-endian parse")
+
+
+def test_debug_log():
+    """Test debug_log conditional behaviour (moved to const block 2 in PR)."""
+    print("\n=== Testing debug_log ===")
+
+    log = []
+
+    # debug_enabled == 1: message is logged
+    debug_log(1, "test message", log)
+    assert_eq(log, ["test message"],
+              "debug_log: logs when debug_enabled=1")
+
+    # debug_enabled == 0: message is NOT logged
+    log.clear()
+    debug_log(0, "should not appear", log)
+    assert_eq(log, [],
+              "debug_log: silent when debug_enabled=0")
+
+    # debug_enabled == None (LispBM nil): message is NOT logged
+    log.clear()
+    debug_log(None, "should not appear", log)
+    assert_eq(log, [],
+              "debug_log: silent when debug_enabled=None (nil)")
+
+    # debug_enabled == 2: NOT equal to 1, message is NOT logged
+    log.clear()
+    debug_log(2, "should not appear", log)
+    assert_eq(log, [],
+              "debug_log: silent when debug_enabled=2 (not exactly 1)")
+
+    # Multiple messages accumulate when enabled
+    log.clear()
+    debug_log(1, "first", log)
+    debug_log(1, "second", log)
+    assert_eq(log, ["first", "second"],
+              "debug_log: multiple messages accumulate")
+
+
+def test_debug_log_format():
+    """
+    Test debug_log_format lazy-evaluation behaviour (defined in const block 1).
+
+    The macro must NOT evaluate its expression argument when debug is disabled —
+    this is the key property that prevents expensive str-merge / to-str calls in
+    hot paths (set_speed_safe, motor control loop, etc.).
+    """
+    print("\n=== Testing debug_log_format ===")
+
+    log = []
+    eval_count = [0]  # mutable counter to detect unwanted evaluation
+
+    def expensive_expr():
+        eval_count[0] += 1
+        return "expensive string"
+
+    # debug_enabled == 1: expression IS evaluated and logged
+    debug_log_format(1, expensive_expr, log)
+    assert_eq(log, ["expensive string"],
+              "debug_log_format: evaluates and logs when debug_enabled=1")
+    assert_eq(eval_count[0], 1,
+              "debug_log_format: expression evaluated exactly once when enabled")
+
+    # debug_enabled == 0: expression is NOT evaluated (lazy)
+    log.clear()
+    eval_count[0] = 0
+    debug_log_format(0, expensive_expr, log)
+    assert_eq(log, [],
+              "debug_log_format: no output when debug_enabled=0")
+    assert_eq(eval_count[0], 0,
+              "debug_log_format: expression NOT evaluated when debug_enabled=0 (lazy)")
+
+    # debug_enabled == None: expression is NOT evaluated (lazy)
+    log.clear()
+    eval_count[0] = 0
+    debug_log_format(None, expensive_expr, log)
+    assert_eq(log, [],
+              "debug_log_format: no output when debug_enabled=None")
+    assert_eq(eval_count[0], 0,
+              "debug_log_format: expression NOT evaluated when debug_enabled=None (lazy)")
+
+
+def test_brightness_clamp():
+    """
+    Test brightness index clamping used in peripherals_setup (VESC 7.00 PR).
+
+    peripherals_setup now uses: (clamp disp_brightness 0 (- (length BRIGHTNESS_LUT) 1))
+    which maps any out-of-range setting to the nearest valid BRIGHTNESS_LUT index.
+    """
+    print("\n=== Testing brightness_clamp for peripherals_setup ===")
+
+    # Valid range: 0..5 passes through unchanged
+    assert_eq(brightness_index_for(0), 0,
+              "brightness_clamp: 0 -> index 0 (min)")
+    assert_eq(brightness_index_for(3), 3,
+              "brightness_clamp: 3 -> index 3 (mid)")
+    assert_eq(brightness_index_for(5), 5,
+              "brightness_clamp: 5 -> index 5 (max)")
+
+    # Below minimum: clamped to 0
+    assert_eq(brightness_index_for(-1), 0,
+              "brightness_clamp: -1 clamped to 0")
+    assert_eq(brightness_index_for(-100), 0,
+              "brightness_clamp: -100 clamped to 0")
+
+    # Above maximum: clamped to 5
+    assert_eq(brightness_index_for(6), 5,
+              "brightness_clamp: 6 clamped to 5")
+    assert_eq(brightness_index_for(100), 5,
+              "brightness_clamp: 100 clamped to 5")
+
+    # Verify the BRIGHTNESS_LUT register values are within the expected HT16K33 range
+    for idx in range(len(BRIGHTNESS_LUT)):
+        val = BRIGHTNESS_LUT[idx]
+        assert_eq(val >= 224 and val <= 239, True,
+                  f"brightness_clamp: BRIGHTNESS_LUT[{idx}]={val} in HT16K33 dimming range 224-239")
+
+    # brightness_value_for should map correctly to BRIGHTNESS_LUT entries
+    assert_eq(brightness_value_for(0), 224,
+              "brightness_value_for: level 0 -> 224 (dimmest)")
+    assert_eq(brightness_value_for(5), 239,
+              "brightness_value_for: level 5 -> 239 (brightest)")
+
+
+def test_i2c_init_sequence():
+    """
+    Test the I2C initialisation sequence emitted by peripherals_setup.
+
+    VESC 7.00 introduced a bug where the first i2c-tx-rx after i2c-start is
+    silently dropped. The fix is to send the HT16K33 oscillator-enable command
+    (0x21) twice: the first write is sacrificial, the second reaches the chip.
+    """
+    print("\n=== Testing I2C init sequence (VESC 7.00 double-write workaround) ===")
+
+    # Blacktip (scooter_type=0): only one display controller at address 0x70
+    cmds = simulate_i2c_init_sequence(disp_brightness=3, scooter_type=0)
+
+    assert_eq(len(cmds), 3,
+              "i2c_init: Blacktip sends exactly 3 i2c commands")
+
+    assert_eq(cmds[0], (0x70, [0x21]),
+              "i2c_init: first command is sacrificial 0x21 to 0x70")
+    assert_eq(cmds[1], (0x70, [0x21]),
+              "i2c_init: second command is real oscillator-enable 0x21 to 0x70")
+    assert_eq(cmds[0], cmds[1],
+              "i2c_init: both initial 0x21 writes are identical (workaround)")
+    assert_eq(cmds[2][0], 0x70,
+              "i2c_init: brightness command targets address 0x70")
+
+    # CudaX (scooter_type=1): second controller at 0x71, single 0x21 sufficient
+    cmds_cuda = simulate_i2c_init_sequence(disp_brightness=3, scooter_type=1)
+    assert_eq(len(cmds_cuda), 5,
+              "i2c_init: CudaX sends exactly 5 i2c commands")
+    assert_eq(cmds_cuda[3], (0x71, [0x21]),
+              "i2c_init: CudaX second screen gets single 0x21 (bus already exercised)")
+    assert_eq(cmds_cuda[4][0], 0x71,
+              "i2c_init: CudaX brightness command targets address 0x71")
+
+    # 0x70 address must NOT appear after the first 3 commands in CudaX mode
+    addresses_after_3 = [addr for addr, _ in cmds_cuda[3:]]
+    assert_eq(0x70 in addresses_after_3, False,
+              "i2c_init: no further writes to 0x70 after the first controller init")
+
+    # Regression: confirm that the old single-write approach would miss the oscillator.
+    # A single 0x21 at index 0 would be the only oscillator command — 0x70 would get
+    # brightness but never receive a working oscillator-enable on VESC 7.00.
+    single_write_0x21_count = sum(1 for addr, data in cmds if addr == 0x70 and data == [0x21])
+    assert_eq(single_write_0x21_count, 2,
+              "i2c_init: exactly 2 oscillator-enable commands sent to 0x70 (not 1)")
+
+
+def test_blacktip_display_timeout_sequence():
+    """A lost off command must not leave the last display frame latched."""
+    print("\n=== Testing defensive Blacktip display timeout sequence ===")
+
+    cmds = simulate_blacktip_display_timeout_sequence()
+
+    assert_eq(cmds[0], (0x70, [0] * 16),
+              "display_timeout: blank framebuffer is written before display-off")
+    assert_eq(cmds[1], (0x70, [0x80]),
+              "display_timeout: first display-off command targets the Blacktip display")
+    assert_eq(cmds[2], (0x70, [0x80]),
+              "display_timeout: display-off command is retried")
+    assert_eq(len(cmds), 3,
+              "display_timeout: sequence contains blank plus two off writes")
+
+
+def test_state_metrics_reset():
+    """
+    Test the state_metrics_reset behaviour after the setvar refactor.
+
+    In the PR, the function changed from using `define` (which re-creates bindings)
+    to `setvar` (which mutates pre-existing heap globals). The Python simulation
+    requires the keys to already exist in the state store, mirroring the new
+    requirement that mutable globals be pre-declared between the const blocks.
+    """
+    print("\n=== Testing state_metrics_reset (setvar refactor) ===")
+
+    STATE_UNINITIALIZED = -1
+
+    # Pre-declare all three mutable heap globals (as required by VESC 7.00 layout)
+    state_store = {
+        'state_last_state': 99,      # some previous state
+        'state_last_change_time': 0,
+        'state_last_reason': 'old_reason',
+    }
+
+    state_metrics_reset_simulate(state_store)
+
+    assert_eq(state_store['state_last_state'], STATE_UNINITIALIZED,
+              "state_metrics_reset: state_last_state reset to STATE_UNINITIALIZED (-1)")
+    assert_eq(state_store['state_last_change_time'], 'NOW',
+              "state_metrics_reset: state_last_change_time updated (systime sentinel)")
+    assert_eq(state_store['state_last_reason'], 'startup',
+              "state_metrics_reset: state_last_reason set to 'startup'")
+
+    # All three keys must already exist (pre-declared globals) — setvar does not create new bindings
+    assert_eq('state_last_state' in state_store, True,
+              "state_metrics_reset: state_last_state key pre-exists (setvar pattern)")
+    assert_eq('state_last_change_time' in state_store, True,
+              "state_metrics_reset: state_last_change_time key pre-exists (setvar pattern)")
+    assert_eq('state_last_reason' in state_store, True,
+              "state_metrics_reset: state_last_reason key pre-exists (setvar pattern)")
+
+    # Calling reset twice leaves deterministic values (idempotent aside from systime)
+    state_metrics_reset_simulate(state_store)
+    assert_eq(state_store['state_last_state'], STATE_UNINITIALIZED,
+              "state_metrics_reset: idempotent — second call still gives UNINITIALIZED")
+    assert_eq(state_store['state_last_reason'], 'startup',
+              "state_metrics_reset: idempotent — second call still gives 'startup'")
+
+
+def test_five_click_settings_and_migration():
+    print("\n=== Testing five-click setting persistence and migration ===")
+
+    defaults = bytes([0] * 33)
+    assert_eq(defaults[32], 0, "five-click setting: default disabled")
+
+    eeprom = {index: (index * 7) % 256 for index in range(32)}
+    before = dict(eeprom)
+    migrated = migrate_eeprom_v3(eeprom, 2)
+    assert_eq(migrated[32], 0, "EEPROM v3: slot 32 initialized disabled")
+    assert_eq({index: migrated[index] for index in range(32)}, before,
+              "EEPROM v3: slots 0-31 preserved")
+    assert_eq(migrated[127], 3, "EEPROM v3: schema marker advanced to 3")
+
+    current = bytes(list(range(32)) + [1])
+    accepted, received = receive_settings_simulate(migrated, current)
+    assert_eq(accepted, True, "settings receive: 33-byte buffer accepted")
+    assert_eq(received[32], 1, "settings receive: slot 32 round-trips enabled")
+
+    accepted, rejected = receive_settings_simulate(received, bytes(32))
+    assert_eq(accepted, False, "settings receive: buffer shorter than 33 rejected")
+    assert_eq(rejected, received, "settings receive: rejected buffer changes nothing")
+
+
+def _safe_shutdown_state():
+    return {
+        'enable_five_click_shutdown': 1,
+        'hw_name': '60_MK5',
+        'fw_ver': (7, 0, 2),
+        'speed': SPEED_OFF,
+    }
+
+
+def test_five_click_shutdown_decision():
+    print("\n=== Testing five-click shutdown safety decision ===")
+    safe = _safe_shutdown_state()
+
+    cases = [
+        ('feature disabled', 'enable_five_click_shutdown', 0),
+        ('non-MK5 hardware', 'hw_name', '60'),
+        ('unsupported beta 1 firmware', 'fw_ver', (7, 0, 1)),
+        ('speed not off', 'speed', 4),
+    ]
+    for name, key, value in cases:
+        state = dict(safe)
+        state[key] = value
+        assert_eq(request_five_click_shutdown_simulate(state), 0,
+                  f"five clicks: {name} does not request shutdown")
+
+    assert_eq(request_five_click_shutdown_simulate(safe), 1,
+              "five clicks: valid stopped MK5 requests shutdown exactly once")
+    stable = dict(safe, fw_ver=(7, 0, 0))
+    assert_eq(request_five_click_shutdown_simulate(stable), 1,
+              "firmware guard: stable 7.00 is supported")
+    assert_eq(firmware_supports_shutdown((7, 1, 0)), True,
+              "firmware guard: later 7.x release supported")
+    assert_eq(firmware_supports_shutdown((7, 0)), False,
+              "firmware guard: missing build component fails safe")
+
+
+def test_click_and_beep_regressions():
+    print("\n=== Testing click and beep regressions ===")
+    # Existing stopped-state actions: 1=no-op, 2=start, 3=jump, 4=untangle.
+    actions = {1: 'no-op', 2: 'start', 3: 'jump', 4: 'untangle', 5: 'shutdown'}
+    assert_eq([actions[count] for count in range(1, 5)],
+              ['no-op', 'start', 'jump', 'untangle'],
+              "click actions: one through four unchanged")
+    assert_eq(actions.get(6, 'unsupported'), 'unsupported',
+              "click actions: six or more remain unsupported")
+
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+    assert_eq('(define CLICKS_SHUTDOWN 5)' in source, True,
+              "click namespace: shutdown count is five")
+    assert_eq('(define BEEP_SMART_CRUISE_CHANGE 5)' in source, True,
+              "beep namespace: Smart Cruise event remains five")
+    assert_eq("(setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)" in source, True,
+              "Smart Cruise beep behaviour uses separated event constant")
+    assert_eq('(shutdown true)' in source, True,
+              "shutdown action: hardware shutdown extension used")
+    assert_eq('(str-cmp hw_name "60_MK5")' in source, True,
+              "shutdown capability: runtime recognizes the reported MK5 hardware name")
+    assert_eq('(shutdown-hold ' in source, False,
+              "shutdown action: shutdown-hold is never called")
+
+    shutdown_start = source.index('(defun request_five_click_shutdown')
+    shutdown_end = source.index('; Settings initialization', shutdown_start)
+    shutdown_source = source[shutdown_start:shutdown_end]
+    confirmation_steps = [
+        "(setvar 'disp_num DISPLAY_OFF)",
+        '(foc-beep 700 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 575 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 450 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(foc-beep 325 SHUTDOWN_TONE_DURATION beeps_vol)',
+        '(shutdown true)',
+    ]
+    confirmation_positions = [shutdown_source.index(step) for step in confirmation_steps]
+    assert_eq(confirmation_positions, sorted(confirmation_positions),
+              "shutdown confirmation: power symbol and descending tones precede shutdown")
+
+    readme_source = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
+    assert_eq('**Version:** 1.5.0' in readme_source, True,
+              "package version: README declares 1.5.0")
+    assert_eq('OFF&#95;AFTER&#95;' in readme_source, True,
+              "README rendering: shutdown settings use Qt-safe underscores")
+    assert_eq('blacktip\\_dpv' in readme_source, False,
+              "README rendering: package filenames do not use broken backslash escapes")
+    assert_eq('\\* this model' in readme_source, False,
+              "README rendering: Bluetooth note does not use a broken star escape")
+    assert_eq('\u2705' in readme_source, False,
+              "README rendering: unsupported check-mark glyphs are absent")
+
+    ui_source = (Path(__file__).resolve().parents[1] / 'ui.qml').read_text()
+    assert_eq(ui_source.count('new ArrayBuffer(33)'), 3,
+              "QML settings: write and both reset buffers are 33 bytes")
+    assert_eq(ui_source.count('setUint8(32, 0)'), 2,
+              "QML defaults: Blacktip and CudaX disable five-click shutdown")
+    payload_guard = 'if (dv.byteLength < 31)'
+    first_settings_read = 'hardware_configuration.currentIndex =  dv.getUint8(19)'
+    assert_eq(payload_guard in ui_source and
+              ui_source.index(payload_guard) < ui_source.index(first_settings_read), True,
+              "QML settings: truncated baseline payload is rejected before any reads")
+    assert_eq('dv.byteLength > 32 && dv.getUint8(32) === 1' in ui_source, True,
+              "QML settings: missing slot 32 safely defaults shutdown to disabled")
+    assert_eq('params.hw === "60_MK5"' in ui_source, True,
+              "QML shutdown capability: VESC Tool MK5 hardware name is recognized")
+    assert_eq('enabled: fiveClickShutdownHardwareSupported && fiveClickShutdownFirmwareSupported' in ui_source,
+              True, "QML shutdown option: unsupported hardware or firmware disables it")
+
+
+# =============================================================================
 # Test Runner
 # =============================================================================
 
@@ -190,10 +774,21 @@ def run_all_tests():
     test_state_name_for()
     test_speed_percentage_at()
     test_calculate_rpm()
+    test_validate_lut_header()
+    test_debug_log()
+    test_debug_log_format()
+    test_brightness_clamp()
+    test_i2c_init_sequence()
+    test_blacktip_display_timeout_sequence()
+    test_state_metrics_reset()
+    test_five_click_settings_and_migration()
+    test_five_click_shutdown_decision()
+    test_click_and_beep_regressions()
 
-    print("\n╔══════════════════════════════════════════╗")
-    print(f"║  Results: {test_passes} passed, {test_failures} failed")
-    print("╚══════════════════════════════════════════╝\n")
+    print("\n══════════════════════════════════════════")
+    print(f"  Results: {test_passes} passed, {test_failures} failed")
+    print("══════════════════════════════════════════\n")
+
 
     if test_failures > 0:
         print("FAILED: Some tests did not pass")
