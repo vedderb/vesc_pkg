@@ -3,7 +3,9 @@
 Bridges a Ninebot X3-series dashboard (G3/ZT3/GT3) to a VESC motor
 controller, using stock VESC Express firmware plus a LispBM script instead
 of custom firmware. Requires the companion **VESC X3 Bridge** PCB --
-this package will refuse to install on any other board
+this package will refuse to install on any other board. The PCB is still
+in development -- the prototype works, but the final release design and
+public release date are TBD.
 
 Installing this package uploads `code_esp.lisp` (dashboard-facing status
 emulation, lights, profile-switch relay, battery relay) to VESC Express,
