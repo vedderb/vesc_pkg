@@ -1,12 +1,12 @@
 import QtQuick 2.15
 
 Item {
-    property string pkgName: "NinebotX3Bridge Express"
-    property string pkgDescriptionMd: "README.md"
-    property string pkgLisp: "main.lisp"
-    property string pkgQml: "main-settings.qml"
+    property string pkgName: "VESC X3 Bridge ESP"
+    property string pkgDescriptionMd: "README_esp.md"
+    property string pkgLisp: "code_esp.lisp"
+    property string pkgQml: "ui_esp.qml"
     property bool pkgQmlIsFullscreen: false
-    property string pkgOutput: "NinebotX3Bridge.vescpkg"
+    property string pkgOutput: "vesc_x3_bridge_esp.vescpkg"
 
     // Verified against vesc_express's own COMM_FW_VERSION handler
     // (main/commands.c in vedderb/vesc_express, release_7_00) rather than
@@ -25,10 +25,10 @@ Item {
         // fwRxParams.hw is the firmware's compile-time HW_NAME string,
         // copied verbatim in the same handler ("strcpy(send_buffer + ind,
         // HW_NAME)"). This board's hwconf builds with
-        // -DHW_NAME="VESCXPRESS2X3Bridge", so this is a board-specific
+        // -DHW_NAME="vesc_x3_bridge", so this is a board-specific
         // match -- unlike the hwType check above, it also rules out every
         // *other* custom module (e.g. VBMS32), not just real VESCs/VESC BMS.
         var hwName = fwRxParams.hw.toLowerCase();
-        return hwName == "vescxpress2x3bridge";
+        return hwName == "vesc_x3_bridge";
     }
 }

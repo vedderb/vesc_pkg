@@ -1,4 +1,4 @@
-; NinebotX3Bridge -- runs on VESC Express. See README.md.
+; VESC X3 Bridge -- runs on VESC Express. See README_esp.md.
 
 ; ---- Pins (WROOM-1 V2.1+) ----
 ; Pin 7 (multipin) drives underglow only -- horn isn't implemented.
@@ -74,7 +74,7 @@
             (send-external-adc-to (car targets))
             (relay-external-adc-to-targets (cdr targets)))))
 
-; Express-side settings, eeprom-backed, editable via main-settings.qml.
+; Express-side settings, eeprom-backed, editable via ui_esp.qml.
 
 (define ee-addr-sentinel 0)   ; legacy, unused -- see note below, don't reuse
 (define ee-addr-disable-prof-sw 1)
@@ -513,20 +513,43 @@
     (gpio-write pin-multipin
         (if (and (= underglow-on-park 1) (= parkmode 1) (list-contains rear-steady last-rear-byte)) 1 0)))
 
+; The bytes keep being tracked while lights-manual is set, so the settings
+; page still shows what the dashboard is asking for -- only the outputs are
+; suppressed.
 (defun handle-lights (data)
     (progn
         (setq last-indicator-byte (bufget-u8 data 0))
         (setq last-rear-byte (bufget-u8 data 1))
-        (apply-indicators last-indicator-byte)
-        (apply-rear-light last-rear-byte)))
+        (if (= lights-manual 0)
+            (progn
+                (apply-indicators last-indicator-byte)
+                (apply-rear-light last-rear-byte)))))
+
+; PWR_ON gates the 12V rail every light output draws from, so it is held high
+; here on every pass rather than only once at load. Re-asserting an already
+; high pin costs nothing, and it means nothing -- a glitch, a sleep/wake, an
+; accidental reconfigure elsewhere -- can leave the rail down with no way back
+; short of a reboot.
+(defun assert-power-on ()
+    (gpio-write pin-pwr_on 1))
+
+; Bench switch. (setq lights-manual 1) from the Lisp console stands the light
+; outputs down so gpio-write / pwm-set-duty typed at the console actually
+; stick -- otherwise this loop overwrites them within 100ms and a manual test
+; looks like it did nothing. PWR_ON keeps being asserted either way, since
+; the rail has to stay up for any manual test to mean anything.
+(define lights-manual 0)
 
 (defun blink-timer ()
     (loopwhile t
         (progn
+            (assert-power-on)
             (setq rear-blink-state (- 1 rear-blink-state))
-            (apply-indicators last-indicator-byte)
-            (apply-rear-light last-rear-byte)
-            (apply-underglow)
+            (if (= lights-manual 0)
+                (progn
+                    (apply-indicators last-indicator-byte)
+                    (apply-rear-light last-rear-byte)
+                    (apply-underglow)))
             (sleep 0.1))))
 
 ; ---- Profile-switch speed relay ----

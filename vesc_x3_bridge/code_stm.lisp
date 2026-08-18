@@ -1,5 +1,5 @@
 ; VESC-side companion -- MASTER variant. Runs on the VESC that owns
-; throttle input, not VESC Express. See README.md for setup and
+; throttle input, not VESC Express. See README_stm.md for setup and
 ; multi-motor notes.
 
 ; Change this if VESC Express's controller-id isn't the default (2).

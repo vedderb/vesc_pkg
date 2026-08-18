@@ -1,10 +1,10 @@
-# NinebotX3Bridge VESC
+# VESC X3 Bridge STM
 
-VESC-side half of the NinebotX3Bridge project, which bridges a
+VESC-side half of the VESC X3 Bridge project, which bridges a
 Ninebot X3-series dashboard (G3/ZT3/GT3) to a VESC motor controller.
 Install this on the **VESC that owns throttle input** -- a different
 physical device than VESC Express, which is covered by the separate
-"NinebotX3Bridge Express" package. Works on any VESC motor
+"VESC X3 Bridge ESP" package. Works on any VESC motor
 controller, not just the companion PCB.
 
 ## What it does
@@ -13,7 +13,7 @@ controller, not just the companion PCB.
   drives the motor via ADC override -- no physical throttle wiring needed. 
 - Handles cruise control and park-mode zeroing the same way the dashboard's own drive modes expect.
 - Registers itself (CAN id, motor poles, wheel diameter, battery %, 
-  voltage, motor temperature) with the NinebotX3Bridge Express 
+  voltage, motor temperature) with the VESC X3 Bridge ESP 
   package, and applies the speed-limit profile Express relays back, 
   computed from this VESC's own motor configuration. 
 
@@ -36,11 +36,11 @@ VESC Tool, not scripted) plus a separate slave-variant script that only
 handles speed-limit sync (not included in this package).
 
 If VESC Express's controller id isn't the default (2), edit
-`express-can-id` at the top of `vesc-side-master.lisp` to match.
+`express-can-id` at the top of `code_stm.lisp` to match.
 
 ## This is only half the bridge
 
-This package and the Express-side **NinebotX3Bridge Express**
+This package and the Express-side **VESC X3 Bridge ESP**
 package need each other -- neither is useful installed alone. The
 Express-side package still needs to be installed separately on VESC
 Express for dashboard status emulation, lights, and the settings page.

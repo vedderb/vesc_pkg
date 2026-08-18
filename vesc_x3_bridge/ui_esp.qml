@@ -1,4 +1,4 @@
-// Settings page companion to main.lisp (VESC Express).
+// Settings page companion to code_esp.lisp (VESC Express).
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
@@ -48,7 +48,7 @@ Item {
     }
 
     // Bitfield, not an enum -- bit 0 left, bit 1 right, bit 7 underglow.
-    // Matches main.lisp's apply-indicators.
+    // Matches code_esp.lisp's apply-indicators.
     function indicatorLabel(b) {
         var left = (b & 0x01) !== 0
         var right = (b & 0x02) !== 0
@@ -58,7 +58,7 @@ Item {
         return "Off"
     }
 
-    // Variant-specific values, same grouping as main.lisp's rear-* defines.
+    // Variant-specific values, same grouping as code_esp.lisp's rear-* defines.
     function rearLightLabel(b) {
         if (b === 0x12) return "Charging"
         if (b === 0x14 || b === 0x44 || b === 0x54) return "On"
@@ -223,7 +223,7 @@ Item {
                 spacing: 4
 
                 Text {
-                    text: "NinebotX3Bridge"
+                    text: "VESC X3 Bridge"
                     color: colText
                     font.weight: Font.Black
                     font.pointSize: 20

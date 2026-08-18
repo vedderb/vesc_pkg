@@ -4,7 +4,7 @@
 
 The script assumes VESC Express is reachable at controller id **2**
 (`vesc_express`'s own default). If you changed it in VESC Tool, edit
-`express-can-id` at the top of `vesc-side-master.lisp` to match.
+`express-can-id` at the top of `code_stm.lisp` to match.
 
 ## Wire protocol
 

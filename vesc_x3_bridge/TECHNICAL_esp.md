@@ -1,6 +1,6 @@
 # Technical notes
 
-Design/protocol details behind `main.lisp`, kept out of the code comments
+Design/protocol details behind `code_esp.lisp`, kept out of the code comments
 to keep the script itself readable. Mirrors the file's own section order.
 
 ## Architecture
@@ -28,7 +28,7 @@ driven here; horn isn't implemented.
 ## Vehicle constants and VESC registration
 
 `vesc-can-id`/`motor-poles`/`wheel-diam-mm`/`battery-pct`/`voltage-v`/
-`motor-temp-c` are learned from `vesc-side-master.lisp`'s registration
+`motor-temp-c` are learned from `code_stm.lisp`'s registration
 message over `canmsg-recv` (slot `slot-vesc-info`), not configured here.
 
 Registration payload layout (8 bytes): byte 0 CAN id, byte 1 motor poles,
@@ -117,9 +117,9 @@ flash. The dashboard's own firmware watches its displayed speed for
 sustained overspeed and raises its own native warning/lockout when it
 sees one; periodically resetting what it sees down to 1 km/h prevents
 that native warning from ever triggering, even though the rider is
-actually over the limit. Toggle off (the default) means the real speed
-always shows, so the dashboard's native warning behaves as it normally
-would.
+actually over the limit. The toggle is on by default; turning it off means
+the real speed always shows, so the dashboard's native warning behaves as
+it normally would.
 
 Two details that look like bugs but aren't:
 
@@ -141,7 +141,7 @@ left on the real value, matching the reference's own scope.
 ## QML settings channel
 
 `send-data`/`event-data-rx` on the script side, `sendCustomAppData`/
-`onCustomAppDataReceived` on the `main-settings.qml` side -- not VESC
+`onCustomAppDataReceived` on the `ui_esp.qml` side -- not VESC
 Tool's native custom-config system (`VescIf.customConfig()`), which only
 exists for compiled C packages, not pure LispBM ones.
 
@@ -160,20 +160,20 @@ Byte protocol:
 A "set" reply echoes the same layout (byte 0 = `0x01`) to confirm the
 write. `apply-settings-from-qml` checks `buflen` before reading bytes
 4-6, guarding against a stale/shorter payload from an older
-`main-settings.qml`.
+`ui_esp.qml`.
 
 Live telemetry (speed, motor temp, voltage, current, light state, active
 drive-mode byte) is pushed to the QML side periodically over the same
 channel, tagged with byte 0 = `0x03` to distinguish it from the settings
 get/set replies above.
 
-## main-settings.qml notes
+## ui_esp.qml notes
 
 `profileSpeedLimitKmh`: there's no fixed Eco/Drive/Sport byte enum --
 each profile's cap is user-configurable in the companion app, and the
 dashboard just sends whatever km/h value is currently active (confirmed
 live on real G3 hardware: `0x22` -> 17 km/h, `0x2a` -> 21 km/h, both fit
-`byte / 2`). Same formula `main.lisp`'s `handle-drive-mode` uses.
+`byte / 2`). Same formula `code_esp.lisp`'s `handle-drive-mode` uses.
 
 `sendCustomAppData`/`onCustomAppDataReceived` need an `ArrayBuffer` built
 via `DataView`, not a plain JS array -- confirmed from VESC Tool's own
@@ -198,7 +198,7 @@ Per-setting notes not already covered by the byte protocol table above:
 - **Enable charge light** -- on by default, matching this project's
   original always-on behavior before the toggle existed.
 - `vesc-can-id`/`motor-poles`/`wheel-diam-mm` are intentionally NOT
-  settings on this page -- `main.lisp` learns them live from the master
+  settings on this page -- `code_esp.lisp` learns them live from the master
   VESC's registration message, since that VESC already has the real
   values locally.
 - LED strip (WLED/WS2812) support from the reference firmware is NOT
