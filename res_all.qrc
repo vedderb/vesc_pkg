@@ -39,6 +39,7 @@
         <file>scooter_dashboard_support/scooter_dashboard_support.vescpkg</file>
         <file>vesc_x3_bridge/vesc_x3_bridge_esp.vescpkg</file>
         <file>vesc_x3_bridge/vesc_x3_bridge_stm.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_stm_slave.vescpkg</file>
    </qresource>
 </RCC>
 

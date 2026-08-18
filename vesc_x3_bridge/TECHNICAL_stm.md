@@ -15,3 +15,14 @@ bytes 5-6 voltage x10 (little-endian u16), byte 7 motor temperature.
 
 Express relays the active speed-limit profile back the same way, as a
 2-byte little-endian speed x10 km/h value.
+
+## Slave variant (code_stm_slave.lisp)
+
+Registers with a 1-byte payload (own CAN id only) instead of the 8-byte
+telemetry frame above -- Express doesn't track a slave's motor config or
+battery, it just adds the id to `relay-targets` so it receives the same
+speed-limit relay the master does. Throttle/brake/cruise current reaches
+the slave through VESC's own Multi ESC over CAN feature (enabled on the
+master in VESC Tool, not scripted), which forwards to any VESC it's
+recently seen a CAN status message from -- not through anything this
+package sends.

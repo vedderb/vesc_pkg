@@ -31,9 +31,11 @@ overrides replace the real ADC reading once the app is active.
 
 ## Multi-motor setups
 
-Additional motors need VESC's own CAN-follower feature (configured in
-VESC Tool, not scripted) plus a separate slave-variant script that only
-handles speed-limit sync (not included in this package).
+Additional motors need VESC's own Multi ESC over CAN feature enabled here
+on this master VESC (App Settings -> General -> Multi ESC over CAN,
+configured in VESC Tool, not scripted) plus the separate **VESC X3
+Bridge STM Slave** package installed on each additional motor's VESC,
+which only handles speed-limit sync.
 
 If VESC Express's controller id isn't the default (2), edit
 `express-can-id` at the top of `code_stm.lisp` to match.
@@ -44,8 +46,6 @@ This package and the Express-side **VESC X3 Bridge ESP**
 package need each other -- neither is useful installed alone. The
 Express-side package still needs to be installed separately on VESC
 Express for dashboard status emulation, lights, and the settings page.
-
-PCB design files (open source): https://github.com/Finnn-glitch/VESCXPRESS2X3Bridge_PCB
 
 ## Change Log
 1.0 Initial release

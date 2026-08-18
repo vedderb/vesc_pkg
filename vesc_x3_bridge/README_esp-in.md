@@ -53,8 +53,5 @@ install it. Multi-motor setups also need a slave-variant script on the
 additional motor(s) -- see the
 VESC X3 Bridge STM package's README.
 
-PCB design files (open source): https://github.com/Finnn-glitch/VESCXPRESS2X3Bridge_PCB
-
-
 ## Change Log
 1.0 Initial release
