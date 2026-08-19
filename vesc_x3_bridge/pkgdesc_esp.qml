@@ -1,0 +1,34 @@
+import QtQuick 2.15
+
+Item {
+    property string pkgName: "VESC X3 Bridge ESP"
+    property string pkgDescriptionMd: "README_esp.md"
+    property string pkgLisp: "code_esp.lisp"
+    property string pkgQml: "ui_esp.qml"
+    property bool pkgQmlIsFullscreen: false
+    property string pkgOutput: "vesc_x3_bridge_esp.vescpkg"
+
+    // Verified against vesc_express's own COMM_FW_VERSION handler
+    // (main/commands.c in vedderb/vesc_express, release_7_00) rather than
+    // guessed -- confirmed working against real hardware.
+    function isCompatible(fwRxParams) {
+        // Every vesc_express-based board (this one included) always sends
+        // HW_TYPE_CUSTOM_MODULE in COMM_FW_VERSION, regardless of hwconf --
+        // see commands.c: "send_buffer[ind++] = HW_TYPE_CUSTOM_MODULE".
+        // This alone rules out real VESCs ("VESC") and VESC BMS boards
+        // ("VESC BMS"), which report their own distinct hwType.
+        var hwType = fwRxParams.hwTypeStr().toLowerCase();
+        if (hwType != "custom module") {
+            return false;
+        }
+
+        // fwRxParams.hw is the firmware's compile-time HW_NAME string,
+        // copied verbatim in the same handler ("strcpy(send_buffer + ind,
+        // HW_NAME)"). This board's hwconf builds with
+        // -DHW_NAME="vesc_x3_bridge", so this is a board-specific
+        // match -- unlike the hwType check above, it also rules out every
+        // *other* custom module (e.g. VBMS32), not just real VESCs/VESC BMS.
+        var hwName = fwRxParams.hw.toLowerCase();
+        return hwName == "vesc_x3_bridge";
+    }
+}

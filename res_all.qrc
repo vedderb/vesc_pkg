@@ -37,6 +37,9 @@
         <file>lib_esp_led_strip/esp_led_strip.vescpkg</file>
         <file>vl_link_status/vl_link_status.vescpkg</file>
         <file>scooter_dashboard_support/scooter_dashboard_support.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_esp.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_stm.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_stm_slave.vescpkg</file>
    </qresource>
 </RCC>
 
