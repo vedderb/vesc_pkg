@@ -18,63 +18,53 @@
 
 #include "torque_tilt.h"
 
-#include "utils.h"
+#include "lib/utils.h"
 
 #include <math.h>
 
 void torque_tilt_init(TorqueTilt *tt) {
-    tt->on_step_size = 0.0f;
-    tt->off_step_size = 0.0f;
+    smooth_setpoint_init(&tt->setpoint);
+
     torque_tilt_reset(tt);
 }
 
 void torque_tilt_reset(TorqueTilt *tt) {
-    tt->ramped_step_size = 0.0f;
-    tt->setpoint = 0.0f;
+    tt->target = 0.0f;
+    smooth_setpoint_reset(&tt->setpoint);
 }
 
-void torque_tilt_configure(TorqueTilt *tt, const RefloatConfig *config) {
-    tt->on_step_size = config->torquetilt_on_speed / config->hertz;
-    tt->off_step_size = config->torquetilt_off_speed / config->hertz;
+void torque_tilt_configure(TorqueTilt *tt, const RefloatConfig *config, float frequency) {
+    smooth_setpoint_configure(
+        &tt->setpoint,
+        config->torque_tilt.filter.time_constant,
+        config->torque_tilt.filter.on_speed_time_constant,
+        config->torque_tilt.filter.off_speed_time_constant,
+        0.2f,
+        config->torque_tilt.filter.on_speed_limit,
+        config->torque_tilt.filter.off_speed_limit,
+        config->torque_tilt.filter.on_speed_limit,
+        config->torque_tilt.filter.off_speed_limit,
+        frequency
+    );
 }
 
-void torque_tilt_update(TorqueTilt *tt, const MotorData *motor, const RefloatConfig *config) {
+void torque_tilt_update(
+    TorqueTilt *tt, const MotorData *motor, const RefloatConfig *config, bool wheelslip, float dt
+) {
+    if (wheelslip) {
+        smooth_setpoint_winddown(&tt->setpoint);
+        return;
+    }
+
     float strength =
-        motor->braking ? config->torquetilt_strength_regen : config->torquetilt_strength;
+        (motor->braking ? config->torquetilt_strength_regen : config->torquetilt_strength) *
+        (1 / TORQUE_CONSTANT_COMPAT);
 
-    // Take abs motor current, subtract start offset, and take the max of that
-    // with 0 to get the current above our start threshold (absolute). Then
-    // multiply it by "power" to get our desired angle, and min with the limit
-    // to respect boundaries. Finally multiply it by motor current sign to get
-    // directionality back.
-    float target =
-        fminf(
-            fmaxf((fabsf(motor->filt_current) - config->torquetilt_start_current), 0) * strength,
-            config->torquetilt_angle_limit
-        ) *
-        sign(motor->filt_current);
+    float torque_base = fmaxf(
+        (fabsf(motor->torque) - config->torquetilt_start_current * TORQUE_CONSTANT_COMPAT), 0
+    );
+    tt->target =
+        fminf(torque_base * strength, config->torquetilt_angle_limit) * sign(motor->torque);
 
-    float step_size = 0;
-    if (tt->setpoint * target < 0) {
-        // Moving towards opposite sign (crossing zero);
-        // Use the faster tilt speed until 0 is reached
-        step_size = fmaxf(tt->off_step_size, tt->on_step_size);
-    } else if (fabsf(tt->setpoint) > fabsf(target)) {
-        // Moving towards smaller angle of same sign or zero
-        step_size = tt->off_step_size;
-    } else {
-        // Moving towards larger angle of same sign
-        step_size = tt->on_step_size;
-    }
-
-    if (motor->abs_erpm < 500) {
-        step_size /= 2;
-    }
-
-    // Smoothen changes in tilt angle by ramping the step size
-    smooth_rampf(&tt->setpoint, &tt->ramped_step_size, target, step_size, 0.04, 1.5);
-}
-
-void torque_tilt_winddown(TorqueTilt *tt) {
-    tt->setpoint *= 0.995;
+    smooth_setpoint_update(&tt->setpoint, tt->target, motor->forward, 1.0f, dt);
 }

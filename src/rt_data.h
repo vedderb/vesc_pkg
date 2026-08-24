@@ -36,44 +36,48 @@
 // the UI).
 
 #define RT_DATA_ITEMS(S, R)                                                                        \
-    S(motor.speed)                                                                                 \
-    R(motor.erpm)                                                                                  \
-    S(motor.current)                                                                               \
-    R(motor.dir_current)                                                                           \
-    S(motor.filt_current)                                                                          \
-    R(motor.duty_cycle)                                                                            \
-    R(motor.batt_voltage)                                                                          \
-    S(motor.batt_current)                                                                          \
-    S(motor.mosfet_temp)                                                                           \
-    S(motor.motor_temp)                                                                            \
-    R(imu.pitch)                                                                                   \
-    R(imu.balance_pitch)                                                                           \
-    S(imu.roll)                                                                                    \
-    S(footpad.adc1)                                                                                \
-    S(footpad.adc2)                                                                                \
-    S(remote.input)
+    R(imu_freq_tracker.dt, "control.dt")                                                           \
+    R(imu_freq_tracker.frequency.value, "control.freq")                                            \
+    R(imu_latency_tracker.excess, "control.latency")                                               \
+    S(motor.speed, "speed")                                                                        \
+    R(motor.erpm, "erpm")                                                                          \
+    S(motor.current, "current")                                                                    \
+    R(motor.dir_current, "dir_current")                                                            \
+    S(motor.filt_current.value, "filt_current")                                                    \
+    R(motor.duty_cycle.value, "duty_cycle")                                                        \
+    R(motor.batt_voltage, "batt_voltage")                                                          \
+    S(motor.batt_current.value, "batt_current")                                                    \
+    S(motor.mosfet_temp, "mosfet_temp")                                                            \
+    S(motor.motor_temp, "motor_temp")                                                              \
+    R(imu.pitch, "pitch")                                                                          \
+    R(imu.balance_pitch, "balance_pitch")                                                          \
+    S(imu.roll, "roll")                                                                            \
+    S(footpad.adc_left, "adc_left")                                                                \
+    S(footpad.adc_right, "adc_right")                                                              \
+    S(remote.input, "remote.input")
 
 #define RT_DATA_RUNTIME_ITEMS(S, R)                                                                \
-    R(setpoint)                                                                                    \
-    R(atr.setpoint)                                                                                \
-    S(brake_tilt.setpoint)                                                                         \
-    R(torque_tilt.setpoint)                                                                        \
-    S(turn_tilt.setpoint)                                                                          \
-    S(remote.setpoint)                                                                             \
-    R(balance_current)                                                                             \
-    S(atr.accel_diff)                                                                              \
-    S(atr.speed_boost)                                                                             \
-    S(booster.current)
+    R(setpoint, "setpoint")                                                                        \
+    R(atr.setpoint.value, "atr.setpoint")                                                          \
+    S(brake_tilt.setpoint.value, "brake_tilt.setpoint")                                            \
+    R(torque_tilt.setpoint.value, "torque_tilt.setpoint")                                          \
+    S(turn_tilt.setpoint.value, "turn_tilt.setpoint")                                              \
+    S(remote.setpoint.value, "remote.setpoint")                                                    \
+    R(balance_current.value, "balance_current")                                                    \
+    S(atr.accel_diff, "atr.accel_diff")                                                            \
+    S(atr.speed_boost, "atr.speed_boost")                                                          \
+    R(atr.transition_boost, "atr.transition_boost")                                                \
+    S(booster.torque.value, "booster.torque")
 
 #define RT_DATA_ALL_ITEMS(S, R) RT_DATA_ITEMS(S, R) RT_DATA_RUNTIME_ITEMS(S, R)
 
-#define __NOOP(id)
+#define __NOOP(target, id)
 
 #define VISIT(LIST, ACTION) LIST(ACTION, ACTION)
 #define VISIT_REC(LIST, ACTION) LIST(__NOOP, ACTION)
 
-#define __COUNT_ITEMS(id) +1
-#define __COUNT_IDS_SIZE(id) +sizeof(#id)
+#define __COUNT_ITEMS(target, id) +1
+#define __COUNT_IDS_SIZE(target, id) +sizeof(id)
 
 #define ITEMS_COUNT(LIST) (VISIT(LIST, __COUNT_ITEMS))
 #define ITEMS_IDS_SIZE(LIST) (VISIT(LIST, __COUNT_IDS_SIZE))

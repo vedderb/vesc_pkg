@@ -42,6 +42,7 @@ typedef struct {
     int16_t cell_ht;
     int16_t bms_ht;
     float msg_age;
+    time_t push_timer;
 
     uint32_t fault_mask;
 } BMS;

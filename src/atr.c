@@ -18,14 +18,19 @@
 
 #include "atr.h"
 
-#include "utils.h"
+#include "lib/utils.h"
 
 #include <math.h>
 
 void atr_init(ATR *atr) {
-    atr->on_step_size = 0.0f;
-    atr->off_step_size = 0.0f;
     atr->speed_boost_mult = 0.0f;
+    atr->ad_alpha1 = 0.0f;
+    atr->ad_alpha2 = 0.0f;
+    atr->ad_alpha3 = 0.0f;
+
+    ema_init(&atr->transition_target);
+    smooth_setpoint_init(&atr->setpoint);
+
     atr_reset(atr);
 }
 
@@ -34,58 +39,79 @@ void atr_reset(ATR *atr) {
     atr->speed_boost = 0.0f;
 
     atr->target = 0.0f;
-    atr->ramped_step_size = 0.0f;
-    atr->setpoint = 0.0f;
+    ema_reset(&atr->transition_target, 0.0f);
+    atr->transition_boost = 1.0f;
+    smooth_setpoint_reset(&atr->setpoint);
 }
 
-void atr_configure(ATR *atr, const RefloatConfig *config) {
-    atr->on_step_size = config->atr_on_speed / config->hertz;
-    atr->off_step_size = config->atr_off_speed / config->hertz;
-
+void atr_configure(ATR *atr, const RefloatConfig *config, float frequency) {
     atr->speed_boost_mult = 1.0f / 3000.0f;
     if (fabsf(config->atr_speed_boost) > 0.4f) {
         // above 0.4 we add 500erpm for each extra 10% of speed boost, so at
         // most +6000 for 100% speed boost
         atr->speed_boost_mult = 1.0f / ((fabsf(config->atr_speed_boost) - 0.4f) * 5000 + 3000.0f);
     }
+
+    atr->ad_alpha3 = ema_calculate_alpha(10.0f, frequency);
+    atr->ad_alpha2 = ema_calculate_alpha(6.0f, frequency);
+    atr->ad_alpha1 = ema_calculate_alpha(1.0f, frequency);
+
+    ema_configure(&atr->transition_target, 6.0f, frequency);
+    smooth_setpoint_configure(
+        &atr->setpoint,
+        config->atr.filter.time_constant,
+        config->atr.filter.on_speed_time_constant,
+        config->atr.filter.off_speed_time_constant,
+        0.2f,
+        config->atr.filter.on_speed_limit,
+        config->atr.filter.off_speed_limit,
+        config->atr.filter.on_speed_limit,
+        config->atr.filter.off_speed_limit,
+        frequency
+    );
 }
 
-void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
-    float abs_torque = fabsf(motor->filt_current);
-    float torque_offset = 8;  // hard-code to 8A for now (shouldn't really be changed much anyways)
+void atr_update(
+    ATR *atr, const MotorData *motor, const RefloatConfig *config, bool wheelslip, float dt
+) {
+    if (wheelslip) {
+        smooth_setpoint_winddown(&atr->setpoint);
+        ema_reset(&atr->transition_target, atr->setpoint.value);
+        return;
+    }
+
+    float abs_torque = fabsf(motor->torque);
+    float torque_offset = 8 * TORQUE_CONSTANT_COMPAT;  // hard-code to 8A
     float atr_threshold = motor->braking ? config->atr_threshold_down : config->atr_threshold_up;
     float accel_factor =
-        motor->braking ? config->atr_amps_decel_ratio : config->atr_amps_accel_ratio;
+        (motor->braking ? config->atr_amps_decel_ratio : config->atr_amps_accel_ratio) *
+        TORQUE_CONSTANT_COMPAT;
     float accel_factor2 = accel_factor * 1.3;
 
     // compare measured acceleration to expected acceleration
-    float measured_acc = fmaxf(motor->acceleration, -5);
-    measured_acc = fminf(measured_acc, 5);
+    float measured_acc = clampf(motor->acceleration.value * LOOP_HERTZ_COMPAT_RECIP, -5.0f, 5.0f);
 
     // expected acceleration is proportional to current (minus an offset, required to
     // balance/maintain speed)
     float expected_acc;
-    if (abs_torque < 25) {
-        expected_acc = (motor->filt_current - motor->erpm_sign * torque_offset) / accel_factor;
+    if (abs_torque < 15) {
+        expected_acc = (motor->torque - motor->erpm_sign * torque_offset) / accel_factor;
     } else {
         // primitive linear approximation of non-linear torque-accel relationship
-        int torque_sign = sign(motor->filt_current);
-        expected_acc = (torque_sign * 25 - motor->erpm_sign * torque_offset) / accel_factor;
-        expected_acc += torque_sign * (abs_torque - 25) / accel_factor2;
-    }
-
-    bool forward = motor->erpm > 0;
-    if (motor->abs_erpm < 250 && abs_torque > 30) {
-        forward = (expected_acc > 0);
+        int torque_sign = sign(motor->torque);
+        expected_acc = (torque_sign * 15 - motor->erpm_sign * torque_offset) / accel_factor;
+        expected_acc += torque_sign * (abs_torque - 15) / accel_factor2;
     }
 
     float new_accel_diff = expected_acc - measured_acc;
-    if (motor->abs_erpm > 2000) {
-        atr->accel_diff = 0.9f * atr->accel_diff + 0.1f * new_accel_diff;
-    } else if (motor->abs_erpm > 1000) {
-        atr->accel_diff = 0.95f * atr->accel_diff + 0.05f * new_accel_diff;
-    } else if (motor->abs_erpm > 250) {
-        atr->accel_diff = 0.98f * atr->accel_diff + 0.02f * new_accel_diff;
+    if (motor->abs_erpm > 250) {
+        float alpha = atr->ad_alpha3;
+        if (motor->abs_erpm > 2000) {
+            alpha = atr->ad_alpha1;
+        } else if (motor->abs_erpm > 1000) {
+            alpha = atr->ad_alpha2;
+        }
+        atr->accel_diff += alpha * (new_accel_diff - atr->accel_diff);
     } else {
         atr->accel_diff = 0;
     }
@@ -94,8 +120,8 @@ void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
     // -------------+------+-------
     //         forward | up   | down
     //        !forward | down | up
-    float atr_strength =
-        forward == (atr->accel_diff > 0) ? config->atr_strength_up : config->atr_strength_down;
+    float atr_strength = motor->forward == (atr->accel_diff > 0) ? config->atr_strength_up
+                                                                 : config->atr_strength_down;
 
     // from 3000 to 6000..9000 erpm gradually crank up the torque response
     if (motor->abs_erpm > 3000 && !motor->braking) {
@@ -117,87 +143,21 @@ void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
         new_atr_target -= sign(new_atr_target) * atr_threshold;
     }
 
-    atr->target = atr->target * 0.95 + 0.05 * new_atr_target;
-    atr->target = fminf(atr->target, config->atr_angle_limit);
-    atr->target = fmaxf(atr->target, -config->atr_angle_limit);
+    atr->target = clampf(new_atr_target, -config->atr_angle_limit, config->atr_angle_limit);
 
-    float response_boost = 1;
-    if (motor->abs_erpm > 2500) {
-        response_boost = config->atr_response_boost;
-    }
-    if (motor->abs_erpm > 6000) {
-        response_boost *= config->atr_response_boost;
-    }
+    ema_update(&atr->transition_target, atr->target);
 
-    // Key to keeping the board level and consistent is to determine the appropriate step size!
-    // We want to react quickly to changes, but we don't want to overreact to glitches in
-    // acceleration data or trigger oscillations...
-    float atr_step_size = 0;
-    const float TT_BOOST_MARGIN = 2;
-    if (forward) {
-        if (atr->setpoint < 0) {
-            // downhill
-            if (atr->setpoint < atr->target) {
-                // to avoid oscillations we go down slower than we go up
-                atr_step_size = atr->off_step_size;
-                if (atr->target > 0 && atr->target - atr->setpoint > TT_BOOST_MARGIN &&
-                    motor->abs_erpm > 2000) {
-                    // boost the speed if tilt target has reversed (and if there's a significant
-                    // margin)
-                    atr_step_size = atr->off_step_size * config->atr_transition_boost;
-                }
-            } else {
-                // ATR is increasing
-                atr_step_size = atr->on_step_size * response_boost;
-            }
-        } else {
-            // uphill or other heavy resistance (grass, mud, etc)
-            if (atr->target > -3 && atr->setpoint > atr->target) {
-                // ATR winding down (current ATR is bigger than the target)
-                // normal wind down case: to avoid oscillations we go down slower than we go up
-                atr_step_size = atr->off_step_size;
-            } else {
-                // standard case of increasing ATR
-                atr_step_size = atr->on_step_size * response_boost;
-            }
-        }
+    float transition_target = atr->transition_target.value;
+    float degrees_diff = fabsf(atr->setpoint.value - transition_target) - 1.0f;
+    // Only apply transition boost if the setpoint and target differ in
+    // signs and the degree diff is greater than 1
+    if (atr->setpoint.value * transition_target < 0 && degrees_diff > 0.0f) {
+        // Scale the transition multiplier linearly from 1 to 2 degrees of difference
+        atr->transition_boost =
+            1.0f + min(degrees_diff, 1.0f) * (config->atr.transition_boost - 1.0f);
     } else {
-        if (atr->setpoint > 0) {
-            // downhill
-            if (atr->setpoint > atr->target) {
-                // to avoid oscillations we go down slower than we go up
-                atr_step_size = atr->off_step_size;
-                if (atr->target < 0 && atr->setpoint - atr->target > TT_BOOST_MARGIN &&
-                    motor->abs_erpm > 2000) {
-                    // boost the speed if tilt target has reversed (and if there's a significant
-                    // margin)
-                    atr_step_size = atr->off_step_size * config->atr_transition_boost;
-                }
-            } else {
-                // ATR is increasing
-                atr_step_size = atr->on_step_size * response_boost;
-            }
-        } else {
-            // uphill or other heavy resistance (grass, mud, etc)
-            if (atr->target < 3 && atr->setpoint < atr->target) {
-                // normal wind down case: to avoid oscillations we go down slower than we go up
-                atr_step_size = atr->off_step_size;
-            } else {
-                // standard case of increasing torquetilt
-                atr_step_size = atr->on_step_size * response_boost;
-            }
-        }
+        atr->transition_boost = 1.0f;
     }
 
-    if (motor->abs_erpm < 500) {
-        atr_step_size /= 2;
-    }
-
-    // Smoothen changes in tilt angle by ramping the step size
-    smooth_rampf(&atr->setpoint, &atr->ramped_step_size, atr->target, atr_step_size, 0.05, 1.5);
-}
-
-void atr_winddown(ATR *atr) {
-    atr->setpoint *= 0.995;
-    atr->target *= 0.99;
+    smooth_setpoint_update(&atr->setpoint, atr->target, motor->forward, atr->transition_boost, dt);
 }

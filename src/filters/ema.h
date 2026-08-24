@@ -17,20 +17,23 @@
 
 #pragma once
 
-#include "conf/datatypes.h"
-#include "filters/ema.h"
-#include "motor_data.h"
-
+/** Exponential Moving Average
+ */
 typedef struct {
-    EMA torque;
-} Booster;
+    float alpha;
+    float value;
+} EMA;
 
-void booster_init(Booster *b);
+float ema_calculate_alpha(float cutoff_freq, float update_freq);
 
-void booster_reset(Booster *b);
+float ema_calculate_alpha_time_constant(float time_constant, float update_freq);
 
-void booster_configure(Booster *b, float frequency);
+void ema_init(EMA *ema);
 
-void booster_update(
-    Booster *b, const MotorData *md, const RefloatConfig *config, float proportional
-);
+void ema_configure(EMA *ema, float cutoff_freq, float update_freq);
+
+void ema_reset(EMA *ema, float value);
+
+inline void ema_update(EMA *ema, float target) {
+    ema->value += ema->alpha * (target - ema->value);
+}

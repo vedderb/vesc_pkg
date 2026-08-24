@@ -24,16 +24,20 @@
 #include "brake_tilt.h"
 #include "charging.h"
 #include "data_record.h"
+#include "filters/ema.h"
 #include "footpad_sensor.h"
+#include "frequency_tracker.h"
 #include "haptic_feedback.h"
 #include "imu.h"
 #include "konami.h"
+#include "latency_tracker.h"
 #include "lcm.h"
 #include "leds.h"
 #include "motor_control.h"
 #include "motor_data.h"
 #include "pid.h"
 #include "remote.h"
+#include "reverse_stop.h"
 #include "state.h"
 #include "time.h"
 #include "torque_tilt.h"
@@ -70,6 +74,7 @@ typedef struct {
     FootpadSensor footpad;
     HapticFeedback haptic_feedback;
     AlertTracker alert_tracker;
+    ReverseStop reverse_stop;
 
     Leds leds;
     LcmData lcm;
@@ -89,16 +94,17 @@ typedef struct {
     int beep_reason;
     bool beeper_enabled;
 
-    // Config values
-    uint32_t loop_time_us;
+    int32_t main_loop_ticks;
+
+    FrequencyTracker main_freq_tracker;
+    FrequencyTracker imu_freq_tracker;
+    LatencyTracker imu_latency_tracker;
+
     float startup_pitch_trickmargin, startup_pitch_tolerance;
-    float startup_step_size;
-    float tiltback_duty_step_size, tiltback_hv_step_size, tiltback_lv_step_size,
-        tiltback_return_step_size;
-    float tiltback_variable, tiltback_variable_max_erpm, noseangling_step_size;
+    float tiltback_variable, tiltback_variable_max_erpm;
     bool duty_beeping;
 
-    float balance_current;
+    EMA balance_current;
 
     float setpoint, setpoint_target, setpoint_target_interpolated;
     float noseangling_interpolated;
@@ -119,18 +125,8 @@ typedef struct {
     // Feature: Flywheel
     bool flywheel_abort;
 
-    // Feature: Reverse Stop
-    float reverse_stop_step_size, reverse_tolerance, reverse_total_erpm;
-    time_t reverse_timer;
-
     // Feature: Soft Start
-    float softstart_pid_limit, softstart_ramp_step_size;
+    float softstart_pid_limit;
 
     uint64_t odometer;
-
-    // Feature: RC Move (control via app while idle)
-    int rc_steps;
-    int rc_counter;
-    float rc_current_target;
-    float rc_current;
 } Data;

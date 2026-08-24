@@ -53,11 +53,10 @@ void circular_buffer_push(CircularBuffer *cb, const void *item);
 bool circular_buffer_get(const CircularBuffer *cb, size_t i, void *item);
 
 /**
- * Pops an item at index i (a position relative to the current tail) from the
- * buffer. If there's no item at that index, leaves item unchanged and returns
- * false, otherwise returns true.
+ * Pops the item at the tail of the buffer. If the buffer is empty, leaves item
+ * unchanged and returns false, otherwise returns true.
  */
-bool circular_buffer_pop(CircularBuffer *cb, size_t i, void *item);
+bool circular_buffer_pop(CircularBuffer *cb, void *item);
 
 /**
  * Iterates over the buffer, calling the callback function on each item.
