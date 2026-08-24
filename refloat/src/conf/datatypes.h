@@ -130,7 +130,7 @@ typedef struct {
 
 typedef struct {
     uint16_t idle_timeout;
-    float duty_threshold;
+    float motor_utilization_threshold;
     float red_bar_percentage;
     bool show_sensors_while_running;
     float brightness_headlights_on;
@@ -173,6 +173,7 @@ typedef struct {
 
 typedef struct {
     CfgHwLeds leds;
+    bool swap_footpad_adcs;
 } CfgHardware;
 
 typedef struct {
@@ -190,6 +191,36 @@ typedef struct {
     float duty_solid_offset;
     float current_threshold;
 } CfgHapticFeedback;
+
+typedef struct {
+    float time_constant;
+    float on_speed_time_constant;
+    float off_speed_time_constant;
+    float on_speed_limit;
+    float off_speed_limit;
+} CfgSetpointFilter;
+
+typedef struct {
+    float time_constant;
+} CfgSetpointFilterSimple;
+
+typedef struct {
+    CfgSetpointFilter filter;
+} CfgTorqueTilt;
+
+typedef struct {
+    CfgSetpointFilter filter;
+    float transition_boost;
+} CfgATR;
+
+typedef struct {
+    CfgSetpointFilterSimple filter;
+} CfgTurnTilt;
+
+typedef struct {
+    CfgSetpointFilterSimple filter;
+    uint8_t max_move_speed;
+} CfgRemote;
 
 typedef struct {
     bool enabled;
@@ -214,7 +245,6 @@ typedef struct {
     float mahony_kp_roll;
     float kp_brake;
     float kp2_brake;
-    uint16_t hertz;
     float fault_pitch;
     float fault_roll;
     float fault_adc1;
@@ -247,11 +277,9 @@ typedef struct {
     float tiltback_variable_max;
     uint16_t tiltback_variable_erpm;
     FLOAT_INPUTTILT_REMOTE_TYPE inputtilt_remote_type;
-    float inputtilt_speed;
     float inputtilt_angle_limit;
     bool inputtilt_invert_throttle;
     float inputtilt_deadband;
-    float remote_throttle_current_max;
     float remote_throttle_grace_period;
     float noseangling_speed;
     float startup_pitch_tolerance;
@@ -272,8 +300,6 @@ typedef struct {
     float brkbooster_current;
     float torquetilt_start_current;
     float torquetilt_angle_limit;
-    float torquetilt_on_speed;
-    float torquetilt_off_speed;
     float torquetilt_strength;
     float torquetilt_strength_regen;
     float atr_strength_up;
@@ -282,10 +308,6 @@ typedef struct {
     float atr_threshold_down;
     float atr_speed_boost;
     float atr_angle_limit;
-    float atr_on_speed;
-    float atr_off_speed;
-    float atr_response_boost;
-    float atr_transition_boost;
     float atr_filter;
     float atr_amps_accel_ratio;
     float atr_amps_decel_ratio;
@@ -295,13 +317,17 @@ typedef struct {
     float turntilt_angle_limit;
     float turntilt_start_angle;
     uint16_t turntilt_start_erpm;
-    float turntilt_speed;
     uint16_t turntilt_erpm_boost;
     uint16_t turntilt_erpm_boost_end;
     int turntilt_yaw_aggregate;
     bool is_beeper_enabled;
     bool is_dutybeep_enabled;
     bool is_footbeep_enabled;
+
+    CfgTorqueTilt torque_tilt;
+    CfgATR atr;
+    CfgTurnTilt turn_tilt;
+    CfgRemote remote;
 
     CfgHapticFeedback haptic;
     CfgBMS bms;

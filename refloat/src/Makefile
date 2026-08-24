@@ -8,7 +8,7 @@ TARGET = package_lib
 
 all: $(TARGET)
 
-REFLOAT_SOURCES = $(wildcard *.c) $(wildcard lib/*.c)
+REFLOAT_SOURCES = $(wildcard *.c) $(wildcard filters/*.c) $(wildcard lib/*.c)
 CONF_GEN_HEADERS = conf/conf_default.h conf/confparser.h conf/confxml.h
 CONF_GEN_SOURCES = conf/confparser.c conf/confxml.c
 CONF_GEN_FILES = $(CONF_GEN_HEADERS) $(CONF_GEN_SOURCES)
@@ -17,10 +17,11 @@ DEPS = $(SOURCES:.c=.d)
 
 ADD_TO_CLEAN = $(CONF_GEN_FILES) $(DEPS) conf/conf_general.h
 
+ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 VESC_C_LIB_PATH = ../vesc_pkg_lib/
 include $(VESC_C_LIB_PATH)rules.mk
 
-CFLAGS += -MMD -flto -ggdb
+CFLAGS := -MMD -flto -ggdb -I$(ROOT_DIR) $(CFLAGS)
 LDFLAGS += -flto
 
 $(REFLOAT_SOURCES): $(CONF_GEN_HEADERS) conf/conf_general.h

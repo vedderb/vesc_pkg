@@ -17,11 +17,13 @@
 
 #include "data_recorder.h"
 #include "conf/buffer.h"
-#include "utils.h"
+#include "lib/utils.h"
 #include "vesc_c_if.h"
 
 static void start_recording(DataRecord *dr) {
     circular_buffer_clear(&dr->buffer);
+    dr->decimation_counter = 0;
+    dr->last_time = 0;
     dr->recording = true;
 }
 
@@ -35,10 +37,12 @@ typedef struct {
     size_t length;
 } DataBufferInfo;
 
-void data_recorder_init(DataRecord *dr) {
+void data_recorder_init(DataRecord *dr, uint16_t imu_sample_rate) {
     dr->recording = false;
     dr->autostart = true;
     dr->autostop = true;
+    dr->decimation_counter = 0;
+    dr->last_time = 0;
 
     // fetch information about the data buffer, it's stored at the end of the
     // VESC interface memory area
@@ -62,10 +66,20 @@ void data_recorder_init(DataRecord *dr) {
 
     dr->enabled = true;
     size_t size = buffer_info->length;
-    size_t sample_nr = size / sizeof(Sample);
+    dr->sample_count = size / sizeof(Sample);
     uint8_t *buffer = buffer_info->buffer;
-    circular_buffer_init(&dr->buffer, sizeof(Sample), sample_nr, buffer);
-    log_msg("Data Record buffer size: %uB (%u samples)", size, sample_nr);
+    circular_buffer_init(&dr->buffer, sizeof(Sample), dr->sample_count, buffer);
+
+    dr->sample_rate = imu_sample_rate;
+
+    // calculate decimation so that the recorded time period is at least 10 seconds
+    dr->decimation = max(10 * imu_sample_rate / dr->sample_count, 1);
+
+    log_msg("Data Record buffer size: %uB (%u samples)", size, dr->sample_count);
+}
+
+void data_recorder_set_sample_rate(DataRecord *dr, uint16_t sample_rate) {
+    dr->sample_rate = sample_rate;
 }
 
 bool data_recorder_has_capability(const DataRecord *dr) {
@@ -89,6 +103,19 @@ void data_recorder_sample(DataRecord *dr, const Data *d, time_t time) {
         return;
     }
 
+    if (++dr->decimation_counter < dr->decimation) {
+        return;
+    }
+    dr->decimation_counter = 0;
+
+    // keep timestamps strictly increasing: the 100us system tick can't
+    // distinguish samples at high IMU rates (they arrive in bursts sharing a
+    // tick), and duplicate timestamps break the download and plotting
+    if (time <= dr->last_time) {
+        time = dr->last_time + 1;
+    }
+    dr->last_time = time;
+
     uint8_t flags = d->state.sat << 4 | d->footpad.state << 2;
     flags |= d->state.wheelslip << 1 | (d->state.state == STATE_RUNNING);
 
@@ -96,7 +123,7 @@ void data_recorder_sample(DataRecord *dr, const Data *d, time_t time) {
         {.time = time,
          .flags = flags,
          .values = {
-#define ARRAY_VALUE(id) to_float16(d->id),
+#define ARRAY_VALUE(target, id) to_float16(d->target),
              VISIT_REC(RT_DATA_ALL_ITEMS, ARRAY_VALUE)
 #undef ARRAY_VALUE
          }};
@@ -120,7 +147,7 @@ void data_recorder_send_experiment_plot(DataRecord *dr) {
 
     VESC_IF->plot_init("t", "v");
 
-#define ADD_GRAPH(id) VESC_IF->plot_add_graph(#id);
+#define ADD_GRAPH(target, id) VESC_IF->plot_add_graph(id);
     VISIT_REC(RT_DATA_ALL_ITEMS, ADD_GRAPH);
 #undef ADD_GRAPH
 
@@ -128,9 +155,25 @@ void data_recorder_send_experiment_plot(DataRecord *dr) {
 }
 
 typedef enum {
+    COMMAND_DATA_RECORD = 41,
     COMMAND_DATA_RECORD_HEADER = 42,
     COMMAND_DATA_RECORD_DATA = 43,
 } DataRecordCommands;
+
+static void send_status(const DataRecord *dr) {
+    uint8_t buf[7];
+    int32_t ind = 0;
+
+    buf[ind++] = 101;  // Package ID
+    buf[ind++] = COMMAND_DATA_RECORD;
+    buf[ind++] = dr->enabled;
+    buf[ind++] = dr->autostop << 2 | dr->autostart << 1 | dr->recording;
+    buf[ind++] = dr->decimation;
+    uint32_t centiseconds = (uint32_t) dr->sample_count * 100 / dr->sample_rate;
+    buffer_append_uint16(buf, min(centiseconds, 65535u), &ind);
+
+    SEND_APP_DATA(buf, 7, ind);
+}
 
 static void send_header(DataRecord *dr) {
     static const int bufsize = 256;
@@ -143,7 +186,7 @@ static void send_header(DataRecord *dr) {
     buffer_append_uint32(buf, circular_buffer_size(&dr->buffer), &ind);
 
     buf[ind++] = ITEMS_COUNT_REC(RT_DATA_ALL_ITEMS);
-#define ADD_ID(id) buffer_append_string(buf, #id, &ind);
+#define ADD_ID(target, id) buffer_append_string(buf, id, &ind);
     VISIT_REC(RT_DATA_ALL_ITEMS, ADD_ID);
 #undef ADD_ID
 
@@ -197,22 +240,28 @@ void data_recorder_request(DataRecord *dr, uint8_t *buffer, size_t len) {
     uint8_t mode = buffer[ind++];
     uint8_t sub_mode = buffer[ind++];
     if (mode == 1) {  // control
-        if (len < 3) {
-            log_error("Data Record request missing value, length: %u", len);
-            return;
-        }
-        uint8_t value = buffer[ind++];
-        if (sub_mode == 1) {  // start/stop recording
-            if (value > 0) {
-                start_recording(dr);
-            } else {
-                stop_recording(dr);
+        if (sub_mode > 0) {
+            if (len < 3) {
+                log_error("Data Record request missing value, length: %u", len);
+                return;
             }
-        } else if (sub_mode == 2) {  // set autostart on engage
-            dr->autostart = value;
-        } else if (sub_mode == 3) {  // set autostop on disengage
-            dr->autostop = value;
+            uint8_t value = buffer[ind++];
+            if (sub_mode == 1) {  // start/stop recording
+                if (value > 0) {
+                    start_recording(dr);
+                } else {
+                    stop_recording(dr);
+                }
+            } else if (sub_mode == 2) {  // set autostart on engage
+                dr->autostart = value;
+            } else if (sub_mode == 3) {  // set autostop on disengage
+                dr->autostop = value;
+            } else if (sub_mode == 4) {  // set decimation (record every Nth sample)
+                dr->decimation = value > 0 ? value : 1;
+            }
         }
+        // sub_mode 0 is a no-op, just return the status
+        send_status(dr);
     } else if (mode == 2) {  // send
         if (sub_mode == 1) {  // header
             // pause recording; in theory a race, but the delay between sending the header

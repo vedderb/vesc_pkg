@@ -17,30 +17,35 @@
 
 #include "booster.h"
 
-#include "utils.h"
+#include "lib/utils.h"
 
 #include <math.h>
 
 void booster_init(Booster *b) {
+    ema_init(&b->torque);
     booster_reset(b);
 }
 
 void booster_reset(Booster *b) {
-    b->current = 0.0f;
+    ema_reset(&b->torque, 0.0f);
+}
+
+void booster_configure(Booster *b, float frequency) {
+    ema_configure(&b->torque, 1.0f, frequency);
 }
 
 void booster_update(
     Booster *b, const MotorData *md, const RefloatConfig *config, float proportional
 ) {
-    float current;
+    float torque;
     float angle;
     float ramp;
     if (md->braking) {
-        current = config->brkbooster_current;
+        torque = config->brkbooster_current * TORQUE_CONSTANT_COMPAT;
         angle = config->brkbooster_angle;
         ramp = config->brkbooster_ramp;
     } else {
-        current = config->booster_current;
+        torque = config->booster_current * TORQUE_CONSTANT_COMPAT;
         angle = config->booster_angle;
         ramp = config->booster_ramp;
     }
@@ -51,7 +56,7 @@ void booster_update(
         float speedstiffness = fminf(1, (md->abs_erpm - boost_min_erpm) / 10000);
         if (md->braking) {
             // use higher current at speed when braking
-            current += current * speedstiffness;
+            torque += torque * speedstiffness;
         } else {
             // when accelerating, we reduce the booster start angle as we get faster
             // strength remains unchanged
@@ -63,14 +68,13 @@ void booster_update(
     float abs_proportional = fabsf(proportional);
     if (abs_proportional > angle) {
         if (abs_proportional - angle < ramp) {
-            current *= sign(proportional) * (abs_proportional - angle) / ramp;
+            torque *= sign(proportional) * (abs_proportional - angle) / ramp;
         } else {
-            current *= sign(proportional);
+            torque *= sign(proportional);
         }
     } else {
-        current = 0;
+        torque = 0;
     }
 
-    // No harsh changes in booster current (effective delay <= 100ms)
-    b->current = 0.01 * current + 0.99 * b->current;
+    ema_update(&b->torque, torque);
 }

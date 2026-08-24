@@ -27,6 +27,7 @@ void bms_init(BMS *bms) {
     bms->cell_ht = 0;
     bms->bms_ht = 0;
     bms->msg_age = 42.0f;
+    bms->push_timer = 0;
     bms->fault_mask = BMSF_NONE;
 }
 
@@ -43,10 +44,16 @@ void bms_update(BMS *bms, const CfgBMS *cfg, const Time *time) {
     uint32_t fault_mask = BMSF_NONE;
     const float timeout = 5.0f;
 
+    // Age the data by the time elapsed since the last push, so that it also
+    // goes stale when pushes stop coming (e.g. the lisp loop stops running).
+    float msg_age = bms->msg_age + timer_age(time, bms->push_timer);
+
     // Before the first BMS update occurs right after startup, msg_age has its
-    // init value. We need to wait the `timeout` time before issuing errors.
-    if (bms->msg_age > timeout && time_elapsed(time, start, timeout)) {
-        set_fault(&fault_mask, BMSF_CONNECTION);
+    // init value. Suppress all telemetry faults until the grace period expires.
+    if (msg_age > timeout) {
+        if (time_elapsed(time, start, timeout)) {
+            set_fault(&fault_mask, BMSF_CONNECTION);
+        }
         bms->fault_mask = fault_mask;
         return;
     }
