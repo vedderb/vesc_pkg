@@ -18,32 +18,29 @@
 #pragma once
 
 #include "conf/datatypes.h"
+#include "filters/smooth_setpoint.h"
 #include "imu.h"
 #include "motor_data.h"
 
 typedef struct {
-    float step_size;
-    float ramped_step_size;
     float boost_per_erpm;
 
     float last_yaw_angle;
-    float last_yaw_change;
-    float yaw_change;
-    float abs_yaw_change;
+    EMA yaw_change;
     float yaw_aggregate;
 
     float target;
-    float setpoint;
+    SmoothSetpoint setpoint;
 } TurnTilt;
 
 void turn_tilt_init(TurnTilt *tt);
 
 void turn_tilt_reset(TurnTilt *tt);
 
-void turn_tilt_configure(TurnTilt *tt, const RefloatConfig *config);
+void turn_tilt_configure(TurnTilt *tt, const RefloatConfig *config, float frequency);
 
-void turn_tilt_aggregate(TurnTilt *tt, const IMU *imu);
+void turn_tilt_aggregate(TurnTilt *tt, const IMU *imu, float dt);
 
-void turn_tilt_update(TurnTilt *tt, const MotorData *md, const RefloatConfig *config);
-
-void turn_tilt_winddown(TurnTilt *tt);
+void turn_tilt_update(
+    TurnTilt *tt, const MotorData *md, const RefloatConfig *config, bool wheelslip, float dt
+);

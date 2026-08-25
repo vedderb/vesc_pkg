@@ -1,4 +1,5 @@
-// Copyright 2025 Lukas Hrazky
+// Copyright 2022 Benjamin Vedder <benjamin@vedder.se>
+// Copyright 2024 Lukas Hrazky
 //
 // This file is part of the Refloat VESC package.
 //
@@ -17,20 +18,21 @@
 
 #pragma once
 
-#include "conf/datatypes.h"
-#include "filters/ema.h"
-#include "motor_data.h"
-
 typedef struct {
-    EMA torque;
-} Booster;
+    float a0, a1, a2, b1, b2;
+    float z1, z2;
+    float value;
+} Biquad;
 
-void booster_init(Booster *b);
+typedef enum {
+    BQ_LOWPASS,
+    BQ_HIGHPASS
+} BiquadType;
 
-void booster_reset(Booster *b);
+void biquad_init(Biquad *biquad);
 
-void booster_configure(Booster *b, float frequency);
+void biquad_configure(Biquad *biquad, BiquadType type, float cutoff_freq, float update_freq);
 
-void booster_update(
-    Booster *b, const MotorData *md, const RefloatConfig *config, float proportional
-);
+void biquad_reset(Biquad *biquad);
+
+void biquad_update(Biquad *biquad, float target);

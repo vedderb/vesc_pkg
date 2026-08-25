@@ -170,14 +170,6 @@ Item {
             } else {
                 commands.sendGetRtData();
             }
-
-            if (moveSlider.value != 0) {
-                commands.sendRcMove(moveSlider.value);
-            }
-
-            if (tiltEnabled.checked) {
-                vescCommands.lispSendReplCmd("(set-remote-state " + tiltSlider.value + " 0 0 0 0)");
-            }
         }
     }
 
@@ -192,45 +184,14 @@ Item {
         }
     }
 
-    // 100hz for for UI updates
+    // 2Hz timer to poll for data record status if capability is available
     Timer {
-        running: true
+        running: state.capDataRecord
         repeat: true
-        interval: 10
+        interval: 500
+        triggeredOnStart: true
         onTriggered: {
-            if (!moveSlider.pressed) {
-                var stepSize = 0.05;
-                if (moveSlider.value > 0) {
-                    if (moveSlider.value < stepSize) {
-                        moveSlider.value = 0;
-                    } else {
-                        moveSlider.value -= stepSize;
-                    }
-                } else if (moveSlider.value < 0) {
-                    if (moveSlider.value > -stepSize) {
-                        moveSlider.value = 0;
-                    } else {
-                        moveSlider.value += stepSize;
-                    }
-                }
-            }
-
-            if (!tiltSlider.pressed) {
-                var stepSize = 0.05;
-                if (tiltSlider.value > 0) {
-                    if (tiltSlider.value < stepSize) {
-                        tiltSlider.value = 0;
-                    } else {
-                        tiltSlider.value -= stepSize;
-                    }
-                } else if (tiltSlider.value < 0) {
-                    if (tiltSlider.value > -stepSize) {
-                        tiltSlider.value = 0;
-                    } else {
-                        tiltSlider.value += stepSize;
-                    }
-                }
-            }
+            commands.sendDataRecordStatus();
         }
     }
 
@@ -633,15 +594,15 @@ Item {
         target: vescCommands
 
         readonly property int c_INFO: 0
-        readonly property int c_RC_MOVE: 7
         readonly property int c_HANDTEST: 13
+        readonly property int c_REMOTE: 15
         readonly property int c_LIGHTS_CONTROL: 20
         readonly property int c_FLYWHEEL: 22
-        readonly property int c_REALTIME_DATA: 31
-        readonly property int c_REALTIME_DATA_IDS: 32
+        readonly property int c_REALTIME_DATA_INTERNAL: 31
+        readonly property int c_REALTIME_DATA_INTERNAL_IDS: 32
         readonly property int c_ALERTS_LIST: 35
         readonly property int c_ALERTS_CONTROL: 36
-        readonly property int c_DATA_RECORD_REQUEST: 41
+        readonly property int c_DATA_RECORD: 41
         readonly property int c_DATA_RECORD_HEADER: 42
         readonly property int c_DATA_RECORD_DATA: 43
 
@@ -699,11 +660,11 @@ Item {
         }
 
         function sendGetRtData() {
-            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA).buffer);
+            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA_INTERNAL).buffer);
         }
 
         function sendGetRtDataIds() {
-            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA_IDS).buffer);
+            vescCommands.sendCustomAppData(createData(2, c_REALTIME_DATA_INTERNAL_IDS).buffer);
         }
 
         function sendLightsControl(on, headlightsOn) {
@@ -749,15 +710,9 @@ Item {
             vescCommands.sendCustomAppData(data.buffer);
         }
 
-        function sendRcMove(value) {
-            var data = createData(6, c_RC_MOVE);
-
-            var current = Math.abs(Math.round(value * 70)) + 10;
-
-            data.setUint8(2, value > 0 ? 1 : 0); // direction
-            data.setUint8(3, current); // current
-            data.setUint8(4, 1); // time
-            data.setUint8(5, current + 1); // sum = time + current
+        function sendRemote(value) {
+            var data = createData(3, c_REMOTE);
+            data.setUint8(2, value * 127);
 
             vescCommands.sendCustomAppData(data.buffer);
         }
@@ -783,14 +738,16 @@ Item {
             vescCommands.sendCustomAppData(data.buffer);
         }
 
+        readonly property int dr_STATUS: 0
         readonly property int dr_RECORD: 1
         readonly property int dr_AUTOSTART: 2
         readonly property int dr_AUTOSTOP: 3
+        readonly property int dr_DECIMATION: 4
 
         // @param key One of the above dr_ properties
         // @param value Value to set, true or false
         function sendDataRecordControl(key, value) {
-            var data = createData(5, c_DATA_RECORD_REQUEST);
+            var data = createData(5, c_DATA_RECORD);
             data.setUint8(2, 1); // control
             data.setUint8(3, key);
             data.setUint8(4, value);
@@ -798,13 +755,21 @@ Item {
             vescCommands.sendCustomAppData(data.buffer);
         }
 
+        function sendDataRecordStatus() {
+            var data = createData(4, c_DATA_RECORD);
+            data.setUint8(2, 1); // control
+            data.setUint8(3, dr_STATUS);
+
+            vescCommands.sendCustomAppData(data.buffer);
+        }
+
         function sendDataRecordRequest(header, offset) {
             if (header) {
-                var data = createData(4, c_DATA_RECORD_REQUEST);
+                var data = createData(4, c_DATA_RECORD);
                 data.setUint8(2, 2); // send
                 data.setUint8(3, 1); // header
             } else {
-                var data = createData(8, c_DATA_RECORD_REQUEST);
+                var data = createData(8, c_DATA_RECORD);
                 data.setUint8(2, 2); // send
                 data.setUint8(3, 2); // data
                 data.setUint32(4, offset);
@@ -851,7 +816,7 @@ Item {
                 lights.headlightsOn = values & 0b10;
             } else if (msgtype === c_ALERTS_LIST) {
                 alerts.receiveAlertsList(dv, ind);
-            } else if (msgtype === c_REALTIME_DATA) {
+            } else if (msgtype === c_REALTIME_DATA_INTERNAL) {
                 if (state.commsState !== state.comms_Initialized) {
                     // rt data came because another client app requested them,
                     // ignore until info is received
@@ -865,32 +830,28 @@ Item {
 
                 var extraFlags = dv.getUint8(ind++);
                 state.extraRecording = extraFlags & 0x1;
-                state.extraRecAutostart = extraFlags & 0x2;
-                state.extraRecAutostop = extraFlags & 0x4;
-                state.fatalError = extraFlags & 0x8;
 
                 var time = dv.getUint32(ind); ind += 4;
                 state.setTimeReference(time);
 
-                var modeAndState = dv.getUint8(ind++);
-                state.pkgMode = modeAndState >> 4;
-                var pkgState = modeAndState & 0xF;
-                state.pkgState = pkgState;
+                var stateFlags = dv.getUint32(ind); ind += 4;
+                state.pkgMode = (stateFlags >> 28) & 0b11;
+                state.pkgState = (stateFlags >> 24) & 0b11;
 
-                var sensorAndFlags = dv.getUint8(ind++);
-                var fpState = sensorAndFlags >> 6;
+                var fpState = (stateFlags >> 22) & 0b11;
                 state.fpState = fpState;
-                var wheelslip = sensorAndFlags & 0b00000001;
+                var flags = (stateFlags >> 16) & 0b111111;
+                var wheelslip = flags & 0b000001;
                 state.wheelslip = wheelslip;
-                state.darkride = sensorAndFlags & 0b00000010;
-                state.charging = sensorAndFlags & 0b00100000;
+                state.darkride = flags & 0b000010;
+                state.charging = flags & 0b100000;
+                state.fatalError = flags & 0b010000;
 
-                var setpointAndStop = dv.getUint8(ind++);
-                var sat = setpointAndStop >> 4;
+                var sat = (stateFlags >> 12) & 0xF;
                 state.setpointAdjustmentType = sat;
-                state.stopCondition = setpointAndStop & 0xF;
+                state.stopCondition = (stateFlags >> 8) & 0xF;
 
-                state.beepReason = dv.getUint8(ind++);
+                state.beepReason = stateFlags & 0xFF;
 
                 var rtDataIdleIts = state.rtDataIdleItems;
                 var rtDataAllIts = state.rtDataAllItems;
@@ -924,7 +885,7 @@ Item {
                 var running = +(state.pkgState === state.s_Running);
                 rtPlotData.addSample([time, running, wheelslip, sat, fpState].concat(newRt));
                 rtPlotData.makeReady();
-            } else if (msgtype === c_REALTIME_DATA_IDS) {
+            } else if (msgtype === c_REALTIME_DATA_INTERNAL_IDS) {
                 if (state.commsState !== state.comms_RTDataIDs) {
                     return;
                 }
@@ -933,6 +894,14 @@ Item {
                 state.rtDataAllItems = state.rtDataIdleItems.concat(state.rtDataRuntimeItems);
 
                 state.commsState = state.comms_Initialized;
+            } else if (msgtype === c_DATA_RECORD) {
+                var enabled = dv.getUint8(ind++);
+                var flags = dv.getUint8(ind++);
+                state.extraRecording = flags & 0x1;
+                state.extraRecAutostart = flags & 0x2;
+                state.extraRecAutostop = flags & 0x4;
+                state.extraRecDecimation = dv.getUint8(ind++);
+                state.extraRecDuration = dv.getUint16(ind) / 100; ind += 2;
             } else if (msgtype === c_DATA_RECORD_HEADER) {
                 recordedPlotData.receiveHeader(dv, ind);
             } else if (msgtype === c_DATA_RECORD_DATA) {
@@ -1042,9 +1011,12 @@ Item {
 
     component UIHint : Item {
         id: hint
-        // Workaround: Dynamically added SwipeView items are all visible at x=0
+        // Workaround: Dynamically added SwipeView items may be visible at x=0
         // until SwipeView preloads them. Only show when properly positioned.
         visible: SwipeView.view ? (SwipeView.isCurrentItem || SwipeView.isPreviousItem || SwipeView.isNextItem) : false
+        // Workaround 2: SwipeView may fail to position items added during
+        // Component.onCompleted. Use a binding to set x as a fallback.
+        x: SwipeView.view ? SwipeView.index * SwipeView.view.width : 0
 
         property var target
         property real targetX
@@ -1053,12 +1025,17 @@ Item {
         property real targetHeight
 
         property Settings settings
-        property string settingName
+        property string hintId
         property bool shown
 
         function updateTarget() {
             if (target !== null) {
-                var p = mapFromItem(target, 0, 0);
+                // Map relative to the SwipeView rather than this item, so that
+                // the result doesn't depend on our x offset within the content
+                // area. Falls back to mapping relative to ourselves when the
+                // SwipeView isn't available yet (x is 0 then, so equivalent).
+                var ref = SwipeView.view || hint;
+                var p = ref.mapFromItem(target, 0, 0);
                 targetX = p.x;
                 targetY = p.y;
             }
@@ -1093,11 +1070,11 @@ Item {
         }
 
         Component.onCompleted: {
-            shown = settings[settingName];
+            shown = settings[hintId];
         }
 
         onShownChanged: {
-            settings[settingName] = shown;
+            settings[hintId] = shown;
         }
 
         MouseArea {
@@ -1114,23 +1091,53 @@ Item {
         wrapMode: Text.WordWrap
     }
 
-    component UIHintFrame : Rectangle {
+    component UIHintFrame : Item {
         anchors.fill: parent
-        anchors.margins: -5
-        color: "transparent"
-        border.color: Utility.getAppHexColor("lightAccent")
-        border.width: 1
-        radius: 8
-        opacity: 0.7
+        anchors.margins: -3
+
+        Rectangle {
+            id: uiHintRect
+            anchors.fill: parent
+            color: "transparent"
+            border.color: Utility.getAppHexColor("lightAccent")
+            border.width: 2
+            radius: 8
+            opacity: 0.7
+        }
+
+        Glow {
+            anchors.fill: uiHintRect
+            radius: 4
+            samples: radius * 8 + 1
+            opacity: 0.4
+            color: Utility.getAppHexColor("lightAccent")
+            source: uiHintRect
+            spread: 0.9
+        }
     }
 
-    component UIHintUnderline : Rectangle {
+    component UIHintUnderline : Item {
         anchors.left: parent.left
         anchors.top: parent.top
-        width: unit * 0.8
-        height: 3
-        color: Utility.getAppHexColor("lightAccent")
-        opacity: 0.7
+        width: toolButtonSize
+        height: 2
+
+        Rectangle {
+            id: uiHintUnderline
+            anchors.fill: parent
+            color: Utility.getAppHexColor("lightAccent")
+            opacity: 0.7
+        }
+
+        Glow {
+            anchors.fill: uiHintUnderline
+            radius: 8
+            samples: radius * 8 + 1
+            opacity: 0.4
+            color: Utility.getAppHexColor("lightAccent")
+            source: uiHintUnderline
+            spread: 0.8
+        }
     }
 
     // Workaround for `state` getting resolved to all kinds of different things in different contexts
@@ -1166,8 +1173,6 @@ Item {
         UIHint {
             target: rtPlot
 
-            property int stage: settingName === "plotCursor" ? 0 : settingName === "drGeneral" ? 1 : settingName === "drStartStop" ? 2 : 3
-
             Plot {
                 id: subject
                 x: parent.targetX
@@ -1184,37 +1189,66 @@ Item {
                 }
 
                 Component.onCompleted: {
-                    pd.init(["motor.current"], 1);
+                    // Need to show the plot if any of the hints use it to get
+                    // it initialized, otherwise the layout randomly breaks
+                    if (hintId !== "statusText") {
+                        bottomStackTabs.currentIndex = 2;
+                    }
+
+                    pd.init(["current"], 1);
                     subject.init(1);
                     pd.addSample([0, 0,0,0,0, 10], 0);
                     pd.addSample([2,0,0,0,0, 22], 1);
                     pd.addSample([4,0,0,0,0, 15], 2);
                     pd.addSample([9,0,0,0,0, 30], 3);
                     pd.makeReady();
-                    if (stage === 0) {
+                    if (hintId === "plotCursor") {
                         subject.spawnCursor(4);
+                    } else if (hintId === "plotScaling") {
+                        subject.showMenu();
+                        subject.selectSeries("current");
+                        scalingPanelHintFrame.createObject(subject.getMenuFrame());
                     }
                 }
 
-                UIHintFrame {}
+                onVisibleChanged: {
+                    if (hintId !== "statusText") {
+                        bottomStackTabs.currentIndex = 2;
+                    }
+                    if (hintId === "plotScaling") {
+                        subject.showMenu();
+                        subject.selectSeries("current");
+                    }
+                }
 
-                UIHintUnderline {
-                    anchors.topMargin: unit
-                    anchors.leftMargin: unit
-                    width: unit * 1.7
-                    visible: stage === 1
+                UIHintFrame {
+                    visible: hintId !== "plotScaling"
+                }
+
+                Component {
+                    id: scalingPanelHintFrame
+                    UIHintFrame {
+                        anchors.margins: -1
+                    }
                 }
 
                 UIHintUnderline {
-                    anchors.topMargin: unit
-                    anchors.leftMargin: 1.9 * unit
-                    visible: stage === 2
+                    anchors.topMargin: toolButtonSize * 1.2
+                    anchors.leftMargin: toolButtonSize * 1.2
+                    width: toolButtonSize * 2.1
+                    visible: hintId === "drGeneral"
                 }
 
                 UIHintUnderline {
-                    anchors.topMargin: unit
-                    anchors.leftMargin: unit
-                    visible: stage === 3
+                    anchors.topMargin: toolButtonSize * 1.2
+                    anchors.leftMargin: toolButtonSize * 2.3
+                    visible: hintId === "drStartStop"
+                }
+
+                UIHintUnderline {
+                    anchors.topMargin: toolButtonSize * 1.2
+                    anchors.leftMargin: toolButtonSize * 1.2
+                    visible: hintId === "drDownload"
                 }
             }
 
@@ -1222,28 +1256,35 @@ Item {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
                 text: "View a plot of realtime data (log) from the package on the Data tab.\n\nLong press anywhere in the plot area to spawn a cursor.\n\nYou can dismiss the cursor by a swipe up gesture on it."
-                visible: stage === 0
+                visible: hintId === "plotCursor"
             }
 
             UIHintText {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
-                text: "Congratulations, you have the Data Record firmware installed. You are now part of the secret Data Recording society.\n\nYour board has the ability to store a short detailed data \"log\" by itself, you don't need to be connected.\n\nIt's controlled by these two buttons."
-                visible: stage === 1
+                text: "Use the plot series (hamburger) menu to toggle series visibility.\n\nLong press on a series to open the scaling panel.\n\nUse the \"A\" checkbox to toggle automatic scaling.\n\nThe slider can then be used to zoom in on the data."
+                visible: hintId === "plotScaling"
             }
 
             UIHintText {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
-                text: "This button indicates whether the board is recording. You can use it to start and stop the recording manually.\n\nThe board automatically starts recording when engaged and stops recording on disengage. You can disable the autostart and autostop functionality by long-pressing the button.\n\nIf you nosedive, check the recording before engaging again!"
-                visible: stage == 2
+                text: "You have the Data Record firmware installed.\n\nYour board has the ability to store a short detailed data \"log\" by itself, you don't need to be connected.\n\nIt's controlled by these two buttons."
+                visible: hintId === "drGeneral"
+            }
+
+            UIHintText {
+                anchors.horizontalCenter: subject.horizontalCenter
+                anchors.bottom: subject.top
+                text: "This button indicates whether the board is recording. You can use it to start and stop the recording manually.\n\nThe board automatically starts recording when engaged and stops recording on disengage. Control this and the recording duration by long-pressing the button.\n\nIf you nosedive, check the recording before engaging again!"
+                visible: hintId === "drStartStop"
             }
 
             UIHintText {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
                 text: "You can download the stored data using this button. It automatically stops recording. Do not start it while you're downloading, or you'll corrupt your data."
-                visible: stage == 3
+                visible: hintId === "drDownload"
             }
         }
     }
@@ -1257,6 +1298,7 @@ Item {
 
             property bool statusText
             property bool plotCursor
+            property bool plotScaling
 
             property bool drGeneral
             property bool drStartStop
@@ -1266,6 +1308,7 @@ Item {
         readonly property var hints: new Map([
             ["statusText", statusTextComp],
             ["plotCursor", plotComp],
+            ["plotScaling", plotComp],
         ])
 
         readonly property var dataRecordHints: new Map([
@@ -1277,10 +1320,7 @@ Item {
         function fill(container) {
             for (let [key, value] of hints) {
                 if (!uiHintsSettings[key]) {
-                    if (key == "plotCursor") {
-                        bottomStackTabs.currentIndex = 2;
-                    }
-                    value.createObject(container, {settings: uiHintsSettings, settingName: key});
+                    value.createObject(container, {settings: uiHintsSettings, hintId: key});
                 }
             }
         }
@@ -1289,8 +1329,7 @@ Item {
             if (state.capDataRecord) {
                 for (let [key, value] of dataRecordHints) {
                     if (!uiHintsSettings[key]) {
-                        bottomStackTabs.currentIndex = 2;
-                        value.createObject(container, {settings: uiHintsSettings, settingName: key});
+                        value.createObject(container, {settings: uiHintsSettings, hintId: key});
                     }
                 }
             }
@@ -1346,6 +1385,13 @@ Item {
             return tunes;
         }
 
+        function replaceProperty(tune, oldName, newName) {
+            if (tune.settings.hasOwnProperty(oldName)) {
+                tune.settings[newName] = tune.settings[oldName];
+                delete tune.settings[oldName];
+            }
+        }
+
         // Major package versions require a migration, minor don't.
         // Migration functions should return: [tuneObject, [newMajor, newMinor]]
         property var migrations: {
@@ -1361,6 +1407,11 @@ Item {
                 }
 
                 return [tune, [1, 2]];
+            },
+            "1.2": function(tune) {
+                replaceProperty(tune, "leds.status.duty_threshold", "leds.status.motor_utilization_threshold");
+
+                return [tune, [1, 3]];
             },
         }
 
@@ -1550,11 +1601,13 @@ Item {
 
             if (packageConfig.isDefault()) {
                 var backup = loadBackup("auto_backup_" + board.getId());
-                if (backup) {
+                if (!backup) {
+                    print("Refloat: No automatic backup to restore.");
+                } else if (packageConfig.diffConfig(backup).differs.length === 0) {
+                    print("Refloat: Automatic backup matches defaults, skipping.");
+                } else {
                     print("Refloat: Automatic backup restore.");
                     applyConfigDialog.show(backup, true, false);
-                } else {
-                    print("Refloat: No automatic backup to restore.");
                 }
             } else {
                 print("Refloat: Automatic config backup.");
@@ -1693,6 +1746,8 @@ Item {
         property bool extraRecording: false
         property bool extraRecAutostart: false
         property bool extraRecAutostop: false
+        property int extraRecDecimation: 1
+        property real extraRecDuration: 0
 
         property int ticksPerSecond
 
@@ -2118,35 +2173,40 @@ Item {
     // "#788554",
     // "#734828"
     property var plotSeriesMetaData: [
-        ["motor.erpm", {"name": "ERPM", "color": "#469138", "visible": true}],
-        ["motor.duty_cycle", {"name": "Duty Cycle", "color": "#e3ac34", "visible": true}],
-        ["motor.current", {"name": "Motor Current", "color": "#e33421", "visible": true}],
-        ["motor.dir_current", {"name": "Directional Current", "color": "#cc686b", "visible": false}],
-        ["motor.filt_current", {"name": "Filtered Current", "color": "#734828", "visible": false}],
+        ["erpm", {"name": "ERPM", "color": "#469138", "visible": true}],
+        ["duty_cycle", {"name": "Duty Cycle", "color": "#e3ac34", "visible": true}],
+        ["current", {"name": "Motor Current", "color": "#e33421", "visible": true, "scalingGroup": "current"}],
+        ["dir_current", {"name": "Directional Current", "color": "#cc686b", "visible": false, "scalingGroup": "current"}],
+        ["filt_current", {"name": "Filtered Current", "color": "#734828", "visible": false, "scalingGroup": "current"}],
 
-        ["imu.pitch", {"name": "Pitch", "color": "#b1b277", "visible": true}],
-        ["imu.balance_pitch", {"name": "Balance Pitch", "color": "#53b3bf", "visible": true}],
+        ["pitch", {"name": "Pitch", "color": "#b1b277", "visible": true, "scalingGroup": "pitch"}],
+        ["balance_pitch", {"name": "Balance Pitch", "color": "#53b3bf", "visible": true, "scalingGroup": "pitch"}],
 
-        ["torque_tilt.setpoint", {"name": "Torque Tilt Setpoint", "color": "#df4a98", "visible": true}],
-        ["atr.setpoint", {"name": "ATR Setpoint", "color": "#7640d6", "visible": true}],
-        ["brake_tilt.setpoint", {"name": "Brake Tilt Setpoint", "color": "#b29ad7", "visible": false}],
-        ["turn_tilt.setpoint", {"name": "Turn Tilt Setpoint", "color": "#e095af", "visible": false}],
-        ["remote.setpoint", {"name": "Remote Setpoint", "color": "#803a4d", "visible": false}],
-        ["setpoint", {"name": "Setpoint", "color": "#e57e20", "visible": true}],
+        ["torque_tilt.setpoint", {"name": "Torque Tilt Setpoint", "color": "#df4a98", "visible": true, "scalingGroup": "pitch"}],
+        ["atr.setpoint", {"name": "ATR Setpoint", "color": "#7640d6", "visible": true, "scalingGroup": "pitch"}],
+        ["brake_tilt.setpoint", {"name": "Brake Tilt Setpoint", "color": "#b29ad7", "visible": false, "scalingGroup": "pitch"}],
+        ["turn_tilt.setpoint", {"name": "Turn Tilt Setpoint", "color": "#e095af", "visible": false, "scalingGroup": "pitch"}],
+        ["remote.setpoint", {"name": "Remote Setpoint", "color": "#803a4d", "visible": false, "scalingGroup": "pitch"}],
+        ["setpoint", {"name": "Setpoint", "color": "#e57e20", "visible": true, "scalingGroup": "pitch"}],
 
-        ["motor.speed", {"name": "Speed", "color": "#3f9469", "visible": false}],
-        ["motor.batt_voltage", {"name": "Battery Voltage", "color": "#6e6ee0", "visible": false}],
-        ["motor.batt_current", {"name": "Battery Current", "color": "#cf44cd", "visible": false}],
-        ["motor.mosfet_temp", {"name": "Controller Temp", "color": "#ddae68", "visible": false}],
-        ["motor.motor_temp", {"name": "Motor Temp", "color": "#88bb93", "visible": false}],
-        ["imu.roll", {"name": "Roll", "color": "#c68f7e", "visible": false}],
-        ["footpad.adc1", {"name": "ADC1 Voltage", "color": "#69aad7", "visible": false}],
-        ["footpad.adc2", {"name": "ADC2 Voltage", "color": "#4a8772", "visible": false}],
-        ["balance_current", {"name": "Balance Current", "color": "#36738b", "visible": false}],
-        ["booster.current", {"name": "Booster Current", "color": "#8f2f26", "visible": false}],
+        ["speed", {"name": "Speed", "color": "#3f9469", "visible": false}],
+        ["batt_voltage", {"name": "Battery Voltage", "color": "#6e6ee0", "visible": false}],
+        ["batt_current", {"name": "Battery Current", "color": "#cf44cd", "visible": false}],
+        ["mosfet_temp", {"name": "Controller Temp", "color": "#ddae68", "visible": false}],
+        ["motor_temp", {"name": "Motor Temp", "color": "#88bb93", "visible": false}],
+        ["roll", {"name": "Roll", "color": "#c68f7e", "visible": false}],
+        ["adc_left", {"name": "Left ADC Voltage", "color": "#69aad7", "visible": false}],
+        ["adc_right", {"name": "Right ADC Voltage", "color": "#4a8772", "visible": false}],
+        ["balance_current", {"name": "Balance Current", "color": "#36738b", "visible": false, "scalingGroup": "current"}],
+        ["booster.torque", {"name": "Booster Torque", "color": "#8f2f26", "visible": false}],
         ["atr.accel_diff", {"name": "ATR Accel Diff", "color": "#4f5984", "visible": false}],
         ["atr.speed_boost", {"name": "ATR Speed Boost", "color": "#34633c", "visible": false}],
+        ["atr.transition_boost", {"name": "ATR Transition Boost", "color": "#827029", "visible": false}],
         ["remote.input", {"name": "Remote Throttle", "color": "#525023", "visible": false}],
+
+        ["control.dt", {"name": "Control Loop dt", "color": "#e95314", "visible": false}],
+        ["control.freq", {"name": "Control Loop Frequency", "color": "#69c180", "visible": false}],
+        ["control.latency", {"name": "Control Loop Latency", "color": "#ce77d2", "visible": false}],
 
         ["state.running", {"name": "Running", "color": "#3f6620", "visible": false}],
         ["state.wheelslip", {"name": "Wheelslip", "color": "#893075", "visible": false}],
@@ -2164,10 +2224,6 @@ Item {
         "#4bc6af",
         "#a15622",
         "#254f3a",
-        "#827029",
-        "#e95314",
-        "#69c180",
-        "#ce77d2",
         "#859b3b",
         "#dd4044",
         "#b58527",
@@ -2191,11 +2247,12 @@ Item {
         color: Utility.getAppHexColor("disabledText")
     }
 
+    property real toolButtonSize: 36
     component FloatingToolButton : RoundButton {
         id: button
-        anchors.margins: 4
-        width: unit
-        height: unit
+        anchors.margins: toolButtonSize / 10
+        width: size
+        height: size
         padding: 0
         leftInset: 0
         rightInset: 0
@@ -2204,7 +2261,8 @@ Item {
 
         property Path iconPath
         property Path fillIconPath
-        property real iconSize: width * 0.7
+        property real size: toolButtonSize
+        property real iconSize: size * 0.7
         property color strokeColor: Utility.getAppHexColor("normalText")
         property color fillColor: Utility.getAppHexColor("normalText")
         property color bgColor: Utility.getAppHexColor("darkBackground")
@@ -2284,6 +2342,12 @@ Item {
             if (autonomous) {
                 value = !value;
             }
+        }
+    }
+
+    component CloseToolButton : FloatingToolButton {
+        iconPath: Path {
+            PathSvg {path: "M 15 15 L 35 35 M 15 35 L 35 15"}
         }
     }
 
@@ -2487,9 +2551,24 @@ Item {
         // arrive, to ensure time is always increasing
         property real timeOffset: 0
 
-        property var mins: []
-        property var maxs: []
         property var scales: []
+
+        // { key: { min: value, max: value } } - key is scalingGroup name or series index
+        // Updated as samples arrive
+        property var minMaxes: ({})
+
+        // Custom scaling: { key: bound } - absence means auto scaling
+        property var customScaling: ({})
+
+        // Minimum range threshold to avoid numerical instability with very small scales
+        property real minScaleRange: 0.001
+
+        // Threshold which auto-scale is clamped to and below which values don't affect top/bottom plot ratio
+        property real smallValueThreshold: 1
+
+        function getMinMaxKey(seriesMd, index) {
+            return seriesMd.scalingGroup ?? index;
+        }
 
         property real timeStart
         property real timeEnd
@@ -2529,9 +2608,8 @@ Item {
         function initSeries(ids, allVisible) {
             var smplSize = ids.length + extraFlags.length;
             sampleSize = smplSize;
-            mins = Array(smplSize).fill(0);
-            maxs = Array(smplSize).fill(0);
             scales = Array(smplSize).fill(1);
+            minMaxes = {};
 
             if (arraysEqual(ids, seriesIds)) {
                 initialized = true;
@@ -2563,6 +2641,7 @@ Item {
                 if (visible) {
                     seriesMd.visible = visible;
                 }
+                seriesMd.id = id;
                 seriesMd.dataOrder = i;
                 srs.push(seriesMd);
                 srsSorted.push(seriesMd);
@@ -2592,7 +2671,14 @@ Item {
             // also don't push if the timestamp is the same as that of the last
             // record, this can happen if two clients are connected to the same
             // VESC (they both poll for data and the messages get sent twice)
-            if ((offset !== undefined && offset !== data.length) || lastTime === sampleTime) {
+            if (offset !== undefined) {
+                // recorded data download path: rely solely on the offset for ordering/dedup.
+                // (timestamps may not be unique at high IMU rates)
+                if (offset !== data.length) {
+                    return;
+                }
+            } else if (lastTime === sampleTime) {
+                // realtime plot path (no offset): drop duplicate-timestamp points
                 return;
             }
 
@@ -2613,13 +2699,35 @@ Item {
 
             data.push(sample);
 
+            var mm = minMaxes;
+            var mmChanged = false;
             for (var i = 0; i < sampleSize; i++) {
-                if (sample[i + 1] > maxs[i]) {
-                    maxs[i] = sample[i + 1];
+                var val = sample[i + 1];
+                // optimization: NaN check
+                if (val !== val) {
+                    continue;
                 }
-                if (sample[i + 1] < mins[i]) {
-                    mins[i] = sample[i + 1];
+
+                var add = (key) => {
+                    var m = mm[key];
+                    if (!m) {
+                        mm[key] = { min: val, max: val };
+                        mmChanged = true;
+                    } else {
+                        if (val < m.min) { m.min = val; mmChanged = true; }
+                        if (val > m.max) { m.max = val; mmChanged = true; }
+                    }
                 }
+
+                var ser = series[i];
+                if (ser.scalingGroup) {
+                    add(ser.scalingGroup);
+                }
+
+                add(i);
+            }
+            if (mmChanged) {
+                minMaxes = mm;
             }
 
             sampleNr = data.length;
@@ -2636,58 +2744,132 @@ Item {
                 return;
             }
 
+            var srs = series;
+            var cs = customScaling;
+            var mm = minMaxes;
+            var minRange = minScaleRange;
+            var smallValThr = smallValueThreshold;
+
+            var hasRatioContrib = false;
             var lowestRatio = 1;
             var highestRatio = 0;
-            var lMins = mins;
-            var lMaxs = maxs;
-            var srs = series;
+            var smallLowestRatio = 1;
+            var smallHighestRatio = 0;
+            // Group min/max from visible series only, so hiding the largest
+            // series in a group rescales the remaining ones
+            var groupMm = {};
+
             for (var i = 0; i < sampleSize; i++) {
                 if (!srs[i].visible) {
                     continue;
                 }
 
-                if (lMaxs[i] > 1 || lMins[i] < -1) {
-                    var ratio = clamp(lMaxs[i] / (lMaxs[i] - lMins[i]), 0, 1);
-                    lowestRatio = Math.min(lowestRatio, ratio);
-                    highestRatio = Math.max(highestRatio, ratio);
+                var m = mm[i];
+                if (m) {
+                    var group = srs[i].scalingGroup;
+                    if (group) {
+                        var gm = groupMm[group];
+                        if (!gm) {
+                            groupMm[group] = { min: m.min, max: m.max };
+                        } else {
+                            gm.min = Math.min(gm.min, m.min);
+                            gm.max = Math.max(gm.max, m.max);
+                        }
+                    }
+
+                    var eMax = m.max;
+                    var eMin = m.min;
+
+                    // Custom-scaled dual-sided: clamp effective range by bound
+                    // so the ratio gradually moves toward 0.5 as user zooms in
+                    var key = getMinMaxKey(srs[i], i);
+                    var bound = cs[key];
+                    if (bound !== undefined && m.max > 0 && m.min < 0) {
+                        eMax = Math.min(eMax, bound);
+                        eMin = Math.max(eMin, -bound);
+                    }
+
+                    if (m.max >= smallValThr || m.min <= -smallValThr) {
+                        // Large values: always contribute to main ratio
+                        hasRatioContrib = true;
+                        var ratio = clamp(eMax / (eMax - eMin), 0, 1);
+                        lowestRatio = Math.min(lowestRatio, ratio);
+                        highestRatio = Math.max(highestRatio, ratio);
+                    } else if (bound !== undefined && eMax > 0 && eMin < 0) {
+                        // Custom-scaled small dual-sided: bound-based ratio to
+                        // main (gradual transition when large series present),
+                        // raw data ratio to fallback (matches auto-scale, used
+                        // when no large series). Don't set hasRatioContrib so
+                        // the fallback takes priority when alone.
+                        var ratio = clamp(bound / (bound - eMin), 0, 1);
+                        lowestRatio = Math.min(lowestRatio, ratio);
+                        highestRatio = Math.max(highestRatio, ratio);
+                        var dataRatio = clamp(m.max / (m.max - m.min), 0, 1);
+                        smallLowestRatio = Math.min(smallLowestRatio, dataRatio);
+                        smallHighestRatio = Math.max(smallHighestRatio, dataRatio);
+                    } else if (eMax > 0 || eMin < 0) {
+                        // Small series: fallback only, used when no large series
+                        var ratio = clamp(eMax / (eMax - eMin), 0, 1);
+                        smallLowestRatio = Math.min(smallLowestRatio, ratio);
+                        smallHighestRatio = Math.max(smallHighestRatio, ratio);
+                    }
                 }
+            }
+
+            // Fall back to small series ratios when no large series contributed
+            if (!hasRatioContrib && smallLowestRatio <= smallHighestRatio) {
+                lowestRatio = smallLowestRatio;
+                highestRatio = smallHighestRatio;
+                hasRatioContrib = true;
             }
 
             var newRatio;
-            if (lowestRatio < 0.5) {
-                if (highestRatio > 0.5) {
-                    newRatio = 0.5;
-                } else {
-                    newRatio = highestRatio;
-                }
+            if (!hasRatioContrib) {
+                newRatio = 0.5;
+            } else if (lowestRatio <= 0.5) {
+                newRatio = Math.min(highestRatio, 0.5);
             } else {
                 newRatio = lowestRatio;
             }
-
             positiveRatio = clamp(newRatio, 0.15, 0.85);
 
-            var setScale = function(i, s) {
-                if (s != scales[i]) {
-                    scalesUpdate();
+            var scalesChanged = false;
+
+            for (var i = 0; i < sampleSize; i++) {
+                if (!srs[i].visible) {
+                    continue;
                 }
-                scales[i] = s;
+
+                var key = getMinMaxKey(srs[i], i);
+                var m = (srs[i].scalingGroup ? groupMm[srs[i].scalingGroup] : mm[i]) ?? { min: 0, max: 0 };
+                var scale;
+                var bound = cs[key] !== undefined ? Math.max(cs[key], minRange) : null;
+
+                if (bound !== null) {
+                    scale = (m.max > -m.min ? positiveRatio : (1 - positiveRatio)) / bound;
+                } else {
+                    var minRatio = (1 - positiveRatio) / Math.max(-m.min, smallValThr);
+                    var maxRatio = positiveRatio / Math.max(m.max, smallValThr);
+
+                    if (m.max > 0 && m.min < 0) {
+                        var posScale = Math.min(maxRatio, (1 - positiveRatio) / -m.min);
+                        var negScale = Math.min(minRatio, positiveRatio / m.max);
+                        scale = Math.max(posScale, negScale);
+                    } else if (m.min < 0) {
+                        scale = minRatio;
+                    } else {
+                        scale = maxRatio;
+                    }
+                }
+
+                if (scale !== scales[i]) {
+                    scales[i] = scale;
+                    scalesChanged = true;
+                }
             }
 
-            var newScale;
-            for (var i = 0; i < sampleSize; i++) {
-                var minRatio = (1 - positiveRatio) / lMins[i];
-                var maxRatio = positiveRatio / lMaxs[i];
-                if (lMaxs[i] > 0) {
-                    if (lMins[i] < 0) {
-                        newScale = Math.min(maxRatio, -minRatio);
-                    } else {
-                        newScale = isFinite(maxRatio) ? maxRatio : 1;
-                    }
-                } else {
-                    newScale = isFinite(minRatio) ? -minRatio : 1;
-                }
-                var rns = Math.min(newScale, srs[i].maxScale ?? 1);
-                setScale(i, rns);
+            if (scalesChanged) {
+                scalesUpdate();
             }
 
             timeStart = data[0][0];
@@ -2802,6 +2984,108 @@ Item {
         }
     }
 
+    // A slider that changes position when tapped (Android slider requires a move)
+    component TapSlider : Item {
+        id: tapSlider
+        property int orientation: Qt.Horizontal
+        property real from: 0
+        property real to: 1
+        property real value: 0
+        property real stepSize: 0
+        property bool sliderEnabled: true
+
+        signal moved()
+
+        onValueChanged: if (slider.value !== value) slider.value = value
+
+        Slider {
+            id: slider
+            anchors.fill: parent
+            orientation: tapSlider.orientation
+            from: tapSlider.from
+            to: tapSlider.to
+            stepSize: tapSlider.stepSize
+            enabled: tapSlider.sliderEnabled
+            onMoved: tapSlider.moved()
+            onValueChanged: if (tapSlider.value !== value) tapSlider.value = value
+            onToChanged: if (value !== tapSlider.value) value = tapSlider.value
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            preventStealing: true
+
+            function valueFromPos(mouseX, mouseY) {
+                var handleSize = slider.handle ? (tapSlider.orientation === Qt.Vertical ? slider.handle.height : slider.handle.width) : 0;
+                var padding = handleSize / 2;
+                var trackSize = (tapSlider.orientation === Qt.Vertical ? height : width) - 2 * padding;
+                var pos = tapSlider.orientation === Qt.Vertical
+                    ? (height - padding - mouseY) / trackSize
+                    : (mouseX - padding) / trackSize;
+                pos = clamp(pos, 0, 1);
+                var val = tapSlider.from + pos * (tapSlider.to - tapSlider.from);
+                if (tapSlider.stepSize > 0)
+                    val = Math.round(val / tapSlider.stepSize) * tapSlider.stepSize;
+                return clamp(val, tapSlider.from, tapSlider.to);
+            }
+
+            function applyValue(mouseX, mouseY) {
+                tapSlider.value = valueFromPos(mouseX, mouseY);
+                tapSlider.moved();
+            }
+
+            onPressed: (mouse) => {
+                applyValue(mouse.x, mouse.y);
+            }
+
+            onPositionChanged: (mouse) => {
+                applyValue(mouse.x, mouse.y);
+            }
+        }
+    }
+
+    component MenuCheckBox : CheckBox {
+        id: cb
+        property string markerText
+        property real size
+
+        width: size
+        height: size
+
+        indicator: Rectangle {
+            implicitHeight: cb.height * 0.9
+            implicitWidth: implicitHeight
+            y: cb.height / 2 - height / 2
+            radius: 2
+            color: "transparent"
+            border.color: cb.enabled ? cb.checked ? getDarkThemeColor("lightText") : getDarkThemeColor("normalText") : getDarkThemeColor("disabledText")
+
+            Rectangle {
+                height: parent.height * 0.5
+                width: height
+                x: parent.width / 2 - width / 2
+                y: parent.height / 2 - height / 2
+                radius: 1
+                color: parent.border.color
+                visible: cb.checked && !cb.markerText
+            }
+
+            Text {
+                height: parent.height
+                width: height
+                x: parent.width / 2 - width / 2
+                y: parent.height / 2 - height / 2
+                text: cb.markerText
+                color: parent.border.color
+                font.bold: true
+                fontSizeMode: Text.Fit
+                horizontalAlignment: TextInput.AlignHCenter
+                verticalAlignment: TextInput.AlignVCenter
+                visible: cb.checked && cb.markerText
+            }
+        }
+    }
+
     component Plot : Rectangle {
         id: plot
         color: "#0b0b0b"
@@ -2811,7 +3095,7 @@ Item {
         property bool followEnd: false
         property real startWindow: 10
 
-        property real toolbarOffset: 0
+        property int toolbarOffset: 0
 
         property bool showRecordDownload: false
         property int maxWindowMinutes
@@ -2836,23 +3120,48 @@ Item {
             plotCanvas.fadeCursor();
         }
 
+        function showMenu() {
+            menu.visible = true;
+        }
+
+        function hideMenu() {
+            menu.visible = false;
+            menu.deselectSeries();
+        }
+
+        function selectSeries(seriesId) {
+            for (var i = 0; i < plotData.series.length; i++) {
+                var s = plotData.series[i];
+                if (s.id === seriesId) {
+                    menu.selectedSeries = s;
+                    menu.selectedIndex = s.dataOrder;
+                    return;
+                }
+            }
+        }
+
+        function getMenuFrame() {
+            return menu;
+        }
+
         onVisibleChanged: {
             if (!visible) {
-                menu.visible = false;
+                hideMenu();
             }
         }
 
         Row {
+            id: toolbar
             anchors.left: parent.left
             anchors.top: parent.top
-            anchors.leftMargin: toolbarOffset * unit + 0.1 * unit
-            anchors.topMargin: 0.1 * unit
-            spacing: 0.1 * unit
+            anchors.leftMargin: toolbarOffset * (menuButton.size + spacing) + spacing
+            anchors.topMargin: spacing
+            spacing: toolButtonSize / 10
+            height: menuButton.size + 2 * spacing
             z: parent.z + 5
 
             FloatingToolButton {
-                width: 0.8 * unit
-                height: 0.8 * unit
+                id: menuButton
                 visible: plotData.initialized
 
                 iconPath: Path {
@@ -2860,13 +3169,15 @@ Item {
                 }
 
                 onClicked: {
-                    menu.visible = !menu.visible;
+                    if (menu.visible) {
+                        hideMenu();
+                    } else {
+                        showMenu();
+                    }
                 }
             }
 
             FloatingToolButton {
-                width: 0.8 * unit
-                height: 0.8 * unit
                 visible: plot.showRecordDownload
 
                 iconPath: Path {
@@ -2879,8 +3190,6 @@ Item {
             }
 
             ToggleFloatingToolButton {
-                width: 0.8 * unit
-                height: 0.8 * unit
                 visible: plot.showRecordDownload
 
                 autonomous: false
@@ -2908,6 +3217,14 @@ Item {
                 Menu {
                     id: recMenu
 
+                    property real recordDuration
+
+                    onVisibleChanged: {
+                        if (visible) {
+                            recordDuration = mainItem.state.extraRecDuration;
+                        }
+                    }
+
                     CheckBox {
                         text: "Autostart"
                         checkable: true
@@ -2925,13 +3242,39 @@ Item {
                             commands.sendDataRecordControl(commands.dr_AUTOSTOP, checked);
                         }
                     }
+
+                    ColumnLayout {
+                    NText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: TextInput.AlignHCenter
+                        text: "Decimation"
+                    }
+
+                    LText {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 2
+                        Layout.bottomMargin: -5
+                        horizontalAlignment: TextInput.AlignHCenter
+                        text: Math.round(decimationSlider.value) + " (" + (recMenu.recordDuration * decimationSlider.value).toFixed(1) + "s)"
+                    }
+
+                    Slider {
+                        id: decimationSlider
+                        from: 1
+                        to: recMenu.recordDuration > 0 ? Math.floor(120 / recMenu.recordDuration) : 100
+                        value: mainItem.state.extraRecDecimation
+                        stepSize: 1
+                        snapMode: Slider.SnapAlways
+
+                        onMoved: {
+                            commands.sendDataRecordControl(commands.dr_DECIMATION, value);
+                        }
+                    }
+                }
                 }
             }
 
 //            FloatingToolButton {
-//                width: 0.8 * unit
-//                height: 0.8 * unit
-//
 //                iconPath: Path {
 //                    PathAngleArc {centerX: 25; centerY: 25; radiusX: 12; radiusY: 12; startAngle: 45; sweepAngle: 270;}
 //                }
@@ -2950,15 +3293,31 @@ Item {
             anchors.topMargin: topMargin
             anchors.leftMargin: sideMargin
             height: menuScrollView.height
-            width: menuScrollView.width
+            width: menuScrollView.width + (selectedSeries ? scalingPanel.width + 4 : 0)
             visible: false
 
-            property real topMargin: unit
-            property real sideMargin: 0.2 * unit
+            color: getDarkThemeColor("darkBackground");
+
+            property real topMargin: toolbar.height
+            property real sideMargin: toolbar.spacing
             property real hPadding: 8
             property real vPadding: 4
 
-            color: getDarkThemeColor("darkBackground");
+            property var selectedSeries: null
+            property int selectedIndex: -1
+
+            function deselectSeries() {
+                selectedSeries = null;
+                selectedIndex = -1;
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                z: -1
+                preventStealing: true
+                onClicked: function(mouse) { mouse.accepted = true; }
+                onPressed: function(mouse) { mouse.accepted = true; }
+            }
 
             ScrollView {
                 id: menuScrollView
@@ -2984,12 +3343,35 @@ Item {
                             width: menuRow.width
                             height: label.height + 2 * menu.vPadding
 
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: menuColumn.width
+                                color: {
+                                    var sel = menu.selectedSeries;
+                                    if (!sel) {
+                                        return "transparent";
+                                    }
+
+                                    var match = sel.scalingGroup ? sel.scalingGroup === modelData.scalingGroup : sel.dataOrder === modelData.dataOrder;
+                                    return match ? getDarkThemeColor("normalBackground") : "transparent";
+                                }
+                            }
+
                             MouseArea {
                                 anchors.top: parent.top
                                 anchors.left: parent.left
                                 width: menuColumn.width
                                 height: parent.height
-                                onClicked: itemCheckBox.toggle()
+                                onClicked: {
+                                    itemCheckBox.toggle();
+                                    menu.deselectSeries();
+                                }
+                                onPressAndHold: {
+                                    menu.selectedSeries = modelData;
+                                    menu.selectedIndex = modelData.dataOrder;
+                                }
                             }
 
                             Row {
@@ -2999,36 +3381,15 @@ Item {
                                 anchors.leftMargin: menu.hPadding
                                 spacing: 4
 
-                                CheckBox {
+                                MenuCheckBox {
                                     id: itemCheckBox
-                                    height: label.height
-                                    width: height
-
+                                    size: label.height
                                     checked: modelData.visible
 
                                     onCheckedChanged: {
                                         plot.plotData.seriesSorted[index].visible = checked;
                                         plot.plotData.calculateRanges();
                                         plotCanvas.requestPaint();
-                                    }
-
-                                    indicator: Rectangle {
-                                        implicitHeight: parent.height * 0.9
-                                        implicitWidth: implicitHeight
-                                        y: parent.height / 2 - height / 2
-                                        radius: 2
-                                        color: "transparent"
-                                        border.color: parent.checked ? getDarkThemeColor("lightText") : getDarkThemeColor("normalText")
-
-                                        Rectangle {
-                                            height: parent.height * 0.5
-                                            width: height
-                                            x: parent.width / 2 - width / 2
-                                            y: parent.height / 2 - height / 2
-                                            radius: 1
-                                            color: parent.border.color
-                                            visible: parent.parent.checked
-                                        }
                                     }
                                 }
 
@@ -3039,6 +3400,100 @@ Item {
                                     color: modelData.color
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Scaling panel - appears to the right of menu when long-pressing a series
+            Rectangle {
+                id: scalingPanel
+                visible: menu.selectedSeries !== null
+                anchors.left: menuScrollView.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 50
+                color: getDarkThemeColor("darkBackground")
+
+                property var seriesKey: menu.selectedSeries ? plot.plotData.getMinMaxKey(menu.selectedSeries, menu.selectedIndex) : null
+                property var customBound: seriesKey !== null ? plot.plotData.customScaling[seriesKey] : undefined
+                property bool isAuto: customBound === undefined
+                property bool hasData: seriesKey !== null && plot.plotData.minMaxes[seriesKey] !== undefined
+                property real maxBound: {
+                    if (!hasData) return 0;
+                    var mm = plot.plotData.minMaxes[seriesKey];
+                    return Math.max(Math.abs(mm.max), Math.abs(mm.min), plot.plotData.smallValueThreshold);
+                }
+
+                Column {
+                    id: scalingColumn
+                    anchors.fill: parent
+                    anchors.topMargin: 8
+                    anchors.bottomMargin: 8
+                    spacing: 6
+
+                    Text {
+                        id: boundLabel
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        color: !autoCheckBox.checked ? getDarkThemeColor("lightText") : getDarkThemeColor("disabledText")
+                        fontSizeMode: Text.HorizontalFit
+                        minimumPointSize: 8
+                        font.pointSize: 16
+                        text: scaleSlider.realValue.toFixed(scaleSlider.realValue < 10 ? scaleSlider.realValue < 1 ? 3 : 2 : 1)
+                    }
+
+                    TapSlider {
+                        id: scaleSlider
+                        property real realValue: Math.exp(value)
+                        orientation: Qt.Vertical
+                        width: parent.width
+                        height: scalingColumn.height - boundLabel.height - autoCheckBox.height - 2 * scalingColumn.spacing
+                        from: Math.log(plot.plotData.minScaleRange)
+                        to: Math.log(Math.ceil(scalingPanel.maxBound / plot.plotData.minScaleRange) * plot.plotData.minScaleRange)
+                        sliderEnabled: !autoCheckBox.checked
+
+                        Connections {
+                            target: scalingPanel
+                            function onSeriesKeyChanged() { scaleSlider.resetValue(); }
+                            function onIsAutoChanged() { scaleSlider.resetValue(); }
+                            function onMaxBoundChanged() { if (scalingPanel.isAuto) scaleSlider.resetValue(); }
+                        }
+
+                        function resetValue() {
+                            var bound = scalingPanel.customBound;
+                            if (bound !== undefined) {
+                                value = Math.log(bound);
+                            } else {
+                                value = to;
+                            }
+                        }
+
+                        onMoved: {
+                            var cs = plot.plotData.customScaling;
+                            cs[scalingPanel.seriesKey] = realValue;
+                            plot.plotData.customScaling = cs;
+                            plot.plotData.calculateRanges();
+                        }
+                    }
+
+                    MenuCheckBox {
+                        id: autoCheckBox
+                        size: 20
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        checked: scalingPanel.isAuto
+                        enabled: scalingPanel.hasData || !checked
+                        markerText: "A"
+
+                        onClicked: {
+                            var cs = plot.plotData.customScaling;
+                            if (checked) {
+                                delete cs[scalingPanel.seriesKey];
+                            } else {
+                                cs[scalingPanel.seriesKey] = scaleSlider.realValue;
+                            }
+                            plot.plotData.customScaling = cs;
+                            plot.plotData.calculateRanges();
                         }
                     }
                 }
@@ -3111,7 +3566,7 @@ Item {
                 }
 
                 onPressed: {
-                    menu.visible = false;
+                    hideMenu();
 
                     initialX = x(mouse);
                     initialY = mouse.y;
@@ -3191,7 +3646,7 @@ Item {
                 property real window
 
                 property int padding: 8
-                property int toolbarHeight: unit
+                property int toolbarHeight: toolbar.height
                 property int bottomHeight: 20
 
                 property real length: width
@@ -3791,6 +4246,10 @@ Item {
                     var xLen = xLength;
                     var dotsEnbld = plot.dotsEnabled;
 
+                    // bounds for clipping with a small epsilon to avoid precision issues
+                    var yBoundsTop = -yMax - 0.001;
+                    var yBoundsBottom = -yMin + 0.001;
+
                     // calculate start and end indices according to window
                     var start = 0;
                     var end = data.length;
@@ -3918,8 +4377,13 @@ Item {
                                         maxy -= offset;
                                     }
 
-                                    ctx.moveTo(lastX, miny);
-                                    ctx.lineTo(lastX, maxy);
+                                    // only draw if range intersects with visible bounds, then clamp
+                                    if (miny >= yBoundsTop && maxy <= yBoundsBottom) {
+                                        var clampedMiny = Math.min(yBoundsBottom, miny);
+                                        var clampedMaxy = Math.max(yBoundsTop, maxy);
+                                        ctx.moveTo(lastX, clampedMiny);
+                                        ctx.lineTo(lastX, clampedMaxy);
+                                    }
 
                                     var tmp = min;
                                     min = max;
@@ -3938,11 +4402,32 @@ Item {
                                 max = y < max ? y : max;
                             }
 
+                            // check if points are within vertical bounds
+                            var yInBounds = y >= yBoundsTop && y <= yBoundsBottom;
+                            var lastYInBounds = lastY >= yBoundsTop && lastY <= yBoundsBottom;
+
                             if (!minMaxMode) {
-                                if (dotsEnbld && origX - lastX > halfASecondPixels) {
+                                var shouldGap = dotsEnbld && origX - lastX > halfASecondPixels;
+
+                                // check if line segment intersects visible area
+                                if ((yInBounds || lastYInBounds) || (lastY < yBoundsTop) !== (y < yBoundsTop)) {
+                                    var drawY = yInBounds ? y : (y < yBoundsTop ? yBoundsTop : yBoundsBottom);
+                                    var drawX = yInBounds ? x : lastX + (drawY - lastY) / (y - lastY) * (x - lastX);
+
+                                    if (!lastYInBounds && !shouldGap) {
+                                        var startY = lastY < yBoundsTop ? yBoundsTop : yBoundsBottom;
+                                        var startX = lastX + (startY - lastY) / (y - lastY) * (x - lastX);
+                                        ctx.moveTo(startX, startY);
+                                    }
+
+                                    if (shouldGap) {
+                                        ctx.moveTo(drawX, drawY);
+                                    } else {
+                                        ctx.lineTo(drawX, drawY);
+                                    }
+                                }
+                                if (!yInBounds) {
                                     ctx.moveTo(x, y);
-                                } else {
-                                    ctx.lineTo(x, y);
                                 }
 
                                 min = y;
@@ -3954,10 +4439,10 @@ Item {
                             if (dotsEnbld && i > start && origX >= 0 && (paintDots || x - lastSampleX > dotDistThreshold || origX - lastSampleX > halfASecondPixels)) {
                                 ctx.stroke();
                                 ctx.beginPath();
-                                if (!drawnLastDot && lastX >= 0) {
+                                if (!drawnLastDot && lastX >= 0 && lastYInBounds) {
                                     ctx.arc(lastX, lastY, 2.5, 0, 2 * Math.PI, false);
                                 }
-                                if (origX <= xLen + 0.001) {
+                                if (origX <= xLen + 0.001 && yInBounds) {
                                     ctx.arc(x, y, 2.5, 0, 2 * Math.PI, false);
                                 }
                                 ctx.fill();
@@ -4023,17 +4508,11 @@ Item {
         property bool vertical: parent.height > parent.width
 
         showRecordDownload: parent.state.capDataRecord
-        toolbarOffset: 0.9
+        toolbarOffset: 1
 
-        FloatingToolButton {
+        CloseToolButton {
             anchors.top: parent.top
             anchors.left: parent.left
-            width: 0.8 * unit
-            height: 0.8 * unit
-
-            iconPath: Path {
-                PathSvg {path: "M 15 15 L 35 35 M 15 35 L 35 15"}
-            }
 
             onClicked: {
                 parent.visible = false;
@@ -4696,7 +5175,7 @@ Item {
 
                                 from: 2
                                 to: tuneManager.maxTunes
-                                value: 4
+                                value: 6
                                 stepSize: 1
                             }
 
@@ -5506,12 +5985,20 @@ Item {
             if (!applyConfigDiff.isEmpty && !isTune) {
                 standardButton(Dialog.Apply).text = "Restore";
             }
+            if (automatic) {
+                // Roles are chosen for correct button ordering on Android:
+                // Restore (Apply) | Keep Defaults (Close/Reject) | Skip (Discard/Destructive)
+                standardButton(Dialog.Close).text = "Keep Defaults";
+                standardButton(Dialog.Discard).text = "Skip";
+            }
             open();
         }
 
         // workaround: the buttons sometimes wouldn't appear if declared via `standardButtons` only
         footer: DialogButtonBox {
-            standardButtons: applyConfigDiff.isEmpty ? Dialog.Close : Dialog.Apply | Dialog.Close
+            standardButtons: (applyConfigDiff.isEmpty ? 0 : Dialog.Apply)
+                | (applyConfigDialog.automatic ? Dialog.Discard : 0)
+                | Dialog.Close
         }
 
         function set(cfg) {
@@ -5522,6 +6009,19 @@ Item {
             packageConfig.applyConfig(config);
             close();
             tuneArchiveDialog.close();
+        }
+
+        // "Keep Defaults" — uses RejectRole for middle position on Android
+        onRejected: {
+            if (automatic) {
+                packageConfig.writeConfig();
+            }
+            close();
+        }
+
+        // "Skip" — uses DestructiveRole for right position on Android
+        onDiscarded: {
+            close();
         }
 
         ColumnLayout {
@@ -5795,8 +6295,6 @@ Item {
 //        FloatingToolButton {
 //            anchors.bottom: parent.bottom
 //            anchors.right: parent.right
-//            width: 0.6 * unit
-//            height: 0.6 * unit
 //
 //            iconPath: Path {
 //                PathSvg {path: "M 15 15 L 35 35 M 15 35 L 35 15"}
@@ -5895,6 +6393,124 @@ Item {
         }
     }
 
+    Popup {
+        id: remoteOverlay
+        parent: mainItem
+        width: parent.width
+        height: parent.height
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+
+        Overlay.modal: Rectangle {
+            color: "#bb000000"
+        }
+
+        property real value: 0
+
+        background: Item {}
+
+        contentItem: Item {
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: remoteSliderArea.y / 2 - paintedHeight / 2
+                visible: remoteOverlayTimer.running
+
+                font.pixelSize: 42
+                color: Utility.getAppHexColor("normalText")
+
+                text: {
+                    if (state.pkgState === state.s_Running) {
+                        return toFixed1Zero(state.rtData["remote.setpoint"]) + "°";
+                    }
+                    if (state.pkgState === state.s_Ready) {
+                        return round(Math.abs(state.rtData["speed"]) * vescConfig.imperialFactor) + " " + vescConfig.speedUnit;
+                    }
+                    return "";
+                }
+            }
+
+            Item {
+                id: remoteSliderArea
+                anchors.centerIn: parent
+                width: parent.width * 0.5
+                height: 500
+
+                Rectangle {
+                    id: remoteSliderContent
+                    anchors.fill: parent
+                    color: "#22bbbbbb"
+                    visible: false
+
+                    Rectangle {
+                        width: parent.width
+                        color: Utility.getAppHexColor("lightAccent")
+                        opacity: 0.5
+                        y: remoteOverlay.value >= 0 ? parent.height / 2 - height : parent.height / 2
+                        height: Math.abs(remoteOverlay.value) * parent.height / 2
+                    }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        height: 2
+                        color: Utility.getAppHexColor("disabledText")
+                    }
+                }
+
+                Rectangle {
+                    id: remoteSliderMask
+                    anchors.fill: parent
+                    radius: 10
+                    visible: false
+                }
+
+                OpacityMask {
+                    anchors.fill: parent
+                    source: remoteSliderContent
+                    maskSource: remoteSliderMask
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+
+                    onPressed: function(mouse) {
+                        remoteOverlay.value = clamp(1 - 2 * mouse.y / height, -1, 1);
+                        remoteOverlayTimer.running = true;
+                    }
+
+                    onPositionChanged: function(mouse) {
+                        remoteOverlay.value = clamp(1 - 2 * mouse.y / height, -1, 1);
+                    }
+
+                    onReleased: {
+                        remoteOverlay.value = 0;
+                    }
+                }
+            }
+
+            CloseToolButton {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                onClicked: remoteOverlay.close()
+            }
+        }
+
+        Timer {
+            id: remoteOverlayTimer
+            repeat: true
+            interval: 20
+            triggeredOnStart: true
+            onTriggered: {
+                if (remoteOverlay.value === 0) {
+                    running = false;
+                }
+                commands.sendRemote(remoteOverlay.value);
+            }
+        }
+
+        onClosed: value = 0
+    }
+
     ColumnLayout {
         id: root
         anchors.fill: parent
@@ -5913,7 +6529,7 @@ Item {
 
                 color: Utility.getAppHexColor("lightBackground")
 
-                property real voltage: state.rtData["motor.batt_voltage"]
+                property real voltage: state.rtData["batt_voltage"]
                 property int value: 0
 
                 Behavior on voltage {
@@ -6040,7 +6656,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 0.8 * unit
                     Layout.preferredHeight: 0.8 * unit
-                    height: 0.8 * unit
+                    size: 0.8 * unit
 
                     iconPath: Path {
                         PathSvg {path: "M 10.59 24 L 17.63 32.42 L 6 35 L 10.59 24 M 10.59 24 L 34.39 4 L 41.49 12.42 L 17.69 32.42 M 4 42 L 46 42"}
@@ -6056,7 +6672,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 0.8 * unit
                     Layout.preferredHeight: 0.8 * unit
-                    height: 0.8 * unit
+                    size: 0.8 * unit
 
                     iconPath: Path {
                         PathSvg {path: "M 14.25 37.81 L 10.59 39.42 A 3 3 0 0 1 6.98 38.47 22.5 22.5 0 0 1 4.32 33.87 A 3 3 0 0 1 5.30 30.27 L 8.53 27.9 A 3.6 3.6 0 0 0 8.53 22.1 L 5.30 19.73 A 3 3 0 0 1 4.32 16.13 A 22.5 22.5 0 0 1 6.98 11.53 A 3 3 0 0 1 10.59 10.58 L 14.25 12.19 A 3.6 3.6 0 0 0 19.28 9.29 L 19.79 5.31 A 3 3 0 0 1 22.35 2.66 A 22.5 22.5 0 0 1 27.65 2.66 A 3 3 0 0 1 30.28 5.31 L 30.72 9.29 A 3.6 3.6 0 0 0 35.75 12.19 L 39.41 10.58 A 3 3 0 0 1 43.02 11.53 A 22.5 22.5 0 0 1 45.67 16.13 A 3 3 0 0 1 44.7 19.73 L 41.47 22.1 A 3.6 3.6 0 0 0 41.47 27.9 L 44.7 30.27 A 3 3 0 0 1 45.68 33.87 A 22.5 22.5 0 0 1 43.02 38.47 A 3 3 0 0 1 39.41 39.42 L 35.75 37.81 A 3.6 3.6 0 0 0 30.72 40.71 L 30.28 44.69 A 3 3 0 0 1 27.65 47.34 A 22.5 22.5 0 0 1 22.35 47.34 A 3 3 0 0 1 19.72 44.69 L 19.28 40.71 A 3.6 3.6 0 0 0 14.25 37.81"}
@@ -6101,8 +6717,8 @@ Item {
                             valueFontSize: width * 0.18
                             lineWidth: 0.25 * unit
 
-                            value: Math.abs(state.rtData["motor.speed"]) * vescConfig.imperialFactor
-                            property int erpm: Math.abs(state.rtData["motor.erpm"])
+                            value: Math.abs(state.rtData["speed"]) * vescConfig.imperialFactor
+                            property int erpm: Math.abs(state.rtData["erpm"])
 
                             Behavior on erpm {
                                 NumberAnimation {
@@ -6195,7 +6811,7 @@ Item {
                             width: parent.height
                             height: width
 
-                            value: state.rtData["motor.current"]
+                            value: state.rtData["current"]
 
                             allowNegative: true
                             minValue: motorConfig.currentMin;
@@ -6221,7 +6837,7 @@ Item {
                             width: parent.height
                             height: width
 
-                            value: state.rtData["motor.duty_cycle"] * 100
+                            value: state.rtData["duty_cycle"] * 100
 
                             maxValue: 100
                             warnThresholdAbs: 80
@@ -6263,7 +6879,7 @@ Item {
                     Item {
                         id: batteryCurrent
 
-                        property var value: state.rtData["motor.batt_current"]
+                        property var value: state.rtData["batt_current"]
                         property var minValue: preferences.battCurrentLog ? -Math.log(-motorConfig.inCurrentMin + 1) : motorConfig.inCurrentMin
                         property var maxValue: preferences.battCurrentLog ? Math.log(motorConfig.inCurrentMax + 1) : motorConfig.inCurrentMax
 
@@ -6373,8 +6989,8 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real leftVoltage: state.rtData["footpad.adc1"]
-                            property real rightVoltage: state.rtData["footpad.adc2"]
+                            property real leftVoltage: state.rtData["adc_left"]
+                            property real rightVoltage: state.rtData["adc_right"]
 
                             property real canvasWidth: width * 0.85
                             property real scale: canvasWidth / footpadPath.width
@@ -6504,7 +7120,7 @@ Item {
                             width: parent.height
                             height: width
 
-                            property real newValue: state.rtData["imu.roll"]
+                            property real newValue: state.rtData["roll"]
                             property real preValue: newValue
                             onNewValueChanged: {
                                 if (Math.abs(newValue - preValue) > 180) {
@@ -6577,8 +7193,8 @@ Item {
 
                         property real textWidth: 1.4 * unit
 
-                        property real pitchValue: state.rtData["imu.pitch"]
-                        property real balancePitchValue: state.rtData["imu.balance_pitch"]
+                        property real pitchValue: state.rtData["pitch"]
+                        property real balancePitchValue: state.rtData["balance_pitch"]
                         property real setpointValue: state.rtData["setpoint"]
 
                         property real runtimeOpacity: 0
@@ -6839,7 +7455,7 @@ Item {
                     labelText: "motor"
                     unit: "°C"
                     warningThreshold: motorConfig.tempMotorStart - preferences.tempWarningOffset
-                    value: state.rtData["motor.motor_temp"]
+                    value: state.rtData["motor_temp"]
                 }
 
                 VerticalValue {
@@ -6847,7 +7463,7 @@ Item {
                     labelText: "controller"
                     unit: "°C"
                     warningThreshold: motorConfig.tempFetStart - preferences.tempWarningOffset
-                    value: state.rtData["motor.mosfet_temp"]
+                    value: state.rtData["mosfet_temp"]
                 }
 
                 StatusText {
@@ -7039,6 +7655,7 @@ Item {
                     id: downloadTunesButton
                     anchors.right: parent.right
                     anchors.top: parent.top
+                    size: unit
 
                     iconPath: Path {
                         PathSvg {path: "M 43 39 L 16 39 M 38.5 32 L 11.5 32 M 34 25 L 7 25 M 25 2 L 25 18 L 33 11 M 25 18 L 17 11"}
@@ -7100,62 +7717,48 @@ Item {
                     }
 
                     LText {
-                        id: movementControlsHeader
                         anchors.horizontalCenter: parent.horizontalCenter
-
                         font.pixelSize: fontSizeBig
-                        text: "Move"
+                        text: "Remote"
                     }
 
                     Slider {
-                        id: moveSlider
+                        id: remoteSlider
                         width: parent.width * 0.9
                         anchors.horizontalCenter: parent.horizontalCenter
 
                         from: -1
                         to: 1
                         value: 0
-                    }
 
-                    Item {
-                        width: parent.width
-                        implicitHeight: tiltEnabled.implicitHeight
-                        anchors.horizontalCenter: parent.horizontalCenter
-
-                        LText {
-                            id: tiltControlsHeader
-                            anchors.centerIn: parent
-
-                            font.pixelSize: fontSizeBig
-                            text: "Tilt"
+                        onPressedChanged: {
+                            if (pressed) {
+                                remoteTimer.running = true;
+                            }
                         }
 
-                        CheckBox {
-                            id: tiltEnabled
-                            anchors.left: tiltControlsHeader.right
-                            anchors.leftMargin: 0.2 * unit
-
-                            checked: false
-                            font.pixelSize: fontSizeNormal
-                            text: "enable"
-
-                            onClicked: {
-                                if (checked) {
-                                    packageConfig.setInputTiltRemoteType(1);
+                        Timer {
+                            id: remoteTimer
+                            running: false
+                            repeat: true
+                            interval: 20
+                            triggeredOnStart: true
+                            onTriggered: {
+                                if (!remoteSlider.pressed) {
+                                    remoteSlider.value = 0;
+                                    running = false;
                                 }
+                                commands.sendRemote(remoteSlider.value);
                             }
                         }
                     }
 
-                    Slider {
-                        id: tiltSlider
-                        width: parent.width * 0.9
+                    Button {
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        enabled: tiltEnabled.checked
-                        from: -1
-                        to: 1
-                        value: 0
+                        text: "Fullscreen Remote"
+                        onClicked: {
+                            remoteOverlay.open();
+                        }
                     }
 
                     LText {
@@ -7198,8 +7801,6 @@ Item {
                     id: toggleDataPlotButton
                     anchors.top: parent.top
                     anchors.right: parent.right
-                    width: 0.8 * unit
-                    height: 0.8 * unit
                     z: 1
                     value: true
 
@@ -7272,10 +7873,10 @@ Item {
                                 clip: true
 
                                 Value {label: "Requested current"; unit: "A"; value: toFixed2Zero(state.rtData["balance_current"]);}
-                                Value {label: "Filtered current"; unit: "A"; value: toFixed2Zero(state.rtData["motor.filt_current"]);}
+                                Value {label: "Filtered current"; unit: "A"; value: toFixed2Zero(state.rtData["filt_current"]);}
                                 Value {label: "ATR Accel. diff."; value: toFixed2Zero(state.rtData["atr.accel_diff"]);}
                                 Value {label: "ATR Speed Boost"; unit: "%"; value: round(state.rtData["atr.speed_boost"] * 100);}
-                                Value {label: "Booster current"; unit: "A"; value: toFixed2Zero(state.rtData["booster.current"]);}
+                                Value {label: "Booster torque"; unit: "Nm"; value: toFixed2Zero(state.rtData["booster.torque"]);}
                                 Value {label: "Remote input"; unit: "%"; value: round(state.rtData["remote.input"] * 100);}
                             }
 

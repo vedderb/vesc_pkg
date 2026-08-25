@@ -1,4 +1,3 @@
-// Copyright 2022 Benjamin Vedder <benjamin@vedder.se>
 // Copyright 2024 Lukas Hrazky
 //
 // This file is part of the Refloat VESC package.
@@ -16,20 +15,25 @@
 // You should have received a copy of the GNU General Public License along with
 // this program. If not, see <http://www.gnu.org/licenses/>.
 
-#pragma once
+#include "utils.h"
 
-typedef struct {
-    float a0, a1, a2, b1, b2;
-    float z1, z2;
-} Biquad;
+#include <math.h>
 
-typedef enum {
-    BQ_LOWPASS,
-    BQ_HIGHPASS
-} BiquadType;
+uint32_t rnd(uint32_t seed) {
+    return seed * 1664525u + 1013904223u;
+}
 
-float biquad_process(Biquad *biquad, float in);
+void rate_limitf(float *value, float target, float step) {
+    if (fabsf(target - *value) < step) {
+        *value = target;
+    } else if (target - *value > 0) {
+        *value += step;
+    } else {
+        *value -= step;
+    }
+}
 
-void biquad_configure(Biquad *biquad, BiquadType type, float frequency);
-
-void biquad_reset(Biquad *biquad);
+float clampf(float value, float min, float max) {
+    const float m = value < min ? min : value;
+    return m > max ? max : m;
+}

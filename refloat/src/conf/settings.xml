@@ -221,33 +221,89 @@ p, li { white-space: pre-wrap; }
             <suffix>x</suffix>
             <vTx>7</vTx>
         </kp2_brake>
-        <hertz>
-            <longName>Loop Hertz</longName>
-            <type>2</type>
+        <atr.filter.time_constant>
+            <longName>Smoothing Time Constant</longName>
+            <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; text-decoration: underline;&quot;&gt;Frequency of Balance Loop Cycle&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-weight:600; text-decoration: underline;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Recommended Value: Same or multiple of IMU Sample Rate&lt;/span&gt;&lt;/p&gt;
-&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3.1 (LSM6DS3): 832Hz&lt;/li&gt;
-&lt;li style=&quot; font-style:italic;&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Little FOCer v3 (BMI160): 800Hz&lt;/li&gt;&lt;/ul&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_HERTZ</cDefine>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;ATR smoothing filter time constant. Defined as time needed for the ATR setpoint to move two thirds towards its new target value. Determines overall ATR smoothness. Setting this low will make ATR responsive, but might make it feel jerky. Setting this high will make ATR smooth, but less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The transition into a more extreme setpoint (higher for nose-up, lower for nose-down) can be further smoothed by &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On Speed Time Constant&lt;/span&gt;.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The transition back towards 0° setpoint can be further smoothed by &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing Off Speed Time Constant&lt;/span&gt;.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;How to tune:&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;1. Start with the default values for all three Smoothing config options and default or faster Tiltback speeds.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;2. Then change this option up and down first and get a feel for how it impacts the overall smoothness. To get a feel for the next two values, set this to something that feels rather snappy.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;3. Lower &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On Speed Time Constant&lt;/span&gt; all the way down. Now ride up a steep hill, you should feel the board snap quickly into a high ATR setpoint, but when you reach the top, the way it goes down should remain unchanged. Then set &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On Speed Time Constant&lt;/span&gt; to a high number and repeat the ride up. The rise of the nose should be much more mellow.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;4. Repeat the process with &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing Off Speed Time Constant&lt;/span&gt;. You should feel the same effects, but applied to the transition at the top of the hill when the setpoint returns to level. The rest of the shaping is, again, unchanged.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_ATR_FILTER_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxInt>4000</maxInt>
-            <minInt>50</minInt>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
             <showDisplay>0</showDisplay>
-            <stepInt>16</stepInt>
-            <valInt>832</valInt>
-            <suffix> Hz</suffix>
-            <vTx>3</vTx>
-        </hertz>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.3</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </atr.filter.time_constant>
+        <atr.filter.on_speed_time_constant>
+            <longName>Smoothing On Speed Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;ATR smoothing on speed time constant for transitioning into a more extreme (higher for nose-up, lower for nose-down) setpoint. Defined as time needed for the &lt;span style=&quot; font-style:italic;&quot;&gt;speed&lt;/span&gt; of the setpoint change to reach two thirds of its new target value when transitioning into a more extreme ATR setpoint. Smoother means less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Practically (given your Tiltback speeds and the base Smoothing Time Constant are set to fairly responsive values), setting this very low and riding into an uphill, the board will snap fast into a high setpoint, while setting this to a high value will make the board go into a high setpoint slowly. The speed at which the board will go back to 0° setpoint when you reach the top of the hill will be unaffected. On a downhill it also applies to the initial transition into the negative setpoint.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_ATR_FILTER_ON_SPEED_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.1</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </atr.filter.on_speed_time_constant>
+        <atr.filter.off_speed_time_constant>
+            <longName>Smoothing Off Speed Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;ATR smoothing off speed time constant for transitioning back to 0° setpoint. Defined as time needed for the &lt;span style=&quot; font-style:italic;&quot;&gt;speed&lt;/span&gt; of the setpoint change to reach two thirds of its new target value. Smoother means less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Practically (given your Tiltback speeds and the base Smoothing Time Constant are set to fairly responsive values), setting this very low and riding uphill, when you reach the top the board will snap down to 0° setpoint fairly fast. Setting this to a high value will make the board go back to 0° setpoint at the top of the uphill mellow and slow. The speed at which the board will rise to a high setpoint at the start of the uphill will remain unaffected. On a downhill, it also applies to the return transition at the end.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_ATR_FILTER_OFF_SPEED_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.01</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </atr.filter.off_speed_time_constant>
         <fault_pitch>
             <longName>Pitch Axis Fault Cutoff</longName>
-            <type>1</type>
+            <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -255,21 +311,19 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Pitch Angle at which a fault is triggered and the board is disengaged. Can help potentially cut-off a runaway board with a stuck sensor (a.k.a &amp;quot;Ghosting&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>CFG_DFLT_FAULT_PITCH</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>90</maxDouble>
-            <minDouble>45</minDouble>
+            <maxInt>90</maxInt>
+            <minInt>45</minInt>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>60</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <stepInt>5</stepInt>
+            <valInt>60</valInt>
             <suffix> °</suffix>
-            <vTx>7</vTx>
+            <vTx>1</vTx>
         </fault_pitch>
         <fault_roll>
             <longName>Roll Axis Fault Cutoff</longName>
-            <type>1</type>
+            <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -277,17 +331,15 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Roll Angle at which a fault is triggered and the board is disengaged. Can help potentially cut-off a runaway board with a stuck sensor (a.k.a &amp;quot;Ghosting&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>CFG_DFLT_FAULT_ROLL</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>90</maxDouble>
-            <minDouble>45</minDouble>
+            <maxInt>90</maxInt>
+            <minInt>45</minInt>
             <showDisplay>0</showDisplay>
-            <stepDouble>5</stepDouble>
-            <valDouble>60</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
+            <stepInt>5</stepInt>
+            <valInt>60</valInt>
             <suffix> °</suffix>
-            <vTx>7</vTx>
+            <vTx>1</vTx>
         </fault_roll>
         <fault_adc1>
             <longName>ADC1 Switch Voltage</longName>
@@ -1173,7 +1225,7 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Vibrating frequency of both Warning and Error haptic feedback.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Note: When changing this option, the actual frequency will be changing in larger discrete steps, as the configured frequency is being rounded down to the nearest division of Loop Hertz / 2.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Note: When changing this option, the actual frequency will be changing in larger discrete steps, as the configured frequency is being rounded down to the nearest division of control loop frequency / 2.&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;(generated by modulating a square wave on requested current, not using foc_play_tone from 6.05)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>CFG_DFLT_HAPTIC_VIBRATE_FREQUENCY</cDefine>
@@ -1396,28 +1448,6 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>7</vTx>
         </inputtilt_angle_limit>
-        <inputtilt_speed>
-            <longName>Tiltback Speed</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Rate at which Remote Tiltback will tilt to the desired angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_INPUTTILT_SPEED</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>150</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>2</stepDouble>
-            <valDouble>25</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </inputtilt_speed>
         <inputtilt_invert_throttle>
             <longName>Invert Throttle</longName>
             <type>5</type>
@@ -1460,32 +1490,30 @@ p, li { white-space: pre-wrap; }
             <suffix> %</suffix>
             <vTx>7</vTx>
         </inputtilt_deadband>
-        <remote_throttle_current_max>
-            <longName>Throttle Current Maximum</longName>
-            <type>1</type>
+        <remote.max_move_speed>
+            <longName>Maximum Move Speed</longName>
+            <type>2</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Current able to be applied using Remote Throttle, allowing the control of the board using your remote's throttle when disengaged. Actual current applied is linearly scaled up to Max Current, based on your throttle percentage.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Maximum move speed (for turning the motor to remotely make the board move) at full throttle. Speed is linearly scaled based on the remote throttle percentage.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic;&quot;&gt;Recommended Values: 5A - 10A&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-style:italic;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*DISCLAIMER: Make sure your remote idles at 0% throttle!! Otherwise, current will be continually request, which can drain your battery. Reference &amp;quot;Remote Input&amp;quot; in AppUI Tab of VESC Tool. If it is not idling at 0%, you must either tweak Input Deadband above, or properly calibrate your remote.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_REMOTE_THROTTLE_CURRENT_MAX</cDefine>
-            <editorDecimalsDouble>0</editorDecimalsDouble>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This value also controls the maximum speed for the app remote control. When the value of this option is 0 (disabling remote move for the physical remote), the app remote control defaults to max speed of 5 km/h.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;*DISCLAIMER: Make sure your remote idles at 0% throttle!! Otherwise, current will be continually requested, which can drain your battery. Reference &amp;quot;Remote Input&amp;quot; in the Refloat UI tab of VESC Tool. If it is not idling at 0%, you must either tweak Input Deadband above, or properly calibrate your remote.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_REMOTE_MAX_MOVE_SPEED</cDefine>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>50</maxDouble>
-            <minDouble>0</minDouble>
+            <maxInt>10</maxInt>
+            <minInt>0</minInt>
             <showDisplay>0</showDisplay>
-            <stepDouble>2</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>10</vTxDoubleScale>
-            <suffix> A</suffix>
-            <vTx>7</vTx>
-        </remote_throttle_current_max>
+            <stepInt>1</stepInt>
+            <valInt>0</valInt>
+            <suffix> km/h</suffix>
+            <vTx>1</vTx>
+        </remote.max_move_speed>
         <remote_throttle_grace_period>
             <longName>Grace Period</longName>
             <type>1</type>
@@ -1901,7 +1929,7 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>7</vTx>
         </torquetilt_angle_limit>
-        <torquetilt_on_speed>
+        <torque_tilt.filter.on_speed_limit>
             <longName>Max Tiltback Speed</longName>
             <type>1</type>
             <transmittable>1</transmittable>
@@ -1910,20 +1938,20 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Rate at which Torque Tiltback will tilt to the desired angle (tilt will be slower if current increases slowly).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_TORQUETILT_ON_SPEED</cDefine>
+            <cDefine>CFG_DFLT_TORQUE_TILT_FILTER_ON_SPEED_LIMIT</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>100</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>10</valDouble>
+            <stepDouble>2</stepDouble>
+            <valDouble>24</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
-        </torquetilt_on_speed>
-        <torquetilt_off_speed>
+        </torque_tilt.filter.on_speed_limit>
+        <torque_tilt.filter.off_speed_limit>
             <longName>Max Tiltback Release Speed</longName>
             <type>1</type>
             <transmittable>1</transmittable>
@@ -1932,19 +1960,19 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Rate at which Torque Tiltback will release from the desired angle back to 0 (tilt will be slower if current decreases slowly).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_TORQUETILT_OFF_SPEED</cDefine>
+            <cDefine>CFG_DFLT_TORQUE_TILT_FILTER_OFF_SPEED_LIMIT</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>100</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>8</valDouble>
+            <stepDouble>2</stepDouble>
+            <valDouble>24</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
-        </torquetilt_off_speed>
+        </torque_tilt.filter.off_speed_limit>
         <torquetilt_strength>
             <longName>Strength</longName>
             <type>1</type>
@@ -1963,7 +1991,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>1</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
+            <stepDouble>0.01</stepDouble>
             <valDouble>0.1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/A</suffix>
@@ -1987,7 +2015,7 @@ p, li { white-space: pre-wrap; }
             <maxDouble>1</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.05</stepDouble>
+            <stepDouble>0.01</stepDouble>
             <valDouble>0.1</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix> °/A</suffix>
@@ -2142,7 +2170,7 @@ p, li { white-space: pre-wrap; }
             <suffix> °</suffix>
             <vTx>7</vTx>
         </atr_angle_limit>
-        <atr_on_speed>
+        <atr.filter.on_speed_limit>
             <longName>Max Tiltback Speed</longName>
             <type>1</type>
             <transmittable>1</transmittable>
@@ -2151,20 +2179,20 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Rate at which ATR will tilt to the desired angle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_ATR_ON_SPEED</cDefine>
+            <cDefine>CFG_DFLT_ATR_FILTER_ON_SPEED_LIMIT</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>100</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>10</valDouble>
+            <stepDouble>2</stepDouble>
+            <valDouble>24</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
-        </atr_on_speed>
-        <atr_off_speed>
+        </atr.filter.on_speed_limit>
+        <atr.filter.off_speed_limit>
             <longName>Max Tiltback Release Speed</longName>
             <type>1</type>
             <transmittable>1</transmittable>
@@ -2173,46 +2201,20 @@ p, li { white-space: pre-wrap; }
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Rate at which ATR will release from the desired angle back to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_ATR_OFF_SPEED</cDefine>
+            <cDefine>CFG_DFLT_ATR_FILTER_OFF_SPEED_LIMIT</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>100</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>8</valDouble>
+            <stepDouble>2</stepDouble>
+            <valDouble>24</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
-        </atr_off_speed>
-        <atr_response_boost>
-            <longName>Tiltback Response Boost</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;React more quickly to ATR responses when at high speeds. When you're riding fast and ATR increases, then you also want it to respond faster. Boost is applied twice: at 2500 and 6000 ERPM.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;*Note: ERPM = RPM * (Motor Poles / 2)&lt;br /&gt;For an 11&amp;quot; Tire on a Hypercore Motor (30 Poles):&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;2500 ERPM ≈ 5.5 mph ≈ 9 km/h&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;6000 ERPM ≈ 13 mph ≈ 21 km/h&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_ATR_RESPONSE_BOOST</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>2</maxDouble>
-            <minDouble>1</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.1</stepDouble>
-            <valDouble>1.5</valDouble>
-            <vTxDoubleScale>1000</vTxDoubleScale>
-            <suffix>x</suffix>
-            <vTx>7</vTx>
-        </atr_response_boost>
-        <atr_transition_boost>
+        </atr.filter.off_speed_limit>
+        <atr.transition_boost>
             <longName>Tiltback Transition Boost</longName>
             <type>1</type>
             <transmittable>1</transmittable>
@@ -2225,15 +2227,15 @@ p, li { white-space: pre-wrap; }
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
             <editAsPercentage>0</editAsPercentage>
-            <maxDouble>10</maxDouble>
+            <maxDouble>4</maxDouble>
             <minDouble>1</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.5</stepDouble>
-            <valDouble>3</valDouble>
+            <valDouble>2</valDouble>
             <vTxDoubleScale>1000</vTxDoubleScale>
             <suffix>x</suffix>
             <vTx>7</vTx>
-        </atr_transition_boost>
+        </atr.transition_boost>
         <atr_filter>
             <longName>Current Filter</longName>
             <type>1</type>
@@ -2256,6 +2258,126 @@ p, li { white-space: pre-wrap; }
             <suffix> Hz</suffix>
             <vTx>7</vTx>
         </atr_filter>
+        <torque_tilt.filter.time_constant>
+            <longName>Smoothing Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Torque Tilt smoothing filter time constant. Defined as time needed for the Torque Tilt setpoint to move two thirds towards its new target value. Determines overall Torque Tilt smoothness. Setting this low will make Torque Tilt responsive, but might make it feel jerky. Setting this high will make Torque Tilt smooth, but less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The transition into a more extreme setpoint (higher for nose-up, lower for nose-down) can be further smoothed by &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On Speed Time Constant&lt;/span&gt;.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The transition back towards 0° setpoint can be further smoothed by &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing Off Speed Time Constant&lt;/span&gt;.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Check the ATR Smoothing Time Constant help text for a guide on how to tune the smoothing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_TORQUE_TILT_FILTER_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </torque_tilt.filter.time_constant>
+        <torque_tilt.filter.on_speed_time_constant>
+            <longName>Smoothing On Speed Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Torque Tilt smoothing on speed time constant for transitioning into a more extreme (higher for nose-up, lower for nose-down) setpoint. Defined as time needed for the &lt;span style=&quot; font-style:italic;&quot;&gt;speed&lt;/span&gt; of the setpoint change to reach two thirds of its new target value when transitioning into a more extreme Torque Tilt setpoint. Smoother means less responsive.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_TORQUE_TILT_FILTER_ON_SPEED_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.08</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </torque_tilt.filter.on_speed_time_constant>
+        <torque_tilt.filter.off_speed_time_constant>
+            <longName>Smoothing Off Speed Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Torque Tilt smoothing off speed time constant for transitioning back to 0° setpoint. Defined as time needed for the &lt;span style=&quot; font-style:italic;&quot;&gt;speed&lt;/span&gt; of the setpoint change to reach two thirds of its new target value. Smoother means less responsive.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_TORQUE_TILT_FILTER_OFF_SPEED_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.16</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </torque_tilt.filter.off_speed_time_constant>
+        <turn_tilt.filter.time_constant>
+            <longName>Smoothing Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Turn Tilt smoothing filter time constant. Defined as time needed for the Turn Tilt setpoint to move two thirds towards its new target value. Determines Turn Tilt smoothness. Setting this low will make Turn Tilt responsive, but might make it feel jerky. Setting this high will make Turn Tilt smooth, but less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Technical note: Turn Tilt has the &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On/Off Speed Time Constants&lt;/span&gt; calculated as &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing Time Constant / 2&lt;/span&gt; as a simplification.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_TURN_TILT_FILTER_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </turn_tilt.filter.time_constant>
+        <remote.filter.time_constant>
+            <longName>Smoothing Time Constant</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Remote smoothing filter time constant. Defined as time needed for the Remote setpoint to move two thirds towards its new target value. Determines Remote smoothness. Setting this low will make Remote responsive, but might make it feel jerky. Setting this high will make Remote smooth, but less responsive.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Technical note: Remote has the &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing On/Off Speed Time Constants&lt;/span&gt; calculated as &lt;span style=&quot; font-style:italic;&quot;&gt;Smoothing Time Constant / 4&lt;/span&gt; as a simplification.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_REMOTE_FILTER_TIME_CONSTANT</cDefine>
+            <editorDecimalsDouble>2</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>0.5</maxDouble>
+            <minDouble>0.01</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>0.02</stepDouble>
+            <valDouble>0.2</valDouble>
+            <vTxDoubleScale>1000</vTxDoubleScale>
+            <suffix> s</suffix>
+            <vTx>7</vTx>
+        </remote.filter.time_constant>
         <atr_amps_accel_ratio>
             <longName>Amps to Acceleration Ratio</longName>
             <type>1</type>
@@ -2448,28 +2570,6 @@ p, li { white-space: pre-wrap; }
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </turntilt_start_erpm>
-        <turntilt_speed>
-            <longName>Max Tiltback Speed</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Max Rate at which Turn Tiltback will tilt to the desired angle (tilt will be slower if Yaw Angle increases slowly).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_TURNTILT_SPEED</cDefine>
-            <editorDecimalsDouble>1</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>100</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>5</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix> °/s</suffix>
-            <vTx>7</vTx>
-        </turntilt_speed>
         <turntilt_erpm_boost>
             <longName>Speed Boost %</longName>
             <type>2</type>
@@ -3330,32 +3430,34 @@ p, li { white-space: pre-wrap; }
             <cDefine>CFG_DFLT_LEDS_STATUS_SHOW_SENSORS_WHILE_RUNNING</cDefine>
             <valInt>1</valInt>
         </leds.status.show_sensors_while_running>
-        <leds.status.duty_threshold>
-            <longName>Status Duty Threshold</longName>
+        <leds.status.motor_utilization_threshold>
+            <longName>Motor Utilization Threshold</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Duty threshold above which the duty is shown on the status bar (in amber yellow color) instead of the battery. Note there is a 10% hysteresis, meaning if you duty shows at 20%, it will be shown until it drops below 10% (to avoid constant blinking). Values below 15% set the threshold to 15%.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Threshold above which motor utilization is shown on the status bar (instead of the battery). Motor utilization is the maximum of duty cycle, motor current saturation, and battery current saturation. Note there is a 10% hysteresis, meaning if motor utilization shows at 60%, it will keep showing until it drops below 50% (to avoid constant blinking).&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Set to 0 to not show the duty bar.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The colors are as follows:&lt;br /&gt;Duty cycle: amber&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Motor current: pink&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Battery current: teal&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Note: Since duty above 95% is not achievable and you're unlikely to ever benefit from values above 90% being shown on your status bar, duty level of 90% is scaled to 100% on the status bar to make full use of its real estate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>CFG_DFLT_HARDWARE_LEDS_STATUS_DUTY_THRESHOLD</cDefine>
+            <cDefine>CFG_DFLT_HARDWARE_LEDS_STATUS_MOTOR_UTILIZATION_THRESHOLD</cDefine>
             <editorDecimalsDouble>0</editorDecimalsDouble>
             <editorScale>100</editorScale>
             <editAsPercentage>0</editAsPercentage>
             <maxDouble>1</maxDouble>
-            <minDouble>0</minDouble>
+            <minDouble>0.15</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>5</stepDouble>
-            <valDouble>0.5</valDouble>
+            <valDouble>0.6</valDouble>
             <vTxDoubleScale>10000</vTxDoubleScale>
             <suffix>%</suffix>
             <vTx>7</vTx>
-        </leds.status.duty_threshold>
+        </leds.status.motor_utilization_threshold>
         <leds.status.red_bar_percentage>
             <longName>Red Color Bar Percentage</longName>
             <type>1</type>
@@ -3882,6 +3984,18 @@ p, li { white-space: pre-wrap; }
             <cDefine>CFG_DFLT_HARDWARE_LEDS_REAR_REVERSE</cDefine>
             <valInt>0</valInt>
         </hardware.leds.rear.reverse>
+        <hardware.swap_footpad_adcs>
+            <longName>Swap Footpad ADCs</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Swaps the ADCs of the footpad sensor. If enabled, left footpad sensor is read from ADC2 and right sensor from ADC1. Otherwise, left footpad sensor is read from ADC1 and right sensor from ADC2.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>CFG_DFLT_HARDWARE_SWAP_FOOTPAD_ADCS</cDefine>
+            <valInt>0</valInt>
+        </hardware.swap_footpad_adcs>
         <is_beeper_enabled>
             <longName>Enable Beeper on Servo/PPM</longName>
             <type>5</type>
@@ -3928,7 +4042,18 @@ p, li { white-space: pre-wrap; }
         <ser>mahony_kp_roll</ser>
         <ser>kp_brake</ser>
         <ser>kp2_brake</ser>
-        <ser>hertz</ser>
+        <ser>atr.filter.time_constant</ser>
+        <ser>atr.filter.on_speed_time_constant</ser>
+        <ser>atr.filter.off_speed_time_constant</ser>
+        <ser>atr.filter.on_speed_limit</ser>
+        <ser>atr.filter.off_speed_limit</ser>
+        <ser>torque_tilt.filter.time_constant</ser>
+        <ser>torque_tilt.filter.on_speed_time_constant</ser>
+        <ser>torque_tilt.filter.off_speed_time_constant</ser>
+        <ser>torque_tilt.filter.on_speed_limit</ser>
+        <ser>torque_tilt.filter.off_speed_limit</ser>
+        <ser>turn_tilt.filter.time_constant</ser>
+        <ser>remote.filter.time_constant</ser>
         <ser>fault_pitch</ser>
         <ser>fault_roll</ser>
         <ser>fault_adc1</ser>
@@ -3965,10 +4090,9 @@ p, li { white-space: pre-wrap; }
         <ser>noseangling_speed</ser>
         <ser>inputtilt_remote_type</ser>
         <ser>inputtilt_angle_limit</ser>
-        <ser>inputtilt_speed</ser>
         <ser>inputtilt_invert_throttle</ser>
         <ser>inputtilt_deadband</ser>
-        <ser>remote_throttle_current_max</ser>
+        <ser>remote.max_move_speed</ser>
         <ser>remote_throttle_grace_period</ser>
         <ser>startup_pitch_tolerance</ser>
         <ser>startup_roll_tolerance</ser>
@@ -3988,15 +4112,12 @@ p, li { white-space: pre-wrap; }
         <ser>brkbooster_current</ser>
         <ser>torquetilt_start_current</ser>
         <ser>torquetilt_angle_limit</ser>
-        <ser>torquetilt_on_speed</ser>
-        <ser>torquetilt_off_speed</ser>
         <ser>torquetilt_strength</ser>
         <ser>torquetilt_strength_regen</ser>
         <ser>turntilt_strength</ser>
         <ser>turntilt_angle_limit</ser>
         <ser>turntilt_start_angle</ser>
         <ser>turntilt_start_erpm</ser>
-        <ser>turntilt_speed</ser>
         <ser>turntilt_erpm_boost</ser>
         <ser>turntilt_erpm_boost_end</ser>
         <ser>turntilt_yaw_aggregate</ser>
@@ -4006,10 +4127,7 @@ p, li { white-space: pre-wrap; }
         <ser>atr_threshold_down</ser>
         <ser>atr_speed_boost</ser>
         <ser>atr_angle_limit</ser>
-        <ser>atr_on_speed</ser>
-        <ser>atr_off_speed</ser>
-        <ser>atr_response_boost</ser>
-        <ser>atr_transition_boost</ser>
+        <ser>atr.transition_boost</ser>
         <ser>atr_filter</ser>
         <ser>atr_amps_accel_ratio</ser>
         <ser>atr_amps_decel_ratio</ser>
@@ -4044,7 +4162,7 @@ p, li { white-space: pre-wrap; }
         <ser>leds.status.brightness_headlights_off</ser>
         <ser>leds.status.brightness_headlights_on</ser>
         <ser>leds.status.show_sensors_while_running</ser>
-        <ser>leds.status.duty_threshold</ser>
+        <ser>leds.status.motor_utilization_threshold</ser>
         <ser>leds.status.red_bar_percentage</ser>
         <ser>leds.status.idle_timeout</ser>
         <ser>leds.status_idle.mode</ser>
@@ -4067,6 +4185,7 @@ p, li { white-space: pre-wrap; }
         <ser>hardware.leds.rear.count</ser>
         <ser>hardware.leds.rear.color_order</ser>
         <ser>hardware.leds.rear.reverse</ser>
+        <ser>hardware.swap_footpad_adcs</ser>
         <ser>is_beeper_enabled</ser>
         <ser>disabled</ser>
         <ser>haptic.duty.frequency</ser>
@@ -4131,13 +4250,16 @@ p, li { white-space: pre-wrap; }
                     <param>torquetilt_strength_regen</param>
                     <param>torquetilt_start_current</param>
                     <param>torquetilt_angle_limit</param>
-                    <param>torquetilt_on_speed</param>
-                    <param>torquetilt_off_speed</param>
+                    <param>torque_tilt.filter.time_constant</param>
+                    <param>torque_tilt.filter.on_speed_time_constant</param>
+                    <param>torque_tilt.filter.off_speed_time_constant</param>
+                    <param>torque_tilt.filter.on_speed_limit</param>
+                    <param>torque_tilt.filter.off_speed_limit</param>
                     <param>::sep::Turn Tiltback</param>
                     <param>turntilt_strength</param>
                     <param>turntilt_angle_limit</param>
                     <param>turntilt_start_erpm</param>
-                    <param>turntilt_speed</param>
+                    <param>turn_tilt.filter.time_constant</param>
                     <param>turntilt_erpm_boost</param>
                     <param>turntilt_erpm_boost_end</param>
                     <param>turntilt_yaw_aggregate</param>
@@ -4155,10 +4277,12 @@ p, li { white-space: pre-wrap; }
                     <param>atr_speed_boost</param>
                     <param>::sep::Nose Angling</param>
                     <param>atr_angle_limit</param>
-                    <param>atr_on_speed</param>
-                    <param>atr_off_speed</param>
-                    <param>atr_response_boost</param>
-                    <param>atr_transition_boost</param>
+                    <param>atr.filter.time_constant</param>
+                    <param>atr.filter.on_speed_time_constant</param>
+                    <param>atr.filter.off_speed_time_constant</param>
+                    <param>atr.filter.on_speed_limit</param>
+                    <param>atr.filter.off_speed_limit</param>
+                    <param>atr.transition_boost</param>
                     <param>::sep::Advanced</param>
                     <param>atr_amps_accel_ratio</param>
                     <param>atr_amps_decel_ratio</param>
@@ -4250,11 +4374,11 @@ p, li { white-space: pre-wrap; }
                     <param>::sep::Remote Tiltback</param>
                     <param>inputtilt_remote_type</param>
                     <param>inputtilt_angle_limit</param>
-                    <param>inputtilt_speed</param>
+                    <param>remote.filter.time_constant</param>
                     <param>inputtilt_invert_throttle</param>
                     <param>inputtilt_deadband</param>
                     <param>::sep::Remote Throttle</param>
-                    <param>remote_throttle_current_max</param>
+                    <param>remote.max_move_speed</param>
                     <param>remote_throttle_grace_period</param>
                 </subgroupParams>
             </subgroup>
@@ -4296,7 +4420,7 @@ p, li { white-space: pre-wrap; }
                     <param>leds.status.brightness_headlights_off</param>
                     <param>leds.status.brightness_headlights_on</param>
                     <param>leds.status.show_sensors_while_running</param>
-                    <param>leds.status.duty_threshold</param>
+                    <param>leds.status.motor_utilization_threshold</param>
                     <param>leds.status.red_bar_percentage</param>
                     <param>leds.status.idle_timeout</param>
                     <param>::sep::Status Idle</param>
@@ -4312,14 +4436,13 @@ p, li { white-space: pre-wrap; }
                 <subgroupParams>
                     <param>::sep::Refloat Package Details</param>
                     <param>disabled</param>
-                    <param>::sep::Balance Loop</param>
-                    <param>hertz</param>
                     <param>::sep::Voltage Pushbacks</param>
                     <param>tiltback_hv</param>
                     <param>tiltback_lv</param>
                     <param>::sep::Foot Sensors</param>
                     <param>fault_adc1</param>
                     <param>fault_adc2</param>
+                    <param>hardware.swap_footpad_adcs</param>
                     <param>is_footbeep_enabled</param>
                     <param>::sep::Miscellaneous</param>
                     <param>is_beeper_enabled</param>
