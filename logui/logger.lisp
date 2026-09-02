@@ -6,10 +6,10 @@
 (def vin-min 18)
 (def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
 
-(def vd (get-vd))
-(def vq (get-vq))
-(def id (get-id))
-(def iq (get-iq))
+(def m-vd (get-vd))
+(def m-vq (get-vq))
+(def m-id (get-id))
+(def m-iq (get-iq))
 
 @const-start
 
@@ -35,15 +35,15 @@
 }))
 
 (defun update-vi () {
-        (setq vd (get-vd 1))
-        (setq vq (get-vq 1))
-        (setq id (get-id 1))
-        (setq iq (get-iq 1))
+        (setq m-vd (get-vd 1))
+        (setq m-vq (get-vq 1))
+        (setq m-id (get-id 1))
+        (setq m-iq (get-iq 1))
 })
 
 (defun calc-power-factor () {
-        (var p_real (* (/ 3.0 2.0) (+ (* vq iq) (* vd id))))
-        (var p_reactive (* (/ 3.0 2.0) (- (* vq id) (* vd iq))))
+        (var p_real (* (/ 3.0 2.0) (+ (* m-vq m-iq) (* m-vd m-id))))
+        (var p_reactive (* (/ 3.0 2.0) (- (* m-vq m-id) (* m-vd m-iq))))
 
         (var den (sqrt (+ (* p_real p_real) (* p_reactive p_reactive))))
         (if (> den 1.0)
@@ -81,10 +81,10 @@
         ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
         ("ADC1" "V"                     (get-adc 0))
         ("ADC2" "V"                     (get-adc 1))
-        ("iq" "A"                       {(update-vi) iq})
-        ("id" "A"                       (* id 1.0))
-        ("vq" "V"                       (* vq 1.0))
-        ("vd" "V"                       (* vd 1.0))
+        ("iq" "A"                       {(update-vi) m-iq})
+        ("id" "A"                       (* m-id 1.0))
+        ("vq" "V"                       (* m-vq 1.0))
+        ("vd" "V"                       (* m-vd 1.0))
         ("iq-set" "A"                   (get-iq-set))
         ("id-set" "A"                   (get-id-set))
         ("iq-target" "A"                (get-iq-target))
