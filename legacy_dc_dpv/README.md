@@ -37,9 +37,15 @@ It incorporates the following features
 
 ## Overview
 
-The conversion process involves disconnecting the original control hardware. For a Silent Submerge or Gavin that hardware is an electric relay located on top of the motor. For a H-160, it's a motor control PCB also located on top of the motor. These need to be removed to expose the motor terminals and the reed switch wires. These will be connected to the new VESC controller.
+### Physical connection
 
-The battery connection needs to be removed too. Typically the battery wires connect to the old control hardware as well, but are outside the motor. The battery wires lead from there to a connector. You can choose any way to connect the new VESC controller's battery wires to that connector. You can cut the old connectors off and use wire nuts, or solder, or crimp, to the old connectors, or purchase new connectors.
+The conversion process involves disconnecting the original control hardware. For a Silent Submerge or Gavin that hardware is an electric relay located on top of the motor under a clear shield. For a H-160, it's a motor control PCB also located on top of the motor, under a T-brace and clear shield. These need to be removed to expose the motor terminals. Locate the reed switch wires and prepare them to connect to the new controller.
+
+Connect the two outside motor wires from the VESC controller to the DPV motor terminals. Cover the middle VESC controller motor wire with a cap or tape to ensure it doesn't short out.
+
+Connect the reed switch wires to the VESC controller, one wire goes to the pin labelled GND and the other goes to the pin labelled ADC1.
+
+Connect the battery to the battery wires on the VESC controller, with positive going to the red wire and negative going to the black wire. It's best to use a connector, like a Anderson Powerpole or XT connector, so you can disconnect it as needed.
 
 Once the VESC controller is connected to the motor, battery, and reed switch you need to program it. To program it connect a USB cable from your PC to the VESC controller and run **vesc-tool* on your PC.
 
@@ -50,6 +56,9 @@ Connecting should be easy. Connect the USB cable from the PC to the VESC control
 In **vesc-tool** select **Connection** from the menu on the left.
 The port should be auto-detected and already displayed. If not see if it is listed in the drop-down.
 Click **Autoconnect** at the bottom.
+
+![VESC Controller Wiring](assets/vesc_controller_wiring.png)
+
 
 ### Update the firmware
 
