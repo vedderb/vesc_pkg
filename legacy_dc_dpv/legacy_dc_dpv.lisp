@@ -52,7 +52,7 @@
 (define SMART_CRUISE_AUTO_ENGAGED 3)
 
 ; Safe start parameters
-(define SAFE_START_DUTY 0.10)         ; Initial duty cycle for soft start
+(define SAFE_START_DUTY 0.10)         ; Initial duty cycle for safe start
 (define SAFE_START_TIMEOUT 0.5)       ; Timeout for safe start checks
 (define SAFE_START_TIMEOUT_GRACE 0.1) ; Additional grace period before aborting (seconds)
 (define SAFE_START_MIN_DUTY 0.05)     ; Minimum duty for safe start check
@@ -248,6 +248,7 @@
 (defun safe_start_met_success_criteria (duty current)
 {
     (var min_current_amps (/ min_current 10.0)) ; EEPROM stores current * 10
+    (debug_log (str-merge "safe_start_met_success: duty " (to-str duty) " current " (to-str current)))
     (and (> (abs duty) SAFE_START_MIN_DUTY)
          (>= (abs current) min_current_amps)
          (< (abs current) SAFE_START_MAX_CURRENT))
@@ -970,6 +971,7 @@
                         (safe_start_begin speed)
                         (safe_start_set_status 'idle)) ; keep safe_start_status idle when disabled
                     (setvar 'last_speed SPEED_SOFT_START_SENTINEL)
+                    (set_duty_cycle SAFE_START_DUTY)
                 } {
                     ; Speed change while already running (not from off, not during soft-start)
                     (if (!= last_speed SPEED_SOFT_START_SENTINEL) {
