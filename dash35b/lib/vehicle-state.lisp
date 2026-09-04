@@ -7,7 +7,6 @@
 
 (def kickstand-down false)
 (def drive-mode 1)
-(def drive-mode-num 5)
 (def performance-mode 'eco) ; 'eco 'normal 'sport UNUSED!
 
 (def cruise-control-active false)
@@ -26,28 +25,16 @@
 (def page-num 3)
 
 (def setting-now 0)
-(def setting-num 4)
-(def setting-list-page1 '(
-        whl-active
-        whl-start
-        whl-end
-        whl-kd
-))
-(def setting-step-page1 '(
-        1
-        0.5
-        0.5
-        0.001
-))
-(def setting-lim-page1 '(
-        (0 1)
-        (0.0 55.0)
-        (0.0 55.0)
-        (0.0 0.2)
-))
+(def setting-num 0)
+
+; setting-list-page1 etc are built by settings-build.
 
 (def light-on light-on-default)
 (def backlight-dim false)
+
+; For changes per-field detection cannot see, e.g. a unit label swap.
+(def view-force-static false)
+(def view-force-pages false)
 
 (def temp-ambient 0.0)
 (def temp-ambient-rx false)
