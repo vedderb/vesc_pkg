@@ -57,6 +57,9 @@
 (read-eval-program code-communication)
 
 ; Views
+(import "lib/standalone.lisp" 'code-standalone)
+(read-eval-program code-standalone)
+
 (import "views/view_static.lbm" 'code-view-static)
 (read-eval-program code-view-static)
 
@@ -69,6 +72,27 @@
 (defun lpf (val sample filter-const)
     (- val (* filter-const (- val sample)))
 )
+
+; Button actions. dash16 has two buttons and no settings page, so the list is
+; shorter than dash35b's and the ids do not match it.
+;
+; Selecting reverse flips the throttle on the controller, so it is only
+; allowed at a standstill, the way a car will not take R while rolling.
+(def reverse-max-kmh 3.0)
+
+; 0 nothing        1 next page      2 previous page   3 drive mode up
+; 4 drive mode down 5 lights        6 cruise control  7 reverse
+(defun btn-do-action (a)
+    (cond
+        ((= a 1) (setq page-now (mod (+ page-now 1) page-num)))
+        ((= a 2) (setq page-now (mod (+ page-now (- page-num 1)) page-num)))
+        ((= a 3) (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1))))
+        ((= a 4) (if (> drive-mode 0) (setq drive-mode (- drive-mode 1))))
+        ((= a 5) (setq light-on (not light-on)))
+        ((= a 6) (comm-send-event 0))
+        ((= a 7) (if (< (abs stats-kmh) reverse-max-kmh) (setq drive-mode 0)))
+        (t nil)
+))
 
 (defun main () {
         (if (and
@@ -90,25 +114,18 @@
         (def init-complete nil)
         (def rx-cnt-can 0)
 
-        (if config-metric-speeds
-            (def settings-units-speeds '(kmh . "km/h"))
-            (def settings-units-speeds '(mph . "MPH"))
-        )
-
-        (if config-metric-temps
-            (def settings-units-temps '(celsius . "C"))
-            (def settings-units-temps '(fahrenheit . "F"))
-        )
+        (settings-apply-units)
 
         (if config-code-server (start-code-server)) ; Enable remote code execution
 
         ; Offset X = 34
         (disp-init)
         (ext-disp-orientation 0)
-        (pwm-start 2000 bl-lvl-bright 0 2)
+        (pwm-start 2000 settings-bl-bright 0 2)
 
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
+        (event-enable 'event-data-rx)
 
         ;(if config-boot-animation-enable (start-boot-animation))
 
@@ -138,7 +155,8 @@
         (setq thr-volts (get-adc 0))
         (defun thr-read () {
                 (setq thr-volts (lpf thr-volts (get-adc 0) 0.2))
-                (setq thr-pos (trunc01 (/ (- thr-volts 0.45) 1.65)))
+                (setq thr-pos (trunc01 (/ (- thr-volts settings-lever-min)
+                                          (- settings-lever-max settings-lever-min))))
                 (sleep 0.003)
         })
 
@@ -179,6 +197,17 @@
                 (sleep 5.0)
         })
 
+        (loopwhile-thd ("Standalone" 200) t {
+                (print "Starting Standalone-thread")
+
+                (match (trap (standalone-thread))
+                    ((exit-ok (? a)) (print "Standalone-thread exit"))
+                    (_ (print "Standalone-thread crashed"))
+                )
+
+                (sleep 5.0)
+        })
+
         (loopwhile-thd ("Worker" 150) t {
                 (if battery-a-charging (setq drive-mode 1)) ; Put in neutral when charging
                 (if kickstand-down (setq drive-mode 1)) ; Put in neutral when kickstand is down
@@ -187,22 +216,11 @@
 
         (def init-complete true)
 
-        (def on-btn-1-pressed (fn () (if (> drive-mode 0) (setq drive-mode (- drive-mode 1)))))
-        (def on-btn-0-pressed (fn () (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))))
+        (def on-btn-0-pressed (fn () (btn-do-action (ix btn-actions-short 0))))
+        (def on-btn-1-pressed (fn () (btn-do-action (ix btn-actions-short 1))))
 
-        (def on-btn-0-long-pressed (fn () {
-                    ;(setq backlight-dim (not backlight-dim))
-                    ;(if backlight-dim
-                        ;(pwm-set-duty bl-lvl-dim 0)
-                        ;(pwm-set-duty bl-lvl-bright 0)
-                    ;)
-
-                    (setq page-now (mod (+ page-now 1) page-num))
-        }))
-
-        (def on-btn-1-long-pressed (fn () {
-                    (comm-send-event 0)
-        }))
+        (def on-btn-0-long-pressed (fn () (btn-do-action (ix btn-actions-long 0))))
+        (def on-btn-1-long-pressed (fn () (btn-do-action (ix btn-actions-long 1))))
 
         (def on-btn-0-repeat-press nil)
         (def on-btn-1-repeat-press nil)

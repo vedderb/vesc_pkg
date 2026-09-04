@@ -22,6 +22,14 @@
 (def colors-white-icon (colors-make-aa 0x000000 0xfbfcfc 4))
 (def colors-purple-icon (colors-make-aa 0x000000 0x9f20f1 4))
 
+; Battery bar segments are indexed2
+(def colors-ok-2 (colors-make-aa 0x000000 0x00C321 2))
+(def colors-warn-2 (colors-make-aa 0x000000 0xFFD400 2))
+(def colors-crit-2 (colors-make-aa 0x000000 0xFF3030 2))
+
+; Erases an icon's footprint. Skipping the draw would leave it on screen.
+(def colors-hidden (colors-make-aa 0x000000 0x000000 4))
+
 (def colors-text-aa (colors-make-aa 0x000000 0xfbfcfc 4))
 (def colors-white-aa (colors-make-aa 0x000000 0xffffff 4))
 
