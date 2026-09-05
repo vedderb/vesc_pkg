@@ -141,7 +141,7 @@ The imbalance warning replaces only the `DISPLAY_SENTINEL` (idle) frame, so it a
 * **At rest** (`speed = SPEED_OFF`): the warning is shown continuously.
 * **While running:** the warning flashes on for `IMBALANCE_RUN_FLASH_ON` (1 s) out of every `IMBALANCE_RUN_FLASH_PERIOD` (5 s). This keeps reminding the rider mid-ride without permanently clobbering the smart-cruise timer bar / speed display.
 
-Two display frames are reserved for the warning (`BATTERY_IMBALANCE_DISPLAY_PACK_1 = 31`, `BATTERY_IMBALANCE_DISPLAY_PACK_2 = 32`). Frames 124 – 131 in `assets/display_lut.csv` ("Display Battery 1 Low" / "Display Battery 2 Low", 4 rotations each) provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
+The warning uses the `BATTERY_IMBALANCE_DISPLAY_PACK_1` and `BATTERY_IMBALANCE_DISPLAY_PACK_2` display identifiers. The `Display Battery 1 Low` and `Display Battery 2 Low` entries in `assets/display_lut.csv`, each with four rotation variants, provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
 
 ### SOC Correction
 
@@ -233,12 +233,12 @@ Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM impl
 
     blacktip_dpv/
     ├── assets/                          // Source data files
-    │   └── display_lut.csv             // Display frames (124 frames × 4 rotations)
+    │   └── display_lut.csv             // Display artwork, with four rotation variants per named display
     ├── tools/                           // Build and development tools
     │   ├── generate_lut_binary.py      // Generates binary files from CSV
     │   └── preview_display.py          // ASCII/PGM visualization tool
     ├── generated/                       // Auto-generated files (not in git)
-    │   └── display_lut.bin             // Binary display data (1992 bytes)
+    │   └── display_lut.bin             // Generated binary display data
     ├── blacktip_dpv.lisp               // Main lispBM runtime source
     ├── ui.qml                           // User interface
     ├── pkgdesc.qml                     // Package descriptor
@@ -250,7 +250,7 @@ Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM impl
 
 The OLED screen artwork lives in `assets/display_lut.csv` as a CSV file:
 
-* **`display_lut.csv`** — All display frames (132 rows, one per screen/rotation)
+* **`display_lut.csv`** — Pre-rotated display artwork, with one row for each named display and rotation variant
 
 This CSV file is the source of truth. The build system automatically generates the binary display LUT from it.
 
@@ -282,9 +282,8 @@ The lispBM runtime loads display data from a binary file at runtime using LispBM
 * Header (8 bytes):
   * Magic number: 0x4C555444 ("LUTD" in ASCII)
   * Version: u16 (currently 1)
-  * Frame count: u16 (currently 132)
-* Frame data: 132 frames × 16 bytes per frame = 2112 bytes
-* Total size: 2120 bytes
+  * Frame count: u16
+* Frame data: a sequence of 16-byte interleaved frames
 
 ## Development Workflow
 
