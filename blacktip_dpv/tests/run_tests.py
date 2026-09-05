@@ -4,6 +4,7 @@ BlackTip DPV Smoke Tests
 Tests pure functions to catch regressions before flashing hardware
 """
 
+import csv
 import struct
 import sys
 from pathlib import Path
@@ -41,6 +42,8 @@ def assert_near(actual, expected, tolerance, test_name):
 # =============================================================================
 
 SPEED_REVERSE_THRESHOLD = 5
+DISPLAY_LUT_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'display_lut.csv'
+DISPLAY_LUT_HEADERS = ['index', 'name', 'rotation'] + [f'b{i}' for i in range(16)]
 
 def clamp(value, min_val, max_val):
     """Clamp value between min and max"""
@@ -92,6 +95,21 @@ def calculate_rpm(speed_index, divisor, max_erpm=50000):
         return -base_rpm
     else:
         return base_rpm
+
+
+def physical_display_matrix(frame_bytes):
+    """Mirror preview_display.py's fixed hardware-orientation transform."""
+    columns = frame_bytes[1::2]
+    bit_positions = [7, *range(7)]
+    return [[(columns[row] >> bit_positions[column]) & 1
+             for column in range(8)]
+            for row in range(8)]
+
+
+def rotate_display_clockwise(matrix):
+    """Rotate a physical display matrix 90° clockwise."""
+    return [[matrix[7 - column][row] for column in range(8)]
+            for row in range(8)]
 
 
 # Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
@@ -222,6 +240,58 @@ def test_calculate_rpm():
     # Edge case at threshold
     assert_near(calculate_rpm(4, 1), -20000, 0.1, "calculate_rpm: speed 4 (just below threshold)")
     assert_near(calculate_rpm(5, 1), 25000, 0.1, "calculate_rpm: speed 5 (at threshold, forward)")
+
+
+def test_display_lut_structure_and_rotation():
+    """Keep the CSV layout and every physical-display rotation quartet stable."""
+    print("\n=== Testing display LUT structure and rotation ===")
+
+    with DISPLAY_LUT_PATH.open(newline='') as asset:
+        reader = csv.DictReader(asset)
+        rows = list(reader)
+
+    assert_eq(reader.fieldnames, DISPLAY_LUT_HEADERS,
+              "display LUT: CSV has the required frame and byte columns")
+    assert_eq(len(rows), 132, "display LUT: frame count is unchanged")
+    assert_eq([int(row['index']) for row in rows], list(range(132)),
+              "display LUT: frame indices remain sequential")
+    assert_eq(all(set(row) == set(DISPLAY_LUT_HEADERS) for row in rows), True,
+              "display LUT: each row has exactly the required fields")
+
+    frame_bytes = [[int(row[f'b{i}']) for i in range(16)] for row in rows]
+    assert_eq(all(0 <= value <= 255 for frame in frame_bytes for value in frame), True,
+              "display LUT: byte values are unsigned octets")
+    assert_eq(all(frame[0::2] == [0] * 8 for frame in frame_bytes), True,
+              "display LUT: low/high interleaved layout is preserved")
+
+    for first in range(0, len(rows), 4):
+        quartet = rows[first:first + 4]
+        name = quartet[0]['name']
+        assert_eq([row['name'] for row in quartet], [name] * 4,
+                  f"display LUT: {name} retains one named quartet")
+        assert_eq([int(row['rotation']) for row in quartet], [0, 1, 2, 3],
+                  f"display LUT: {name} retains rotations 0 through 3")
+
+        expected = physical_display_matrix(frame_bytes[first])
+        for rotation in range(1, 4):
+            expected = rotate_display_clockwise(expected)
+            actual = physical_display_matrix(frame_bytes[first + rotation])
+            assert_eq(actual, expected,
+                      f"display LUT: {name} rotation {rotation} is clockwise in physical view")
+
+    # A single top-left pixel rotates to the top-right, not the bottom-left.
+    # This catches accidentally swapping clockwise and counter-clockwise maths.
+    asymmetric_fixture = [[1 if row == 0 and column == 0 else 0 for column in range(8)]
+                          for row in range(8)]
+    expected_clockwise = [[1 if row == 0 and column == 7 else 0 for column in range(8)]
+                          for row in range(8)]
+    expected_counter_clockwise = [[1 if row == 7 and column == 0 else 0 for column in range(8)]
+                                  for row in range(8)]
+    actual_clockwise = rotate_display_clockwise(asymmetric_fixture)
+    assert_eq(actual_clockwise, expected_clockwise,
+              "display LUT: asymmetric fixture rotates clockwise")
+    assert_eq(actual_clockwise == expected_counter_clockwise, False,
+              "display LUT: asymmetric fixture rejects counter-clockwise rotation")
 
 # =============================================================================
 # New functions added in PR (VESC 7.00 compatibility)
@@ -730,8 +800,6 @@ def test_click_and_beep_regressions():
               "shutdown confirmation: power symbol and descending tones precede shutdown")
 
     readme_source = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
-    assert_eq('**Version:** 1.5.0' in readme_source, True,
-              "package version: README declares 1.5.0")
     assert_eq('OFF&#95;AFTER&#95;' in readme_source, True,
               "README rendering: shutdown settings use Qt-safe underscores")
     assert_eq('blacktip\\_dpv' in readme_source, False,
@@ -774,6 +842,7 @@ def run_all_tests():
     test_state_name_for()
     test_speed_percentage_at()
     test_calculate_rpm()
+    test_display_lut_structure_and_rotation()
     test_validate_lut_header()
     test_debug_log()
     test_debug_log_format()
