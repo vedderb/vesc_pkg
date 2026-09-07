@@ -113,14 +113,14 @@ static void ws2812_init(ws_cfg *cfg) {
 			dma_ch = DMA_Channel_2;
 			VESC_IF->set_pad_mode(GPIOB, 7,
 				PAL_MODE_ALTERNATE(2) |
-				PAL_STM32_OTYPE_OPENDRAIN |
+				PAL_STM32_OTYPE_PUSHPULL |
 				PAL_STM32_OSPEED_MID1);
 		} else {
 			dma_stream = DMA1_Stream0;
 			dma_ch = DMA_Channel_2;
 			VESC_IF->set_pad_mode(GPIOB, 6,
 				PAL_MODE_ALTERNATE(2) |
-				PAL_STM32_OTYPE_OPENDRAIN |
+				PAL_STM32_OTYPE_PUSHPULL |
 				PAL_STM32_OSPEED_MID1);
 		}
 	} else {
@@ -130,14 +130,14 @@ static void ws2812_init(ws_cfg *cfg) {
 			dma_ch = DMA_Channel_5;
 			VESC_IF->set_pad_mode(GPIOC, 7,
 				PAL_MODE_ALTERNATE(2) |
-				PAL_STM32_OTYPE_OPENDRAIN |
+				PAL_STM32_OTYPE_PUSHPULL |
 				PAL_STM32_OSPEED_MID1);
 		} else {
 			dma_stream = DMA1_Stream4;
 			dma_ch = DMA_Channel_5;
 			VESC_IF->set_pad_mode(GPIOC, 6,
 				PAL_MODE_ALTERNATE(2) |
-				PAL_STM32_OTYPE_OPENDRAIN |
+				PAL_STM32_OTYPE_PUSHPULL |
 				PAL_STM32_OSPEED_MID1);
 		}
 	}
