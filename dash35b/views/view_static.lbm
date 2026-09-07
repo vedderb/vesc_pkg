@@ -21,7 +21,7 @@
             (t -300.0)
         ) ; 14
         (* (round (* stats-vin 10)) 0.1)    ; 15
-        (round stats-kmh)                   ; 16
+        (round (u-speed stats-kmh))         ; 16
         (round stats-amps-now)              ; 17
         cruise-control-active               ; 18
         (round cruise-control-speed)        ; 19
@@ -35,72 +35,102 @@
 
 ;(print (ix (view-static-state) 25))
 
+; Not in update-state, so it is redrawn on a forced pass.
+(defun view-static-frame () {
+        (disp-render img-vesc 16 7 colors-vesc)
+        (disp-render img-batt-level 10 83 colors-white-aa)
+})
+
 (defun view-static-thread () {
         (var update-state (map (fn (x) t) (view-static-state)))
         (var state-last (view-static-state))
 
-        (disp-render img-vesc 16 7 colors-vesc)
-        (disp-render img-batt-level 10 83 colors-white-aa)
+        (view-static-frame)
 
         (loopwhile t {
                 ; Indicator L
                 (var state-ind 0)
                 (if (ix update-state state-ind) {
-                        (if (ix state-last state-ind)
-                            (disp-render img-indicator-l 70 12 colors-green-icon)
-                            (disp-render img-indicator-l 70 12 colors-dim-icon)
+                        (if (icon-on 0)
+                            (if (ix state-last state-ind)
+                                (disp-render img-indicator-l 70 12 colors-green-icon)
+                                (disp-render img-indicator-l 70 12 colors-dim-icon)
+                            )
+                            (disp-render img-indicator-l 70 12 colors-hidden)
                         )
                 })
 
                 ; Warning
                 (var state-ind 10)
                 (if (ix update-state state-ind) {
-                        (if (!= (ix state-last state-ind) 0)
-                            (disp-render img-warning 124 11 colors-red-icon)
-                            (disp-render img-warning 124 11 colors-dim-icon)
+                        (if (icon-on 4)
+                            (if (!= (ix state-last state-ind) 0)
+                                (disp-render img-warning 124 11 colors-red-icon)
+                                (disp-render img-warning 124 11 colors-dim-icon)
+                            )
+                            (disp-render img-warning 124 11 colors-hidden)
                         )
                 })
 
                 ; High Beam
                 (if (or (ix update-state 2) (ix update-state 20)) {
-                        (if light-on-is-highbeam
-                            (if (ix state-last 20)
-                                (disp-render img-highbeam 175 14 colors-blue-icon)
-                                (disp-render img-lowbeam 175 14 colors-green-icon)
+                        (if (icon-on 1)
+                            (if light-on-is-highbeam
+                                (if (ix state-last 20)
+                                    (disp-render img-highbeam 175 14 colors-blue-icon)
+                                    (disp-render img-lowbeam 175 14 colors-green-icon)
+                                )
+                                (cond
+                                    ((ix state-last 2) (disp-render img-highbeam 175 14 colors-blue-icon))
+                                    ((ix state-last 20) (disp-render img-lowbeam 175 14 colors-green-icon))
+                                    (true (disp-render img-lowbeam 175 14 colors-dim-icon))
+                                )
                             )
-                            (cond
-                                ((ix state-last 2) (disp-render img-highbeam 175 14 colors-blue-icon))
-                                ((ix state-last 20) (disp-render img-lowbeam 175 14 colors-green-icon))
-                                (true (disp-render img-lowbeam 175 14 colors-dim-icon))
-                            )
+                            {
+                                (disp-render img-highbeam 175 14 colors-hidden)
+                                (disp-render img-lowbeam 175 14 colors-hidden)
+                            }
                         )
                 })
 
                 ; Kick Stand
                 (var state-ind 3)
                 (if (ix update-state state-ind) {
-                        (if (ix state-last state-ind)
-                            (disp-render img-kickstand 278 14 colors-red-icon)
-                            (disp-render img-kickstand 278 14 colors-dim-icon)
+                        (if (icon-on 2)
+                            (if (ix state-last state-ind)
+                                (disp-render img-kickstand 278 14 colors-red-icon)
+                                (disp-render img-kickstand 278 14 colors-dim-icon)
+                            )
+                            (disp-render img-kickstand 278 14 colors-hidden)
                         )
                 })
 
                 ; Temperature
                 (if (or (ix update-state 11) (ix update-state 12) (ix update-state 22)) {
-                        (cond
-                            ((> (ix state-last 11) config-esc-hot) (disp-render img-temp-e 323 10 colors-red-icon))
-                            ((> (ix state-last 12) config-battery-hot) (disp-render img-temp-b 323 10 colors-red-icon))
-                            ((> (ix state-last 22) config-motor-hot) (disp-render img-temp-m 323 10 colors-red-icon))
-                            (true                      (disp-render img-temp-b 323 10 colors-dim-icon))
+                        (if (icon-on 3)
+                            (cond
+                                ((> (ix state-last 11) settings-esc-hot) (disp-render img-temp-e 323 10 colors-red-icon))
+                                ((> (ix state-last 12) settings-batt-hot) (disp-render img-temp-b 323 10 colors-red-icon))
+                                ((> (ix state-last 22) settings-motor-hot) (disp-render img-temp-m 323 10 colors-red-icon))
+                                (true                      (disp-render img-temp-b 323 10 colors-dim-icon))
+                            )
+                            {
+                                (disp-render img-temp-e 323 10 colors-hidden)
+                                (disp-render img-temp-b 323 10 colors-hidden)
+                                (disp-render img-temp-m 323 10 colors-hidden)
+                            }
                         )
                 })
 
                 ; Indicator R
                 (var state-ind 1)
                 (if (ix update-state state-ind) {
-                        (if (ix state-last state-ind)
-                            (disp-render img-indicator-r 374 12 colors-green-icon)
-                            (disp-render img-indicator-r 374 12 colors-dim-icon)
+                        (if (icon-on 0)
+                            (if (ix state-last state-ind)
+                                (disp-render img-indicator-r 374 12 colors-green-icon)
+                                (disp-render img-indicator-r 374 12 colors-dim-icon)
+                            )
+                            (disp-render img-indicator-r 374 12 colors-hidden)
                         )
                 })
 
@@ -149,7 +179,8 @@
                         (img-clear imgbuf)
 
                         (var str (if (> temp -200)
-                                (str-from-n temp "%d C")
+                                (str-merge (str-from-n (to-i (u-temp (to-float temp))) "%d ")
+                                           (u-temp-str))
                                 "---"
                         ))
 
@@ -167,10 +198,19 @@
                         (var imgbuf2 (img-buffer dm-pool 'indexed2 w h))
                         (img-rectangle imgbuf 0 0 w h 1 '(rounded 2) '(filled))
 
+                        (var bcol (if settings-batt-ramp
+                                (cond
+                                    ((< percent 15) colors-crit-2)
+                                    ((< percent 35) colors-warn-2)
+                                    (t colors-ok-2)
+                                )
+                                colors-theme-2
+                        ))
+
                         (looprange i 0 10 {
                                 (disp-render
                                     (if (> percent (* i 10)) imgbuf imgbuf2)
-                                    14 (- 271 (* i 20)) colors-theme-2
+                                    14 (- 271 (* i 20)) bcol
                                 )
                         })
 
@@ -227,7 +267,7 @@
                                     (img-arc imgbuf 138 140 140 (+ -90.0 (* current (/ 90.0 config-curr-brake))) -90 3 '(thickness 8))
                                 )
 
-                                (ttf-txt-center "km/h" font-16-2c imgbuf '(0 3) 30)
+                                (ttf-txt-center (u-speed-str) font-16-2c imgbuf '(0 3) 30)
                                 (ttf-txt-center (str-from-n kmh) font-90 imgbuf '(0 3) 105)
                             }
                         )
@@ -238,19 +278,24 @@
                 ; Cruise Control
                 (if (or (ix update-state 18) (ix update-state 19)) {
                         (var active (ix state-last 18))
-                        (var kmh (to-float (ix state-last 19)))
+                        (var kmh (u-speed (to-float (ix state-last 19))))
 
                         (var (color-txt color-icon) (if active
                                 (list colors-text-aa colors-green-icon)
                                 (list colors-dim-icon colors-dim-icon)
                         ))
 
-                        (disp-render img-cruise 407 225 color-icon)
+                        (if (icon-on 5)
+                            (disp-render img-cruise 407 225 color-icon)
+                            (disp-render img-cruise 407 225 colors-hidden)
+                        )
 
                         (var imgbuf (img-buffer dm-pool 'indexed4 52 28))
                         (img-clear imgbuf)
-                        (ttf-txt-center (str-from-n kmh "%.0f") font-32 imgbuf)
-                        (disp-render imgbuf 403 262 color-txt)
+                        (if (icon-on 5)
+                            (ttf-txt-center (str-from-n kmh "%.0f") font-32 imgbuf))
+                        (disp-render imgbuf 403 262
+                            (if (icon-on 5) color-txt colors-hidden))
                 })
 
                 ; Page
@@ -271,9 +316,13 @@
                         (disp-render imgbuf 393 297 colors-text-aa)
                 })
 
+                (var force view-force-static)
+                (setq view-force-static false)
+                (if force (view-static-frame))
+
                 (var state-new (view-static-state))
                 (looprange i 0 (length update-state)
-                    (setix update-state i (not-eq (ix state-last i) (ix state-new i)))
+                    (setix update-state i (or force (not-eq (ix state-last i) (ix state-new i))))
                 )
                 (setq state-last state-new)
 
