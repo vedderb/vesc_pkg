@@ -4,6 +4,12 @@
 @const-start
 
 (defun proc-sid (id data) {
+        ; Any of these means dash_esc is alive on the bus. standalone-thread
+        ; watches this timestamp to decide whether to take over.
+        (if (or (and (>= id 20) (<= id 24)) (= id 30) (= id 31))
+            (setq dash-esc-last (systime))
+        )
+
         (cond
             ((= id 20) {
                     ; Using SOC from BMS when available
@@ -139,7 +145,10 @@
 (defun event-handler ()
     (loopwhile t
         (recv
-            ((event-can-sid . ((? id) . (? data))) (proc-sid id data))
+            ; The settings page sends expressions here rather than over the
+            ; REPL, which drops anything sent within 0.5 s of the last command.
+            ((event-data-rx . (? data)) (trap (eval (read data))))
+            ((event-can-sid . ((? id) . (? data))) (trap (proc-sid id data)))
             (_ nil)
 )))
 

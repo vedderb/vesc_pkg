@@ -7,7 +7,7 @@
 
 (def kickstand-down false)
 (def drive-mode 1)
-(def drive-mode-num 5)
+
 (def performance-mode 'eco) ; 'eco 'normal 'sport UNUSED!
 
 (def cruise-control-active false)
@@ -23,10 +23,16 @@
 (def battery-b-connected false) ; Has received msg from BMS B
 
 (def page-now 0)
-(def page-num 2)
+(def page-num 3)
 
 (def light-on light-on-default)
 (def backlight-dim false)
+
+; Set when something changes that the per-field change detection cannot see,
+; such as a unit switch that alters a label without altering the value.
+; The view threads clear these after one full pass.
+(def view-force-static false)
+(def view-force-pages false)
 
 (def temp-ambient 0.0)
 (def temp-ambient-rx false)

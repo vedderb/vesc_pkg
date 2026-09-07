@@ -103,3 +103,66 @@
                 })
         })
 })
+
+; Sources the live page can show. (label unit) with the value read by
+; slot-value below. Order is stored in eeprom, so only append.
+; Kept identical to dash35b so a setting means the same on both displays.
+(def slot-catalog '(
+        ("Speed"      "")
+        ("Battery"    "%")
+        ("Motor Amps" "A")
+        ("Batt Amps"  "A")
+        ("Power"      "kW")
+        ("Voltage"    "V")
+        ("Motor Temp" "")
+        ("ESC Temp"   "")
+        ("Pack Temp"  "")
+        ("Duty"       "%")
+        ("Trip"       "")
+        ("Odometer"   "")
+        ("Energy"     "Wh")
+        ("Regen"      "Wh")
+        ("Amp Hours"  "Ah")
+        ("Peak Amps"  "A")
+        ("Top Speed"  "")
+        ("Pitch"      "deg")
+))
+
+(defun slot-value (i)
+    (cond
+        ((= i 0) (u-speed stats-kmh))
+        ((= i 1) (* 100.0 stats-battery-soc))
+        ((= i 2) stats-amps-now)
+        ((= i 3) (if (= stats-vin 0) 0.0 (/ (* stats-kw 1000.0) stats-vin)))
+        ((= i 4) stats-kw)
+        ((= i 5) stats-vin)
+        ((= i 6) (u-temp stats-temp-motor))
+        ((= i 7) (u-temp stats-temp-esc))
+        ((= i 8) (u-temp stats-temp-battery))
+        ((= i 9) (* stats-duty 100.0))
+        ((= i 10) (u-dist stats-km))
+        ((= i 11) (u-dist stats-odom))
+        ((= i 12) stats-wh)
+        ((= i 13) stats-wh-chg)
+        ((= i 14) stats-battery-ah)
+        ((= i 15) stats-amps-max)
+        ((= i 16) (u-speed stats-kmh-max))
+        (t stats-angle-pitch)
+))
+
+; Units that follow the unit setting rather than being fixed.
+(defun slot-unit (i)
+    (cond
+        ((or (= i 0) (= i 16)) (u-speed-str))
+        ((or (= i 6) (= i 7) (= i 8)) (u-temp-str))
+        ((or (= i 10) (= i 11)) (u-dist-str))
+        (t (ix (ix slot-catalog i) 1))
+))
+
+(defun slot-label (i) (ix (ix slot-catalog i) 0))
+
+; One decimal for the small numbers, none for the ones that get large.
+(defun slot-fmt (i)
+    (if (or (= i 1) (= i 5) (= i 9) (= i 12) (= i 13) (= i 15)
+            (= i 2) (= i 3) (= i 6) (= i 7) (= i 8))
+        "%.0f" "%.1f"))

@@ -21,7 +21,7 @@
             (t -300.0)
         ) ; 14
         (* (round (* stats-vin 10)) 0.1)    ; 15
-        (round stats-kmh)                   ; 16
+        (round (u-speed stats-kmh))         ; 16
         (round stats-amps-now)              ; 17
         cruise-control-active               ; 18
         (round cruise-control-speed)        ; 19
@@ -35,44 +35,86 @@
 
 ;(print (ix (view-static-state) 25))
 
+; Never changes with the vehicle state, so it is not in update-state.
+; Redrawn on a forced pass because the logo moves when the top strip is
+; emptied. Both positions are always drawn, the unused one in the background
+; colour, so moving it leaves nothing behind.
+; The glass has rounded corners, so the ends of the strip are not usable at
+; the very top. The turn signals got away with sitting there because an arrow
+; leaves its box corners empty; the logo and the gear glyph do not, so they
+; are inset. Nudge these two if anything still clips.
+(def strip-inset 16)
+(def strip-top 5)
+
+(def speed-y 34)
+
+(defun view-static-frame () {
+        (var top (icons-top-hidden))
+
+        ; Wipe everything above the page area so a layout change leaves nothing
+        ; behind. All of it is redrawn on this same forced pass.
+        (var wipe (img-buffer dm-pool 'indexed2 172 52))
+        (img-clear wipe)
+        (looprange i 0 3 (disp-render wipe 34 (* i 52) '(0 0)))
+
+        (if top (disp-render img-vesc (+ 34 strip-inset) strip-top colors-vesc))
+        (disp-render img-vesc 45 121 (if top colors-hidden colors-vesc))
+        (disp-render img-batt-level 36 280 colors-white-aa)
+})
+
 (defun view-static-thread () {
         (var update-state (map (fn (x) t) (view-static-state)))
         (var state-last (view-static-state))
-
-        (disp-render img-vesc 45 121 colors-vesc)
-        (disp-render img-batt-level 36 280 colors-white-aa)
+        (var frame-todo true)
 
         (loopwhile t {
+                (if frame-todo {
+                        (view-static-frame)
+                        (setq frame-todo false)
+                })
+
                 ; Indicator L
                 (var state-ind 0)
-                (if (ix update-state state-ind) {
-                        (if (ix state-last state-ind)
-                            (disp-render img-indicator-l 35 1 colors-green-icon)
-                            (disp-render img-indicator-l 35 1 colors-dim-icon)
+                (if (and (ix update-state state-ind) (not (icons-top-hidden))) {
+                        (if (icon-on 0)
+                            (if (ix state-last state-ind)
+                                (disp-render img-indicator-l 35 1 colors-green-icon)
+                                (disp-render img-indicator-l 35 1 colors-dim-icon)
+                            )
+                            (disp-render img-indicator-l 35 1 colors-hidden)
                         )
                 })
 
                 ; Warning
                 (var state-ind 10)
-                (if (ix update-state state-ind) {
-                        (if (!= (ix state-last state-ind) 0)
-                            (disp-render img-warning 77 3 colors-red-icon)
-                            (disp-render img-warning 77 3 colors-dim-icon)
+                (if (and (ix update-state state-ind) (not (icons-top-hidden))) {
+                        (if (icon-on 4)
+                            (if (!= (ix state-last state-ind) 0)
+                                (disp-render img-warning 77 3 colors-red-icon)
+                                (disp-render img-warning 77 3 colors-dim-icon)
+                            )
+                            (disp-render img-warning 77 3 colors-hidden)
                         )
                 })
 
                 ; High Beam
-                (if (or (ix update-state 2) (ix update-state 20)) {
-                        (if light-on-is-highbeam
-                            (if (ix state-last 20)
-                                (disp-render img-highbeam 134 2 colors-blue-icon)
-                                (disp-render img-lowbeam 134 2 colors-green-icon)
+                (if (and (or (ix update-state 2) (ix update-state 20)) (not (icons-top-hidden))) {
+                        (if (icon-on 1)
+                            (if light-on-is-highbeam
+                                (if (ix state-last 20)
+                                    (disp-render img-highbeam 134 2 colors-blue-icon)
+                                    (disp-render img-lowbeam 134 2 colors-green-icon)
+                                )
+                                (cond
+                                    ((ix state-last 2) (disp-render img-highbeam 134 2 colors-blue-icon))
+                                    ((ix state-last 20) (disp-render img-lowbeam 134 2 colors-green-icon))
+                                    (true (disp-render img-lowbeam 134 2 colors-dim-icon))
+                                )
                             )
-                            (cond
-                                ((ix state-last 2) (disp-render img-highbeam 134 2 colors-blue-icon))
-                                ((ix state-last 20) (disp-render img-lowbeam 134 2 colors-green-icon))
-                                (true (disp-render img-lowbeam 134 2 colors-dim-icon))
-                            )
+                            {
+                                (disp-render img-highbeam 134 2 colors-hidden)
+                                (disp-render img-lowbeam 134 2 colors-hidden)
+                            }
                         )
                 })
 
@@ -97,10 +139,13 @@
 
                 ; Indicator R
                 (var state-ind 1)
-                (if (ix update-state state-ind) {
-                        (if (ix state-last state-ind)
-                            (disp-render img-indicator-r 170 1 colors-green-icon)
-                            (disp-render img-indicator-r 170 1 colors-dim-icon)
+                (if (and (ix update-state state-ind) (not (icons-top-hidden))) {
+                        (if (icon-on 0)
+                            (if (ix state-last state-ind)
+                                (disp-render img-indicator-r 170 1 colors-green-icon)
+                                (disp-render img-indicator-r 170 1 colors-dim-icon)
+                            )
+                            (disp-render img-indicator-r 170 1 colors-hidden)
                         )
                 })
 
@@ -119,8 +164,13 @@
                         ;(img-clear imgbuf 2) ; Show where buffer is
                         (img-clear imgbuf)
 
+                        ; Top right when the strip is empty, centre otherwise.
+                        ; The vacated slot is painted out on every redraw.
+                        (var gx-top (- 206 strip-inset 24))
+                        (var gx (if (icons-top-hidden) gx-top 108))
+                        (var gy (if (icons-top-hidden) strip-top 2))
                         (ttf-txt-center txt font-32 imgbuf)
-                        (disp-render imgbuf 108 2 colors-text-aa)
+                        (disp-render imgbuf gx gy colors-text-aa)
                 })
 
                 ; Clock
@@ -167,10 +217,19 @@
                         (var imgbuf2 (img-buffer dm-pool 'indexed2 w h))
                         (img-rectangle imgbuf 0 0 w h 1 '(rounded 2) '(filled))
 
+                        (var bcol (if settings-batt-ramp
+                                (cond
+                                    ((< percent 15) colors-crit-2)
+                                    ((< percent 35) colors-warn-2)
+                                    (t colors-ok-2)
+                                )
+                                colors-theme-2
+                        ))
+
                         (looprange i 0 10 {
                                 (disp-render
                                     (if (> percent (* i 10)) imgbuf imgbuf2)
-                                    (+ 39 (* i 16)) 283 colors-theme-2
+                                    (+ 39 (* i 16)) 283 bcol
                                 )
                         })
 
@@ -219,30 +278,37 @@
                             }
                             {
                                 ;(ttf-text imgbuf 125 81 '(0 3) font-16-2c "km/h")
-                                (ttf-txt-center "km/h" font-16-2c imgbuf '(0 3) 81)
+                                (ttf-txt-center (u-speed-str) font-16-2c imgbuf '(0 3) 81)
                                 (ttf-txt-center (str-from-n kmh) font-90 imgbuf '(0 3) 65)
                             }
                         )
 
-                        (disp-render imgbuf 34 34 (if charging colors-charging colors-speed))
+                        (disp-render imgbuf 34 speed-y
+                            (if charging colors-charging colors-speed))
                 })
 
                 ; Cruise Control
                 (if (or (ix update-state 18) (ix update-state 19)) {
                         (var active (ix state-last 18))
-                        (var kmh (to-float (ix state-last 19)))
+                        (var kmh (u-speed (to-float (ix state-last 19))))
 
                         (var (color-txt color-icon) (if active
                                 (list colors-text-aa colors-green-icon)
                                 (list colors-dim-icon colors-dim-icon)
                         ))
 
-                        (disp-render img-cruise 94 118 color-icon)
+                        (if (icon-on 5)
+                            (disp-render img-cruise 94 118 color-icon)
+                            (disp-render img-cruise 94 118 colors-hidden)
+                        )
 
+                        ; The speed goes with the icon, so hiding one hides both
                         (var imgbuf (img-buffer dm-pool 'indexed4 52 28))
                         (img-clear imgbuf)
-                        (ttf-txt-left (str-from-n kmh "%.0f") font-32 imgbuf)
-                        (disp-render imgbuf 139 125 color-txt)
+                        (if (icon-on 5)
+                            (ttf-txt-left (str-from-n kmh "%.0f") font-32 imgbuf))
+                        (disp-render imgbuf 139 125
+                            (if (icon-on 5) color-txt colors-hidden))
                 })
 
                 ; Page
@@ -257,9 +323,13 @@
                         ;(disp-render imgbuf 393 297 colors-text-aa)
                 ;})
 
+                (var force view-force-static)
+                (setq view-force-static false)
+                (if force (setq frame-todo true))
+
                 (var state-new (view-static-state))
                 (looprange i 0 (length update-state)
-                    (setix update-state i (not-eq (ix state-last i) (ix state-new i)))
+                    (setix update-state i (or force (not-eq (ix state-last i) (ix state-new i))))
                 )
                 (setq state-last state-new)
 

@@ -6,12 +6,9 @@
 (def config-metric-temps true)
 
 (def config-gnss-use-speed false) ; Prefer GPS speed over ESC speed
-(def config-utc-offset-sec (to-i (* 60 60 2.0))) ; CST is -21600 seconds
 
 (def config-boot-animation-enable false) ; Enable VESC logo animation
 (def config-code-server true) ; Enable remote code execution
-(def config-units-switching-enable false) ; Eable UNITS menu option and button
-(def config-profiles-enable false) ; Enable profile selection and editing
 
 (def config-battery-hot 55.0) ; Displays warning indicator, Degrees C
 (def config-esc-hot 80.0) ; Degrees C
@@ -20,6 +17,14 @@
 ; Current limits for animation above speed dial
 (def config-curr-accel 80.0)
 (def config-curr-brake 60.0)
+
+; Sent with the mode profile when running without dash_esc. The display has no
+; way to read what the controller currently uses for these, so non-limiting
+; values are sent rather than a guess that could quietly cap the bike.
+(def config-sa-duty-min 0.005)
+(def config-sa-duty-max 0.95)
+(def config-sa-watt-min -1500000.0)
+(def config-sa-watt-max 1500000.0)
 
 ; Backlight levels
 (def bl-lvl-bright 1.0)

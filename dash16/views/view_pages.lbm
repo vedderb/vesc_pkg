@@ -84,16 +84,21 @@
         (var textimg (assoc page-resources 'text-img))
 
         (if (ix update-state 0)
-            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 10) (str-from-n (ix curr-state 0) "%.1f km"))
+            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 10)
+                (str-merge (str-from-n (u-dist (ix curr-state 0)) "%.1f ") (u-dist-str)))
         )
         (if (ix update-state 1)
-            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 30) (str-from-n (ix curr-state 1) "%.1f km"))
+            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 30)
+                (str-merge (str-from-n (u-dist (ix curr-state 1)) "%.1f ") (u-dist-str)))
         )
         (if (ix update-state 2)
-            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 50) (str-from-n (ix curr-state 2) "%.1f km"))
+            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 50)
+                (str-merge (str-from-n (u-dist (ix curr-state 2)) "%.1f ") (u-dist-str)))
         )
         (if (ix update-state 3)
-            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 70) (str-from-n (ix curr-state 3) "%.1f Wh/km"))
+            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 70)
+                (str-merge (str-from-n (/ (ix curr-state 3) (if (eq (car settings-units-speeds) 'mph) km-to-mi 1.0)) "%.1f ")
+                           (u-eff-str)))
         )
 
         (setq page-1-state curr-state)
@@ -147,7 +152,8 @@
             (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 40) (str-from-n (* (ix curr-state 2) 100.0) "%.0f %%"))
         )
         (if (ix update-state 3)
-            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 58) (str-from-n (ix curr-state 3) "%.1f km/h"))
+            (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 58)
+                (str-merge (str-from-n (u-speed (ix curr-state 3)) "%.1f ") (u-speed-str)))
         )
         (if (ix update-state 4)
             (draw-ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 76) (str-from-n (ix curr-state 4) "%.0f W"))
@@ -156,10 +162,75 @@
         (setq page-2-state curr-state)
 })
 
-(def pages (list
-        page-1
-        page-2
+; Four readings, two by two. The page area is 172x100, so cells are 86x50.
+; Measured on the panel: font-12 labels reach 83 px at the longest catalogue
+; entry and font-24 values 72 px, so both clear the 86 px cell.
+(defun get-page-3-state () (list
+        (str-from-n (slot-value (ix settings-slots 0)) (slot-fmt (ix settings-slots 0)))
+        (str-from-n (slot-value (ix settings-slots 1)) (slot-fmt (ix settings-slots 1)))
+        (str-from-n (slot-value (ix settings-slots 2)) (slot-fmt (ix settings-slots 2)))
+        (str-from-n (slot-value (ix settings-slots 3)) (slot-fmt (ix settings-slots 3)))
 ))
+
+(def page-3-state (get-page-3-state))
+(defun page-3 (s) {
+        (var curr-state (get-page-3-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-3-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state))
+
+                (setq page-resources (list
+                        (cons 'lbl-img (img-buffer dm-pool 'indexed4 86 14))
+                        (cons 'val-img (img-buffer dm-pool 'indexed4 86 28))
+                ))
+
+                (disp-render img-page-clear page-x page-y (list 0 0))
+
+                (var lblimg (assoc page-resources 'lbl-img))
+                (looprange i 0 4 {
+                        (var cx (+ page-x (* (mod i 2) 86)))
+                        (var cy (+ page-y (* (/ i 2) 50)))
+                        (var src (ix settings-slots i))
+                        (img-clear lblimg)
+                        (ttf-txt-center
+                            (str-merge (slot-label src) " " (slot-unit src))
+                            font-12 lblimg)
+                        (disp-render lblimg cx (+ cy 2) colors-text-aa)
+                })
+        })
+
+        (var valimg (assoc page-resources 'val-img))
+        (looprange i 0 4
+            (if (ix update-state i) {
+                    (var cx (+ page-x (* (mod i 2) 86)))
+                    (var cy (+ page-y (* (/ i 2) 50)))
+                    (img-clear valimg)
+                    (ttf-txt-center (ix curr-state i) font-24 valimg)
+                    (disp-render valimg cx (+ cy 18) colors-text-aa)
+            })
+        )
+
+        (setq page-3-state curr-state)
+})
+
+(def page-catalog (list page-3 page-1 page-2))
+
+(defun settings-apply-pages () {
+        (var sel nil)
+        (looprange i 0 (length page-catalog)
+            (if (!= 0 (bitwise-and settings-page-mask (shl 1 i)))
+                (setq sel (cons (ix page-catalog i) sel))
+        ))
+        (setq sel (reverse sel))
+        (if (eq sel nil) (setq sel (list (ix page-catalog 0))))
+        (setq page-num (length sel))
+        (setq pages sel)
+        (if (>= page-now page-num) (setq page-now 0))
+})
+
+(def pages (list page-3 page-1 page-2))
+(settings-apply-pages)
 
 (defun view-pages-thread () {
         ;; recreated if the view thread restarts
@@ -170,7 +241,9 @@
         (loopwhile t {
                 (var page-now-sample page-now)
                 (var curr-page (ix pages page-now-sample))
-                (if curr-page (curr-page (not (= last-page page-now-sample))))
+                (var force view-force-pages)
+                (setq view-force-pages false)
+                (if curr-page (curr-page (or force (not (= last-page page-now-sample)))))
                 (setq last-page page-now-sample)
                 (sleep 0.05)
         })
