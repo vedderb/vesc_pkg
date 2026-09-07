@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.5.0
+**Version:** 1.5.1
 
 ## License
 
@@ -37,6 +37,12 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.5.1
+
+Bugfix release:
+
+- **Fix: Display rotation at 90° and 270°** — Display symbols now use the documented, consistent clockwise rotation.
 
 ## What's New in Version 1.5.0
 
@@ -502,7 +508,7 @@ All settings are accessible through the VESC mobile app or VESC Tool:
 - **Battery Beeps:** Enable/disable capacity beeps
 - **Beep Volume:** 0-5 volume level
 - **Display Brightness:** Adjust LED brightness
-- **Display Rotation:** 0°, 90°, 180°, 270°
+- **Display Rotation:** 0°, 90°, 180°, 270°. Positive rotation is clockwise in the physical display view.
 - **Trigger Click Beeps:** Enable/disable click feedback beeps
 
 ### Safety Settings
