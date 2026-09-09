@@ -192,7 +192,7 @@
         (recv
             ((event-data-rx . (? data)) (trap (eval (read data))))
             (event-shutdown (stop-log last-can-id))
-            ((event-can-sid . ((? id) . (? data))) (proc-sid id data))
+            ((event-can-sid . ((? id) . (? data))) (trap (proc-sid id data)))
             (_ nil)
 )))
 
