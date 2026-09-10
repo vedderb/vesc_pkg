@@ -36,6 +36,11 @@ Drive modes need dash_esc.
 
 ## Changelog
 
+**Version 2.3 (2026-09-10)**
+* Load settings correctly on boot
+* Fix bug where some values are shown as 0
+* Show all settings when opening them the first time
+
 **Version 2.1 (2026-09-04)**
 * Settings page, stored in eeprom and applied without a reinstall
 * Live page with four configurable readings

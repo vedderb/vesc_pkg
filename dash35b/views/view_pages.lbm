@@ -358,7 +358,7 @@
         (var update-state (zipwith (fn (x y) (not-eq x y)) page-4-state curr-state))
 
         (if s {
-                (setq update-state (map (fn (x) t) update-state)) ; Update all fields on page switch
+                (setq update-state (map (fn (x) t) curr-state)) ; Update all fields on page switch
 
                 (setq page-resources
                     (list
