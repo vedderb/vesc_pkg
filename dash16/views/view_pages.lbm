@@ -166,10 +166,10 @@
 ; Measured on the panel: font-12 labels reach 83 px at the longest catalogue
 ; entry and font-24 values 72 px, so both clear the 86 px cell.
 (defun get-page-3-state () (list
-        (str-from-n (slot-value (ix settings-slots 0)) (slot-fmt (ix settings-slots 0)))
-        (str-from-n (slot-value (ix settings-slots 1)) (slot-fmt (ix settings-slots 1)))
-        (str-from-n (slot-value (ix settings-slots 2)) (slot-fmt (ix settings-slots 2)))
-        (str-from-n (slot-value (ix settings-slots 3)) (slot-fmt (ix settings-slots 3)))
+        (str-from-n (to-float (slot-value (ix settings-slots 0))) (slot-fmt (ix settings-slots 0)))
+        (str-from-n (to-float (slot-value (ix settings-slots 1))) (slot-fmt (ix settings-slots 1)))
+        (str-from-n (to-float (slot-value (ix settings-slots 2))) (slot-fmt (ix settings-slots 2)))
+        (str-from-n (to-float (slot-value (ix settings-slots 3))) (slot-fmt (ix settings-slots 3)))
 ))
 
 (def page-3-state (get-page-3-state))
