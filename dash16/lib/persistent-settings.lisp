@@ -84,6 +84,25 @@
         (print (list (first it) (read-setting (first it))))
 ))
 
+(defun save-settings (  pf1-speed pf1-brake pf1-accel
+                        pf2-speed pf2-brake pf2-accel
+                        pf3-speed pf3-brake pf3-accel
+                        pf-active
+)
+    (progn
+        (write-setting 'pf1-speed pf1-speed)
+        (write-setting 'pf1-brake pf1-brake)
+        (write-setting 'pf1-accel pf1-accel)
+        (write-setting 'pf2-speed pf2-speed)
+        (write-setting 'pf2-brake pf2-brake)
+        (write-setting 'pf2-accel pf2-accel)
+        (write-setting 'pf3-speed pf3-speed)
+        (write-setting 'pf3-brake pf3-brake)
+        (write-setting 'pf3-accel pf3-accel)
+        (write-setting 'pf-active pf-active)
+        (print "Settings Saved!")
+))
+
 ; Settings version
 (def settings-version 44i32)
 
@@ -287,3 +306,5 @@
 })
 
 (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
+
+(settings-load)

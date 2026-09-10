@@ -2,7 +2,6 @@
 
 ; Assets
 (import "assets/sym_vesc_37x34.bin" 'img-vesc)
-(import "assets/sym_vesc_30x27.bin" 'img-vesc-small)
 (import "assets/batt_level_167x30.bin" 'img-batt-level)
 (import "assets/highbeam_32x24.bin" 'img-highbeam)
 (import "assets/lowbeam_32x24.bin" 'img-lowbeam)
@@ -115,7 +114,15 @@
         (def init-complete nil)
         (def rx-cnt-can 0)
 
-        (settings-load)
+        ; Top level only runs on the first boot after installing. Later boots
+        ; restore the saved image and skip it, so without reading eeprom here
+        ; any setting changed since then is stored but never applied.
+        (if (eq (car (trap {
+                (settings-load)
+                (settings-apply-pages)
+        })) 'exit-error)
+            (print "Settings failed to load, using defaults"))
+
         (settings-apply-units)
 
         (if config-code-server (start-code-server)) ; Enable remote code execution
