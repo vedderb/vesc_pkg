@@ -158,6 +158,21 @@
         (def init-complete nil)
         (def rx-cnt-can 0)
 
+        (if (eq (car (trap {
+                            (settings-load)
+                            (settings-build)
+                            (colors-build)
+                })) 'exit-error) {
+                (print "Settings failed to load, using defaults")
+
+                (trap {
+                        (restore-settings)
+                        (settings-load)
+                        (settings-build)
+                        (colors-build)
+                })
+        })
+
         (settings-apply-units)
 
         (if config-code-server (start-code-server)) ; Enable remote code execution

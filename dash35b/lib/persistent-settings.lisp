@@ -434,12 +434,3 @@
 ; Restore settings if version number does not match
 ; as that probably means something else is in eeprom
 (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
-
-; Only runs on the first boot after installing. An error here takes main
-; down before the display starts, which looks like a dead screen.
-(if (eq (car (trap {
-        (settings-load)
-        (settings-build)
-        (colors-build)
-})) 'exit-error)
-    (print "Settings failed to load, using defaults"))

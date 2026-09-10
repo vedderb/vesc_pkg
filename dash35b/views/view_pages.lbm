@@ -410,10 +410,10 @@
 })
 
 (defun get-page-5-state () (list
-        (str-from-n (slot-value (ix settings-slots 0)) (slot-fmt (ix settings-slots 0)))
-        (str-from-n (slot-value (ix settings-slots 1)) (slot-fmt (ix settings-slots 1)))
-        (str-from-n (slot-value (ix settings-slots 2)) (slot-fmt (ix settings-slots 2)))
-        (str-from-n (slot-value (ix settings-slots 3)) (slot-fmt (ix settings-slots 3)))
+        (str-from-n (to-float (slot-value (ix settings-slots 0))) (slot-fmt (ix settings-slots 0)))
+        (str-from-n (to-float (slot-value (ix settings-slots 1))) (slot-fmt (ix settings-slots 1)))
+        (str-from-n (to-float (slot-value (ix settings-slots 2))) (slot-fmt (ix settings-slots 2)))
+        (str-from-n (to-float (slot-value (ix settings-slots 3))) (slot-fmt (ix settings-slots 3)))
 ))
 
 (def page-5-state (get-page-5-state))
@@ -457,13 +457,7 @@
                     (var str (ix curr-state i))
                     (img-clear valimg)
 
-                    ; font-32 has no minus, so draw it. 45 is "-"
-                    (var neg (= (bufget-u8 str 0) 45))
-                    (if neg {
-                            (img-rectangle valimg 4 16 13 4 3 '(filled))
-                            (setq str (str-part str 1))
-                    })
-                    (ttf-text valimg (if neg 20 4) 30 '(0 1 2 3) font-32 str)
+                    (ttf-text valimg 20 30 '(0 1 2 3) font-32 str)
                     (disp-render valimg cx (+ cy 28) (slot-colors i))
             })
         )
