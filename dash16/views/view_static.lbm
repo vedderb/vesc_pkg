@@ -57,7 +57,7 @@
         (img-clear wipe)
         (looprange i 0 3 (disp-render wipe 34 (* i 52) '(0 0)))
 
-        (if top (disp-render img-vesc (+ 34 strip-inset) strip-top colors-vesc))
+        (if top (disp-render img-vesc-small (+ 34 strip-inset) strip-top colors-vesc))
         (disp-render img-vesc 45 121 (if top colors-hidden colors-vesc))
         (disp-render img-batt-level 36 280 colors-white-aa)
 })

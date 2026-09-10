@@ -2,6 +2,7 @@
 
 ; Assets
 (import "assets/sym_vesc_37x34.bin" 'img-vesc)
+(import "assets/sym_vesc_30x27.bin" 'img-vesc-small)
 (import "assets/batt_level_167x30.bin" 'img-batt-level)
 (import "assets/highbeam_32x24.bin" 'img-highbeam)
 (import "assets/lowbeam_32x24.bin" 'img-lowbeam)
@@ -114,6 +115,7 @@
         (def init-complete nil)
         (def rx-cnt-can 0)
 
+        (settings-load)
         (settings-apply-units)
 
         (if config-code-server (start-code-server)) ; Enable remote code execution
