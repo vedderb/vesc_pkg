@@ -7,6 +7,9 @@
 (def val-lever2 0.0)
 (def out-mapped 0.0)
 
+(def dash-val-brk 0.0)
+(def dash-volts-brk -1.0)
+
 (def light-on 0)
 (def drive-mode 1)
 (def kickstand-down false)
@@ -118,6 +121,12 @@
                     (setq whl-start (/ (bufget-i16 data 2) 10.0))
                     (setq whl-end (/ (bufget-i16 data 4) 10.0))
                     (setq whl-kd (/ (bufget-i16 data 6) 10000.0))
+            })
+
+            ((= id 203) {
+                    (setq dash-val-brk (/ (bufget-i16 data 0) 1000.0))
+                    (setq dash-volts-brk (/ (bufget-i16 data 2) 1000.0))
+
             })
 
             ; Event
@@ -255,6 +264,7 @@
         ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
         ("ADC1" "V"                     (get-adc 0))
         ("ADC2" "V"                     (get-adc 1))
+        ("Dash Brk" "V"                 (* dash-volts-brk 1.0))
         ("iq" "A"                       (get-iq 1))
         ("id" "A"                       (get-id 1))
         ("iq-target" "A"                (get-iq-target))
@@ -475,7 +485,11 @@
 
         (loopwhile-thd ("Worker" 150) t {
                 (setq adc-thr (get-adc 0))
-                (setq adc-brake (get-adc 1))
+
+                (if (>= dash-volts-brk 0.0)
+                    (setq adc-brake dash-volts-brk)
+                    (setq adc-brake (get-adc 1))
+                )
 
                 (setq val-thr (map-range-01 adc-thr thr-min thr-max))
 
