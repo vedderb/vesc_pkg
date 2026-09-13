@@ -890,14 +890,11 @@
 {
     (gpio-configure 'pin-ppm 'pin-mode-in-pd)
 
-    ; Sample before main advertises readiness. A released trigger is ready for
-    ; its first click; a held trigger remains blocked until it is released.
+    ; Sample before main advertises readiness, but keep the input disarmed.
+    ; main samples again after readiness before starting the state machine.
     (if (= 1 (gpio-read 'pin-ppm))
         (setvar 'sw_pressed 1)
         (setvar 'sw_pressed 0)
-    )
-    (if (= sw_pressed 0)
-        (setvar 'trigger_armed 1)
     )
 
     (loopwhile-thd THREAD_STACK_GPIO t {
@@ -2263,6 +2260,15 @@
     ; The motor, trigger and display paths are now live. Audio is optional and
     ; continues independently, so it must not delay the first valid command.
     (setvar 'trigger_input_ready 1)
+    ; Sample synchronously after readiness so a press that started before it
+    ; was published stays disarmed. The state machine starts only after this.
+    (if (= 1 (gpio-read 'pin-ppm))
+        (setvar 'sw_pressed 1)
+        (setvar 'sw_pressed 0)
+    )
+    (if (= sw_pressed 0)
+        (setvar 'trigger_armed 1)
+    )
     (debug_log "Startup: Trigger input ready")
 
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
