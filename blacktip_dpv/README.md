@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.5.1
+**Version:** 1.5.2
 
 ## License
 
@@ -37,6 +37,13 @@ Some videos showing the basic commands to control Smart Cruise while diving:
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
 
 ---
+
+## What's New in Version 1.5.2
+
+Bugfix release:
+
+- **Fix: Trigger input during startup** — Trigger presses held or made before the runtime is ready are ignored, preventing an incomplete start. A release arms the next click sequence as soon as the motor, display and trigger paths are running.
+- **Fix: Smart Cruise timer rotation** — The remaining-time bar now rotates with the display at 90°, 180° and 270°.
 
 ## What's New in Version 1.5.1
 
