@@ -245,6 +245,8 @@
 ; --- Runtime state machine / motor / display vars ---
 (define sw_state 0)
 (define sw_pressed 0)
+(define trigger_input_ready 0)         ; Ignore input until runtime setup is complete.
+(define trigger_armed 0)               ; Require a release after readiness before accepting clicks.
 (define timer_start 0)
 (define timer_duration 0)
 (define initial_press_time 0)
@@ -892,6 +894,11 @@
             (setvar 'sw_pressed 1)
             (setvar 'sw_pressed 0)
         )
+        ; Do not interpret a press that began before startup completed as a click.
+        ; A released trigger arms input immediately after the ready indication.
+        (if (and (= trigger_input_ready 1) (= sw_pressed 0))
+            (setvar 'trigger_armed 1)
+        )
     })
 })
 
@@ -1111,7 +1118,7 @@
         (setvar 'actual_batt (get_battery_level))
 
         ; Pressed
-        (if (= sw_pressed 1) {
+        (if (and (= trigger_input_ready 1) (= trigger_armed 1) (= sw_pressed 1)) {
             (debug_log "State 0->1: Button pressed")
             (setvar 'batt_disp_timer_start 0) ; Stop Battery Display in case its running
             (setvar 'disp_timer_start 0) ; Stop Display in case its running
@@ -2146,6 +2153,8 @@
     (setup_event_handler)
 
     (setvar 'sw_state 0)
+    (setvar 'trigger_input_ready 0)
+    (setvar 'trigger_armed 0)
     (setvar 'timer_start 0)
     (setvar 'timer_duration 0)
     (setvar 'initial_press_time 0)
@@ -2215,6 +2224,11 @@
     (setvar 'sw_pressed 0)
 
     (start_trigger_loop)
+
+    ; The motor, trigger and display paths are now live. Audio is optional and
+    ; continues independently, so it must not delay the first valid command.
+    (setvar 'trigger_input_ready 1)
+    (debug_log "Startup: Trigger input ready")
 
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 

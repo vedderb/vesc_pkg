@@ -140,6 +140,18 @@ def request_five_click_shutdown_simulate(state):
     return 0 if five_click_shutdown_rejection_reason(state) is not None else 1
 
 
+def trigger_click_accepted(trigger_input_ready, trigger_armed, sw_pressed):
+    """Mirror the stopped-state guard before beginning a click sequence."""
+    return trigger_input_ready == 1 and trigger_armed == 1 and sw_pressed == 1
+
+
+def trigger_arm_after_release(trigger_input_ready, sw_pressed, trigger_armed=0):
+    """Mirror the trigger loop's release-to-arm behaviour."""
+    if trigger_input_ready == 1 and sw_pressed == 0:
+        return 1
+    return trigger_armed
+
+
 def migrate_eeprom_v3(eeprom, stored_version):
     """Mirror only the layered v3 migration relevant to an existing schema."""
     result = dict(eeprom)
@@ -760,6 +772,35 @@ def test_five_click_shutdown_decision():
               "firmware guard: missing build component fails safe")
 
 
+def test_startup_trigger_readiness():
+    print("\n=== Testing startup trigger readiness ===")
+
+    assert_eq(trigger_click_accepted(0, 0, 1), False,
+              "startup trigger: presses are ignored before readiness")
+    assert_eq(trigger_arm_after_release(1, 1), 0,
+              "startup trigger: a held trigger does not arm at readiness")
+    assert_eq(trigger_click_accepted(1, 0, 1), False,
+              "startup trigger: held pre-ready press cannot start motor")
+    assert_eq(trigger_arm_after_release(1, 0), 1,
+              "startup trigger: release arms input after readiness")
+    assert_eq(trigger_click_accepted(1, 1, 1), True,
+              "startup trigger: new press after release is accepted")
+
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+    state_off_start = source.index('(defun state_handler_off')
+    state_off_end = source.index('(defun smart_cruise_upgrade_if_needed', state_off_start)
+    state_off_source = source[state_off_start:state_off_end]
+    assert_eq('(and (= trigger_input_ready 1) (= trigger_armed 1) (= sw_pressed 1))' in state_off_source,
+              True, "startup trigger: stopped state requires ready and armed input")
+    main_start = source.index('(defun main')
+    trigger_loop_start = source.index('(start_trigger_loop)', main_start)
+    ready_start = source.index("(setvar 'trigger_input_ready 1)", main_start)
+    state_machine_start = source.index('(state_transition_to STATE_OFF "startup"', main_start)
+    startup_tune_start = source.index('(spawn THREAD_STACK_CLICK_BEEP play_imperial_march)', main_start)
+    assert_eq(trigger_loop_start < ready_start < state_machine_start < startup_tune_start, True,
+              "startup trigger: readiness follows trigger setup but precedes optional audio")
+
+
 def test_click_and_beep_regressions():
     print("\n=== Testing click and beep regressions ===")
     # Existing stopped-state actions: 1=no-op, 2=start, 3=jump, 4=untangle.
@@ -852,6 +893,7 @@ def run_all_tests():
     test_state_metrics_reset()
     test_five_click_settings_and_migration()
     test_five_click_shutdown_decision()
+    test_startup_trigger_readiness()
     test_click_and_beep_regressions()
 
     print("\n══════════════════════════════════════════")

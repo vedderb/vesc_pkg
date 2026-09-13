@@ -232,6 +232,8 @@ The existing OFF&#95;AFTER&#95;5H setting remains the fallback when manual shutd
 A distinctive musical theme plays on power-up to confirm successful initialization:
 
 - Plays automatically when the scooter is turned on
+- Trigger input becomes ready as soon as the motor, display and trigger paths have started; the startup and battery sounds continue in the background.
+- The startup display indicates readiness. If the trigger was held during startup, release it once before making a new click sequence.
 - When battery is full (3 bars, >75%), only the startup sound plays
 - When battery is not full (<75%), the startup sound is followed by battery level beeps
 - Volume matches your configured beep volume setting
