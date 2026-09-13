@@ -132,6 +132,8 @@
 
 ; Masks for 0..8 LEDs lit (ordered per hardware bit mapping)
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
+(define TIMER_BAR_SOURCE_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
+(define TIMER_BAR_ROTATION_2_BITS (list 0x40 0x20 0x10 0x08 0x04 0x02 0x01 0x80))
 
 ; EEPROM settings buffer size. Five-click shutdown is stored in slot 32.
 (define EEPROM_SETTINGS_COUNT 33)
@@ -245,6 +247,8 @@
 ; --- Runtime state machine / motor / display vars ---
 (define sw_state 0)
 (define sw_pressed 0)
+(define trigger_input_ready 0)         ; Ignore input until runtime setup is complete.
+(define trigger_armed 0)               ; Require a release after readiness before accepting clicks.
 (define timer_start 0)
 (define timer_duration 0)
 (define initial_press_time 0)
@@ -886,11 +890,23 @@
 {
     (gpio-configure 'pin-ppm 'pin-mode-in-pd)
 
+    ; Sample before main advertises readiness, but keep the input disarmed.
+    ; main samples again after readiness before starting the state machine.
+    (if (= 1 (gpio-read 'pin-ppm))
+        (setvar 'sw_pressed 1)
+        (setvar 'sw_pressed 0)
+    )
+
     (loopwhile-thd THREAD_STACK_GPIO t {
         (sleep SLEEP_MOTOR_CONTROL)
         (if (= 1 (gpio-read 'pin-ppm))
             (setvar 'sw_pressed 1)
             (setvar 'sw_pressed 0)
+        )
+        ; Do not interpret a press that began before startup completed as a click.
+        ; A released trigger arms input immediately after the ready indication.
+        (if (and (= trigger_input_ready 1) (= sw_pressed 0))
+            (setvar 'trigger_armed 1)
         )
     })
 })
@@ -1111,7 +1127,7 @@
         (setvar 'actual_batt (get_battery_level))
 
         ; Pressed
-        (if (= sw_pressed 1) {
+        (if (and (= trigger_input_ready 1) (= trigger_armed 1) (= sw_pressed 1)) {
             (debug_log "State 0->1: Button pressed")
             (setvar 'batt_disp_timer_start 0) ; Stop Battery Display in case its running
             (setvar 'disp_timer_start 0) ; Stop Display in case its running
@@ -1575,7 +1591,7 @@
     })
 })
 
-(defun apply_smart_cruise_timer_bar (pixbuf)
+(defun apply_smart_cruise_timer_bar (pixbuf frame_rotation)
 {
     ; Apply Smart Cruise timer bar to the bottom row when active
     ; The display buffer is organized as 8 rows of 2 bytes each (16 bytes total)
@@ -1593,9 +1609,32 @@
         ; Lookup table approach for clarity
         (var bottom_row_value (ix TIMER_BAR_MASKS (clamp leds_lit 0 8)))
 
-        ; Set the bottom row (byte 15) to show the timer bar
-        (var current_byte (bufget-u8 pixbuf 15))
-        (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
+        ; The frame is pre-rotated before this overlay is applied. Rotate the
+        ; logical bottom-row bar by the same amount so it follows the display.
+        (cond
+            ((= frame_rotation 0) {
+                (var current_byte (bufget-u8 pixbuf 15))
+                (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
+            })
+            ((= frame_rotation 1)
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf (+ (* col 2) 1)
+                            (bitwise-or (bufget-u8 pixbuf (+ (* col 2) 1)) 0x80)))))
+            ((= frame_rotation 2) {
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf 1
+                            (bitwise-or (bufget-u8 pixbuf 1) (ix TIMER_BAR_ROTATION_2_BITS col)))))
+            })
+            ((= frame_rotation 3)
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf (+ (* (- 7 col) 2) 1)
+                            (bitwise-or (bufget-u8 pixbuf (+ (* (- 7 col) 2) 1)) 0x40)))))
+            (t
+                (debug_log_format (str-merge "Display: Invalid rotation " (to-str frame_rotation) " for timer bar")))
+        )
     })
 
     leds_lit ; Return the LED count or -1
@@ -1725,7 +1764,7 @@
                 (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16) ; copy the required display from binary LUT to "pixbuf"
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
-            (apply_smart_cruise_timer_bar pixbuf)
+            (apply_smart_cruise_timer_bar pixbuf (if (= display_mpu_addr 0x70) rotation rotation2))
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
             (setvar 'last_disp_num eff_disp)
@@ -2146,6 +2185,8 @@
     (setup_event_handler)
 
     (setvar 'sw_state 0)
+    (setvar 'trigger_input_ready 0)
+    (setvar 'trigger_armed 0)
     (setvar 'timer_start 0)
     (setvar 'timer_duration 0)
     (setvar 'initial_press_time 0)
@@ -2215,6 +2256,20 @@
     (setvar 'sw_pressed 0)
 
     (start_trigger_loop)
+
+    ; The motor, trigger and display paths are now live. Audio is optional and
+    ; continues independently, so it must not delay the first valid command.
+    (setvar 'trigger_input_ready 1)
+    ; Sample synchronously after readiness so a press that started before it
+    ; was published stays disarmed. The state machine starts only after this.
+    (if (= 1 (gpio-read 'pin-ppm))
+        (setvar 'sw_pressed 1)
+        (setvar 'sw_pressed 0)
+    )
+    (if (= sw_pressed 0)
+        (setvar 'trigger_armed 1)
+    )
+    (debug_log "Startup: Trigger input ready")
 
     (state_transition_to STATE_OFF "startup" THREAD_STACK_STATE_TRANSITIONS state_handler_off) ; ***Start state machine running for first time
 

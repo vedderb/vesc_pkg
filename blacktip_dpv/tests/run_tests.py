@@ -44,6 +44,9 @@ def assert_near(actual, expected, tolerance, test_name):
 SPEED_REVERSE_THRESHOLD = 5
 DISPLAY_LUT_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'display_lut.csv'
 DISPLAY_LUT_HEADERS = ['index', 'name', 'rotation'] + [f'b{i}' for i in range(16)]
+TIMER_BAR_MASKS = [0x00, 0x40, 0x60, 0x70, 0x78, 0x7C, 0x7E, 0x7F, 0xFF]
+TIMER_BAR_SOURCE_BITS = [0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40]
+TIMER_BAR_ROTATION_2_BITS = [0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80]
 
 def clamp(value, min_val, max_val):
     """Clamp value between min and max"""
@@ -112,6 +115,28 @@ def rotate_display_clockwise(matrix):
             for row in range(8)]
 
 
+def apply_timer_bar_overlay(frame_bytes, leds_lit, rotation):
+    """Mirror the rotation-aware Smart Cruise timer overlay."""
+    frame = list(frame_bytes)
+    mask = TIMER_BAR_MASKS[leds_lit]
+
+    if rotation == 0:
+        frame[15] |= mask
+    elif rotation == 1:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[column * 2 + 1] |= 0x80
+    elif rotation == 2:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[1] |= TIMER_BAR_ROTATION_2_BITS[column]
+    elif rotation == 3:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[(7 - column) * 2 + 1] |= 0x40
+    return frame
+
+
 # Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
 # zero denotes a stable release.
 SPEED_OFF = 99
@@ -138,6 +163,23 @@ def five_click_shutdown_rejection_reason(state):
 def request_five_click_shutdown_simulate(state):
     """Return shutdown call count for the immediate stopped-state decision."""
     return 0 if five_click_shutdown_rejection_reason(state) is not None else 1
+
+
+def trigger_click_accepted(trigger_input_ready, trigger_armed, sw_pressed):
+    """Mirror the stopped-state guard before beginning a click sequence."""
+    return trigger_input_ready == 1 and trigger_armed == 1 and sw_pressed == 1
+
+
+def trigger_arm_after_release(trigger_input_ready, sw_pressed, trigger_armed=0):
+    """Mirror the trigger loop's release-to-arm behaviour."""
+    if trigger_input_ready == 1 and sw_pressed == 0:
+        return 1
+    return trigger_armed
+
+
+def trigger_arm_after_ready_sample(trigger_input_ready, sw_pressed):
+    """Mirror the synchronous sample that follows readiness publication."""
+    return 1 if trigger_input_ready == 1 and sw_pressed == 0 else 0
 
 
 def migrate_eeprom_v3(eeprom, stored_version):
@@ -292,6 +334,21 @@ def test_display_lut_structure_and_rotation():
               "display LUT: asymmetric fixture rotates clockwise")
     assert_eq(actual_clockwise == expected_counter_clockwise, False,
               "display LUT: asymmetric fixture rejects counter-clockwise rotation")
+
+
+def test_smart_cruise_timer_bar_rotation():
+    """The timer overlay must rotate with the pre-rotated display frame."""
+    print("\n=== Testing Smart Cruise timer bar rotation ===")
+
+    base_frame = [0] * 16
+    for leds_lit in range(9):
+        expected = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, 0))
+        for rotation in range(4):
+            if rotation > 0:
+                expected = rotate_display_clockwise(expected)
+            actual = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, rotation))
+            assert_eq(actual, expected,
+                      f"timer bar: {leds_lit} LEDs rotates clockwise at rotation {rotation}")
 
 # =============================================================================
 # New functions added in PR (VESC 7.00 compatibility)
@@ -760,6 +817,46 @@ def test_five_click_shutdown_decision():
               "firmware guard: missing build component fails safe")
 
 
+def test_startup_trigger_readiness():
+    print("\n=== Testing startup trigger readiness ===")
+
+    assert_eq(trigger_click_accepted(0, 0, 1), False,
+              "startup trigger: presses are ignored before readiness")
+    assert_eq(trigger_arm_after_ready_sample(1, 0), 1,
+              "startup trigger: a post-ready released trigger is armed")
+    assert_eq(trigger_arm_after_ready_sample(1, 1), 0,
+              "startup trigger: a post-ready held trigger remains blocked")
+    assert_eq(trigger_arm_after_release(1, 1), 0,
+              "startup trigger: a held trigger does not arm at readiness")
+    assert_eq(trigger_click_accepted(1, 0, 1), False,
+              "startup trigger: held pre-ready press cannot start motor")
+    assert_eq(trigger_arm_after_release(1, 0), 1,
+              "startup trigger: release arms input after readiness")
+    assert_eq(trigger_click_accepted(1, 1, 1), True,
+              "startup trigger: new press after release is accepted")
+
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+    state_off_start = source.index('(defun state_handler_off')
+    state_off_end = source.index('(defun smart_cruise_upgrade_if_needed', state_off_start)
+    state_off_source = source[state_off_start:state_off_end]
+    assert_eq('(and (= trigger_input_ready 1) (= trigger_armed 1) (= sw_pressed 1))' in state_off_source,
+              True, "startup trigger: stopped state requires ready and armed input")
+    main_start = source.index('(defun main')
+    trigger_loop_start = source.index('(start_trigger_loop)', main_start)
+    ready_start = source.index("(setvar 'trigger_input_ready 1)", main_start)
+    state_machine_start = source.index('(state_transition_to STATE_OFF "startup"', main_start)
+    startup_tune_start = source.index('(spawn THREAD_STACK_CLICK_BEEP play_imperial_march)', main_start)
+    assert_eq(trigger_loop_start < ready_start < state_machine_start < startup_tune_start, True,
+              "startup trigger: readiness follows trigger setup but precedes optional audio")
+    trigger_function_start = source.index('(defun start_trigger_loop')
+    initial_gpio_sample = source.index("(gpio-read 'pin-ppm)", trigger_function_start)
+    assert_eq(initial_gpio_sample < ready_start, True,
+              "startup trigger: initial GPIO sample precedes readiness")
+    post_ready_gpio_sample = source.index("(gpio-read 'pin-ppm)", ready_start)
+    assert_eq(ready_start < post_ready_gpio_sample < state_machine_start, True,
+              "startup trigger: released input is armed from a post-ready sample")
+
+
 def test_click_and_beep_regressions():
     print("\n=== Testing click and beep regressions ===")
     # Existing stopped-state actions: 1=no-op, 2=start, 3=jump, 4=untangle.
@@ -843,6 +940,7 @@ def run_all_tests():
     test_speed_percentage_at()
     test_calculate_rpm()
     test_display_lut_structure_and_rotation()
+    test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()
     test_debug_log()
     test_debug_log_format()
@@ -852,6 +950,7 @@ def run_all_tests():
     test_state_metrics_reset()
     test_five_click_settings_and_migration()
     test_five_click_shutdown_decision()
+    test_startup_trigger_readiness()
     test_click_and_beep_regressions()
 
     print("\n══════════════════════════════════════════")
