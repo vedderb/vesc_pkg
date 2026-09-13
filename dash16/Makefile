@@ -2,7 +2,7 @@ VESC_TOOL ?= vesc_tool
 
 all: dash16.vescpkg dash16_test.vescpkg
 
-dash16.vescpkg: README_Disp-gen.md ui.qml
+dash16.vescpkg: README_Disp-gen.md ui.qml version.lisp
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'custom:test' --testPkgDesc 'custom:dash16' --testPkgDesc 'vesc:test'
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc_test.qml --testPkgDesc 'custom:test' --testPkgDesc 'custom:dash16' --testPkgDesc 'vesc:test'
 
@@ -20,10 +20,14 @@ README_Disp-gen.md: README_Disp.md version
 ui.qml: ui.qml.in
 	cat ui.qml.in | sed "s/{{VERSION}}/${VERSION}/g" > ui.qml
 
+version.lisp: version.lisp.in version
+	cat version.lisp.in | sed "s/{{VERSION}}/${VERSION}/g" > version.lisp
+
 clean:
 	rm -f dash16.vescpkg
 	rm -f dash16_test.vescpkg
 	rm -f README_Disp-gen.md
 	rm -f ui.qml
+	rm -f version.lisp
 
 .PHONY: all clean

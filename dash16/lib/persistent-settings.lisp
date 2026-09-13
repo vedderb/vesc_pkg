@@ -14,8 +14,8 @@
 (def settings-esc-id 0)
 
 ; Action ids for short and long press, indexed by button. dash16 has two.
-(def btn-actions-short (list 3 4))
-(def btn-actions-long (list 1 6))
+(def btn-actions-short (list 4 5))
+(def btn-actions-long (list 1 8))
 
 ; Sources for the four readings on the live page. Index into slot-catalog.
 ; Changing the catalog order breaks saved settings.
@@ -29,6 +29,7 @@
 
 ; Colour the battery bar by charge rather than the accent.
 (def settings-batt-ramp false)
+(def settings-splash true)
 
 ; Lever calibration. The dash lever is read here and sent on as ADC2, so a
 ; wrong range silently becomes wrong brake current at the controller.
@@ -75,6 +76,7 @@
     (page-mask . (25 i))
     (bl-bright . (26 f))
     (batt-ramp . (27 i))
+    (splash-en . (30 i))
     (lever-min . (28 f))
     (lever-max . (29 f))
 ))
@@ -85,7 +87,7 @@
 ))
 
 ; Settings version
-(def settings-version 44i32)
+(def settings-version 45i32)
 
 (defun read-setting (name)
     (let (
@@ -130,10 +132,10 @@
         (write-setting 'esc-id 0)
 
         ; Defaults reproduce the button behaviour the package shipped with.
-        (write-setting 'btn0-short 3)
-        (write-setting 'btn1-short 4)
+        (write-setting 'btn0-short 4)
+        (write-setting 'btn1-short 5)
         (write-setting 'btn0-long 1)
-        (write-setting 'btn1-long 6)
+        (write-setting 'btn1-long 8)
 
         ; Conservative starting profiles. Reverse and the first mode are slow
         ; on purpose, since a wrong guess here moves the bike.
@@ -141,6 +143,7 @@
         (write-setting 'icon-mask 0x3F)
         (write-setting 'bl-bright bl-lvl-bright)
         (write-setting 'batt-ramp 0)
+        (write-setting 'splash-en 1)
         (write-setting 'lever-min 0.45)
         (write-setting 'lever-max 2.10)
         (write-setting 'page-mask 0x7)
@@ -179,13 +182,14 @@
         (setq drive-mode-num (setting-clamp (read-setting 'drive-modes) 1 5 5))
         (setq settings-esc-mode (setting-clamp (read-setting 'esc-mode) 0 2 0))
         (setq settings-esc-id (setting-clamp (read-setting 'esc-id) 0 253 0))
-        (setq btn-actions-short (map (fn (n) (setting-clamp (read-setting n) 0 7 0))
+        (setq btn-actions-short (map (fn (n) (setting-clamp (read-setting n) 0 10 0))
                 '(btn0-short btn1-short)))
-        (setq btn-actions-long (map (fn (n) (setting-clamp (read-setting n) 0 7 0))
+        (setq btn-actions-long (map (fn (n) (setting-clamp (read-setting n) 0 10 0))
                 '(btn0-long btn1-long)))
         (setq settings-icon-mask (setting-clamp (read-setting 'icon-mask) 0 0x3F 0x3F))
         (setq settings-bl-bright (setting-clamp (read-setting 'bl-bright) 0.1 1.0 bl-lvl-bright))
         (setq settings-batt-ramp (setting-flag 'batt-ramp false))
+        (setq settings-splash (setting-flag 'splash-en true))
         (setq settings-lever-min (setting-clamp (read-setting 'lever-min) 0.0 1.5 0.45))
         (setq settings-lever-max (setting-clamp (read-setting 'lever-max) 1.0 3.3 2.10))
         ; A collapsed or inverted range would make the lever unusable
@@ -197,7 +201,7 @@
         ; back to the intended source rather than to slot 0.
         (setq settings-slots (map (fn (p) (setting-clamp (read-setting (first p)) 0 17 (second p)))
                 '((slot-0 2) (slot-1 6) (slot-2 7) (slot-3 15))))
-        (if (>= drive-mode drive-mode-num) (setq drive-mode 0))
+        (if (>= drive-mode drive-mode-num) (mode-set 0))
 })
 
 ; True when an icon should be drawn.
@@ -264,7 +268,8 @@
             (str-from-n settings-bl-bright "%.2f ")
             (str-from-n (if settings-batt-ramp 1 0) "%d ")
             (str-from-n settings-lever-min "%.3f ")
-            (str-from-n settings-lever-max "%.3f")
+            (str-from-n settings-lever-max "%.3f ")
+            (str-from-n (if settings-splash 1 0) "%d")
 )))
 
 ; Polled by the settings page while the lever section is open
@@ -284,6 +289,24 @@
         (setq view-force-static true)
         (setq view-force-pages true)
         (send-cfg)
+})
+
+; Button action codes were renumbered to match the other dashes. Remap an
+; existing configuration once instead of resetting every other setting too.
+(defun migrate-btn-codes () {
+        (var remap '((3 . 4) (4 . 5) (5 . 6) (6 . 8) (7 . 10)))
+        (loopforeach n '(btn0-short btn1-short btn0-long btn1-long) {
+                ; read-setting hands back an i32 and (eq 3 3i32) is false, so
+                ; the lookup has to be done on a plain integer or it silently
+                ; matches nothing and the remap does not happen at all.
+                (var to (assoc remap (to-i (read-setting n))))
+                (if to (write-setting n to))
+        })
+})
+
+(if (= (read-setting 'ver-code) 44i32) {
+        (migrate-btn-codes)
+        (write-setting 'ver-code settings-version)
 })
 
 (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))

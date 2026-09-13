@@ -23,11 +23,21 @@ Item {
         "Peak amps", "Top speed", "Pitch"
     ]
 
+    // Action codes are shared across the dashes, so a button set to "Lights"
+    // means the same thing everywhere. This display has no settings page and
+    // no backlight level, so codes 3 and 7 are simply absent here and the
+    // dropdown index is mapped through actionCodes rather than used directly.
     property var actionNames: [
         "Nothing", "Next page", "Previous page",
         "Drive mode up", "Drive mode down", "Lights", "Cruise control",
-        "Reverse (at a stop)"
+        "Toggle logging", "Reverse (at a stop)"
     ]
+    property var actionCodes: [0, 1, 2, 4, 5, 6, 8, 9, 10]
+
+    function actionIndex(code) {
+        var ix = actionCodes.indexOf(code)
+        return ix < 0 ? 0 : ix
+    }
 
     property bool haveRead: false
 
@@ -146,8 +156,8 @@ Item {
                 : "dash_esc detected")
 
             for (var b = 0; b < 2; b++) {
-                btnRepeater.itemAt(b).shortIndex = parseInt(v[8 + b])
-                btnRepeater.itemAt(b).longIndex = parseInt(v[10 + b])
+                btnRepeater.itemAt(b).shortIndex = actionIndex(parseInt(v[8 + b]))
+                btnRepeater.itemAt(b).longIndex = actionIndex(parseInt(v[10 + b]))
             }
             for (var sl = 0; sl < 4; sl++) {
                 slotRepeater.itemAt(sl).source = parseInt(v[12 + sl])
@@ -167,6 +177,7 @@ Item {
             battRampBox.checked = parseInt(v[19]) === 1
             leverMin.realValue = parseFloat(v[20])
             leverMax.realValue = parseFloat(v[21])
+            splashBox.checked = parseInt(v[22]) === 1
 
             loading = false
             haveRead = true
@@ -521,6 +532,12 @@ Item {
                     }
 
                     CheckBox {
+                        id: splashBox
+                        text: "Show the logo at startup"
+                        onClicked: if (!loading) setSetting("splash-en", checked ? 1 : 0)
+                    }
+
+                    CheckBox {
                         id: battRampBox
                         text: "Colour the battery bar by charge"
                         onClicked: if (!loading) setSetting("batt-ramp", checked ? 1 : 0)
@@ -677,7 +694,7 @@ Item {
                                 onActivated: {
                                     if (!loading) {
                                         setSetting("btn" + btnIndex + "-short",
-                                                   currentIndex)
+                                                   actionCodes[currentIndex])
                                     }
                                 }
                             }
@@ -699,7 +716,7 @@ Item {
                                 onActivated: {
                                     if (!loading) {
                                         setSetting("btn" + btnIndex + "-long",
-                                                   currentIndex)
+                                                   actionCodes[currentIndex])
                                     }
                                 }
                             }
