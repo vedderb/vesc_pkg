@@ -890,6 +890,16 @@
 {
     (gpio-configure 'pin-ppm 'pin-mode-in-pd)
 
+    ; Sample before main advertises readiness. A released trigger is ready for
+    ; its first click; a held trigger remains blocked until it is released.
+    (if (= 1 (gpio-read 'pin-ppm))
+        (setvar 'sw_pressed 1)
+        (setvar 'sw_pressed 0)
+    )
+    (if (= sw_pressed 0)
+        (setvar 'trigger_armed 1)
+    )
+
     (loopwhile-thd THREAD_STACK_GPIO t {
         (sleep SLEEP_MOTOR_CONTROL)
         (if (= 1 (gpio-read 'pin-ppm))

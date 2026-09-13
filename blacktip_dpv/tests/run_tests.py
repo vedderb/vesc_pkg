@@ -177,6 +177,11 @@ def trigger_arm_after_release(trigger_input_ready, sw_pressed, trigger_armed=0):
     return trigger_armed
 
 
+def trigger_initial_arm(sw_pressed):
+    """Mirror the synchronous GPIO sample before readiness is published."""
+    return 0 if sw_pressed == 1 else 1
+
+
 def migrate_eeprom_v3(eeprom, stored_version):
     """Mirror only the layered v3 migration relevant to an existing schema."""
     result = dict(eeprom)
@@ -817,6 +822,10 @@ def test_startup_trigger_readiness():
 
     assert_eq(trigger_click_accepted(0, 0, 1), False,
               "startup trigger: presses are ignored before readiness")
+    assert_eq(trigger_initial_arm(0), 1,
+              "startup trigger: an initially released trigger is armed")
+    assert_eq(trigger_initial_arm(1), 0,
+              "startup trigger: an initially held trigger remains blocked")
     assert_eq(trigger_arm_after_release(1, 1), 0,
               "startup trigger: a held trigger does not arm at readiness")
     assert_eq(trigger_click_accepted(1, 0, 1), False,
@@ -839,6 +848,10 @@ def test_startup_trigger_readiness():
     startup_tune_start = source.index('(spawn THREAD_STACK_CLICK_BEEP play_imperial_march)', main_start)
     assert_eq(trigger_loop_start < ready_start < state_machine_start < startup_tune_start, True,
               "startup trigger: readiness follows trigger setup but precedes optional audio")
+    trigger_function_start = source.index('(defun start_trigger_loop')
+    initial_gpio_sample = source.index("(gpio-read 'pin-ppm)", trigger_function_start)
+    assert_eq(initial_gpio_sample < ready_start, True,
+              "startup trigger: initial GPIO sample precedes readiness")
 
 
 def test_click_and_beep_regressions():
