@@ -132,6 +132,8 @@
 
 ; Masks for 0..8 LEDs lit (ordered per hardware bit mapping)
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
+(define TIMER_BAR_SOURCE_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
+(define TIMER_BAR_ROTATION_2_BITS (list 0x40 0x20 0x10 0x08 0x04 0x02 0x01 0x80))
 
 ; EEPROM settings buffer size. Five-click shutdown is stored in slot 32.
 (define EEPROM_SETTINGS_COUNT 33)
@@ -1582,7 +1584,7 @@
     })
 })
 
-(defun apply_smart_cruise_timer_bar (pixbuf)
+(defun apply_smart_cruise_timer_bar (pixbuf frame_rotation)
 {
     ; Apply Smart Cruise timer bar to the bottom row when active
     ; The display buffer is organized as 8 rows of 2 bytes each (16 bytes total)
@@ -1600,9 +1602,32 @@
         ; Lookup table approach for clarity
         (var bottom_row_value (ix TIMER_BAR_MASKS (clamp leds_lit 0 8)))
 
-        ; Set the bottom row (byte 15) to show the timer bar
-        (var current_byte (bufget-u8 pixbuf 15))
-        (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
+        ; The frame is pre-rotated before this overlay is applied. Rotate the
+        ; logical bottom-row bar by the same amount so it follows the display.
+        (cond
+            ((= frame_rotation 0) {
+                (var current_byte (bufget-u8 pixbuf 15))
+                (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
+            })
+            ((= frame_rotation 1)
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf (+ (* col 2) 1)
+                            (bitwise-or (bufget-u8 pixbuf (+ (* col 2) 1)) 0x80)))))
+            ((= frame_rotation 2) {
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf 1
+                            (bitwise-or (bufget-u8 pixbuf 1) (ix TIMER_BAR_ROTATION_2_BITS col)))))
+            })
+            ((= frame_rotation 3)
+                (looprange col 0 8
+                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
+                        (bufset-u8 pixbuf (+ (* (- 7 col) 2) 1)
+                            (bitwise-or (bufget-u8 pixbuf (+ (* (- 7 col) 2) 1)) 0x40)))))
+            (t
+                (debug_log_format (str-merge "Display: Invalid rotation " (to-str frame_rotation) " for timer bar")))
+        )
     })
 
     leds_lit ; Return the LED count or -1
@@ -1732,7 +1757,7 @@
                 (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16) ; copy the required display from binary LUT to "pixbuf"
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
-            (apply_smart_cruise_timer_bar pixbuf)
+            (apply_smart_cruise_timer_bar pixbuf (if (= display_mpu_addr 0x70) rotation rotation2))
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
             (setvar 'last_disp_num eff_disp)

@@ -44,6 +44,9 @@ def assert_near(actual, expected, tolerance, test_name):
 SPEED_REVERSE_THRESHOLD = 5
 DISPLAY_LUT_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'display_lut.csv'
 DISPLAY_LUT_HEADERS = ['index', 'name', 'rotation'] + [f'b{i}' for i in range(16)]
+TIMER_BAR_MASKS = [0x00, 0x40, 0x60, 0x70, 0x78, 0x7C, 0x7E, 0x7F, 0xFF]
+TIMER_BAR_SOURCE_BITS = [0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40]
+TIMER_BAR_ROTATION_2_BITS = [0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80]
 
 def clamp(value, min_val, max_val):
     """Clamp value between min and max"""
@@ -110,6 +113,28 @@ def rotate_display_clockwise(matrix):
     """Rotate a physical display matrix 90° clockwise."""
     return [[matrix[7 - column][row] for column in range(8)]
             for row in range(8)]
+
+
+def apply_timer_bar_overlay(frame_bytes, leds_lit, rotation):
+    """Mirror the rotation-aware Smart Cruise timer overlay."""
+    frame = list(frame_bytes)
+    mask = TIMER_BAR_MASKS[leds_lit]
+
+    if rotation == 0:
+        frame[15] |= mask
+    elif rotation == 1:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[column * 2 + 1] |= 0x80
+    elif rotation == 2:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[1] |= TIMER_BAR_ROTATION_2_BITS[column]
+    elif rotation == 3:
+        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+            if mask & source_bit:
+                frame[(7 - column) * 2 + 1] |= 0x40
+    return frame
 
 
 # Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
@@ -304,6 +329,21 @@ def test_display_lut_structure_and_rotation():
               "display LUT: asymmetric fixture rotates clockwise")
     assert_eq(actual_clockwise == expected_counter_clockwise, False,
               "display LUT: asymmetric fixture rejects counter-clockwise rotation")
+
+
+def test_smart_cruise_timer_bar_rotation():
+    """The timer overlay must rotate with the pre-rotated display frame."""
+    print("\n=== Testing Smart Cruise timer bar rotation ===")
+
+    base_frame = [0] * 16
+    for leds_lit in range(9):
+        expected = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, 0))
+        for rotation in range(4):
+            if rotation > 0:
+                expected = rotate_display_clockwise(expected)
+            actual = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, rotation))
+            assert_eq(actual, expected,
+                      f"timer bar: {leds_lit} LEDs rotates clockwise at rotation {rotation}")
 
 # =============================================================================
 # New functions added in PR (VESC 7.00 compatibility)
@@ -884,6 +924,7 @@ def run_all_tests():
     test_speed_percentage_at()
     test_calculate_rpm()
     test_display_lut_structure_and_rotation()
+    test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()
     test_debug_log()
     test_debug_log_format()
