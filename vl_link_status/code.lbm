@@ -1,0 +1,2096 @@
+; Copyright 2026 Jeremy Maddox
+;
+; This file is part of the VESC Package VL Link Status.
+;
+; This program is free software: you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation, either version 3 of the License, or
+; (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+;;;; VL Link Status
+;;;;
+;;;; Enables the CAN transceiver, reports link + LTE state to the UI,
+;;;; optionally publishes telemetry to an MQTT broker over the LTE data
+;;;; connection, and mirrors CAN state on the two onboard WS2812 LEDs:
+;;;;
+;;;;   no CAN node found -> rainbow chase ("dance")
+;;;;   CAN node found    -> solid green
+;;;;
+;;;; Board: VESC Express, HW_NAME "VL Link" (ESP32-C3 + SIM7070G).
+;;;; Pins from vesc_express/main/hwconf/vesc/link/hw_link.h and hw_test.lisp.
+
+
+;;; ------------------------------------------------------------------
+;;; Pins
+;;; ------------------------------------------------------------------
+
+; Definitions live in flash, not the cons heap. An ESP32-C3 with BLE on
+; gets 2560 cons cells (lispif.c:119) and this program does not fit in
+; that. Everything between @const-start and @const-end is moved to
+; constant memory by the incremental reader.
+;
+; Globals declared here are still assignable: setq replaces the binding in
+; the global environment, it does not write through to the flashed value.
+; What must NOT be done is mutating a flashed structure in place, which is
+; why members/pending/loglist are all built at runtime rather than being
+; declared with contents.
+
+@const-start
+
+(def pin-pwrkey  2)   ; modem PWRKEY, ACTIVE HIGH, pulse TOGGLES power
+(def pin-mstat   3)   ; modem status input, 1 = modem on
+(def pin-canstb  6)   ; CAN transceiver standby, ACTIVE LOW (0 = enabled)
+(def pin-ledpwr  7)   ; LED + GNSS power rail, active high
+(def pin-leddat  8)   ; WS2812 data, 2 LEDs
+
+(def modem-uart  0)   ; HW_NO_UART is set, so uart 0 is free for lisp
+(def modem-rx   20)   ; (uart-start num rx tx baud) -- rx before tx
+(def modem-tx   21)
+(def modem-baud 57600)
+
+
+;;; ------------------------------------------------------------------
+;;; Shared state (read by the LED thread and the UI thread)
+;;; ------------------------------------------------------------------
+
+(def can-ok    false)  ; true when at least one node is on the bus
+(def can-devs  nil)    ; list of CAN ids
+(def can-vin   -1.0)   ; pack voltage of the first live node, -1 = unknown
+(def rescan-req false) ; set by the UI, cleared by the CAN thread
+(def scan-tick 0)      ; cycles since the last active can-scan
+(def scan-wait 3)      ; cycles to wait before scanning again
+(def scan-wait-max 30) ; ceiling, so an idle bus is not hammered forever
+
+; Persistent settings. eeprom-read-i returns nil for a slot that has never
+; been written, so the magic word must be nil-guarded before comparing.
+; Bumped for the MQTT block. A magic mismatch rewrites defaults rather than
+; reading the old layout back as garbage.
+(def eeprom-magic 5001003)
+(def ee-magic    0)
+(def ee-rate     1)
+(def ee-lte      2)
+(def ee-at-boot  3)
+(def log-at-boot false)
+
+; SMS control
+(def ee-sms      4)
+(def ee-members 10)    ; 5 slots per member: len, 3 chunks, enabled
+(def max-members 5)    ; member 0 is the owner, 1..4 are friends
+(def max-pending 3)
+(def sms-on   false)
+(def members  nil)     ; list of (digits enabled) or nil per slot
+(def pending  nil)     ; unapproved numbers seen this session, RAM only
+(def sms-tick 0)       ; modem cycles since the last mailbox check
+
+; Trip metering / guard / lock
+(def bat-ah 0.0)       ; from CAN status frame 2
+(def bat-wh 0.0)       ; from CAN status frame 3
+(def trip-ah0 0.0) (def trip-wh0 0.0) (def trip-d0 0.0)
+(def trip-ah  0.0) (def trip-wh  0.0) (def trip-d  0.0)
+(def trip-vmax 0.0)
+(def moving false)
+(def rpm-move 300)     ; ERPM above which the vehicle counts as moving
+
+(def ee-guard 9)
+; Battery percentage comes from the ESC, which computes it from the
+; configured cell count, battery type and cutoff voltages. Reported back
+; over CAN by the lock package, same pattern as the lock ack.
+(def batt-pct -1.0)    ; -1 = not reported
+(def batt-ack-t 0)
+(def guard-on false)   ; movement alert armed
+(def guard-fired false)
+
+(def ee-lock 8)
+(def lock-want false)  ; what we have asked the ESC for
+(def lock-state -1)    ; last CONFIRMED state from the ESC: -1 unknown, 0, 1
+(def lock-ack-t 0)     ; systime of the last ack
+(def lock-on false)    ; convenience: confirmed locked
+(def sms-every 4)      ; fallback poll every Nth cycle (4 x 3s = 12s)
+(def sms-ready false)  ; text mode configured on the modem
+(def sms-urc false)    ; +CMTI seen, a message is waiting
+
+; --- MQTT telemetry ----------------------------------------------------
+;
+; Ints live in their own slots; strings are packed by str-store into a
+; length slot followed by data slots, three characters each. The blocks are
+; spaced so that lengthening one later does not shift the next.
+;
+;   slot  5  enable      6  interval      7  port
+;        40  apn        50  host         70  username
+;        90  password  100  client id   110  topic
+(def ee-mqtt-on   5)
+(def ee-mqtt-int  6)
+(def ee-mqtt-port 7)
+
+(def ee-apn    40) (def sl-apn     9)   ; 24 chars
+(def ee-host   50) (def sl-host   17)   ; 48
+(def ee-user   70) (def sl-user   17)   ; 48 -- ThingsBoard tokens are 20
+(def ee-pass   90) (def sl-pass    9)   ; 24
+(def ee-client 100)(def sl-client  9)   ; 24
+(def ee-topic  110)(def sl-topic  17)   ; 48
+
+(def mqtt-on false)
+(def mqtt-int 60)      ; seconds between publishes
+(def mqtt-port 1883)
+(def mqtt-apn "")      ; empty = ask the network for one
+(def mqtt-host "mqtt.thingsboard.cloud")
+(def mqtt-user "")     ; ThingsBoard: the device access token
+(def mqtt-pass "")
+(def mqtt-client "vl-link")
+(def mqtt-topic "v1/devices/me/telemetry")
+
+; 0 = down, 1 = packet context up but no session, 2 = connected
+(def mqtt-state 0)
+(def mqtt-t0 0)        ; systime of the last confirmed publish
+(def mqtt-retry-t 0)   ; systime of the last connect attempt
+(def mqtt-wait 5.0)    ; connect backoff, doubles to mqtt-wait-max
+(def mqtt-wait-max 300.0)
+(def mqtt-fails 0)
+(def mqtt-redo false)  ; set by the UI when settings change
+; Last outcome, surfaced in the UI so a silent failure is visible:
+;   0 idle  1 published  2 publish failed  3 connect failed  4 no data context
+(def mqtt-last 0)
+
+(def modem-on  false)  ; GPIO 3 high
+(def modem-rdy false)  ; modem answers AT
+(def sim-ok    false)  ; AT+CPIN? -> READY
+(def net-att   false)  ; AT+CGATT? -> 1
+(def lte-rssi  -999)   ; dBm, -999 = unknown / no signal
+(def op-name   "")     ; carrier, from AT+COPS?
+(def modem-fails 0)    ; consecutive AT sync failures, for the console
+
+; SD card / logging
+(def pin-sd-mosi 5)
+(def pin-sd-miso 10)
+(def pin-sd-sck  4)
+(def pin-sd-cs   9)
+
+(def sd-ok    false)   ; card mounted
+(def log-on   false)
+(def log-rate 10.0)    ; Hz. 10 is the stock rate used by the vesc_pkg logger.
+(def log-lte  true)    ; append LTE signal / attach to each row
+(def loglist  nil)
+(def log-thd-id nil)
+
+; The firmware routes log packets by this id:
+;   0..254  -> over CAN to that device
+;   -1      -> to the connected VESC Tool
+;   anything else -> processed locally, i.e. written to our own SD card
+; See log_comm.c:91. -2 is the local case.
+(def log-id -2)
+
+; Per-CAN-device fields, mirroring loglist-can-template in the stock
+; vesc_pkg logger. Format: (key name unit precision getter)
+;
+; Only single-argument canget-* getters, because the value form is built
+; as (getter id). Note the CAN getter set is smaller than the local one --
+; there is no canget-ah or canget-wh, so amp/watt hours cannot be logged
+; from a remote node. Verified against the extension table.
+(def can-fields '(
+        ("in_voltage"    "Input Voltage" "V"    2 canget-vin)
+        ("current_motor" "Current"       "A"    2 canget-current)
+        ("current_in"    "Current In"    "A"    2 canget-current-in)
+        ("duty"          "Duty"          ""     3 canget-duty)
+        ("rpm"           "RPM"           ""     0 canget-rpm)
+        ("temp_mos"      "Temp Fet"      "degC" 1 canget-temp-fet)
+        ("temp_motor"    "Temp Motor"    "degC" 1 canget-temp-motor)
+        ("speed"         "Speed"         "m/s"  2 canget-speed)
+        ("dist"          "Distance"      "m"    1 canget-dist)
+))
+
+(def led-buf nil)
+(def led-phase 0)
+(def hue-n 60)         ; rainbow table entries
+(def hue-tab nil)
+; Animation phase wraps at a common multiple of the rainbow (60 frames) and
+; the flash (24 frames), so neither waveform stutters at the wrap point.
+(def led-period 120)
+
+; Indicator colours. Gamma correction is on, so these are pre-gamma values.
+(def col-green 0x00FF00)
+(def col-amber 0xFF6000)
+(def col-red   0xFF0000)
+(def col-blue  0x0040FF)
+
+; LED 1 (LTE) is driven from these, recomputed by the modem thread rather
+; than branched on inside the animation loop. Defaults read as "booting".
+;   lte-mode  0 = solid   1 = smooth breathe   2 = flash
+(def lte-col col-blue)
+(def lte-mode 1)
+
+
+;;; ------------------------------------------------------------------
+;;; LED helpers
+;;; ------------------------------------------------------------------
+
+; Pack 0-255 components into the 0xRRGGBB int that rgbled-color expects.
+; The buffer type handles the GRB wire order, so always build as RGB here.
+(defun rgb-i (r g b)
+    (bitwise-or (shl (to-i r) 16)
+        (bitwise-or (shl (to-i g) 8) (to-i b))))
+
+; Hue 0.0 .. 1.0 (exclusive) -> 0xRRGGBB. Full saturation, full value.
+;
+; This is only ever called from build-hue-tab, at init. Evaluating the later
+; cond clauses costs more eval stack than the earlier ones, so calling it from
+; a spawned animation thread crashes that thread a second or two in -- once the
+; hue first reaches the bottom of the cond. Keep it out of the hot loop.
+(defun hue-rgb (h) {
+        (var hv h)
+        (var seg (to-i (* hv 6.0)))
+        (var f (- (* hv 6.0) seg))
+        (var up (* 255.0 f))
+        (var dn (* 255.0 (- 1.0 f)))
+        (cond
+            ((= seg 0) (rgb-i 255 up  0))
+            ((= seg 1) (rgb-i dn  255 0))
+            ((= seg 2) (rgb-i 0   255 up))
+            ((= seg 3) (rgb-i 0   dn  255))
+            ((= seg 4) (rgb-i up  0   255))
+            (t         (rgb-i 255 0   dn)))
+})
+
+; Map modem state onto LED 1. Called from the modem thread so the 25 Hz
+; animation loop stays branch-free -- a multi-clause cond evaluated inside a
+; spawned thread is what killed the first version of the LED loop.
+;
+; Registered flashes rather than sitting solid, so that "CAN solid green +
+; LTE flashing green" is readable at a glance as both links up. Solid and
+; flashing are easy to tell apart from across a garage; two solids are not.
+(defun update-lte-led ()
+    (if net-att
+        { (setq lte-col col-green) (setq lte-mode 2) }
+        (if (and modem-rdy sim-ok)
+            { (setq lte-col col-amber) (setq lte-mode 1) }
+            (if modem-rdy
+                { (setq lte-col col-red)  (setq lte-mode 0) }
+                { (setq lte-col col-blue) (setq lte-mode 1) }))))
+
+; Rainbow lookup table, built once. The LED thread then does a single
+; bufget-u32 per pixel per frame -- no arithmetic, no branching.
+(defun build-hue-tab () {
+        (setq hue-tab (bufcreate (* hue-n 4)))
+        (looprange i 0 hue-n
+            (bufset-u32 hue-tab (* i 4) (hue-rgb (/ i (* 1.0 hue-n)))))
+})
+
+
+;;; ------------------------------------------------------------------
+;;; AT command layer
+;;; ------------------------------------------------------------------
+
+; One shared receive buffer. Only the modem thread calls at-cmd, so no
+; mutex is needed -- but the caller must consume the result before the
+; next call, because the buffer is reused.
+;
+; 384 rather than 256: a live AT+CPSI? reply overran a 256 byte buffer on
+; this carrier. Nothing the package polls is that long, but the headroom
+; costs nothing and a truncated reply fails silently.
+(def at-max 511)   ; usable bytes; uart-read rejects num > 512
+
+; Declared nil here and allocated in init. A bufcreate evaluated inside the
+; @const-start block would be moved to FLASH, and flash is not writable --
+; bufclear and uart-read would then silently fail on every AT command while
+; leaving everything that does not touch this buffer working normally.
+;
+; The rule is: setq-ing a global is fine inside a const block, but anything
+; mutated IN PLACE must be allocated at runtime.
+(def at-rx nil)
+
+; uart-write sends array->size bytes, and for an LBM string that INCLUDES
+; the trailing null terminator. Inside an SMS body that null becomes a
+; stray character on the end of every message. All writes go through here.
+; (bufcpy dst dst-start src src-start len)
+(defun uart-put (str) {
+        (var sv str)
+        (var n (str-len sv))
+        (if (> n 0) {
+                (var buf (bufcreate n))
+                (bufcpy buf 0 sv 0 n)
+                (uart-write buf)
+        })
+})
+
+; Send an AT command and collect the reply until OK / ERROR / timeout.
+; Returns at-rx, which is null-padded and therefore usable as a string.
+;
+; NOTE: parameters are rebound with var at the top of the body. On this
+; firmware a defun parameter does not always bind inside a nested block.
+(defun at-cmd (cmd tmo) {
+        (var c cmd)
+        (var tout tmo)
+
+        ; Drain stale bytes, but look for the new-message URC first. CNMI is
+        ; configured to emit +CMTI on arrival, and that notification would
+        ; otherwise be discarded here -- which is why replies waited for the
+        ; next scheduled poll instead of going out immediately.
+        (uart-read at-rx at-max)
+        (if (>= (str-find at-rx "+CMTI") 0) (setq sms-urc true))
+        (bufclear at-rx)
+        (uart-put (str-merge c "\r\n"))
+
+        (var t0 (systime))
+        (var pos 0)
+        (var done false)
+
+        (loopwhile (and (not done) (< (secs-since t0) tout)) {
+                (var n (uart-read at-rx (- at-max pos) pos -1 0.1))
+                (if (> n 0) (setq pos (+ pos n)))
+                (if (or (>= (str-find at-rx "OK") 0)
+                        (>= (str-find at-rx "ERROR") 0))
+                    (setq done true))
+                (if (>= pos (- at-max 4)) (setq done true))
+        })
+
+        at-rx
+})
+
+(defun at-ok (s) (>= (str-find s "OK") 0))
+
+; Send a command without waiting for a terminator. Needed for the two
+; commands whose reply is a ">" prompt rather than OK -- at-cmd would sit
+; there until it timed out, because the prompt never terminates.
+(defun at-raw (cmd) {
+        (var c cmd)
+        (uart-read at-rx at-max)
+        (if (>= (str-find at-rx "+CMTI") 0) (setq sms-urc true))
+        (bufclear at-rx)
+        (uart-put (str-merge c "\r\n"))
+})
+
+; Collect until OK / ERROR / timeout. Same loop as at-cmd, split out so it
+; can be used after a raw write.
+(defun at-wait (tmo) {
+        (var tout tmo)
+        (var t0 (systime))
+        (var pos 0)
+        (var done false)
+        (loopwhile (and (not done) (< (secs-since t0) tout)) {
+                (var n (uart-read at-rx (- at-max pos) pos -1 0.1))
+                (if (> n 0) (setq pos (+ pos n)))
+                (if (or (>= (str-find at-rx "OK") 0)
+                        (>= (str-find at-rx "ERROR") 0))
+                    (setq done true))
+                (if (>= pos (- at-max 4)) (setq done true))
+        })
+        at-rx
+})
+
+; Wait for the payload prompt. Call at-raw first -- this reads into a
+; buffer it assumes was cleared, and never clears one itself, because
+; clearing here would race the prompt that is already on its way.
+(defun at-prompt (tmo) {
+        (var tout tmo)
+        (var t0 (systime))
+        (var pos 0)
+        (var got false)
+        (loopwhile (and (not got) (< (secs-since t0) tout)) {
+                (var n (uart-read at-rx (- at-max pos) pos -1 0.1))
+                (if (> n 0) (setq pos (+ pos n)))
+                (if (or (>= (str-find at-rx ">") 0)
+                        (>= (str-find at-rx "ERROR") 0))
+                    (setq got true))
+                (if (>= pos (- at-max 4)) (setq got true))
+        })
+        (>= (str-find at-rx ">") 0)
+})
+
+; AT+CSQ reply -> dBm, or -999 when unknown. 99 means "not detectable".
+(defun parse-csq (s) {
+        (var str s)
+        (var i (str-find str "+CSQ:"))
+        (if (< i 0)
+            -999
+            {
+                (var v (str-to-i (str-part str (+ i 5)) 10))
+                (if (or (< v 0) (> v 31)) -999 (- (* 2 v) 113))
+            })
+})
+
+; AT+COPS? reply -> carrier name. Verified shape on this hardware:
+;   +COPS: 0,0,"T-Mobile",7
+; The name is the only quoted field, so take what sits between the quotes.
+(defun parse-cops (s) {
+        (var str s)
+        (var i (str-find str "\""))
+        (if (< i 0)
+            ""
+            {
+                (var tail (str-part str (+ i 1)))
+                (var j (str-find tail "\""))
+                (if (< j 0) "" (str-part tail 0 j))
+            })
+})
+
+; PWRKEY is a toggle, not an on switch. Read the status pin first and
+; only pulse when the modem is actually off, or this turns it back off.
+(defun modem-power-on () {
+        (if (= (gpio-read pin-mstat) 1)
+            true
+            {
+                (gpio-write pin-pwrkey 1)
+                (sleep 2.0)
+                (gpio-write pin-pwrkey 0)
+                (sleep 6.0)
+                (= (gpio-read pin-mstat) 1)
+            })
+})
+
+; A virgin SIM7070G reports +IPR: 0 (autobaud) and only locks onto a rate
+; after it sees valid AT traffic. Send AT a few times before deciding the
+; modem is dead, then pin the rate so later boots are deterministic.
+(defun modem-sync () {
+        (var ok false)
+        (var tries 0)
+        (loopwhile (and (not ok) (< tries 10)) {
+                (setq tries (+ tries 1))
+                (if (>= (str-find (at-cmd "AT" 1.0) "OK") 0) (setq ok true))
+                (if (not ok) (sleep 0.3))
+        })
+        (if ok {
+                (at-cmd "ATE0" 1.0)                      ; echo off
+                (at-cmd "AT+CMEE=2" 1.0)                 ; verbose errors
+                (at-cmd (str-merge "AT+IPR=" (str-from-n modem-baud "%d")) 1.0)
+        })
+        ok
+})
+
+
+;;; ------------------------------------------------------------------
+;;; UI link
+;;; ------------------------------------------------------------------
+
+; One space-separated line, kept well under the 100 byte send-data limit:
+;   st <flags> <ndevs> <firstid> <rssi> <vin> <nfields> <rate>
+;      <npending> <lock> <tripkm> <tripwh> <batt> <operator>
+;
+; flags bits: 1 can 2 modemOn 4 modemRdy 8 sim 16 att 32 sd 64 logging
+;             128 logLte 256 atBoot 512 sms 1024 guard
+;
+; The roster itself does not fit here and is sent separately by send-roster
+; as "mb" and "pd" frames. The operator stays last because carrier names
+; can contain spaces.
+;
+; The operator goes last on purpose. Carrier names can contain spaces
+; ("Verizon Wireless"), which would otherwise split into extra fields --
+; the UI rejoins everything from index 10 onwards.
+; Boolean state is packed into one integer rather than eleven separate
+; string fragments. str-merge allocates for every argument, and this runs
+; once a second against a 2560 cons cell heap.
+(defun sflags ()
+    (+ (if can-ok 1 0)      (if modem-on 2 0)   (if modem-rdy 4 0)
+       (if sim-ok 8 0)      (if net-att 16 0)   (if sd-ok 32 0)
+       (if log-on 64 0)     (if log-lte 128 0)  (if log-at-boot 256 0)
+       (if sms-on 512 0)    (if guard-on 1024 0)
+       (if mqtt-on 2048 0)  (if (= mqtt-state 2) 4096 0)))
+
+(defun send-status ()
+    (send-data (str-merge
+            "st "
+            (str-from-n (sflags) "%d ")
+            (str-from-n (length can-devs) "%d ")
+            (str-from-n (if (eq can-devs nil) -1 (ix can-devs 0)) "%d ")
+            (str-from-n lte-rssi "%d ")
+            (str-from-n can-vin "%.1f ")
+            (str-from-n (length loglist) "%d ")
+            (str-from-n log-rate "%.1f ")
+            (str-from-n (length pending) "%d ")
+            (str-from-n lock-state "%d ")
+            (str-from-n (/ trip-d 1000.0) "%.2f ")
+            (str-from-n trip-wh "%.1f ")
+            (str-from-n batt-pct "%.0f ")
+            (str-from-n mqtt-last "%d ")
+            ; Seconds since the last confirmed publish, -1 for never. The
+            ; single most useful number when the cloud row says it is
+            ; connected but the dashboard is not moving.
+            (str-from-n (if (= mqtt-t0 0) -1 (to-i (secs-since mqtt-t0))) "%d ")
+            op-name
+)))
+
+(defun rescan () (setq rescan-req true))
+(defun ui-sync () { (send-status) (send-roster) (send-cfg) })
+
+(defun guard-set (en) {
+        (var e en)
+        (setq guard-on (= e 1))
+        (if guard-on (setq guard-fired false))
+        (settings-save)
+        true
+})
+
+(defun lock-set (en) {
+        (var e en)
+        (lock-set-wait (= e 1))
+})
+
+(defun trip-reset () { (trip-start) (send-status) true })
+
+
+;;; ------------------------------------------------------------------
+;;; Persistent settings
+;;; ------------------------------------------------------------------
+
+; eeprom-read-i hands back nil for a slot that was never written, which is
+; the state of a factory-fresh device. Comparing nil against the magic word
+; would be a type error, so every read goes through this.
+(defun ee-get (addr dflt) {
+        (var a addr)
+        (var d dflt)
+        (var v (eeprom-read-i a))
+        (if (eq v nil) d v)
+})
+
+; Write only when the value actually changes. Storing six string blocks
+; is ~80 slots, and every one of those is a flash commit -- skipping the
+; unchanged ones turns a repeat save from eighty writes into zero.
+(defun ee-put (addr v)
+    (if (not (= (ee-get addr 2147483647) v)) (eeprom-store-i addr v) true))
+
+; --- arbitrary strings in EEPROM ---------------------------------------
+;
+; The number chunker below stores digits as decimal, which only works for
+; digits. Broker hosts, tokens and topics are arbitrary ASCII, so they are
+; packed as bytes: one length slot, then three characters per slot.
+;
+; Three and not four. eeprom-store-i takes an i32, but LBM's default
+; integer is 28 bit, so a fourth byte shifted to bit 24 would overflow the
+; encoding before it ever reached the extension. Three bytes tops out at
+; 0xFFFFFF and always fits. The cost is one slot per twelve characters,
+; against 512 slots available (flash_helper.h:47).
+(defun str-store (base nslots sv) {
+        (var b base)
+        (var ns nslots)
+        (var s sv)
+        (var cap (* 3 (- ns 1)))
+        (var n (str-len s))
+        (if (> n cap) (setq n cap))
+        ; acc and i are declared ONCE, outside the loops. A var inside a
+        ; looprange body re-declares on every iteration, which grows the
+        ; context stack until the whole call dies -- and it dies inside the
+        ; trap in event-handler, so the setting simply does not stick and
+        ; nothing appears on the console.
+        (var acc 0)
+        (var i 0)
+        (ee-put b n)
+        (looprange w 0 (- ns 1) {
+                ; Bytes are folded in high-first so that character 0 lands
+                ; in the low byte and the word reads back in order.
+                (setq acc 0)
+                (looprange k 0 3 {
+                        (setq i (+ (* w 3) (- 2 k)))
+                        (setq acc (* acc 256))
+                        (if (< i n) (setq acc (+ acc (bufget-u8 s i))))
+                })
+                (ee-put (+ b 1 w) acc)
+        })
+})
+
+(defun str-fetch (base nslots) {
+        (var b base)
+        (var ns nslots)
+        (var n (ee-get b 0))
+        (var cap (* 3 (- ns 1)))
+        (if (or (< n 1) (> n cap))
+            ""
+            {
+                ; One byte longer than the string, with the terminator set
+                ; by hand -- str-len and str-find walk to a null and would
+                ; run off the end of an exactly sized buffer.
+                (var out (bufcreate (+ n 1)))
+                (var acc 0)
+                (var i 0)
+                (bufset-u8 out n 0)
+                (looprange w 0 (- ns 1) {
+                        (setq acc (ee-get (+ b 1 w) 0))
+                        (looprange k 0 3 {
+                                (setq i (+ (* w 3) k))
+                                (if (< i n) (bufset-u8 out i (mod acc 256)))
+                                (setq acc (/ acc 256))
+                        })
+                })
+                out
+            })
+})
+
+; Stored value, or the compiled-in default when the slot is empty. Used
+; only for fields that must not be blank; apn, username and password are
+; taken verbatim because empty is a meaningful setting for all three.
+(defun str-or (base nslots dflt) {
+        (var s (str-fetch base nslots))
+        (if (= (str-len s) 0) dflt s)
+})
+
+(defun mqtt-strings-save () {
+        (str-store ee-apn    sl-apn    mqtt-apn)
+        (str-store ee-host   sl-host   mqtt-host)
+        (str-store ee-user   sl-user   mqtt-user)
+        (str-store ee-pass   sl-pass   mqtt-pass)
+        (str-store ee-client sl-client mqtt-client)
+        (str-store ee-topic  sl-topic  mqtt-topic)
+})
+
+(defun mqtt-strings-load () {
+        (setq mqtt-apn    (str-fetch ee-apn  sl-apn))
+        (setq mqtt-user   (str-fetch ee-user sl-user))
+        (setq mqtt-pass   (str-fetch ee-pass sl-pass))
+        (setq mqtt-host   (str-or ee-host   sl-host   "mqtt.thingsboard.cloud"))
+        (setq mqtt-client (str-or ee-client sl-client "vl-link"))
+        (setq mqtt-topic  (str-or ee-topic  sl-topic  "v1/devices/me/telemetry"))
+})
+
+(defun settings-save () {
+        (eeprom-store-i ee-magic   eeprom-magic)
+        (eeprom-store-i ee-rate    (to-i (* log-rate 100)))
+        (eeprom-store-i ee-lte     (if log-lte 1 0))
+        (eeprom-store-i ee-at-boot (if log-at-boot 1 0))
+        (eeprom-store-i ee-sms     (if sms-on 1 0))
+        (eeprom-store-i ee-guard   (if guard-on 1 0))
+        (eeprom-store-i ee-lock    (if lock-want 1 0))
+        ; Only the integers. The MQTT strings are written by their own
+        ; setter, because rewriting six string blocks on every settings
+        ; save would put ~80 flash writes behind an unrelated checkbox.
+        (eeprom-store-i ee-mqtt-on   (if mqtt-on 1 0))
+        (eeprom-store-i ee-mqtt-int  mqtt-int)
+        (eeprom-store-i ee-mqtt-port mqtt-port)
+        (members-save)
+        (send-status)
+        true
+})
+
+(defun settings-load ()
+    (if (= (ee-get ee-magic 0) eeprom-magic)
+        {
+            (setq log-rate    (/ (ee-get ee-rate 1000) 100.0))
+            (setq log-lte     (= (ee-get ee-lte 1) 1))
+            (setq log-at-boot (= (ee-get ee-at-boot 0) 1))
+            (setq sms-on      (= (ee-get ee-sms 0) 1))
+            (setq guard-on    (= (ee-get ee-guard 0) 1))
+            (setq lock-want   (= (ee-get ee-lock 0) 1))
+            (setq mqtt-on     (= (ee-get ee-mqtt-on 0) 1))
+            (setq mqtt-int    (ee-get ee-mqtt-int 60))
+            (setq mqtt-port   (ee-get ee-mqtt-port 1883))
+            (mqtt-strings-load)
+            (members-load)
+        }
+        ; First boot on this device, or a layout change: build an empty
+        ; roster and write the defaults so the magic word is present.
+        {
+            (looprange i 0 max-members (setq members (append members (list nil))))
+            (mqtt-strings-save)
+            (settings-save)
+        }))
+
+; Called from the UI. Parameters are rebound before the nested block.
+(defun cfg (rate lte at-boot) {
+        (var r rate)
+        (var l lte)
+        (var b at-boot)
+        (setq log-rate (if (< r 1.0) 1.0 (if (> r 50.0) 50.0 r)))
+        (setq log-lte (= l 1))
+        (setq log-at-boot (= b 1))
+        (settings-save)
+})
+
+
+;;; ------------------------------------------------------------------
+;;; SMS control
+;;;
+;;; Deliberately read-only plus log start/stop. Sender numbers are trivially
+;;; spoofable and SMS is an unauthenticated public bearer, so nothing here
+;;; can move the vehicle.
+;;;
+;;; Commands (case insensitive, replied to the sender):
+;;;   STATUS   pack voltage, CAN state, signal, logging state
+;;;   LOG ON   start logging
+;;;   LOG OFF  stop logging
+;;;   PING     liveness check
+;;; ------------------------------------------------------------------
+
+; Keep only 0-9 from a string. Incoming sender numbers arrive in assorted
+; formats (+1..., 1..., bare 10 digit), so everything is normalised before
+; comparison.
+(defun digits-only (s) {
+        (var str s)
+        (var out "")
+        (looprange i 0 (str-len str) {
+                (var ch (bufget-u8 str i))
+                (if (and (>= ch 48) (<= ch 57))
+                    (setq out (str-merge out (str-from-n (- ch 48) "%d"))))
+        })
+        out
+})
+
+; Compare on the last 10 digits so +15551234567 and 5551234567 match.
+(defun num-tail (s) {
+        (var d (digits-only s))
+        (var n (str-len d))
+        (if (> n 10) (str-part d (- n 10) 10) d)
+})
+
+; --- roster storage ----------------------------------------------------
+;
+; eeprom-store-i holds an i32 and a 15 digit number does not fit in one, so
+; each number is three 5-digit chunks. Layout per member, 5 slots each:
+;   +0 length   +1..3 chunks   +4 enabled
+; Member 0 is the owner; 1..4 are approved friends.
+
+(defun num-store (base num) {
+        (var b base)
+        (var d (digits-only num))
+        (var n (str-len d))
+        (eeprom-store-i b n)
+
+        ; Right-pad to 15 before chunking. Without this the final partial
+        ; chunk stores as a small integer -- "7" becomes 7 -- and %05d
+        ; restores it as "00007", left-shifting the last digits into
+        ; oblivion. The true length is stored separately and trimmed on load.
+        (loopwhile (< (str-len d) 15) (setq d (str-merge d "0")))
+        (looprange k 0 3
+            (eeprom-store-i (+ b 1 k) (str-to-i (str-part d (* k 5) 5) 10)))
+})
+
+(defun num-fetch (base) {
+        (var b base)
+        (var n (ee-get b 0))
+        (if (or (< n 1) (> n 15))
+            ""
+            {
+                (var acc "")
+                (looprange k 0 3
+                    (setq acc (str-merge acc (str-from-n (ee-get (+ b 1 k) 0) "%05d"))))
+                (str-part acc 0 n)
+            })
+})
+
+(defun member-base (i) (+ ee-members (* i 5)))
+
+(defun members-save ()
+    (looprange i 0 max-members {
+            (var m (ix members i))
+            (num-store (member-base i) (if (eq m nil) "" (ix m 0)))
+            (eeprom-store-i (+ (member-base i) 4)
+                (if (and (not (eq m nil)) (ix m 1)) 1 0))
+    }))
+
+(defun members-load () {
+        (setq members nil)
+        (looprange i 0 max-members {
+                (var num (num-fetch (member-base i)))
+                (setq members (append members
+                        (list (if (= (str-len num) 0)
+                                nil
+                                (list num (= (ee-get (+ (member-base i) 4) 0) 1))))))
+        })
+})
+
+; Index of a number in the roster, or -1. Matched on the last 10 digits so
+; +15551234567 and 5551234567 are the same person.
+(defun member-find (num) {
+        (var tn (num-tail num))
+        (var found -1)
+        (looprange i 0 max-members {
+                (var m (ix members i))
+                (if (and (= found -1) (not (eq m nil))
+                         (= (str-cmp tn (num-tail (ix m 0))) 0))
+                    (setq found i))
+        })
+        found
+})
+
+(defun member-allowed (num) {
+        (var i (member-find num))
+        (if (< i 0) false (ix (ix members i) 1))
+})
+
+(defun member-free () {
+        (var slot -1)
+        (looprange i 0 max-members
+            (if (and (= slot -1) (eq (ix members i) nil)) (setq slot i)))
+        slot
+})
+
+; --- pending requests --------------------------------------------------
+; RAM only. A request that has not been approved by the time the board
+; restarts is not worth persisting, and this keeps unknown numbers from
+; filling EEPROM.
+
+(defun pending-add (num) {
+        (var d (digits-only num))
+        (var dup false)
+        (loopforeach p pending
+            (if (= (str-cmp (num-tail p) (num-tail d)) 0) (setq dup true)))
+        (if (and (not dup) (< (length pending) max-pending)) {
+                (setq pending (append pending (list d)))
+                (send-roster)
+                true
+        }
+        false)
+})
+
+(defun pending-drop (num) {
+        (var d (num-tail num))
+        (var out nil)
+        (loopforeach p pending
+            (if (not (= (str-cmp (num-tail p) d) 0))
+                (setq out (append out (list p)))))
+        (setq pending out)
+})
+
+; --- UI actions --------------------------------------------------------
+
+(defun member-approve (num) {
+        (var d (digits-only num))
+        (var slot (member-free))
+        (if (>= slot 0) {
+                (setix members slot (list d true))
+                (members-save)
+                (pending-drop d)
+                (send-roster)
+                ; Tell them they are in, and send the current state with it so
+                ; the first message is useful rather than just an acknowledgement.
+                (if (and sms-on net-att)
+                    (sms-send d (str-merge "VL Link: access granted. Send ? for commands. "
+                                    (sms-status-text))))
+                true
+        }
+        false)
+})
+
+(defun member-deny (num) {
+        (pending-drop num)
+        (send-roster)
+        true
+})
+
+(defun member-set (idx en) {
+        (var i idx)
+        (var e en)
+        (var m (ix members i))
+        (if (not (eq m nil)) {
+                (setix members i (list (ix m 0) (= e 1)))
+                (members-save)
+                (send-roster)
+        })
+        true
+})
+
+(defun member-del (idx) {
+        (var i idx)
+        (setix members i nil)
+        (members-save)
+        (send-roster)
+        true
+})
+
+; Owner is member 0, set from the Settings tab.
+(defun sms-cfg (num en) {
+        (var n num)
+        (var e en)
+        (setq sms-on (= e 1))
+        (setix members 0 (if (= (str-len (digits-only n)) 0)
+                nil
+                (list (digits-only n) true)))
+        (members-save)
+        (eeprom-store-i ee-sms (if sms-on 1 0))
+        (send-status)
+        (send-roster)
+        true
+})
+
+; Roster does not fit in the 100 byte status frame, so it goes as its own
+; short frames, one per entry. The UI clears its list on "mb0".
+(defun send-roster () {
+        (looprange i 0 max-members {
+                (var m (ix members i))
+                (send-data (str-merge
+                        "mb " (str-from-n i "%d ")
+                        (if (eq m nil) "- " (str-merge (ix m 0) " "))
+                        (if (and (not (eq m nil)) (ix m 1)) "1" "0")))
+                (sleep 0.05)
+        })
+        (loopforeach p pending {
+                (send-data (str-merge "pd " p))
+                (sleep 0.05)
+        })
+        (send-data "rx")
+})
+
+; Put the modem into text mode. PDU mode is the default on some firmware
+; and every string below assumes text mode, so this must succeed first.
+(defun sms-init () {
+        (at-cmd "AT+CSMS=1" 5.0)
+        (at-cmd "AT+CMGF=1" 3.0)
+        (at-cmd "AT+CSCS=\"GSM\"" 3.0)
+        (at-cmd "AT+CNMI=2,1,0,0,0" 3.0)
+        (setq sms-ready true)
+})
+
+; Two-stage handshake: the modem answers AT+CMGS with a ">" prompt, then
+; the body is terminated by a raw Ctrl-Z rather than CR/LF.
+(defun sms-send (num body) {
+        (var n num)
+        (var b body)
+
+        (uart-read at-rx at-max)
+        (bufclear at-rx)
+        (uart-put (str-merge "AT+CMGS=\"+" (digits-only n) "\"\r\n"))
+
+        (var t0 (systime))
+        (var pos 0)
+        (var got false)
+        (loopwhile (and (not got) (< (secs-since t0) 10.0)) {
+                (var c (uart-read at-rx (- at-max pos) pos -1 0.2))
+                (if (> c 0) (setq pos (+ pos c)))
+                (if (or (>= (str-find at-rx ">") 0)
+                        (>= (str-find at-rx "ERROR") 0))
+                    (setq got true))
+        })
+
+        (if (>= (str-find at-rx ">") 0) {
+                ; Body plus the terminating Ctrl-Z in one exact-length
+                ; buffer, so no null terminator reaches the message.
+                (var bn (str-len b))
+                (var obuf (bufcreate (+ bn 1)))
+                (bufcpy obuf 0 b 0 bn)
+                (bufset-u8 obuf bn 26)
+                (uart-write obuf)
+
+                (uart-read at-rx at-max)
+                (bufclear at-rx)
+                (setq t0 (systime))
+                (setq pos 0)
+                (var done false)
+                (loopwhile (and (not done) (< (secs-since t0) 60.0)) {
+                        (var c2 (uart-read at-rx (- at-max pos) pos -1 0.5))
+                        (if (> c2 0) (setq pos (+ pos c2)))
+                        (if (or (>= (str-find at-rx "+CMGS") 0)
+                                (>= (str-find at-rx "ERROR") 0))
+                            (setq done true))
+                })
+                (>= (str-find at-rx "+CMGS") 0)
+        }
+        false)
+})
+
+(defun sms-help-text ()
+    "VL Link: STATUS TRIP PING LOCK UNLOCK GUARD ON/OFF LOG ON/OFF CLOUD ON/OFF ?")
+
+(defun sms-admin-help ()
+    "Admin also: ALLOW <number> DENY <number> WHO")
+
+(defun sms-who-text () {
+        (var out "VL Link members:")
+        (looprange i 0 max-members {
+                (var m (ix members i))
+                (if (not (eq m nil))
+                    (setq out (str-merge out " " (ix m 0)
+                                (if (ix m 1) "(on)" "(off)"))))
+        })
+        out
+})
+
+(defun n-tfet () (if can-ok (canget-temp-fet (ix can-devs 0)) 0.0))
+(defun n-tmot () (if can-ok (canget-temp-motor (ix can-devs 0)) 0.0))
+(defun n-kmh  () (if can-ok (* (fabs (canget-speed (ix can-devs 0))) 3.6) 0.0))
+
+(defun sms-status-text ()
+    (str-merge
+        "VL Link "
+        (str-from-n can-vin "%.1fV ")
+        (if (>= batt-pct 0.0) (str-from-n batt-pct "%.0f%% ") "")
+        (str-from-n (n-tfet) "%.0fC/")
+        (str-from-n (n-tmot) "%.0fC ")
+        (str-from-n (n-kmh) "%.0fkm/h ")
+        (if can-ok "CAN ok " "CAN DOWN ")
+        (if net-att (str-merge "LTE " (str-from-n lte-rssi "%ddBm ")) "LTE down ")
+        (if log-on "LOG on" "LOG off")
+        (cond ((= lock-state 1) " LOCKED")
+              ((= lock-state 0) "")
+              (t " lock:?"))
+        (if guard-on " GUARD" "")
+        (if mqtt-on (if (= mqtt-state 2) " cloud:up" " cloud:DOWN") "")))
+
+; Act on one command. Returns the reply text, or "" for nothing recognised.
+; Commands available to any approved member.
+(defun sms-dispatch (body) {
+        (var b (str-to-upper (ltrim body)))
+        (cond
+            ((starts b "?") (sms-help-text))
+            ((starts b "HELP") (sms-help-text))
+            ((starts b "STATUS") (sms-status-text))
+            ((starts b "TRIP") (trip-text))
+            ((starts b "LOG ON")
+                (if (log-begin) "VL Link: logging started" "VL Link: could not start"))
+            ((starts b "LOG OFF") { (log-end) "VL Link: logging stopped" })
+            ((starts b "GUARD ON")
+                { (setq guard-on true) (setq guard-fired false) (settings-save)
+                  "VL Link: guard armed" })
+            ((starts b "GUARD OFF")
+                { (setq guard-on false) (settings-save) "VL Link: guard off" })
+            ((starts b "UNLOCK")
+                (if (lock-set-wait false)
+                    "VL Link: unlocked (confirmed)"
+                    "VL Link: unlock sent but NOT confirmed by the controller"))
+            ((starts b "LOCK")
+                (if (lock-set-wait true)
+                    "VL Link: locked (confirmed)"
+                    "VL Link: lock sent but NOT confirmed by the controller"))
+            ((starts b "CLOUD OFF")
+                { (mqtt-set 0 mqtt-int) "VL Link: cloud off" })
+            ((starts b "CLOUD ON")
+                { (mqtt-set 1 mqtt-int) "VL Link: cloud on" })
+            ((starts b "PING") "VL Link: alive")
+            (t ""))
+})
+
+; Read the mailbox and handle at most one message per call. Handling a
+; single message keeps the parsing simple and bounded -- the next cycle
+; picks up anything still queued.
+;
+; Text-mode listing looks like:
+;   +CMGL: 3,"REC UNREAD","+15551234567",,"26/08/05,12:00:00-20"
+;   STATUS
+; Does this look like someone trying to issue a command? Carrier
+; notifications, delivery reports and spam all arrive as ordinary SMS from
+; unknown numbers, and replying to them is worse than useless: a bounce
+; notification triggers a reply, which bounces, which triggers another.
+; Strip leading whitespace so an anchored match is not defeated by a stray
+; space or newline at the start of the body.
+(defun ltrim (sv) {
+        (var st sv)
+        (var i 0)
+        (var n (str-len st))
+        (loopwhile (and (< i n)
+                        (or (= (bufget-u8 st i) 32)
+                            (= (bufget-u8 st i) 10)
+                            (= (bufget-u8 st i) 13)))
+            (setq i (+ i 1)))
+        (if (>= i n) "" (if (= i 0) st (str-part st i)))
+})
+
+; Commands must be at the START of the message, not merely present in it.
+; "Message Blocking is active" contains LOCK, and "unlock the garage" would
+; otherwise unlock the vehicle.
+(defun starts (b w) (= (str-find b w) 0))
+
+(defun cmd-like (body) {
+        (var b (str-to-upper (ltrim body)))
+        (or (starts b "?")     (starts b "HELP")  (starts b "STATUS")
+            (starts b "TRIP")  (starts b "PING")  (starts b "LOCK")
+            (starts b "UNLOCK")(starts b "GUARD") (starts b "LOG")
+            (starts b "CLOUD") (starts b "ALLOW") (starts b "DENY")
+            (starts b "WHO"))
+})
+
+; Admin (member 0) can manage the roster by text. Returns "" if the body is
+; not an admin command, so it falls through to the member command set.
+(defun sms-admin-dispatch (body) {
+        (var b (str-to-upper (ltrim body)))
+        (cond
+            ((starts b "WHO") (sms-who-text))
+            ((starts b "ALLOW") {
+                    (var n (digits-only body))
+                    (if (< (str-len n) 7)
+                        "VL Link: send ALLOW followed by the number"
+                        (if (member-approve n)
+                            (str-merge "VL Link: " n " approved")
+                            "VL Link: no free member slots"))
+            })
+            ((starts b "DENY") {
+                    (var n (digits-only body))
+                    (if (< (str-len n) 7)
+                        "VL Link: send DENY followed by the number"
+                        { (member-deny n) (str-merge "VL Link: " n " denied") })
+            })
+            (t ""))
+})
+
+(defun sms-poll () {
+        (if (not sms-ready) (sms-init))
+
+        (at-cmd "AT+CMGL=\"REC UNREAD\"" 10.0)
+        (var i (str-find at-rx "+CMGL:"))
+
+        (if (>= i 0) {
+                (var msg (str-part at-rx (+ i 7)))
+
+                ; Header line, up to the first CR:
+                ;   <index>,"<stat>","<sender>",[<alpha>],"<timestamp>"
+                ;
+                ; Parsed by comma position, NOT by walking quote pairs.
+                ; Whether the fields are quoted depends on the modem and on
+                ; AT+CSDH, and a quote walk silently lands on the timestamp
+                ; when they are not -- which then strips to digits and looks
+                ; like a plausible but completely wrong phone number.
+                (var he (str-find msg "\r"))
+                (var hdr (if (> he 0) (str-part msg 0 he) msg))
+                (var parts (str-split hdr ","))
+
+                (var idx (if (>= (length parts) 1) (str-to-i (ix parts 0) 10) -1))
+                (var sender (if (>= (length parts) 3) (digits-only (ix parts 2)) ""))
+
+                ; Body is the line after the header.
+                (var nl (str-find msg "\n"))
+                (var body "")
+                (if (>= nl 0) {
+                        (var after (str-part msg (+ nl 1)))
+                        (var nl2 (str-find after "\r"))
+                        (setq body (if (> nl2 0) (str-part after 0 nl2) after))
+                })
+
+                (print (list "SMS from" sender "->" body))
+
+                (if (member-allowed sender) {
+                        ; Admin gets the roster commands as well.
+                        (var reply (if (= (member-find sender) 0)
+                                (sms-admin-dispatch body)
+                                ""))
+                        (if (= (str-len reply) 0) (setq reply (sms-dispatch body)))
+                        (if (> (str-len reply) 0) (sms-send sender reply))
+                }
+                {
+                        ; Unknown, or known but switched off. Surface it to
+                        ; the owner rather than silently dropping it, and
+                        ; tell the sender once so they are not left waiting.
+                        (var known (>= (member-find sender) 0))
+                        (print (list "SMS from unapproved" sender "known:" known
+                                "cmd-like:" (cmd-like body)))
+                        (if (and (not known) (cmd-like body) (pending-add sender)) {
+                                (sms-send sender "VL Link: access request sent to the owner")
+                                ; Tell the admin, so approval does not depend
+                                ; on happening to open the app.
+                                (notify (str-merge "VL Link: access requested by " sender
+                                            ". Reply ALLOW " sender " or DENY " sender))
+                        })
+                })
+
+                ; Delete so the mailbox cannot fill and stall reception.
+                (if (>= idx 0)
+                    (at-cmd (str-merge "AT+CMGD=" (str-from-n idx "%d")) 10.0))
+        })
+})
+
+;;; ------------------------------------------------------------------
+;;; MQTT telemetry
+;;;
+;;; Runs inside the modem thread, which owns the UART, so it cannot collide
+;;; with the status polling above it or with SMS.
+;;;
+;;; The session is opened once and held, not opened per sample. SMCONN is a
+;;; TCP handshake plus a CONNECT/CONNACK round trip and regularly takes more
+;;; than ten seconds on Cat-M1; doing that every interval would mean the
+;;; radio never idles and any interval under a minute would be fiction.
+;;;
+;;; Every failure path lands somewhere visible. mqtt-last is reported to the
+;;; UI, because a telemetry feature that stops working silently is worse
+;;; than one that was never enabled.
+;;; ------------------------------------------------------------------
+
+; --- logging -----------------------------------------------------------
+; Off by default. MQTT fails in ways that look identical from the outside
+; -- a rejected token, a dead data context and an unreachable broker all
+; just sit there not publishing -- and only the modem's own reply
+; distinguishes them. Set this true from the REPL and every connect,
+; refusal and inbound UI form is printed, with the raw AT reply attached.
+;
+; Worth knowing before you turn it on: the SIM7070G answers a CONNECT that
+; the broker REJECTED with "+CME ERROR: operation not allowed", which
+; reads like a session conflict and is very often just a bad token.
+(def mqtt-log false)
+
+(defun mlog (tag)
+    (if mqtt-log (print (str-merge "[mqtt] " tag)) nil))
+
+; Prints the tag followed by whatever the modem last said. at-rx is a
+; null-terminated byte buffer, so it prints as a string; CR and LF show as
+; escapes, which is what you want when the interesting part is an error
+; code buried in a multi-line reply.
+(defun mlog-at (tag)
+    (if mqtt-log (print (str-merge "[mqtt] " tag " <- " at-rx)) nil))
+
+; Bring up the packet data context. AT+CNACT on its own is not enough: the
+; context profile has to be configured first, and on a SIM whose carrier
+; does not push an APN this is the difference between a modem that attaches
+; and one that also passes traffic. An empty APN asks the network for one,
+; which is what the T-Mobile SIM this was developed against wants.
+;
+; Returns quickly when the context is already up, which is the common case.
+(defun pdp-up ()
+    (if (>= (str-find (at-cmd "AT+CNACT?" 3.0) "+CNACT: 0,1") 0)
+        true
+        {
+            (at-cmd (str-merge "AT+CNCFG=0,1,\"" mqtt-apn "\"") 3.0)
+            (at-cmd "AT+CNACT=0,1" 5.0)
+
+            ; Activation is asynchronous. OK comes back long before
+            ; +APP PDP: 0,ACTIVE does, so poll the state instead of
+            ; sleeping a guessed amount of time and hoping.
+            (var t0 (systime))
+            (var up false)
+            (loopwhile (and (not up) (< (secs-since t0) 20.0)) {
+                    (sleep 1.0)
+                    (setq up (>= (str-find (at-cmd "AT+CNACT?" 3.0) "+CNACT: 0,1") 0))
+            })
+            (if up
+                (mlog "data context up")
+                (mlog-at "data context FAILED"))
+            (if up (setq mqtt-state 1))
+            up
+        }))
+
+(defun mqtt-conf () {
+        ; Port UNQUOTED. SIMCom's spec is
+        ;   AT+SMCONF="URL","<host>",<port>
+        ; and this firmware rejects the quoted form outright. The rejection
+        ; is silent in the sense that matters: SMCONF answers, but the URL
+        ; never takes, and the failure surfaces later as
+        ; "+CME ERROR: operation not allowed" on SMCONN -- which reads like
+        ; a session conflict and is actually the modem saying it has no
+        ; usable broker address to connect to.
+        (at-cmd (str-merge "AT+SMCONF=\"URL\",\"" mqtt-host "\","
+                    (str-from-n mqtt-port "%d")) 3.0)
+        (at-cmd (str-merge "AT+SMCONF=\"CLIENTID\",\"" mqtt-client "\"") 3.0)
+        (at-cmd (str-merge "AT+SMCONF=\"USERNAME\",\"" mqtt-user "\"") 3.0)
+        (at-cmd (str-merge "AT+SMCONF=\"PASSWORD\",\"" mqtt-pass "\"") 3.0)
+        ; 120 s, not 600. It has to outlast the publish interval so an
+        ; idle session is not dropped between samples, but a long keepalive
+        ; also means the broker holds a DEAD session that long after the
+        ; Link vanishes -- which is what makes a quick power cycle look
+        ; like the network is refusing to let you back on.
+        (at-cmd "AT+SMCONF=\"KEEPTIME\",120" 3.0)
+        (at-cmd "AT+SMCONF=\"CLEANSS\",1" 3.0)
+})
+
+(defun mqtt-connected ()
+    (>= (str-find (at-cmd "AT+SMSTATE?" 3.0) "+SMSTATE: 1") 0))
+
+(defun mqtt-connect ()
+    (if (not (pdp-up))
+        { (setq mqtt-last 4) false }
+        {
+            ; Unconditional, and deliberately not clever about it.
+            ;
+            ; The modem owns the session and outlives this script, an ESP
+            ; reset and any credential change made in the UI. An earlier
+            ; version asked SMSTATE and adopted whatever it found, to skip
+            ; a redundant handshake after a restart; that turned out to
+            ; adopt sessions opened with a token the user had since
+            ; revoked, and to disagree with the modem about whether a
+            ; session existed at all -- SMSTATE reporting 0 while SMCONN
+            ; answered "+CME ERROR: operation not allowed", which is the
+            ; modem saying it is already connected.
+            ;
+            ; SMDISC on a modem with no session is harmless. Guessing is
+            ; not. One wasted handshake per connect is the right price.
+            (at-cmd "AT+SMDISC" 5.0)
+            (sleep 0.5)
+            (mqtt-conf)
+            (mlog (str-merge "connecting to " mqtt-host ":"
+                    (str-from-n mqtt-port "%d")
+                    " user=" (if (= (str-len mqtt-user) 0)
+                            "(EMPTY -- broker will refuse)" mqtt-user)
+                    " client=" mqtt-client))
+            (var r (at-cmd "AT+SMCONN" 30.0))
+            (if (and (at-ok r) (mqtt-connected))
+                {
+                    (setq mqtt-state 2)
+                    (setq mqtt-fails 0)
+                    (setq mqtt-last 1)
+                    true
+                }
+                {
+                    (mlog-at "SMCONN refused")
+                    (setq mqtt-last 3) false
+                })
+        }))
+
+; Build the telemetry object.
+;
+; Values the package cannot vouch for are left out rather than sent as
+; zero, the same rule the UI uses for pack voltage: a missing key on the
+; dashboard is honest, a zero is a lie that plots. Battery percentage comes
+; from the controller, which knows the cell count and cutoffs -- it is not
+; guessed from pack voltage here, because a voltage-to-percent curve
+; without a chemistry is worse than no number at all.
+;
+; Built in three parts. str-merge allocates per argument and this runs on a
+; 2560 cons cell heap.
+(defun mqtt-json () {
+        (var id (if can-ok (ix can-devs 0) -1))
+
+        ; Appended one field at a time into a growing string rather than
+        ; built from nested str-merge. Nesting three levels of str-merge
+        ; over a dozen str-from-n calls holds every intermediate result
+        ; live at once, which is what made this thread want an unusual
+        ; stack; appending keeps exactly two strings alive per step.
+        (var j "{\"can\":")
+        (setq j (str-merge j (if can-ok "1" "0")))
+        (setq j (str-merge j (str-from-n lte-rssi ",\"rssi\":%d")))
+        (if (> can-vin 0.0)
+            (setq j (str-merge j (str-from-n can-vin ",\"voltage\":%.2f"))))
+        (if (>= batt-pct 0.0)
+            (setq j (str-merge j (str-from-n batt-pct ",\"battery\":%.0f"))))
+
+        (if can-ok {
+                ; to-i, not "%d" on the float canget-rpm returns.
+                ; str-from-n dispatches on the runtime type of its
+                ; argument rather than on the format string, so a float
+                ; reaching a %d conversion prints garbage.
+                (setq j (str-merge j (str-from-n (to-i (canget-rpm id)) ",\"rpm\":%d")))
+                (setq j (str-merge j (str-from-n (* (fabs (canget-speed id)) 3.6) ",\"speed_kmh\":%.1f")))
+                (setq j (str-merge j (str-from-n (canget-current-in id) ",\"current_in\":%.1f")))
+                (setq j (str-merge j (str-from-n (canget-temp-fet id) ",\"temp_fet\":%.1f")))
+                (setq j (str-merge j (str-from-n (canget-temp-motor id) ",\"temp_motor\":%.1f")))
+        })
+
+        (setq j (str-merge j (str-from-n (/ trip-d 1000.0) ",\"trip_km\":%.3f")))
+        (setq j (str-merge j (str-from-n trip-wh ",\"trip_wh\":%.1f")))
+        (setq j (str-merge j (str-from-n trip-ah ",\"trip_ah\":%.2f")))
+        (setq j (str-merge j ",\"moving\":" (if moving "1" "0")))
+        (setq j (str-merge j ",\"guard\":" (if guard-on "1" "0")))
+        (setq j (str-merge j (str-from-n lock-state ",\"lock\":%d")))
+        (setq j (str-merge j ",\"logging\":" (if log-on "1" "0") "}"))
+        j
+})
+
+; One publish. QoS 1, so the modem waits for the PUBACK and OK actually
+; means the broker took it -- at QoS 0 the reply only says the bytes left
+; the module.
+(defun mqtt-publish () {
+        (var json (mqtt-json))
+        (var n (str-len json))
+
+        (at-raw (str-merge "AT+SMPUB=\"" mqtt-topic "\","
+                    (str-from-n n "%d") ",1,0"))
+
+        (if (not (at-prompt 5.0))
+            {
+                (mlog-at "no payload prompt after SMPUB")
+                (setq mqtt-last 2)
+                (setq mqtt-state 1)
+                false
+            }
+            {
+                ; Exactly n bytes. uart-write sends array->size, which for
+                ; an LBM string includes the null terminator -- the modem
+                ; counts out the length it was promised and the extra byte
+                ; becomes the first character of the next command.
+                (var buf (bufcreate n))
+                (bufcpy buf 0 json 0 n)
+                (uart-write buf)
+
+                (uart-read at-rx at-max)
+                (bufclear at-rx)
+
+                (if (at-ok (at-wait 20.0))
+                    {
+                        (setq mqtt-t0 (systime))
+                        (setq mqtt-fails 0)
+                        (setq mqtt-last 1)
+                        true
+                    }
+                    {
+                        (mlog-at "publish not acknowledged")
+                        (setq mqtt-fails (+ mqtt-fails 1))
+                        (setq mqtt-last 2)
+                        ; One lost publish is a bad sample; two in a row is
+                        ; a dead session. Drop to reconnect rather than
+                        ; publishing into a socket nobody is reading.
+                        (if (>= mqtt-fails 2) (setq mqtt-state 1))
+                        false
+                    })
+            })
+})
+
+; Called once per modem cycle. At most one connect attempt or one publish
+; per call, so a broker that is refusing connections cannot monopolise the
+; thread and starve the LTE panel or SMS.
+(defun mqtt-tick () {
+        (if mqtt-redo {
+                (setq mqtt-redo false)
+                ; Unconditional, not gated on mqtt-state. The modem holds
+                ; its own session and outlives both this script's idea of
+                ; the state and any credential change made in the UI --
+                ; so after a settings change there can be a live session
+                ; on the OLD token while mqtt-state reads 0. Leave it
+                ; there and mqtt-connect adopts it, and the new token
+                ; never gets used.
+                (mlog "settings changed; dropping any existing session")
+                (at-cmd "AT+SMDISC" 5.0)
+                (setq mqtt-state 0)
+                (setq mqtt-t0 0)
+                (setq mqtt-retry-t 0)
+                (setq mqtt-wait 5.0)
+                (setq mqtt-fails 0)
+        })
+
+        (if (not (and mqtt-on modem-rdy net-att))
+            ; The context does not survive losing the network, so do not
+            ; pretend it did. Reset the backoff too: it exists to stop
+            ; hammering a broker that keeps saying no, and a network that
+            ; just came back is a genuinely new situation, not another no.
+            (if (> mqtt-state 0) {
+                    (setq mqtt-state 0)
+                    (setq mqtt-last 0)
+                    (setq mqtt-wait 5.0)
+                    (setq mqtt-retry-t 0)
+            })
+
+            (if (< mqtt-state 2)
+                ; Backed off, for the same reason can-scan is: a broker
+                ; with the wrong credentials will never succeed, and
+                ; retrying it every three seconds burns data and battery
+                ; for as long as the vehicle is parked.
+                (if (>= (secs-since mqtt-retry-t) mqtt-wait) {
+                        ; Clear the previous verdict before trying again.
+                        ; Without this the row keeps reporting the first
+                        ; failure after boot -- which is normal, the modem
+                        ; has not attached yet -- long after the link is
+                        ; up, and the whole startup looks broken when it is
+                        ; just slow.
+                        (setq mqtt-last 0)
+                        (setq mqtt-retry-t (systime))
+                        (if (mqtt-connect)
+                            (setq mqtt-wait 5.0)
+                            (setq mqtt-wait (if (> (* mqtt-wait 2.0) mqtt-wait-max)
+                                    mqtt-wait-max
+                                    (* mqtt-wait 2.0))))
+                })
+                (if (>= (secs-since mqtt-t0) (* 1.0 mqtt-int))
+                    ; Checked, not assumed. SMPUB against a session the
+                    ; modem has already dropped answers OK on some firmware
+                    ; revisions, which would report success forever.
+                    (if (mqtt-connected)
+                        (mqtt-publish)
+                        (setq mqtt-state 1)))))
+})
+
+; --- called from the UI ------------------------------------------------
+;
+; These run in the event handler thread, which does NOT own the UART, so
+; none of them talk to the modem. They write EEPROM, update the mirrors and
+; raise mqtt-redo; the modem thread picks the change up on its next cycle.
+
+(defun mqtt-set (en interval) {
+        (var e en)
+        (var i interval)
+        (setq mqtt-on (= e 1))
+        ; Floor of 15 s. The modem cycle is 3 s plus however long the
+        ; status commands take, so anything under that is a request the
+        ; hardware cannot honour and would only look broken.
+        (setq mqtt-int (if (< i 15) 15 (if (> i 3600) 3600 i)))
+        (settings-save)
+        (setq mqtt-redo true)
+        true
+})
+
+(defun mqtt-broker (host port user pass) {
+        (var h host) (var p port) (var u user) (var w pass)
+        (setq mqtt-host (if (= (str-len h) 0) "mqtt.thingsboard.cloud" h))
+        (setq mqtt-port (if (or (< p 1) (> p 65535)) 1883 p))
+        ; An empty username is never sent on purpose from the UI -- it
+        ; means the field had not been populated from the device yet when
+        ; Save was pressed. Overwriting a good token with nothing turns a
+        ; working link into "broker refused" with no clue why, so keep
+        ; what is stored and say so. Clearing it deliberately is done from
+        ; the REPL, where the intent is unambiguous.
+        (if (and (= (str-len u) 0) (> (str-len mqtt-user) 0))
+            (mlog "ignored an empty username; keeping the stored one")
+            (setq mqtt-user u))
+        (setq mqtt-pass w)
+        (str-store ee-host sl-host mqtt-host)
+        (str-store ee-user sl-user mqtt-user)
+        (mlog (str-merge "broker set: " mqtt-host " user len "
+                (str-from-n (str-len mqtt-user) "%d")))
+        (str-store ee-pass sl-pass mqtt-pass)
+        (eeprom-store-i ee-mqtt-port mqtt-port)
+        (setq mqtt-redo true)
+        true
+})
+
+(defun mqtt-ident (client topic apn) {
+        ; tp, not t. `t` is the built-in true and shadowing it raises
+        ; "Cannot redefine built-in" -- which, inside the trap in
+        ; event-handler, means this function silently did nothing at all.
+        (var c client) (var tp topic) (var a apn)
+        (setq mqtt-client (if (= (str-len c) 0) "vl-link" c))
+        (setq mqtt-topic  (if (= (str-len tp) 0) "v1/devices/me/telemetry" tp))
+        (setq mqtt-apn a)
+        (str-store ee-client sl-client mqtt-client)
+        (str-store ee-topic  sl-topic  mqtt-topic)
+        (str-store ee-apn    sl-apn    mqtt-apn)
+        (setq mqtt-redo true)
+        (send-cfg)
+        true
+})
+
+; Config strings do not fit in the status frame and can contain characters
+; that would split it, so each goes out as its own frame -- the same shape
+; the roster uses. "-" stands for empty.
+(defun cf-frame (i s)
+    (send-data (str-merge "cf " (str-from-n i "%d ")
+            (if (= (str-len s) 0) "-" s))))
+
+(defun send-cfg () {
+        (cf-frame 0 mqtt-apn)    (sleep 0.05)
+        (cf-frame 1 mqtt-host)   (sleep 0.05)
+        (cf-frame 2 (str-from-n mqtt-port "%d")) (sleep 0.05)
+        (cf-frame 3 mqtt-user)   (sleep 0.05)
+        (cf-frame 4 mqtt-pass)   (sleep 0.05)
+        (cf-frame 5 mqtt-client) (sleep 0.05)
+        (cf-frame 6 mqtt-topic)  (sleep 0.05)
+        (cf-frame 7 (str-from-n mqtt-int "%d"))
+})
+
+
+;;; ------------------------------------------------------------------
+;;; Trip metering, movement guard, remote lock
+;;; ------------------------------------------------------------------
+
+; Amp/watt hours are NOT available through canget-*. They arrive in their
+; own CAN status frames, which the firmware decodes internally but never
+; exposes to lisp, so they are decoded here from the raw frame.
+;
+;   CAN_PACKET_STATUS_2 = 14   amp hours, amp hours charged
+;   CAN_PACKET_STATUS_3 = 15   watt hours, watt hours charged
+;
+; Both int32 / 1e4, big-endian, which is bufget-i32's default.
+; Extended id is node_id | (packet_type << 8).
+(defun can-frame (cid cdata) {
+        (var i cid)
+        (var d cdata)
+        (var pkt (shr i 8))
+        (if (= pkt 14) (setq bat-ah (/ (bufget-i32 d 0) 10000.0)))
+        (if (= pkt 15) (setq bat-wh (/ (bufget-i32 d 0) 10000.0)))
+})
+
+(defun fabs (x) { (var v x) (if (< v 0) (- 0 v) v) })
+
+(defun owner-num () {
+        (var m (ix members 0))
+        (if (eq m nil) "" (ix m 0))
+})
+
+(defun notify (txt)
+    (if (and sms-on net-att (> (str-len (owner-num)) 0))
+        (sms-send (owner-num) txt)))
+
+(defun trip-start () {
+        (setq trip-ah0 bat-ah)
+        (setq trip-wh0 bat-wh)
+        (setq trip-d0 (if can-ok (canget-dist (ix can-devs 0)) 0.0))
+        (setq trip-vmax 0.0)
+        (setq trip-ah 0.0)
+        (setq trip-wh 0.0)
+        (setq trip-d 0.0)
+})
+
+(defun trip-update () {
+        (setq trip-ah (- bat-ah trip-ah0))
+        (setq trip-wh (- bat-wh trip-wh0))
+        (if can-ok {
+                (setq trip-d (- (canget-dist (ix can-devs 0)) trip-d0))
+                (var v (fabs (canget-speed (ix can-devs 0))))
+                (if (> v trip-vmax) (setq trip-vmax v))
+        })
+})
+
+(defun trip-text ()
+    (str-merge
+        "VL Link trip: "
+        (str-from-n (/ trip-d 1000.0) "%.2fkm ")
+        (str-from-n trip-wh "%.1fWh ")
+        (str-from-n trip-ah "%.2fAh ")
+        (str-from-n (* trip-vmax 3.6) "max %.1fkm/h")))
+
+; Wh per km over this trip, extrapolated against remaining pack energy is
+; not knowable without a capacity figure, so this reports efficiency only
+; and leaves range to the rider.
+(defun trip-eff ()
+    (if (> trip-d 50.0) (/ trip-wh (/ trip-d 1000.0)) 0.0))
+
+; --- remote lock -------------------------------------------------------
+;
+; Actuation is a LATCH held by a package on the ESC: app-disable-output -1
+; disables output indefinitely and the ESC keeps it that way, so the Link
+; only has to send the request once and can then go quiet.
+;
+; The cost of a latch is that nothing reveals a lost command -- there is no
+; heartbeat whose absence would show up. So every request is confirmed:
+; the Link asks, the ESC package calls (lock-ack n) back over CAN, and
+; nothing here claims success until that arrives.
+;
+; The ESC package must provide:
+;   (lock)             latch locked, persist across reboot
+;   (unlock)           release, persist
+;   (lock-report id)   can-cmd "(lock-ack <0|1>)" back to CAN node id
+
+; Called BY the ESC package. This is the only source of truth for lock state.
+(defun lock-ack (n) {
+        (var v n)
+        (setq lock-state v)
+        (setq lock-on (= v 1))
+        (setq lock-ack-t (systime))
+        (send-status)
+})
+
+(defun lock-send ()
+    (if can-ok (can-cmd (ix can-devs 0) (if lock-want "(lock)" "(unlock)"))))
+
+; Called BY the ESC package with a 0.0-1.0 level.
+(defun batt-ack (v) {
+        (var x v)
+        (setq batt-pct (* 100.0 x))
+        (setq batt-ack-t (systime))
+})
+
+(defun batt-query ()
+    (if can-ok
+        (can-cmd (ix can-devs 0)
+            (str-merge "(batt-report " (str-from-n (can-local-id) "%d") ")"))))
+
+(defun lock-query ()
+    (if can-ok
+        (can-cmd (ix can-devs 0)
+            (str-merge "(lock-report " (str-from-n (can-local-id) "%d") ")"))))
+
+; Resend until confirmed, and treat a stale ack as unknown rather than
+; assuming the last thing we saw is still true.
+(defun lock-thd ()
+    (loopwhile true {
+            (if can-ok {
+                    (if (not (= lock-state (if lock-want 1 0))) (lock-send))
+                    (lock-query)
+                    (batt-query)
+                    (if (> (secs-since batt-ack-t) 15.0) (setq batt-pct -1.0))
+                    (if (> (secs-since lock-ack-t) 15.0) {
+                            (setq lock-state -1)
+                            (setq lock-on false)
+                    })
+            })
+            (sleep 3.0)
+}))
+
+; Request a state and wait briefly for confirmation. Returns true only if
+; the ESC actually confirmed it.
+(defun lock-set-wait (want) {
+        (var w want)
+        (setq lock-want w)
+        (eeprom-store-i ee-lock (if w 1 0))
+        (lock-send)
+        (var t0 (systime))
+        (loopwhile (and (not (= lock-state (if w 1 0))) (< (secs-since t0) 6.0)) {
+                (lock-query)
+                (sleep 0.5)
+        })
+        (send-status)
+        (= lock-state (if w 1 0))
+})
+
+; Called once a second from the CAN thread.
+(defun motion-tick () {
+        (var r (if can-ok (fabs (canget-rpm (ix can-devs 0))) 0.0))
+        (var mv (> r rpm-move))
+
+        (if (and mv (not moving)) {
+                (setq moving true)
+                (trip-start)
+
+                ; The guard reports, it does not intervene. Knowing the bike
+                ; is moving is most of the value and none of the risk.
+                (if (and guard-on (not guard-fired)) {
+                        (setq guard-fired true)
+                        (notify "VL Link: movement detected while guarded")
+                })
+        })
+
+        (if mv (trip-update))
+
+        (if (and (not mv) moving) (setq moving false))
+})
+
+
+
+;;;
+;;; This uses the firmware's own log subsystem rather than writing CSV by
+;;; hand: log-config-field declares each column, log-start opens the file,
+;;; log-send-f32 pushes a row. The firmware writes /sdcard/log_can/log_NNN.csv
+;;; in VESC's native format, which VESC Tool's log analysis page reads
+;;; directly. Nothing here needs to know the file layout.
+;;; ------------------------------------------------------------------
+
+(defun sd-mount () {
+        (var r (trap (f-connect pin-sd-mosi pin-sd-miso pin-sd-sck pin-sd-cs)))
+        (setq sd-ok (eq (ix r 0) 'exit-ok))
+        sd-ok
+})
+
+; One entry per field: (key name unit precision value-form).
+; The value form is built as a list and evaluated per row, so the CAN id
+; is baked in at build time rather than looked up every sample.
+(defun build-loglist () {
+        (var res nil)
+        (var devs (live-devs))
+
+        (loopforeach d devs
+            (loopforeach fl can-fields {
+                    (var k  (str-merge (str-from-n d "V%d_") (ix fl 0)))
+                    (var nm (str-merge (str-from-n d "V%d ") (ix fl 1)))
+                    (setq res (append res (list
+                                (list k nm (ix fl 2) (ix fl 3) (list (ix fl 4) d)))))
+            }))
+
+        ; LTE columns are appended once, not per device.
+        (if log-lte
+            (setq res (append res (list
+                        (list "lte_rssi" "LTE Signal"   "dBm" 0 '(+ lte-rssi 0))
+                        (list "lte_att"  "LTE Attached" ""    0 '(if net-att 1 0))))))
+        res
+})
+
+(defun log-configure () {
+        (var i 0)
+        (loopforeach fl loglist {
+                (log-config-field log-id i
+                    (ix fl 0)    ; key
+                    (ix fl 1)    ; name
+                    (ix fl 2)    ; unit
+                    (ix fl 3)    ; precision
+                    false        ; is-relative
+                    false)       ; is-timestamp
+                (setq i (+ i 1))
+        })
+})
+
+(defun log-thd ()
+    (loopwhile log-on {
+            (log-send-f32 log-id 0
+                (map (fn (x) (eval (ix x -1))) loglist))
+            (sleep (/ 1.0 log-rate))
+}))
+
+(defun log-end () {
+        (log-stop log-id)
+        (if log-on {
+                (setq log-on false)
+                (wait log-thd-id)
+        })
+        (send-status)
+})
+
+(defun log-begin () {
+        (if log-on (log-end))
+        (if (not sd-ok) (sd-mount))
+
+        (setq loglist (build-loglist))
+
+        ; An empty list means nothing on the bus is broadcasting status
+        ; frames -- the canget-* getters would all return stale zeros.
+        (if (or (not sd-ok) (eq loglist nil))
+            false
+            {
+                (log-configure)
+                (log-start log-id (length loglist) log-rate true false)
+                (setq log-on true)
+                (setq log-thd-id (spawn 200 log-thd))
+                (send-status)
+                true
+            })
+})
+
+; Pack voltage of the first node in the list. Vin arrives in CAN status
+; frame 5, so a node found only by ping has nothing to read -- return -1
+; rather than the stale zero canget-vin would hand back.
+(defun node-vin (lst) {
+        (var l lst)
+        (if (eq l nil)
+            -1.0
+            {
+                (var id (ix l 0))
+                (var a (can-msg-age id 5))
+                (if (or (eq a nil) (> a 2.0)) -1.0 (canget-vin id))
+            })
+})
+
+; can-list-devs returns every id ever seen, with no expiry. Keep only the
+; ones whose status-1 frame is fresh. Returns nil if none are.
+(defun live-devs ()
+    (filter (fn (id) {
+                (var a (can-msg-age id 1))
+                (and (not (eq a nil)) (< a 2.0))
+        })
+        (can-list-devs)))
+
+; Evaluate one form from the UI.
+;
+; The trap is here so a malformed message cannot kill this thread -- but a
+; bare (trap ...) DISCARDS the error, and that is how a "Cannot redefine
+; built-in" hid for an entire debugging session while the only visible
+; symptom was a setting that quietly refused to stick. Keep the trap, print
+; the error.
+(defun ui-eval (data) {
+        (var d data)
+        (if mqtt-log (print (str-merge "[rx] " d)) nil)
+        (var r (trap (eval (read d))))
+        (if (eq (car r) 'exit-error)
+            (print (list "[rx] ERROR" (ix r 1) d))
+            nil)
+})
+
+(defun event-handler ()
+    (loopwhile true
+        (recv
+            ((event-data-rx . (? data)) (ui-eval data))
+            ((event-can-eid . ((? cid) . (? cdata))) (trap (can-frame cid cdata)))
+            (_ nil)
+)))
+
+
+;;; ------------------------------------------------------------------
+;;; Init
+;;; ------------------------------------------------------------------
+
+(defun init () {
+        ; Modem pins first. hw_init() on this board is empty, so nothing
+        ; is driven at boot and the status pin needs a settle before it
+        ; reads truthfully.
+        (gpio-configure pin-pwrkey 'pin-mode-out)
+        (gpio-write pin-pwrkey 0)
+        (gpio-configure pin-mstat 'pin-mode-in)
+        (sleep 0.5)
+
+        ; CAN transceiver. This is the one line every VL Link package must
+        ; have: without it the transceiver stays in standby, can-scan sees
+        ; only the local device, and there are no bus errors to explain it.
+        (gpio-configure pin-canstb 'pin-mode-out)
+        (gpio-write pin-canstb 0)
+
+        ; LED + GNSS power rail. The rail alone does not light the LEDs;
+        ; they also need data on pin-leddat.
+        (gpio-configure pin-ledpwr 'pin-mode-out)
+        (gpio-write pin-ledpwr 1)
+
+        (rgbled-init pin-leddat 1)               ; 1 = WS2812B timing
+        (setq led-buf (rgbled-buffer 2 0 1))     ; 2 LEDs, GRB, gamma on
+        (build-hue-tab)
+
+        ; Allocate the AT buffer on the heap. See the note at its def.
+        (setq at-rx (bufcreate 512))
+
+        (settings-load)
+
+        ; Mount the SD card. This is also what makes VESC Tool's file
+        ; browser work -- COMM_FILE_LIST reads from file_basepath, which
+        ; stays unset until something calls f-connect.
+        (sd-mount)
+
+        (uart-start modem-uart modem-rx modem-tx modem-baud)
+
+        (event-register-handler (spawn 200 event-handler))
+        ; Only event-data-rx. Express has no event-shutdown -- that is an ESC-only
+        ; event, and enabling it throws, which aborts init before any thread
+        ; spawns and takes CAN and LTE down with it.
+        (event-enable 'event-data-rx)
+        (event-enable 'event-can-eid)
+})
+
+
+;;; ------------------------------------------------------------------
+;;; Threads
+;;; ------------------------------------------------------------------
+
+; Optional auto-start. Waits for a node to appear rather than firing blind,
+; because log-begin refuses to start with an empty field list.
+(defun log-boot-thd ()
+    (if log-at-boot {
+            (var waited 0)
+            (loopwhile (and (not can-ok) (< waited 60)) {
+                    (sleep 1.0)
+                    (setq waited (+ waited 1))
+            })
+            (if can-ok {
+                    (sleep 2.0)
+                    (trap (log-begin))
+            })
+}))
+
+(defun main () {
+        (init)
+
+        ; --- LEDs, 25 Hz -------------------------------------------------
+        ; LED 0 = CAN   solid green = node present, rainbow = searching
+        ; LED 1 = LTE   flashing green = registered, amber breathe = searching,
+        ;               solid red = no SIM, blue breathe = modem booting
+        ;
+        ; Both waveforms are computed every frame and one is selected, so no
+        ; code path is reached for the first time only after a mode change.
+        (loopwhile-thd ("leds" 200) true {
+                (setq led-phase (mod (+ led-phase 1) led-period))
+                (var hue-ix (mod led-phase hue-n))
+                (var pulse (+ 0.06 (* 0.11 (+ 1.0 (sin (* 6.2832 (/ hue-ix (* 1.0 hue-n))))))))
+                (var flash (if (< (mod led-phase 24) 8) 0.30 0.015))
+
+                (if can-ok
+                    (rgbled-color led-buf 0 col-green 0.25)
+                    (rgbled-color led-buf 0 (bufget-u32 hue-tab (* hue-ix 4)) pulse))
+
+                (rgbled-color led-buf 1 lte-col
+                    (if (= lte-mode 0) 0.22 (if (= lte-mode 1) pulse flash)))
+
+                (rgbled-update led-buf)
+                (sleep 0.04)
+        })
+
+        ; --- CAN presence, 1 Hz ------------------------------------------
+        ; Two sources, because neither alone is correct:
+        ;
+        ;   can-list-devs is free, but the firmware never expires an entry --
+        ;   stat_msgs[] is only cleared at init, so a node that has gone away
+        ;   is still listed forever. Hence the age filter in live-devs.
+        ;
+        ;   can-scan actively pings and is always current, but it walks all
+        ;   254 ids and takes up to ~2.5 s on an empty bus, so it is backed
+        ;   off and confined to this thread.
+        ;
+        ; can-ok is only written when there is real evidence either way,
+        ; otherwise it would flicker on the cycles where no scan runs.
+        (loopwhile-thd ("can" 200) true {
+                (var devs (live-devs))
+                (if (not (eq devs nil))
+                    {
+                        (setq scan-tick 0)
+                        (setq scan-wait 3)
+                        (setq can-devs devs)
+                        (setq can-ok true)
+                    }
+                    {
+                        (setq scan-tick (+ scan-tick 1))
+                        (if (or rescan-req (>= scan-tick scan-wait)) {
+                                (setq scan-tick 0)
+                                (setq rescan-req false)
+                                (setq devs (can-scan))
+                                (setq can-devs devs)
+                                (setq can-ok (not (eq devs nil)))
+                                ; Back off when the bus stays empty. A scan
+                                ; pings all 254 ids, so repeating it every
+                                ; few seconds forever is a lot of traffic
+                                ; for a passive accessory to put on a bus
+                                ; it shares with other packages.
+                                (if (eq devs nil)
+                                    (setq scan-wait (if (> (* scan-wait 2) scan-wait-max)
+                                            scan-wait-max
+                                            (* scan-wait 2)))
+                                    (setq scan-wait 3))
+                        })
+                    })
+                (setq can-vin (node-vin can-devs))
+                (trap (motion-tick))
+                (sleep 1.0)
+        })
+
+        ; --- Modem / LTE -------------------------------------------------
+        ; Stack is deliberately large. at-cmd nests str-merge, a blocking
+        ; uart-read and str-find; at 400 words this thread died inside
+        ; modem-sync, which left modem-on true and modem-rdy false forever
+        ; with no retry -- indistinguishable from a modem that never answers.
+        ;
+        ; The body is trapped so that a transient error costs one cycle
+        ; rather than permanently killing the thread.
+        (loopwhile-thd ("modem" 200) true {
+                (trap {
+                        (if (not modem-rdy) {
+                                (setq modem-on (modem-power-on))
+                                (if modem-on {
+                                        (setq modem-rdy (modem-sync))
+                                        (if (not modem-rdy) {
+                                                (setq modem-fails (+ modem-fails 1))
+                                                (print (list "modem sync failed, attempt" modem-fails))
+                                                (print at-rx)
+                                        })
+                                })
+                        }
+                        {
+                                (setq modem-on (= (gpio-read pin-mstat) 1))
+                                (if (not modem-on) {
+                                        (setq modem-rdy false)
+                                        (setq sms-ready false)
+                                })
+                        })
+
+                        (if modem-rdy {
+                                (setq sim-ok (>= (str-find (at-cmd "AT+CPIN?" 3.0) "READY") 0))
+                                (setq lte-rssi (parse-csq (at-cmd "AT+CSQ" 3.0)))
+                                (setq net-att (>= (str-find (at-cmd "AT+CGATT?" 5.0) "+CGATT: 1") 0))
+
+                                ; Only ask for the carrier on the transition into
+                                ; attached. It does not change while registered, and
+                                ; COPS is the slowest of these to answer.
+                                (if (and net-att (= (str-len op-name) 0))
+                                    (setq op-name (parse-cops (at-cmd "AT+COPS?" 10.0))))
+                                (if (not net-att) (setq op-name ""))
+                        }
+                        {
+                                (setq sim-ok false)
+                                (setq net-att false)
+                                (setq lte-rssi -999)
+                                (setq op-name "")
+                        })
+
+                        ; SMS shares this thread and therefore the UART, so
+                        ; it cannot collide with the status polling above.
+                        (if (and sms-on modem-rdy net-att) {
+                                (setq sms-tick (+ sms-tick 1))
+                                (if (or sms-urc (>= sms-tick sms-every)) {
+                                        (setq sms-tick 0)
+                                        (setq sms-urc false)
+                                        ; Handle several, not one. Two texts
+                                        ; arriving close together used to leave
+                                        ; the second sitting until the next poll.
+                                        (looprange i 0 3 (sms-poll))
+                                })
+                        })
+
+                        ; Trapped separately. A publish failure must not
+                        ; skip the LED update below it -- the whole point
+                        ; of the LED is that it stays truthful when
+                        ; something above it has gone wrong.
+                        (trap (mqtt-tick))
+
+                        (update-lte-led)
+                })
+
+                (sleep 3.0)
+        })
+
+        (spawn 200 log-boot-thd)
+        (spawn 200 lock-thd)
+
+        ; --- UI push, 1 Hz -----------------------------------------------
+        ; Re-broadcast rather than answering a poll, so the UI fills in
+        ; correctly when VESC Tool connects after the script has started.
+        (loopwhile-thd ("ui" 200) true {
+                (send-status)
+                (sleep 1.0)
+        })
+})
+
+@const-end
+
+; Save the parsed program as a flash image. On every boot after this one the
+; firmware finds a `main` closure in the image and replaces the source with
+; "(main)" outright (lispif.c:906) -- so the 56 KB of lisp is never parsed
+; again, and the heap is left for runtime data instead of the program.
+;
+; This requires main to be a defun, and everything that has to run at start
+; must be reachable from it. Nothing at top level outside a definition will
+; execute on an image boot.
+(image-save)
+(main)

@@ -23,6 +23,14 @@
         (t v)
 ))
 
+; Clamp value to range min max
+(defun clamp (v min max)
+    (cond
+        ((< v min) min)
+        ((> v max) max)
+        (t v)
+))
+
 ; Map and clamp the range min-max to 0-1
 (defun map-range-01 (v min max)
     (clamp01 (/ (- (to-float v) min) (- max min)))

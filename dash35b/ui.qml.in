@@ -12,66 +12,1009 @@ Item {
     anchors.margins: 5
 
     property Commands mCommands: VescIf.commands()
-    property ConfigParams mMcConf: VescIf.mcConfig()
-    property ConfigParams mCustomConf: VescIf.customConfig(0)
 
-    ColumnLayout {
-        id: gaugeColumn
+    // Set while the controls are being populated from the display, so that
+    // the handlers below do not write the freshly read values straight back.
+    property bool loading: false
+
+    // One section on screen at a time. Scrolling past everything to reach
+    // one setting is the thing this avoids.
+    property int editing: 0
+
+    property int settingMask: 0xF
+    property int iconMask: 0x3F
+
+    property var actionNames: [
+        "Nothing", "Next page", "Previous page", "Settings page",
+        "Drive mode up", "Drive mode down", "Lights", "Backlight dim",
+        "Cruise control"
+    ]
+
+    property var rowNames: [
+        "Wheelie enable", "Wheelie angle start", "Wheelie angle end",
+        "Wheelie damping", "Backlight bright", "Backlight dim",
+        "Battery warning", "Controller warning", "Motor warning",
+        "Metric speed", "Metric temperature"
+    ]
+
+    property var colorNames: [
+        "Black", "White", "Cyan", "Orange", "Green", "Red",
+        "Blue", "Purple", "Yellow", "Grey"
+    ]
+
+    property var colorValues: [
+        0x000000, 0xFBFCFC, 0x00C8FF, 0xF05A22, 0x00C321, 0xFF0303,
+        0x1D7BE8, 0x9F20F1, 0xFFD400, 0x787878
+    ]
+
+    function colorIndexOf(v) {
+        for (var i = 0; i < colorValues.length; i++) {
+            if (colorValues[i] === v) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    property var slotNames: [
+        "Speed", "Battery %", "Motor amps", "Battery amps", "Power",
+        "Voltage", "Motor temp", "ESC temp", "Pack temp", "Duty",
+        "Trip", "Odometer", "Energy used", "Regen", "Amp hours",
+        "Peak amps", "Top speed", "Pitch"
+    ]
+
+    property var iconNames: [
+        "Turn signals", "High and low beam", "Kickstand",
+        "Temperature warning", "Fault warning", "Cruise control"
+    ]
+
+    property bool haveRead: false
+
+    // Custom app data, not the REPL: the firmware silently drops REPL
+    // commands sent within 0.5 s of each other. This path is quicker but not
+    // instant either, so commands are queued and paced rather than fired off
+    // as fast as the user can click.
+    property var sendQueue: []
+    property bool sendBusy: false
+
+    Timer {
+        id: sendTimer
+        interval: 350
+        repeat: false
+        onTriggered: sendPump()
+    }
+
+    function sendPump() {
+        if (sendQueue.length === 0) {
+            sendBusy = false
+            return
+        }
+        var q = sendQueue
+        var cmd = q.shift()
+        sendQueue = q
+        VescIf.commands().sendCustomAppData(cmd + "\0")
+        sendBusy = true
+        sendTimer.restart()
+    }
+
+    function send(cmd) {
+        var q = sendQueue
+        q.push(cmd)
+        sendQueue = q
+        if (!sendBusy) {
+            sendPump()
+        }
+    }
+
+    function setSetting(name, value) {
+        send("(settings-set '" + name + " " + value + ")")
+    }
+
+    function setMaskBit(bit, on) {
+        if (on) {
+            settingMask |= (1 << bit)
+        } else {
+            settingMask &= ~(1 << bit)
+        }
+        setSetting("setting-mask", settingMask)
+    }
+
+    function setIconBit(bit, on) {
+        if (on) {
+            iconMask |= (1 << bit)
+        } else {
+            iconMask &= ~(1 << bit)
+        }
+        setSetting("icon-mask", iconMask)
+    }
+
+    function setPageMask() {
+        var m = (page1On.checked ? 1 : 0) |
+                (page2On.checked ? 2 : 0) |
+                (page3On.checked ? 4 : 0) |
+                (page4On.checked ? 8 : 0)
+        setSetting("page-mask", m)
+    }
+
+    // Keeps asking until the display answers, so the page never shows its
+    // own defaults as if they were real values, and never writes them back.
+    Timer {
+        id: readPoll
+        interval: 700
+        running: true
+        repeat: true
+        onTriggered: {
+            if (haveRead) { running = false } else { send("(send-cfg)") }
+        }
+    }
+
+    Connections {
+        target: VescIf.commands()
+
+        function onCustomAppDataReceived(data) {
+            var str = data.toString()
+            if (!str.startsWith("cfg ")) { return }
+            // drop the tag so the indices below match cfg-cfg field order
+            var v = str.trim().split(" ").slice(1)
+            if (v.length < 47) { return }
+
+            loading = true
+            speedMetric.checked = parseInt(v[0]) === 1
+            speedImperial.checked = parseInt(v[0]) !== 1
+            tempMetric.checked = parseInt(v[1]) === 1
+            tempImperial.checked = parseInt(v[1]) !== 1
+            battHot.value = Math.round(parseFloat(v[2]))
+            escHot.value = Math.round(parseFloat(v[3]))
+            motorHot.value = Math.round(parseFloat(v[4]))
+            blBright.value = parseInt(v[5])
+            blDim.value = parseInt(v[6])
+            driveModes.value = parseInt(v[7])
+
+            var pmask = parseInt(v[8])
+            page1On.checked = (pmask & 1) !== 0
+            page2On.checked = (pmask & 2) !== 0
+            page3On.checked = (pmask & 4) !== 0
+            page4On.checked = (pmask & 8) !== 0
+
+            settingMask = parseInt(v[9])
+            for (var i = 0; i < rowRepeater.count; i++) {
+                rowRepeater.itemAt(i).checked =
+                    (settingMask & (1 << i)) !== 0
+            }
+
+            for (var b = 0; b < 4; b++) {
+                btnRepeater.itemAt(b).shortIndex = parseInt(v[10 + b])
+                btnRepeater.itemAt(b).longIndex = parseInt(v[14 + b])
+            }
+
+            escMode.currentIndex = parseInt(v[18])
+            escId.value = parseInt(v[19])
+            var live = parseInt(v[20]) === 1
+            var seenId = parseInt(v[21])
+            escState.text = (live
+                ? "Standalone, controller " +
+                  (seenId < 0 ? "not found" : seenId)
+                : "dash_esc detected")
+
+            iconMask = parseInt(v[22])
+            for (var ic = 0; ic < iconRepeater.count; ic++) {
+                iconRepeater.itemAt(ic).checked =
+                    (iconMask & (1 << ic)) !== 0
+            }
+
+            accentBox.currentIndex = colorIndexOf(parseInt(v[23]))
+            textBox.currentIndex = colorIndexOf(parseInt(v[24]))
+            for (var sl = 0; sl < 4; sl++) {
+                var it = slotRepeater.itemAt(sl)
+                it.source = parseInt(v[25 + sl])
+                it.slotColor = colorIndexOf(parseInt(v[29 + sl]))
+                it.ramp = parseInt(v[33 + sl]) === 1
+                it.rangeLo = parseInt(v[37 + sl])
+                it.rangeHi = parseInt(v[41 + sl])
+            }
+            battRampBox.checked = parseInt(v[45]) === 1
+            splashBox.checked = parseInt(v[46]) === 1
+
+            loading = false
+            haveRead = true
+            statusText.text = "Read from display"
+        }
+    }
+
+    ButtonGroup { id: speedGroup }
+    ButtonGroup { id: tempGroup }
+
+    ScrollView {
         anchors.fill: parent
+        contentWidth: availableWidth
+        clip: true
 
-        ScrollView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            contentWidth: mainItem.width
+        ColumnLayout {
+            width: parent.width
+            spacing: 4
+
+            Text {
+                color: Utility.getAppHexColor("lightText")
+                Layout.fillWidth: true
+                text: "Dash35B Package"
+                font.weight: Font.Black
+                font.pointSize: 18
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 2
+                color: Utility.getAppHexColor("lightText")
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: 4
+
+                Text {
+                    text: "Editing"
+                    color: Utility.getAppHexColor("lightText")
+                }
+
+                ComboBox {
+                    id: sectionBox
+                    Layout.fillWidth: true
+                    model: ["Live page", "Display", "Pages", "Hardware", "Buttons"]
+                    onActivated: editing = currentIndex
+                }
+
+                Button {
+                    text: "Read"
+                    onClicked: {
+                        statusText.text = "Reading..."
+                        haveRead = false
+                        readPoll.running = true
+                    }
+                }
+            }
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 3
+                title: "Units"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 3
+
+                        Text {
+                            text: "Speed"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        RadioButton {
+                            id: speedMetric
+                            ButtonGroup.group: speedGroup
+                            text: "km/h"
+                            checked: true
+                            onClicked: if (!loading) setSetting("units-metric", 1)
+                        }
+
+                        RadioButton {
+                            id: speedImperial
+                            ButtonGroup.group: speedGroup
+                            text: "MPH"
+                            onClicked: if (!loading) setSetting("units-metric", 0)
+                        }
+
+                        Text {
+                            text: "Temperature"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        RadioButton {
+                            id: tempMetric
+                            ButtonGroup.group: tempGroup
+                            text: "C"
+                            checked: true
+                            onClicked: if (!loading) setSetting("temps-metric", 1)
+                        }
+
+                        RadioButton {
+                            id: tempImperial
+                            ButtonGroup.group: tempGroup
+                            text: "F"
+                            onClicked: if (!loading) setSetting("temps-metric", 0)
+                        }
+                    }
+                                }
+            }
+
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 3
+                title: "Warning Thresholds"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+
+                        Text {
+                            text: "Battery"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        SpinBox {
+                            id: battHot
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 200
+                            editable: true
+                            onValueModified: if (!loading) setSetting("batt-hot", value.toFixed(1))
+                        }
+
+                        Text {
+                            text: "Controller"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        SpinBox {
+                            id: escHot
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 200
+                            editable: true
+                            onValueModified: if (!loading) setSetting("esc-hot", value.toFixed(1))
+                        }
+
+                        Text {
+                            text: "Motor"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        SpinBox {
+                            id: motorHot
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 200
+                            editable: true
+                            onValueModified: if (!loading) setSetting("motor-hot", value.toFixed(1))
+                        }
+
+                        Text {
+                            text: "Degrees C"
+                            color: Utility.getAppHexColor("lightText")
+                            font.pointSize: 8
+                        }
+
+                        Text {
+                            text: ""
+                        }
+                    }
+                                }
+            }
+
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 3
+                title: "Backlight"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 3
+
+                        Text {
+                            text: "Bright"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        Slider {
+                            id: blBright
+                            Layout.fillWidth: true
+                            from: 1
+                            to: 7
+                            stepSize: 1
+                            snapMode: Slider.SnapAlways
+                            // Preview while dragging, commit on release, so the
+                            // level can be judged on the display before it sticks.
+                            onMoved: if (!loading) send("(bl-preview " + value + ")")
+                            onPressedChanged: {
+                                if (!pressed && !loading) {
+                                    setSetting("bl-bright", value)
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: blBright.value
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        Text {
+                            text: "Dim"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        Slider {
+                            id: blDim
+                            Layout.fillWidth: true
+                            from: 1
+                            to: 7
+                            stepSize: 1
+                            snapMode: Slider.SnapAlways
+                            // Preview while dragging, commit on release, so the
+                            // level can be judged on the display before it sticks.
+                            onMoved: if (!loading) send("(bl-preview " + value + ")")
+                            onPressedChanged: {
+                                if (!pressed && !loading) {
+                                    setSetting("bl-dim", value)
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: blDim.value
+                            color: Utility.getAppHexColor("lightText")
+                        }
+                    }
+                                }
+            }
+
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 3
+                title: "Controller"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "dash_esc"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        ComboBox {
+                            id: escMode
+                            Layout.fillWidth: true
+                            model: ["Auto detect", "Assume present", "Assume absent"]
+                            onActivated: if (!loading) setSetting("esc-mode", currentIndex)
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "CAN id (0 = auto)"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        SpinBox {
+                            id: escId
+                            from: 0
+                            to: 253
+                            editable: true
+                            onValueModified: if (!loading) setSetting("esc-id", value)
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Utility.getAppHexColor("lightText")
+                        text: "Without dash_esc: speed, duty, voltage, current and " +
+                              "temperatures work, and a VESC BMS still gives charge " +
+                              "and the cell page. Watt hours, amp hours, odometer, " +
+                              "range, efficiency, fault names, pitch, cruise, " +
+                              "signals, high beam and kickstand do not. Modes are " +
+                              "sent as a temporary profile, cleared by a power cycle."
+                        font.pointSize: 8
+                    }
+                                }
+            }
+
+
+
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 1
+                title: "Display"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+
+                        Text {
+                            text: "Dial and accent"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                    ComboBox {
+                        id: accentBox
+                        Layout.fillWidth: true
+                        model: colorNames
+                        onActivated: {
+                            if (!loading) {
+                                setSetting("col-accent", colorValues[currentIndex])
+                            }
+                        }
+                    }
+
+                        Text {
+                            text: "Text"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                    ComboBox {
+                        id: textBox
+                        Layout.fillWidth: true
+                        model: colorNames
+                        onActivated: {
+                            if (!loading) {
+                                setSetting("col-text", colorValues[currentIndex])
+                            }
+                        }
+                    }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Utility.getAppHexColor("lightText")
+                        text: "The background stays black: every icon and font " +
+                              "is antialiased against it, so anything else " +
+                              "leaves dark fringes."
+                        font.pointSize: 8
+                    }
+                }
+            }
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 0
+                title: "Live Page"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Utility.getAppHexColor("lightText")
+                        text: "Four readings, two by two. Colour by value ramps " +
+                              "green to amber to red across the range."
+                        font.pointSize: 8
+                    }
+
+                    Repeater {
+                        id: slotRepeater
+                        model: 4
+
+                        ColumnLayout {
+                            property int slotIndex: index
+                            property alias source: slotBox.currentIndex
+                            property alias slotColor: slotColBox.currentIndex
+                            property alias ramp: rampBox.checked
+                            property alias rangeLo: loBox.value
+                            property alias rangeHi: hiBox.value
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: 6
+
+                            Text {
+                                text: (slotIndex < 2 ? "Top " : "Bottom ") +
+                                      (slotIndex % 2 === 0 ? "left" : "right")
+                                color: Utility.getAppHexColor("lightText")
+                                font.weight: Font.Black
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                ComboBox {
+                                    id: slotBox
+                                    Layout.fillWidth: true
+                                    model: slotNames
+                                    onActivated: {
+                                        if (!loading) {
+                                            setSetting("slot-" + slotIndex,
+                                                       currentIndex)
+                                        }
+                                    }
+                                }
+
+                                ComboBox {
+                                    id: slotColBox
+                                    Layout.preferredWidth: 110
+                                    model: colorNames
+                                    onActivated: {
+                                        if (!loading) {
+                                            setSetting("slot-col-" + slotIndex,
+                                                       colorValues[currentIndex])
+                                        }
+                                    }
+                                }
+                            }
+
+                            CheckBox {
+                                id: rampBox
+                                text: "Colour by value"
+                                onClicked: {
+                                    if (!loading) {
+                                        setSetting("slot-mode-" + slotIndex,
+                                                   checked ? 1 : 0)
+                                    }
+                                }
+                            }
+
+                            // The range gets its own row: sharing one with the
+                            // checkbox leaves the spin boxes too narrow to use
+                            // on the mobile UI.
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 14
+                                visible: rampBox.checked
+
+                                Text {
+                                    Layout.preferredWidth: 34
+                                    text: "from"
+                                    color: Utility.getAppHexColor("lightText")
+                                }
+
+                                SpinBox {
+                                    id: loBox
+                                    Layout.fillWidth: true
+                                    from: -1000
+                                    to: 10000
+                                    stepSize: 5
+                                    editable: true
+                                    onValueModified: {
+                                        if (!loading) {
+                                            setSetting("slot-min-" + slotIndex,
+                                                       value.toFixed(1))
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.preferredWidth: 18
+                                    text: "to"
+                                    color: Utility.getAppHexColor("lightText")
+                                }
+
+                                SpinBox {
+                                    id: hiBox
+                                    Layout.fillWidth: true
+                                    from: -1000
+                                    to: 10000
+                                    value: 100
+                                    stepSize: 5
+                                    editable: true
+                                    onValueModified: {
+                                        if (!loading) {
+                                            setSetting("slot-max-" + slotIndex,
+                                                       value.toFixed(1))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                Layout.fillWidth: true
+                visible: editing === 2
+                title: "Pages"
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        CheckBox {
+                            id: page1On
+                            text: "Live"
+                            checked: true
+                            onClicked: if (!loading) setPageMask()
+                        }
+
+                        CheckBox {
+                            id: page2On
+                            text: "Trip"
+                            checked: true
+                            onClicked: if (!loading) setPageMask()
+                        }
+
+                        CheckBox {
+                            id: page3On
+                            text: "Stats"
+                            checked: true
+                            onClicked: if (!loading) setPageMask()
+                        }
+
+                        CheckBox {
+                            id: page4On
+                            text: "Cells"
+                            checked: true
+                            onClicked: if (!loading) setPageMask()
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "Drive modes"
+                            color: Utility.getAppHexColor("lightText")
+                        }
+
+                        SpinBox {
+                            id: driveModes
+                            from: 1
+                            to: 5
+                            onValueModified: if (!loading) setSetting("drive-modes", value)
+                        }
+                    }
+                                }
+            }
+
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+                visible: editing === 2
+                color: Utility.getAppHexColor("lightText")
+                font.weight: Font.Black
+                text: "On-Display Settings Page"
+            }
 
             ColumnLayout {
-                anchors.fill: parent
-                width: mainItem.width
+                Layout.fillWidth: true
+                Layout.leftMargin: 14
+                Layout.bottomMargin: 6
+                visible: editing === 2
 
                 Text {
-                    id: header
-                    color: Utility.getAppHexColor("lightText")
-                    Layout.margins: 0
-                    Layout.fillWidth: true
-                    text: "Dash35B Package"
-                    font.underline: false
-                    font.weight: Font.Black
-                    font.pointSize: 18
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 2
-                    color: Utility.getAppHexColor("lightText")
-                }
-
-                Text {
-                    id: notes
-                    color: Utility.getAppHexColor("lightText")
-                    Layout.margins: 0
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: "Notes: Requires matching Dash35B package on ESC! WiFi and Bluetooth may not be enabled concurrently!"
+                    color: Utility.getAppHexColor("lightText")
+                    text: "Only the first six ticked are drawn."
+                    font.pointSize: 8
                 }
-                Rectangle {
+
+                Repeater {
+                    id: rowRepeater
+                    model: rowNames
+
+                    CheckBox {
+                        property int rowIndex: index
+                        text: modelData
+                        checked: index < 4
+                        onClicked: if (!loading) setMaskBit(rowIndex, checked)
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+                visible: editing === 1
+                color: Utility.getAppHexColor("lightText")
+                font.weight: Font.Black
+                text: "Status Icons"
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: 14
+                Layout.bottomMargin: 6
+                visible: editing === 1
+
+                Text {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 2
+                    wrapMode: Text.WordWrap
+                    color: Utility.getAppHexColor("lightText")
+                    text: "Unticked icons are not drawn at all."
+                    font.pointSize: 8
+                }
+
+                CheckBox {
+                    id: battRampBox
+                    text: "Colour the battery bar by charge"
+                    onClicked: {
+                        if (!loading) {
+                            setSetting("batt-ramp", checked ? 1 : 0)
+                        }
+                    }
+                }
+
+                CheckBox {
+                    id: splashBox
+                    text: "Show the boot splash"
+                    checked: true
+                    onClicked: {
+                        if (!loading) {
+                            setSetting("splash-en", checked ? 1 : 0)
+                        }
+                    }
+                }
+
+                Repeater {
+                    id: iconRepeater
+                    model: iconNames
+
+                    CheckBox {
+                        property int iconIndex: index
+                        text: modelData
+                        checked: true
+                        onClicked: if (!loading) setIconBit(iconIndex, checked)
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+                visible: editing === 4
+                color: Utility.getAppHexColor("lightText")
+                font.weight: Font.Black
+                text: "Buttons"
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: 14
+                Layout.bottomMargin: 6
+                visible: editing === 4
+
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Utility.getAppHexColor("lightText")
+                    text: "Short presses are overridden while the settings page " +
+                          "is open, so it can always be navigated."
+                    font.pointSize: 8
+                }
+
+                Repeater {
+                    id: btnRepeater
+                    model: 4
+
+                    ColumnLayout {
+                        property int btnIndex: index
+                        property alias shortIndex: shortBox.currentIndex
+                        property alias longIndex: longBox.currentIndex
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 4
+
+                        Text {
+                            text: "Button " + btnIndex
+                            color: Utility.getAppHexColor("lightText")
+                            font.weight: Font.Black
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                Layout.preferredWidth: 44
+                                text: "Short"
+                                color: Utility.getAppHexColor("lightText")
+                            }
+
+                            ComboBox {
+                                id: shortBox
+                                Layout.fillWidth: true
+                                model: actionNames
+                                onActivated: {
+                                    if (!loading) {
+                                        setSetting("btn" + btnIndex + "-short",
+                                                   currentIndex)
+                                    }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                Layout.preferredWidth: 44
+                                text: "Long"
+                                color: Utility.getAppHexColor("lightText")
+                            }
+
+                            ComboBox {
+                                id: longBox
+                                Layout.fillWidth: true
+                                model: actionNames
+                                onActivated: {
+                                    if (!loading) {
+                                        setSetting("btn" + btnIndex + "-long",
+                                                   currentIndex)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+                Layout.preferredHeight: 2
+                color: Utility.getAppHexColor("lightText")
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Button {
+                    text: "Reset All"
+                    onClicked: {
+                        statusText.text = "Resetting..."
+                        send("(settings-reset)")
+                    }
+                }
+
+                Button {
+                    text: "Read From Display"
+                    onClicked: {
+                        statusText.text = "Reading..."
+                        haveRead = false
+                        readPoll.running = true
+                    }
+                }
+
+                Text {
+                    id: statusText
+                    Layout.fillWidth: true
+                    color: Utility.getAppHexColor("lightText")
+                    wrapMode: Text.WordWrap
+                    text: "Waiting for display..."
+                }
+            }
+
+            RowLayout {
+                Text {
+                    id: escState
+                    Layout.fillWidth: true
+                    color: Utility.getAppHexColor("lightText")
+                    wrapMode: Text.WordWrap
+                    text: "Controller: unknown"
+                }
+            }
+
+            RowLayout {
+                Text {
+                    text: "Package Version:"
                     color: Utility.getAppHexColor("lightText")
                 }
-                RowLayout {
-                    Text {
-                        text: "Package Version:"
-                        color: Utility.getAppHexColor("lightText")
-                    }
-                    Text {
-                        id: versionText
-                        text: "{{VERSION}}"
-                        color: Utility.getAppHexColor("lightText")
-                        font.weight: Font.Black
-                    }
+
+                Text {
+                    text: "{{VERSION}}"
+                    color: Utility.getAppHexColor("lightText")
+                    font.weight: Font.Black
                 }
             }
         }
     }
+
 }

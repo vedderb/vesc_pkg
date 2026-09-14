@@ -56,12 +56,17 @@ class DisplayFrame:
         return [self.bytes[i] for i in range(1, 16, 2)]
 
     def render_rows(self) -> List[str]:
-        """Render display as ASCII art with 90° clockwise rotation.
+        """Render display as ASCII art in its physical orientation.
 
         The hardware stores 8 column bytes (high bytes at odd indices).
         Each column byte has 8 bits representing pixels vertically (MSB=top).
 
-        To rotate 90° clockwise with correct mapping:
+        This view always applies the display's fixed hardware-orientation
+        transform. It is separate from the configured frame rotation: CSV
+        rotation 1 is 90° clockwise from rotation 0 in this physical view,
+        followed by rotations 2 (180°) and 3 (270°).
+
+        The fixed transform maps:
         - Column N (left to right) becomes row N (top to bottom)
         - Within each column: position 0 checks bit 7 (MSB)
         - Positions 1-7 check bits 0-6 respectively
@@ -171,7 +176,7 @@ def main() -> None:
 
     print(f"Frame index: {frame.index}")
     print(f"Name: {frame.name}")
-    print(f"Rotation: {frame.rotation}")
+    print(f"Rotation: {frame.rotation} ({frame.rotation * 90}° clockwise in physical view)")
     print()
     for row in rows:
         print(row)

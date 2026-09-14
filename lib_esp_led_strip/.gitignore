@@ -1,0 +1,10 @@
+esp_led_strip/*.bin
+esp_led_strip/*.lisp
+esp_led_strip/*.elf
+esp_led_strip/*.list
+esp_led_strip/*.map
+esp_led_strip/*.o
+esp_led_strip/*.d
+
+# Generated from esp_led_strip/code.c by gen_defs.py (see the Makefile).
+esp_led_defs.lisp

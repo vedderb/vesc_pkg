@@ -21,6 +21,7 @@
 #include "footpad_sensor.h"
 #include "led_driver.h"
 #include "led_strip.h"
+#include "motor_data.h"
 #include "state.h"
 
 #define LEDS_REFRESH_RATE 30
@@ -29,6 +30,11 @@ typedef struct {
     LedTransition transition;
     float split;
 } TransitionState;
+
+typedef struct {
+    bool enabled;
+    bool headlights_enabled;
+} LedsRuntimeStatus;
 
 typedef struct {
     LedStrip status_strip;
@@ -46,8 +52,8 @@ typedef struct {
 
     float on_off_fade;
 
-    float duty_threshold;
-    float status_duty_blend;
+    float motor_utilization_threshold;
+    float status_utilization_blend;
     float status_idle_blend;
     float status_idle_time;
     float status_animation_start;
@@ -57,9 +63,13 @@ typedef struct {
     float status_on_front_idle_time;
     bool board_is_upright;
 
-    float split_distance;
+    LedsRuntimeStatus runtime_status;
+    // represents the state of a given flag being overriden at runtime
+    LedsRuntimeStatus runtime_status_overriden;
+
     bool headlights_on;
     bool direction_forward;
+    float split_distance;
     float headlights_time;
     float animation_start;
 
@@ -82,11 +92,19 @@ typedef struct {
 
 void leds_init(Leds *leds);
 
-void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg, FootpadSensorState fs_state);
+void leds_setup(Leds *leds, CfgHwLeds *hw_cfg, const CfgLeds *cfg);
 
 void leds_configure(Leds *leds, const CfgLeds *cfg);
 
-void leds_update(Leds *leds, const State *state, FootpadSensorState fs_state);
+const LedsRuntimeStatus *leds_get_runtime_status(const Leds *leds);
+
+void leds_set_enabled(Leds *leds, bool value);
+
+void leds_set_headlights_enabled(Leds *leds, bool value);
+
+void leds_update(
+    Leds *leds, const State *state, const MotorData *motor, FootpadSensorState fs_state
+);
 
 void leds_status_confirm(Leds *leds);
 

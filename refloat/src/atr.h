@@ -19,27 +19,33 @@
 #pragma once
 
 #include "conf/datatypes.h"
+#include "filters/smooth_setpoint.h"
 #include "motor_data.h"
 
 typedef struct {
-    float on_step_size;
-    float off_step_size;
     float speed_boost_mult;
 
     float accel_diff;
     float speed_boost;
 
+    float ad_alpha1;
+    float ad_alpha2;
+    float ad_alpha3;
+
     float target;
-    float ramped_step_size;
-    float setpoint;
+
+    EMA transition_target;
+    float transition_boost;
+
+    SmoothSetpoint setpoint;
 } ATR;
 
 void atr_init(ATR *atr);
 
 void atr_reset(ATR *atr);
 
-void atr_configure(ATR *atr, const RefloatConfig *config);
+void atr_configure(ATR *atr, const RefloatConfig *config, float frequency);
 
-void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config);
-
-void atr_winddown(ATR *atr);
+void atr_update(
+    ATR *atr, const MotorData *motor, const RefloatConfig *config, bool wheelslip, float dt
+);

@@ -18,13 +18,12 @@
 #include "motor_control.h"
 
 #include "conf/datatypes.h"
-#include "utils.h"
+#include "lib/utils.h"
 #include "vesc_c_if.h"
 
 void motor_control_init(MotorControl *mc) {
     mc->disabled = false;
-    mc->current_requested = false;
-    mc->requested_current = 0.0f;
+    mc->requested_current = NAN;
     mc->click_counter = 0;
     mc->brake_timer = 0.0f;
     mc->parking_brake_active = false;
@@ -34,15 +33,14 @@ void motor_control_init(MotorControl *mc) {
     mc->tone_intensity = 0.0f;
 }
 
-void motor_control_configure(MotorControl *mc, const RefloatConfig *config) {
+void motor_control_configure(MotorControl *mc, const RefloatConfig *config, uint16_t frequency) {
     mc->brake_current = config->brake_current;
     mc->click_current = config->startup_click_current;
     mc->parking_brake_mode = config->parking_brake_mode;
-    mc->main_freq = config->hertz / 2;
+    mc->main_freq = frequency / 2;
 }
 
 void motor_control_request_current(MotorControl *mc, float current) {
-    mc->current_requested = true;
     mc->requested_current = current;
 }
 
@@ -72,7 +70,9 @@ void motor_control_apply(MotorControl *mc, float abs_erpm, RunState state, const
     }
 
     if (mc->tone_ticks > 0) {
-        mc->current_requested = true;
+        if (isnan(mc->requested_current)) {
+            mc->requested_current = 0.0f;
+        }
 
         if (--mc->tone_counter == 0) {
             mc->tone_counter = mc->tone_ticks;
@@ -93,7 +93,7 @@ void motor_control_apply(MotorControl *mc, float abs_erpm, RunState state, const
     VESC_IF->timeout_reset();
 
     // BEWARE: Some sort of motor control must always be set before returning from this function
-    if (mc->current_requested) {
+    if (!isnan(mc->requested_current)) {
         // Keep modulation on for 50ms in case we request close-to-0 current
         VESC_IF->mc_set_current_off_delay(0.05f);
         VESC_IF->mc_set_current(mc->requested_current);
@@ -118,8 +118,7 @@ void motor_control_apply(MotorControl *mc, float abs_erpm, RunState state, const
         }
     }
 
-    mc->current_requested = false;
-    mc->requested_current = 0.0f;
+    mc->requested_current = NAN;
 }
 
 void motor_control_play_tone(MotorControl *mc, uint16_t frequency, float intensity) {

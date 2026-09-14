@@ -86,16 +86,16 @@ loopwhile-thd
 
 (defun beep (times dt) {
         (if (assoc rtc-val 'beeper-en)
-        {
+            {
                 (mutex-lock buz-mutex)
 
-        (loopwhile (> times 0) {
-                (pwm-set-duty 0.5 0)
-                (sleep dt)
-                (pwm-set-duty 0.0 0)
-                (sleep dt)
-                (setq times (- times 1))
-        })
+                (loopwhile (> times 0) {
+                        (pwm-set-duty 0.5 0)
+                        (sleep dt)
+                        (pwm-set-duty 0.0 0)
+                        (sleep dt)
+                        (setq times (- times 1))
+                })
 
                 (mutex-unlock buz-mutex)
         })
@@ -332,7 +332,8 @@ loopwhile-thd
 
                 (if (< (assoc rtc-val 'soc) 0.05)
                     {
-                        (bms-set-btn-wakeup-state -1)
+                        (sleep-config-wakeup-pin 0 1)
+                        (bms-set-btn-wakeup-state 1)
                         (sleep-deep (bms-get-param 'sleep_long))
                     }
                     {
@@ -344,8 +345,6 @@ loopwhile-thd
         })
 
         (init-hw)
-
-        (beep 2 0.1)
 
         (if (can-active) (setq do-sleep false))
 
@@ -414,7 +413,8 @@ loopwhile-thd
 
                 (if (< (assoc rtc-val 'soc) 0.05)
                     {
-                        (bms-set-btn-wakeup-state -1)
+                        (sleep-config-wakeup-pin 0 1)
+                        (bms-set-btn-wakeup-state 1)
                         (sleep-deep (bms-get-param 'sleep_long))
                     }
                     {
@@ -580,7 +580,7 @@ loopwhile-thd
             (set-bms-val 'bms-data-version 1)
 
             (set-bms-val 'bms-v-cell-min c-min)
-            (set-bms-val 'bms-v-cell-min c-max)
+            (set-bms-val 'bms-v-cell-max c-max)
 
             (if (= (bms-get-param 'soc_use_ah) 1)
                 {
@@ -735,7 +735,8 @@ loopwhile-thd
                     (save-rtc-val)
                     (save-settings)
                     (with-com '(bms-sleep))
-                    (bms-set-btn-wakeup-state -1)
+                    (sleep-config-wakeup-pin 0 1)
+                    (bms-set-btn-wakeup-state 1)
                     (sleep-deep (bms-get-param 'sleep_long))
             })
 
@@ -976,6 +977,8 @@ loopwhile-thd
         })
 
         (start-hum-thd)
+
+        (beep 2 0.1) ; Boot done
 })
 
 @const-end

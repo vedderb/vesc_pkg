@@ -1,0 +1,59 @@
+// Copyright 2024 Lukas Hrazky
+//
+// This file is part of the Refloat VESC package.
+//
+// Refloat VESC package is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// Refloat VESC package is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+// or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along with
+// this program. If not, see <http://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include <stdbool.h>
+
+typedef struct {
+    float on_speed_up;
+    float off_speed_up;
+    float on_speed_down;
+    float off_speed_down;
+
+    float alpha;
+    float on_speed_alpha;
+    float off_speed_alpha;
+    float winddown_alpha;
+
+    bool is_winddown;
+
+    float v1;
+    float step;
+    float value;
+} SmoothSetpoint;
+
+void smooth_setpoint_init(SmoothSetpoint *st);
+
+void smooth_setpoint_configure(
+    SmoothSetpoint *st,
+    float time_constant,
+    float on_speed_time_constant,
+    float off_speed_time_constant,
+    float winddown_time_constant,
+    float on_speed_up,
+    float off_speed_up,
+    float on_speed_down,
+    float off_speed_down,
+    float frequency
+);
+
+void smooth_setpoint_reset(SmoothSetpoint *st);
+
+void smooth_setpoint_update(SmoothSetpoint *st, float target, bool forward, float mult, float dt);
+
+void smooth_setpoint_winddown(SmoothSetpoint *st);

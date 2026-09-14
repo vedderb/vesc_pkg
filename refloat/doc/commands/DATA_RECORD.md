@@ -1,14 +1,14 @@
 # Command: DATA_RECORD
 
-This command is compound, it has one request message and two response messages.
+This command is compound, it has one request message and two response messages. The request message doubles as a response for Control mode.
 
 It serves for controlling the data recording capability of the package. See [Realtime Value Tracking](../realtime_value_tracking.md) for more details.
 
-## DATA_RECORD_REQUEST (Request)
+## DATA_RECORD (Request)
 
 **ID**: 41
 
-A single request command to control the data recording functionality.
+This command controls the data recording functionality.
 
 | Offset | Size | Name      | Mandatory | Description   |
 |--------|------|-----------|-----------|---------------|
@@ -17,20 +17,28 @@ A single request command to control the data recording functionality.
 
 ### Mode: Control
 
-Control mode expects one additional parameter:
+Control mode will respond with the `DATA_RECORD` response after processing the request.
+
+- **`sub_mode = 0`: Get Status**\
+No additional parameters are expected. The response contains the current status without making any changes.
+
+For `sub_mode > 0`, one additional parameter is expected:
 
 | Offset | Size | Name    | Mandatory | Description   |
 |--------|------|---------|-----------|---------------|
 | 0      | 1    | `value` | Yes       | Represents a boolean value to set for given `sub_mode`. |
 
-- **`sub_mode = 1`: Start/Stop Recording**
+- **`sub_mode = 1`: Start/Stop Recording**\
 `value = 1` starts recording, `value = 0` stops recording.
 
-- **`sub_mode = 2`: Set Autostart to `value`**.\
+- **`sub_mode = 2`: Set Autostart to `value`**\
 _Autostart will automatically start recording when engaging the board. Default value: True_
 
-- **`sub_mode = 3`: Set Autostop to `value`**.\
+- **`sub_mode = 3`: Set Autostop to `value`**\
 _Autostop will automatically stop recording when disengaged. Default value: True_
+
+- **`sub_mode = 4`: Set Decimation to `value`**.\
+_Decimation controls how often samples are recorded. A value of 1 records every sample, 2 records every 2nd sample, etc. This allows recording over a longer time period at reduced resolution. Default value: 1_
 
 ### Mode: Send
 
@@ -56,6 +64,25 @@ This submode has one additional parameter:
 | 0      | 4    | `offset` | Yes       | Offset in number of samples to send. |
 
 The client is responsible to request all the chunks of data by repeatedly calling this command with the offsets of the data it needs to fetch.
+
+## DATA_RECORD (Response)
+
+**ID**: 41
+
+Response to Control mode requests with the current status of the data recording feature.
+
+| Offset | Size | Name          | Description   |
+|--------|------|---------------|---------------|
+| 0      | 1    | `enabled`     | Whether data recording is available (requires compatible firmware). |
+| 1      | 1    | `flags`       | Data recording state flags. |
+| 2      | 1    | `decimation`  | Current decimation value. |
+| 3      | 2    | `duration`    | Recording duration in centiseconds (hundredths of a second) at decimation 1 as `uint16`. |
+
+#### flags
+
+| 7-3 |          2 |           1 |           0 |
+|-----|------------|-------------|-------------|
+|   0 | `autostop` | `autostart` | `recording` |
 
 ## DATA_RECORD_HEADER (Response)
 

@@ -18,7 +18,9 @@
 #pragma once
 
 #include "alert_tracker.h"
-#include "biquad.h"
+#include "filters/biquad.h"
+#include "filters/ema.h"
+#include "filters/sma.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -28,25 +30,29 @@
 typedef struct {
     float erpm;
     float abs_erpm;
-    float abs_erpm_smooth;
     float last_erpm;
     int8_t erpm_sign;
+    EMA abs_erpm_smooth;
 
     float speed;
+    float distance;
 
     float current;  //  "regular" motor current (positive = accelerating, negative = braking)
     float dir_current;  // directional current (sign represents direction of torque generation)
-    float filt_current;  // filtered directional current
+    Biquad filt_current;  // filtered directional current
+    float torque;
     bool braking;
+    bool forward;
 
-    float duty_cycle;
     float duty_raw;
+    EMA duty_cycle;
 
-    // an average calculated over last ACCEL_ARRAY_SIZE values
-    float acceleration;
+    SMA acceleration;
 
-    float batt_current;
+    EMA batt_current;
     float batt_voltage;
+    float motor_current_saturation;
+    float battery_current_saturation;
 
     float mosfet_temp;
     float motor_temp;
@@ -61,24 +67,23 @@ typedef struct {
     float duty_max_with_margin;
     float lv_threshold;
     float hv_threshold;
-
-    float accel_history[ACCEL_ARRAY_SIZE];
-    uint8_t accel_idx;
-
-    bool current_filter_enabled;
-    Biquad current_biquad;
+    float speed_constant;  // a.k.a. Kv, inverse of Kt, the torque constant
 } MotorData;
 
 void motor_data_init(MotorData *m);
+
+void motor_data_destroy(MotorData *m);
 
 void motor_data_reset(MotorData *m);
 
 void motor_data_refresh_motor_config(MotorData *m, float lv_threshold, float hv_threshold);
 
-void motor_data_configure(MotorData *m, float frequency);
+void motor_data_configure(MotorData *m, float current_cutoff_freq, float frequency);
 
-void motor_data_update(MotorData *m);
+void motor_data_update(MotorData *m, float dt);
 
 void motor_data_evaluate_alerts(const MotorData *m, AlertTracker *at, const Time *time);
 
 float motor_data_get_current_saturation(const MotorData *m);
+
+float motor_data_torque_to_current(const MotorData *m, float torque);

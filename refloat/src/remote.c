@@ -17,36 +17,65 @@
 
 #include "remote.h"
 
-#include "utils.h"
+#include "lib/utils.h"
 
-void remote_init(Remote *remote) {
+#define MOVE_KP 1.2f
+#define MOVE_KI 1.0f
+#define MOVE_TORQUE_LIMIT 10.0f
+
+#define REMOTE_TIMEOUT 0.5f
+#define MOVE_IDLE_TIMEOUT 1.0f
+
+void remote_init(Remote *remote, const Time *time) {
     remote->input = 0;
-    remote->ramped_step_size = 0;
-    remote->setpoint = 0;
+    smooth_setpoint_init(&remote->setpoint);
+
+    timer_expire(time, &remote->command_input_time, REMOTE_TIMEOUT);
+
+    remote_reset(remote, time);
 }
 
-void remote_reset(Remote *remote) {
-    remote->setpoint = 0;
-    remote->ramped_step_size = 0;
+void remote_reset(Remote *remote, const Time *time) {
+    smooth_setpoint_reset(&remote->setpoint);
+    remote->move_speed = NAN;
+    remote->move_pid_i = 0.0f;
+    timer_expire(time, &remote->move_idle_time, MOVE_IDLE_TIMEOUT);
 }
 
-void remote_configure(Remote *remote, const RefloatConfig *config) {
-    remote->step_size = config->inputtilt_speed / config->hertz;
+void remote_configure(Remote *remote, const RefloatConfig *config, float frequency) {
+    float speed_time_constant = config->remote.filter.time_constant * 0.25f;
+    smooth_setpoint_configure(
+        &remote->setpoint,
+        config->remote.filter.time_constant,
+        speed_time_constant,
+        speed_time_constant,
+        0.2f,
+        100.0f,
+        100.0f,
+        100.0f,
+        100.0f,
+        frequency
+    );
 }
 
-void remote_input(Remote *remote, const RefloatConfig *config) {
+void remote_input(Remote *remote, const Time *time, const RefloatConfig *config) {
+    if (!timer_older(time, remote->command_input_time, REMOTE_TIMEOUT)) {
+        // input is being set from a package command
+        return;
+    }
+
     bool connected = false;
     float value = 0;
 
     switch (config->inputtilt_remote_type) {
     case (INPUTTILT_PPM):
         value = VESC_IF->get_ppm();
-        connected = VESC_IF->get_ppm_age() < 1;
+        connected = VESC_IF->get_ppm_age() < REMOTE_TIMEOUT;
         break;
     case (INPUTTILT_UART): {
         remote_state remote = VESC_IF->get_remote_state();
         value = remote.js_y;
-        connected = remote.age_s < 1;
+        connected = remote.age_s < REMOTE_TIMEOUT;
         break;
     }
     case (INPUTTILT_NONE):
@@ -55,14 +84,31 @@ void remote_input(Remote *remote, const RefloatConfig *config) {
 
     if (!connected) {
         remote->input = 0;
+        remote->move_speed = NAN;
         return;
     }
 
     float deadband = config->inputtilt_deadband;
-    if (fabsf(value) < deadband) {
+    float value_abs = fabsf(value);
+    if (value_abs < deadband) {
         value = 0.0;
     } else {
-        value = sign(value) * (fabsf(value) - deadband) / (1 - deadband);
+        value = sign(value) * (value_abs - deadband) / (1 - deadband);
+    }
+
+    // remote move logic
+    if (value == 0.0f) {
+        if (timer_older(time, remote->move_idle_time, MOVE_IDLE_TIMEOUT)) {
+            remote->move_speed = NAN;
+        } else {
+            remote->move_speed = 0.0f;
+        }
+    } else {
+        if (config->remote.max_move_speed > 0 &&
+            time_elapsed(time, disengage, config->remote_throttle_grace_period)) {
+            remote->move_speed = value * config->remote.max_move_speed;
+            timer_refresh(time, &remote->move_idle_time);
+        }
     }
 
     if (config->inputtilt_invert_throttle) {
@@ -72,37 +118,40 @@ void remote_input(Remote *remote, const RefloatConfig *config) {
     remote->input = value;
 }
 
-void remote_update(Remote *remote, const State *state, const RefloatConfig *config) {
+void remote_command_input(
+    Remote *remote, float value, const Time *time, const RefloatConfig *config
+) {
+    remote->input = value;
+    if (time_elapsed(time, disengage, 2.0f)) {
+        // default to a limit of 5 km/h if limit of 0 is configured for the remote
+        float speed_max = config->remote.max_move_speed > 0 ? config->remote.max_move_speed : 5;
+        remote->move_speed = value * speed_max;
+    }
+
+    timer_refresh(time, &remote->command_input_time);
+}
+
+float remote_get_move_torque(Remote *remote, float speed, float dt) {
+    if (!isnan(remote->move_speed)) {
+        float error = remote->move_speed - speed;
+
+        remote->move_pid_i += MOVE_KI * error * dt;
+        remote->move_pid_i = clampf(remote->move_pid_i, -MOVE_TORQUE_LIMIT, MOVE_TORQUE_LIMIT);
+
+        return clampf(MOVE_KP * error + remote->move_pid_i, -MOVE_TORQUE_LIMIT, MOVE_TORQUE_LIMIT);
+    } else {
+        remote->move_pid_i = 0.0f;
+        return NAN;
+    }
+}
+
+void remote_update(Remote *remote, const State *state, const RefloatConfig *config, float dt) {
     float target = remote->input * config->inputtilt_angle_limit;
 
     if (state->darkride) {
         target = -target;
     }
 
-    float target_diff = target - remote->setpoint;
-
-    // Smoothen changes in tilt angle by ramping the step size
-    const float smoothing_factor = 0.02;
-
-    // Within X degrees of Target Angle, start ramping down step size
-    if (fabsf(target_diff) < 2.0f) {
-        // Target step size is reduced the closer to center you are (needed for smoothly
-        // transitioning away from center)
-        remote->ramped_step_size = smoothing_factor * remote->step_size * target_diff / 2 +
-            (1 - smoothing_factor) * remote->ramped_step_size;
-        // Linearly ramped down step size is provided as minimum to prevent overshoot
-        float centering_step_size =
-            fminf(fabsf(remote->ramped_step_size), fabsf(target_diff / 2) * remote->step_size) *
-            sign(target_diff);
-        if (fabsf(target_diff) < fabsf(centering_step_size)) {
-            remote->setpoint = target;
-        } else {
-            remote->setpoint += centering_step_size;
-        }
-    } else {
-        // Ramp up step size until the configured tilt speed is reached
-        remote->ramped_step_size = smoothing_factor * remote->step_size * sign(target_diff) +
-            (1 - smoothing_factor) * remote->ramped_step_size;
-        remote->setpoint += remote->ramped_step_size;
-    }
+    // The `forward` argument doesn't matter, as up and down speeds are the same
+    smooth_setpoint_update(&remote->setpoint, target, true, 1.0f, dt);
 }

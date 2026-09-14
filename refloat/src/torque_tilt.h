@@ -19,22 +19,20 @@
 #pragma once
 
 #include "conf/datatypes.h"
+#include "filters/smooth_setpoint.h"
 #include "motor_data.h"
 
 typedef struct {
-    float on_step_size;
-    float off_step_size;
-
-    float ramped_step_size;
-    float setpoint;
+    float target;
+    SmoothSetpoint setpoint;
 } TorqueTilt;
 
 void torque_tilt_init(TorqueTilt *tt);
 
 void torque_tilt_reset(TorqueTilt *tt);
 
-void torque_tilt_configure(TorqueTilt *tt, const RefloatConfig *config);
+void torque_tilt_configure(TorqueTilt *tt, const RefloatConfig *config, float frequency);
 
-void torque_tilt_update(TorqueTilt *tt, const MotorData *motor, const RefloatConfig *config);
-
-void torque_tilt_winddown(TorqueTilt *tt);
+void torque_tilt_update(
+    TorqueTilt *tt, const MotorData *motor, const RefloatConfig *config, bool wheelslip, float dt
+);

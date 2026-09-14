@@ -18,7 +18,7 @@
 #include "haptic_feedback.h"
 
 #include "conf/datatypes.h"
-#include "utils.h"
+#include "lib/utils.h"
 #include "vesc_c_if.h"
 
 #include <math.h>
@@ -57,7 +57,7 @@ static HapticFeedbackType haptic_feedback_get_type(
 
     switch (state->sat) {
     case SAT_PB_DUTY:
-        if (md->duty_cycle > hf->duty_solid_threshold) {
+        if (md->duty_cycle.value > hf->duty_solid_threshold) {
             return HAPTIC_FEEDBACK_DUTY_CONTINUOUS;
         } else {
             return HAPTIC_FEEDBACK_DUTY_SPEED;
@@ -175,14 +175,16 @@ void haptic_feedback_update(
     } else if (should_be_playing) {
         const CfgHapticTone *tone = get_haptic_tone(hf);
         if (tone->strength > 0.0f) {
-            foc_play_tone(0, tone->frequency, tone->strength * strength_scale(hf, md->speed));
+            foc_play_tone(
+                0, tone->frequency, tone->strength * strength_scale(hf, fabsf(md->speed))
+            );
         }
 
         if (hf->cfg->vibrate.strength > 0.0f) {
             motor_control_play_tone(
                 mc,
                 hf->cfg->vibrate.frequency,
-                hf->cfg->vibrate.strength * strength_scale(hf, md->speed)
+                hf->cfg->vibrate.strength * strength_scale(hf, fabsf(md->speed))
             );
         }
 

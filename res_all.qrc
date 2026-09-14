@@ -8,6 +8,7 @@
         <file>x1_unlocker/x1_unlocker.vescpkg</file>
         <file>vbms32/vbms32.vescpkg</file>
         <file>vbms32_micro/vbms32_micro.vescpkg</file>
+        <file>legacy_dc_dpv/legacy_dc_dpv.vescpkg</file>
         <file>lib_ws2812/ws2812.vescpkg</file>
         <file>lib_nau7802/nau7802.vescpkg</file>
         <file>lib_interpolation/interpolation.vescpkg</file>
@@ -24,14 +25,24 @@
         <file>ebike/ebike.vescpkg</file>
         <file>vbms_harmony16/vbms_harmony16.vescpkg</file>
         <file>dash35b/dash35b.vescpkg</file>
-        <file>dash35b/dash35b_esc.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_stm.vescpkg</file>
         <file>vl_bike_39p/vl_bike_39p_esp.vescpkg</file>
         <file>lib_bq27441/bq27441.vescpkg</file>
         <file>boosted_doctor/boosted_doctor.vescpkg</file>
+        <file>dash16/dash16.vescpkg</file>
         <file>dash16/dash16_test.vescpkg</file>
         <file>lib_tca9534/tca9534.vescpkg</file>
         <file>UnleashedCreativityLights/UCLights.vescpkg</file>
+        <file>wheelie_limiter/wheelie_limiter.vescpkg</file>
+        <file>mt6701_config/mt6701_config.vescpkg</file>
+        <file>dash_esc/dash_esc.vescpkg</file>
+        <file>vesc_scooter_support/vesc_scooter_support.vescpkg</file>
+        <file>lib_esp_led_strip/esp_led_strip.vescpkg</file>
+        <file>vl_link_status/vl_link_status.vescpkg</file>
+        <file>scooter_dashboard_support/scooter_dashboard_support.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_esp.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_stm.vescpkg</file>
+        <file>vesc_x3_bridge/vesc_x3_bridge_stm_slave.vescpkg</file>
    </qresource>
 </RCC>
 

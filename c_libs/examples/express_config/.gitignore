@@ -1,0 +1,13 @@
+*.o
+*.d
+*.elf
+*.list
+*.map
+express_config_*.bin
+express_config_*.lisp
+express_config.vescpkg
+conf/confparser.c
+conf/confparser.h
+conf/confxml.c
+conf/confxml.h
+conf/conf_default.h

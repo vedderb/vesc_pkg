@@ -1,67 +1,120 @@
 # Command: REALTIME_DATA
 
-**ID**: 31
+**ID**: 33
 
-Provides realtime data from the package to the client.
+Provides selectable realtime data from the package to the client. This command allows the client to request specific data fields using a bitmask, and supports encoding floats as both [float16](float16.md) and float32.
 
 ## Request
 
-No data.
+| Offset | Size | Name             | Mandatory | Description   |
+|--------|------|------------------|-----------|---------------|
+| 0      | 1    | `control_flags`  | Yes       | Control flags specifying format options:<br> `0x1`: Use float32 instead of [float16](float16.md) for numeric values |
+| 1      | 4    | `mask1`          | Yes       | Bitmask specifying which data fields to include (bits 0-31). See **Mask1** table below. |
+| 5      | 4    | `mask2`          | No        | Bitmask specifying which data fields to include (bits 32-63). See **Mask2** table below. |
 
 ## Response
 
-The beginning of the response contains information about the state of the package. Following it is a sequence of realtime values in the 2-byte [float16](float16.md) format. Depending on the `mask`, these are optionally followed by a sequence of realtime _runtime_ values or charging values.
+The response contains the data fields that were requested via the bitmasks. The response starts with header information, followed by the requested realtime values in the order they are listed in the mask tables.
 
-The definition of what realtime and realtime _runtime_ values are sent is provided in the [REALTIME_DATA_IDS](REALTIME_DATA_IDS.md) command as two sequences of string IDs.
+| Offset | Size | Name             | Description   |
+|--------|------|------------------|---------------|
+| 0      | 1    | `control_flags`  | Echo of the control flags from the request. |
+| 1      | 4    | `mask1`          | Echo of mask1 from the request. |
+| 5      | 4    | `mask2`          | Echo of mask2 from the request. |
+| 9      | 4    | `time`           | Timestamp of the data in ticks, as `uint32`. To convert to seconds, use `tick_rate` from the [INFO](INFO.md) command. |
+| 13     | N    | `data_fields`    | Sequence of requested data fields. |
 
-The actual list of values sent is in [rt_data.h](/src/rt_data.h). See also [Realtime Value Tracking](../realtime_value_tracking.md) for more details.
+### Mask Fields
 
-| Offset | Size | Name                  | Description   |
-|--------|------|-----------------------|---------------|
-| 0      | 1    | `mask`                | Mask which specifies which data are included in the response:<br> `0x1`: Runtime data<br> `0x2`: Charging data |
-| 1      | 1    | `extra_flags`         | Extra flags for various internal package state values. |
-| 2      | 4    | `time`                | Timestamp of the data in ticks, as `uint32`. To convert to seconds, use `tick_rate` from the [INFO](INFO.md) command. |
-| 6      | 1    | `state_and_mode`      | The state and mode of the package. |
-| 7      | 1    | `flags_and_footpad`   | The state flags and footpad state. |
-| 8      | 1    | `stop_cond_and_sat`   | The stop condition and SAT (Setpoint Adjustment Type). |
-| 9      | 1    | `alert_reason`        | The last alert reason. |
-| 10     | N    | `realtime_data`       | The realtime data as a sequence of [float16](float16.md)-encoded numbers. |
+The bits in `mask1` and `mask2` control which fields are included in the response. When a bit is set, the corresponding field is included in the response in the order listed below.
 
-#### Mask
+#### mask1
 
-In case the following bits are set in the `mask`, the listed data follow in the response in the order they are listed in.
+| Bit | Field Name                 | Type            | Description                                      |
+|-----|----------------------------|-----------------|--------------------------------------------------|
+| 0   | `extra_flags`              | uint8           | Extra flags for various internal package state values. See **extra_flags** below. |
+| 1   | `state_flags`              | uint32          | Combined state, mode, footpad, and alert information. See **state_flags** below. |
+| 2-5 | _(unused)_                 | -               | Reserved for future use.                         |
+| 6   | `speed`                    | float16/float32 | Current speed [km/h].                            |
+| 7   | `erpm`                     | float16/float32 | Electrical RPM of the motor.                     |
+| 8   | `current`                  | float16/float32 | Motor current [A].                               |
+| 9   | `dir_current`              | float16/float32 | Directional motor current [A].                   |
+| 10  | `filt_current`             | float16/float32 | Filtered motor current [A].                      |
+| 11  | `duty_cycle`               | float16/float32 | Motor duty cycle (0.0-1.0).                      |
+| 12  | `battery_voltage`          | float16/float32 | Battery voltage [V].                             |
+| 13  | `battery_current`          | float16/float32 | Battery current [A].                             |
+| 14  | `battery_soc`              | float16/float32 | Battery State of Charge (0.0..1.0).              |
+| 15  | `mosfet_temp`              | float16/float32 | MOSFET temperature [°C].                         |
+| 16  | `motor_temp`               | float16/float32 | Motor temperature [°C].                          |
+| 17  | `pitch`                    | float16/float32 | IMU pitch angle [°].                             |
+| 18  | `balance_pitch`            | float16/float32 | Balance pitch angle [°].                         |
+| 19  | `roll`                     | float16/float32 | IMU roll angle [°].                              |
+| 20  | `adc_left`                 | float16/float32 | Footpad sensor Left ADC value [V].               |
+| 21  | `adc_right`                | float16/float32 | Footpad sensor Right ADC value [V].              |
+| 22  | `remote_input`             | float16/float32 | Remote control input value (0.0-1.0).            |
+| 23  | `setpoint`                 | float16/float32 | Current balance setpoint [°].                    |
+| 24  | `atr_setpoint`             | float16/float32 | ATR setpoint [°].                                |
+| 25  | `brake_tilt_setpoint`      | float16/float32 | Brake tilt setpoint [°].                         |
+| 26  | `torque_tilt_setpoint`     | float16/float32 | Torque tilt setpoint [°].                        |
+| 27  | `turn_tilt_setpoint`       | float16/float32 | Turn tilt setpoint [°].                          |
+| 28  | `remote_setpoint`          | float16/float32 | Remote control setpoint [°].                     |
+| 29  | `balance_current`          | float16/float32 | Balance (output) current [A].                    |
+| 30  | `loop_frequency`           | float16/float32 | Control loop frequency [Hz].                     |
+| 31  | _(unused)_                 | -               | Reserved for future use.                         |
 
-**`0x1`: Runtime data**
-| Offset | Size | Name                    | Description   |
-|--------|------|-------------------------|---------------|
-| 0      | N    | `realtime_runtime_data` | The realtime _runtime_ data as a sequence of [float16](float16.md)-encoded numbers. |
+#### mask2
 
-**`0x2`: Charging data**
-| Offset | Size | Name                    | Description   |
-|--------|------|-------------------------|---------------|
-| 0      | 2    | `charging_current` | The charging current encoded as [float16](float16.md). |
-| 2      | 2    | `charging_voltage` | The charging voltage encoded as [float16](float16.md). |
+| Bit | Field Name                 | Type            | Description                                      |
+|-----|----------------------------|-----------------|--------------------------------------------------|
+| 0   | `odometer`                 | uint32          | Total lifetime distance traveled [m].            |
+| 1   | `distance_abs`             | float16/float32 | Current ride absolute distance traveled [m].     |
+| 2   | `charging_voltage`         | float16/float32 | Charging voltage [V].                            |
+| 3   | `charging_current`         | float16/float32 | Charging current [A].                            |
+| 4   | `amp_hours`                | float16/float32 | Amp hours consumed [Ah].                         |
+| 5   | `amp_hours_charged`        | float16/float32 | Amp hours charged [Ah].                          |
+| 6   | `watt_hours`               | float16/float32 | Watt hours consumed [Wh].                        |
+| 7   | `watt_hours_charged`       | float16/float32 | Watt hours charged [Wh].                         |
+| 8   | `motor_id`                 | float16/float32 | FOC direct axis motor current [A].               |
+| 9   | `gnss_lat`                 | float64         | GNSS latitude [°]. Encoded as IEEE 754. |
+| 10  | `gnss_lon`                 | float64         | GNSS longitude [°]. Encoded as IEEE 754. |
+| 11  | `gnss_altitude`            | float16/float32 | GNSS altitude [m].                               |
+| 12  | `gnss_speed`               | float16/float32 | GNSS speed [km/h].                               |
+| 13  | `gnss_accuracy`            | float16/float32 | GNSS horizontal dilution of precision (HDOP).    |
+| 14  | `gnss_last_update`         | uint32          | GNSS last update timestamp [ticks]. Always sent as uint32. Overflows every ~4.97 days at the current tick rate of 10000 Hz. |
+| 15-31 | _(unused)_               | -               | Reserved for future use.                         |
 
-**`0x4`: Alerts**
-| Offset | Size | Name                  | Description   |
-|--------|------|-----------------------|---------------|
-| 0      | 4    | `active_alert_mask_1` | Bits 0..31 of the `active_alert_mask`, indicating which [alert_id](alert_id.md)s are active. |
-| 4      | 8    | `active_alert_mask_2` | Bits 32..63 of the `active_alert_mask`, indicating which [alert_id](alert_id.md)s are active. |
-| 8      | 1    | `firmware_fault_code` | In case `ALERT_FW_FAULT` is active, the VESC firmware fault code, otherwise 0. |
+### extra_flags
 
-#### extra_flags
+| 7-1 |                       0 |
+|-----|-------------------------|
+|   0 | `data_record_recording` |
 
-| 7-3 |                      2 |                       1 |                       0 |
-|-----|------------------------|-------------------------|-------------------------|
-|   0 | `data_record_autostop` | `data_record_autostart` | `data_record_recording` |
+- `data_record_recording` whether data recording is active, see [DATA_RECORD](DATA_RECORD.md).
 
-The `data_record_*` flags represent data recording internal state, see [DATA_RECORD](DATA_RECORD.md).
+### state_flags
 
-#### state_and_mode
+The state flags are encoded as a 32-bit unsigned integer with the following bit layout:
 
-| 7-6 |            5-4 | 3-2 |             1-0 |
-|-----|----------------|-----|-----------------|
-|   0 | `package_mode` |   0 | `package_state` |
+| Bits  | Name             | Description |
+|-------|------------------|-------------|
+| 31-30 | (reserved)       | Reserved, always 0. |
+| 29-28 | `package_mode`   | The mode of the package. |
+| 27-26 | (reserved)       | Reserved, always 0. |
+| 25-24 | `package_state`  | The state of the package. |
+| 23-22 | `footpad_state`  | The footpad sensor state. |
+| 21    | `charging`       | Whether the board is charging. |
+| 20    | `fatal_error`    | Fatal error occurred (as of now only a firmware fault can cause this). |
+| 19-18 | (reserved)       | Reserved, always 0. |
+| 17    | `darkride`       | Whether darkride is active. |
+| 16    | `wheelslip`      | Whether wheelslip is detected. |
+| 15-12 | `sat`            | Setpoint Adjustment Type. |
+| 11-8  | `stop_condition` | The stop condition. |
+| 7-0   | `beep_reason`    | The last beep reason. |
+
+**`package_mode`**:
+- `0: NORMAL`
+- `1: HANDTEST`
+- `2: FLYWHEEL`
 
 **`package_state`**:
 - `0: DISABLED`
@@ -69,37 +122,11 @@ The `data_record_*` flags represent data recording internal state, see [DATA_REC
 - `2: READY`
 - `3: RUNNING`
 
-**`package_mode`**:
-- `0: NORMAL`
-- `1: HANDTEST`
-- `2: FLYWHEEL`
-
-#### flags_and_footpad
-
-|             7-6 |          5 | 3-2 |          1 |           0 |
-|-----------------|------------|-----|------------|-------------|
-| `footpad_state` | `charging` |   0 | `darkride` | `wheelslip` |
-
 **`footpad_state`**:
 - `0: NONE`
 - `1: LEFT`
 - `2: RIGHT`
 - `3: BOTH`
-
-#### stop_cond_and_sat
-
-|   7-4 |              3-0 |
-|-------|------------------|
-| `sat` | `stop_condition` |
-
-**`stop_condition`**:
-- `0: NONE`
-- `1: PITCH`
-- `2: ROLL`
-- `3: SWITCH_HALF`
-- `4: SWITCH_FULL`
-- `5: REVERSE_STOP`
-- `6: QUICKSTOP`
 
 **`sat` (setpoint adjustment type)**:
 - `0: NONE`
@@ -110,8 +137,16 @@ The `data_record_*` flags represent data recording internal state, see [DATA_REC
 - `11: PB_LOW_VOLTAGE`
 - `12: PB_TEMPERATURE`
 
-#### alert_reason
+**`stop_condition`**:
+- `0: NONE`
+- `1: PITCH`
+- `2: ROLL`
+- `3: SWITCH_HALF`
+- `4: SWITCH_FULL`
+- `5: REVERSE_STOP`
+- `6: QUICKSTOP`
 
+**`beep_reason`**:
 - `0: NONE`
 - `1: LOW_VOLTAGE`
 - `2: HIGH_VOLTAGE`
@@ -123,3 +158,29 @@ The `data_record_*` flags represent data recording internal state, see [DATA_REC
 - `8: LOW_BATTERY`
 - `9: IDLE`
 - `10: ERROR`
+
+## Notes
+
+- Numeric values are encoded as [float16](float16.md) by default. Set bit 0 of `control_flags` to use float32 encoding instead.
+- The `odometer` and `gnss_last_update` fields are always encoded as uint32 regardless of the `control_flags` setting.
+- The `gnss_lat` and `gnss_lon` fields are always encoded as IEEE 754 float64 (big-endian) regardless of the `control_flags` setting.
+
+## Example
+
+To request only speed, current, and battery voltage with float32 precision:
+
+**Request:**
+- `control_flags`: 0x01 (use float32)
+- `mask1`: 0x00001140 (bits 6, 8, 12 set for speed, current, batt_voltage)
+- `mask2`: 0x00000000 (no mask2 fields)
+
+**Response will contain:**
+1. `control_flags` (1 byte): 0x01
+2. `mask1` (4 bytes): 0x00001140
+3. `mask2` (4 bytes): 0x00000000
+4. `time` (4 bytes): current timestamp
+5. `speed` (4 bytes): float32 value
+6. `current` (4 bytes): float32 value
+7. `batt_voltage` (4 bytes): float32 value
+
+Total response size: 25 bytes

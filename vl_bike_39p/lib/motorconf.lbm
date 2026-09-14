@@ -7,7 +7,7 @@
         (setq conf-state "Begin")
 
         ; Current controller time constant in us
-        (var tc 1500.0)
+        (var tc 300.0)
 
         (conf-set 'l-current-min (* (- current) 0.28))
         (conf-set 'l-current-max current)
@@ -46,7 +46,7 @@
                 (return nil)
         })
 
-        (var flux-linkage (ix linkage-data 1)) ; Use undrived flux linkage
+        (var flux-linkage (ix linkage-data 1)) ; Use undriven flux linkage
 
         (conf-set 'foc-observer-type 0) ; Ortega original
 

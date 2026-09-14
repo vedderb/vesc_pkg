@@ -35,5 +35,13 @@ typedef struct {
     bool recording;
     bool autostart;
     bool autostop;
+    uint8_t decimation;
+    uint8_t decimation_counter;
+    uint16_t sample_rate;
+    uint16_t sample_count;
+    // timestamp of the last recorded sample, used to keep timestamps strictly
+    // increasing (the system tick is too coarse to distinguish samples at high
+    // IMU rates, where several samples can share a tick)
+    time_t last_time;
     CircularBuffer buffer;
 } DataRecord;

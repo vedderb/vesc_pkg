@@ -1,5 +1,31 @@
 @const-start
 
+; Assets
+(import "assets/sym_vesc_37x34.bin" 'img-vesc)
+(import "assets/sym_vesc_30x27.bin" 'img-vesc-small)
+(import "assets/batt_level_167x30.bin" 'img-batt-level)
+(import "assets/highbeam_32x24.bin" 'img-highbeam)
+(import "assets/lowbeam_32x24.bin" 'img-lowbeam)
+(import "assets/indicator_l_35x27.bin" 'img-indicator-l)
+(import "assets/indicator_r_35x27.bin" 'img-indicator-r)
+(import "assets/kickstand_26x29.bin" 'img-kickstand)
+(import "assets/temp_b_37x38.bin" 'img-temp-b)
+(import "assets/temp_e_37x38.bin" 'img-temp-e)
+(import "assets/temp_m_37x38.bin" 'img-temp-m)
+(import "assets/warning_28x24.bin" 'img-warning)
+(import "assets/cruise_40x36.bin" 'img-cruise)
+(import "assets/charging_160x61.bin" 'img-charging)
+(import "assets/page-clear_172x100.bin" 'img-page-clear)
+
+; Fonts
+(import "font/roboto-bold-12-4c.bin" 'font-12)
+(import "font/roboto-bold-16-4c.bin" 'font-16)
+(import "font/roboto-bold-24-4c.bin" 'font-24)
+(import "font/roboto-bold-32-4c.bin" 'font-32)
+(import "font/roboto-bold-48-4c.bin" 'font-48)
+(import "font/roboto-bold-16-2c.bin" 'font-16-2c)
+(import "font/roboto-bold-90-2c.bin" 'font-90)
+
 (import "pkg@://vesc_packages/lib_code_server/code_server.vescpkg" 'code-server)
 (read-eval-program code-server)
 
@@ -32,35 +58,42 @@
 (read-eval-program code-communication)
 
 ; Views
+(import "lib/standalone.lisp" 'code-standalone)
+(read-eval-program code-standalone)
+
 (import "views/view_static.lbm" 'code-view-static)
 (read-eval-program code-view-static)
 
 (import "views/view_pages.lbm" 'code-view-pages)
 (read-eval-program code-view-pages)
 
-; Assets
-(import "assets/sym_vesc_37x34.bin" 'img-vesc)
-(import "assets/batt_level_50x210.bin" 'img-batt-level)
-(import "assets/highbeam_32x24.bin" 'img-highbeam)
-(import "assets/lowbeam_32x24.bin" 'img-lowbeam)
-(import "assets/indicator_l_34x30.bin" 'img-indicator-l)
-(import "assets/indicator_r_34x30.bin" 'img-indicator-r)
-(import "assets/kickstand_26x29.bin" 'img-kickstand)
-(import "assets/temp_b_37x38.bin" 'img-temp-b)
-(import "assets/temp_e_37x38.bin" 'img-temp-e)
-(import "assets/temp_m_37x38.bin" 'img-temp-m)
-(import "assets/warning_35x38.bin" 'img-warning)
-(import "assets/cruise_40x36.bin" 'img-cruise)
-(import "assets/charging_160x61.bin" 'img-charging)
-(import "assets/page-clear_400x160.bin" 'img-page-clear)
+(def thr-volts 0.0)
+(def thr-pos 0.0)
 
-; Fonts
-(import "font/roboto-bold-12-4c.bin" 'font-12)
-(import "font/roboto-bold-16-4c.bin" 'font-16)
-(import "font/roboto-bold-32-4c.bin" 'font-32)
-(import "font/roboto-bold-48-4c.bin" 'font-48)
-(import "font/roboto-bold-16-2c.bin" 'font-16-2c)
-(import "font/roboto-bold-90-2c.bin" 'font-90)
+(defun lpf (val sample filter-const)
+    (- val (* filter-const (- val sample)))
+)
+
+; Button actions. dash16 has two buttons and no settings page, so the list is
+; shorter than dash35b's and the ids do not match it.
+;
+; Selecting reverse flips the throttle on the controller, so it is only
+; allowed at a standstill, the way a car will not take R while rolling.
+(def reverse-max-kmh 3.0)
+
+; 0 nothing        1 next page      2 previous page   3 drive mode up
+; 4 drive mode down 5 lights        6 cruise control  7 reverse
+(defun btn-do-action (a)
+    (cond
+        ((= a 1) (setq page-now (mod (+ page-now 1) page-num)))
+        ((= a 2) (setq page-now (mod (+ page-now (- page-num 1)) page-num)))
+        ((= a 3) (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1))))
+        ((= a 4) (if (> drive-mode 0) (setq drive-mode (- drive-mode 1))))
+        ((= a 5) (setq light-on (not light-on)))
+        ((= a 6) (comm-send-event 0))
+        ((= a 7) (if (< (abs stats-kmh) reverse-max-kmh) (setq drive-mode 0)))
+        (t nil)
+))
 
 (defun main () {
         (if (and
@@ -82,26 +115,19 @@
         (def init-complete nil)
         (def rx-cnt-can 0)
 
-        (if config-metric-speeds
-            (def settings-units-speeds '(kmh . "km/h"))
-            (def settings-units-speeds '(mph . "MPH"))
-        )
-
-        (if config-metric-temps
-            (def settings-units-temps '(celsius . "C"))
-            (def settings-units-temps '(fahrenheit . "F"))
-        )
+        (settings-load)
+        (settings-apply-units)
 
         (if config-code-server (start-code-server)) ; Enable remote code execution
 
-        (disp-set-bl 0)
-        (disp-reset)
-        (disp-orientation 3)
-        (disp-clear 0)
-        (disp-set-bl bl-lvl-bright)
+        ; Offset X = 34
+        (disp-init)
+        (ext-disp-orientation 0)
+        (pwm-start 2000 settings-bl-bright 0 2)
 
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
+        (event-enable 'event-data-rx)
 
         ;(if config-boot-animation-enable (start-boot-animation))
 
@@ -126,6 +152,18 @@
                 )
 
                 (sleep 5.0)
+        })
+
+        (setq thr-volts (get-adc 0))
+        (defun thr-read () {
+                (setq thr-volts (lpf thr-volts (get-adc 0) 0.2))
+                (setq thr-pos (trunc01 (/ (- thr-volts settings-lever-min)
+                                          (- settings-lever-max settings-lever-min))))
+                (sleep 0.003)
+        })
+
+        (loopwhile-thd ("Thr Filter" 150) t {
+                (thr-read)
         })
 
         (loopwhile-thd ("CommTX" 200) t {
@@ -161,6 +199,17 @@
                 (sleep 5.0)
         })
 
+        (loopwhile-thd ("Standalone" 200) t {
+                (print "Starting Standalone-thread")
+
+                (match (trap (standalone-thread))
+                    ((exit-ok (? a)) (print "Standalone-thread exit"))
+                    (_ (print "Standalone-thread crashed"))
+                )
+
+                (sleep 5.0)
+        })
+
         (loopwhile-thd ("Worker" 150) t {
                 (if battery-a-charging (setq drive-mode 1)) ; Put in neutral when charging
                 (if kickstand-down (setq drive-mode 1)) ; Put in neutral when kickstand is down
@@ -169,31 +218,17 @@
 
         (def init-complete true)
 
-        (def on-btn-0-pressed (fn () (setq page-now (mod (+ page-now 1) page-num))))
-        (def on-btn-1-pressed (fn () (if (> drive-mode 0) (setq drive-mode (- drive-mode 1)))))
-        (def on-btn-2-pressed (fn () (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1)))))
-        (def on-btn-3-pressed (fn () (setq light-on (not light-on))))
+        (def on-btn-0-pressed (fn () (btn-do-action (ix btn-actions-short 0))))
+        (def on-btn-1-pressed (fn () (btn-do-action (ix btn-actions-short 1))))
 
-        (def on-btn-1-long-pressed (fn () {
-                    (comm-send-event 0)
-        }))
-
-        (def on-btn-3-long-pressed (fn () {
-                    (setq backlight-dim (not backlight-dim))
-                    (if backlight-dim
-                        (disp-set-bl bl-lvl-dim)
-                        (disp-set-bl bl-lvl-bright)
-                    )
-        }))
+        (def on-btn-0-long-pressed (fn () (btn-do-action (ix btn-actions-long 0))))
+        (def on-btn-1-long-pressed (fn () (btn-do-action (ix btn-actions-long 1))))
 
         (def on-btn-0-repeat-press nil)
         (def on-btn-1-repeat-press nil)
-        (def on-btn-2-repeat-press nil)
-        (def on-btn-3-repeat-press nil)
 })
 
 @const-end
 
 (image-save)
 (main)
-

@@ -20,7 +20,7 @@
 #include "vesc_c_if.h"
 
 #include "conf/buffer.h"
-#include "utils.h"
+#include "lib/utils.h"
 
 #include <math.h>
 
@@ -34,17 +34,20 @@ void lcm_init(LcmData *lcm, CfgHwLeds *hw_cfg) {
     lcm->lights_off_when_lifted = true;
 }
 
-void lcm_configure(LcmData *lcm, const CfgLeds *cfg) {
+void lcm_configure(LcmData *lcm, const Leds *leds) {
     if (!lcm->enabled) {
         return;
     }
 
-    if (!cfg->on) {
+    const CfgLeds *cfg = leds->cfg;
+    const LedsRuntimeStatus *status = leds_get_runtime_status(leds);
+
+    if (!status->enabled) {
         lcm->brightness = 0.0f;
         lcm->brightness_idle = 0.0f;
         lcm->status_brightness = 0.0f;
     } else {
-        if (cfg->headlights_on) {
+        if (status->headlights_enabled) {
             lcm->brightness = cfg->headlights.brightness * 100;
             lcm->status_brightness = cfg->status.brightness_headlights_on * 100;
         } else {
@@ -63,13 +66,11 @@ void lcm_poll_request(LcmData *lcm, uint8_t *buffer, size_t len) {
 
     // Optionally pass in LCM name and version in a single string
     if (len > 0) {
-        for (size_t i = 0; i < MAX_LCM_NAME_LENGTH; i++) {
-            if (i > len || i > MAX_LCM_NAME_LENGTH - 1 || buffer[i] == '\0') {
-                lcm->name[i] = '\0';
-                break;
-            }
+        size_t name_len = min(len, sizeof(lcm->name) - 1);
+        for (size_t i = 0; i < name_len; ++i) {
             lcm->name[i] = buffer[i];
         }
+        lcm->name[name_len] = '\0';
     }
 }
 
@@ -98,7 +99,7 @@ void lcm_poll_response(
         buffer[ind++] = VESC_IF->mc_get_fault();
 
         if (state->state == STATE_RUNNING) {
-            buffer[ind++] = fminf(100, fabsf(motor->duty_cycle * 100));
+            buffer[ind++] = fminf(100, fabsf(motor->duty_cycle.value * 100));
         } else {
             // pitch is a value between -180 and +180, so abs(pitch) fits into uint8
             buffer[ind++] = lcm->lights_off_when_lifted ? fabsf(pitch) : 0;
@@ -193,25 +194,17 @@ void lcm_light_ctrl_request(LcmData *lcm, unsigned char *cfg, int len) {
         return;
     }
 
+    lcm->payload_size = 0;
     int32_t idx = 0;
 
-    lcm->brightness = cfg[idx++];
-    lcm->brightness_idle = cfg[idx++];
-    lcm->status_brightness = cfg[idx++];
+    lcm->brightness = min(cfg[idx++], 100u);
+    lcm->brightness_idle = min(cfg[idx++], 100u);
+    lcm->status_brightness = min(cfg[idx++], 100u);
 
     if (len > 3) {
-        if (lcm->enabled) {
-            // Copy rest of payload into data for LCM to pull
-            lcm->payload_size = len - idx;
-            for (int i = 0; i < lcm->payload_size; i++) {
-                lcm->payload[i] = cfg[idx + i];
-            }
-        } else {
-            if (len > 5) {
-                // d->float_conf.led_mode = cfg[idx++];
-                // d->float_conf.led_mode_idle = cfg[idx++];
-                // d->float_conf.led_status_mode = cfg[idx++];
-            }
+        lcm->payload_size = min(len - idx, MAX_LCM_PAYLOAD_LENGTH);
+        for (int i = 0; i < lcm->payload_size; i++) {
+            lcm->payload[i] = cfg[idx + i];
         }
     }
 }

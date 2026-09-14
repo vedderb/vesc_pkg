@@ -31,6 +31,12 @@ typedef struct {
     time_t idle_timer;
 } Time;
 
+/**
+ * A wrapper for VESC_IF->system_time_ticks() with a fallback to
+ * VESC_IF->system_time() on 6.02.
+ */
+systime_t vesc_system_time_ticks();
+
 void time_init(Time *t);
 
 void time_update(Time *t, RunState state);
@@ -41,6 +47,14 @@ inline void time_refresh_idle(Time *t) {
 
 inline void timer_refresh(const Time *t, time_t *timer) {
     *timer = t->now;
+}
+
+/**
+ * Sets the timer to an already-expired state, as if it was last refreshed
+ * `age` seconds ago.
+ */
+inline void timer_expire(const Time *t, time_t *timer, float age) {
+    *timer = t->now - (time_t) (age * SYSTEM_TICK_RATE_HZ);
 }
 
 inline bool timer_older(const Time *t, time_t timer, float seconds) {

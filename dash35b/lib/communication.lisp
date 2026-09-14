@@ -4,6 +4,11 @@
 @const-start
 
 (defun proc-sid (id data) {
+        ; Any of these means dash_esc is alive, watched by standalone-thread
+        (if (or (and (>= id 20) (<= id 24)) (= id 30) (= id 31))
+            (setq dash-esc-last (systime))
+        )
+
         (cond
             ((= id 20) {
                     ; Using SOC from BMS when available
@@ -139,13 +144,23 @@
 (defun event-handler ()
     (loopwhile t
         (recv
-            ((event-can-sid . ((? id) . (? data))) (proc-sid id data))
+            ; Not the REPL, which drops commands sent within 0.5 s
+            ((event-data-rx . (? data)) (trap (eval (read data))))
+            ((event-can-sid . ((? id) . (? data))) (trap (proc-sid id data)))
             (_ nil)
 )))
 
 (defun comm-tx-thread () {
         (loopwhile t {
                 (can-send-sid 201 (list drive-mode (if light-on 1 0) 0 0 0 0 0 0))
+
+                (var buf (bufcreate 8))
+                (bufset-i8 buf 0 (read-setting 'whl-active))
+                (bufset-i16 buf 2 (* (read-setting 'whl-start) 10.0))
+                (bufset-i16 buf 4 (* (read-setting 'whl-end) 10.0))
+                (bufset-i16 buf 6 (* (read-setting 'whl-kd) 10000.0))
+                (can-send-sid 202 buf)
+
                 (sleep 0.1)
         })
 })
