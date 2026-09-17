@@ -104,6 +104,54 @@ loopwhile-thd
         (can-send-sid 250 buf)
 })
 
+(defun rtc-extract (byte bits) {
+        (setq byte (bits-dec-int byte 0 bits))
+        (+ (* (bits-dec-int byte 4 4) 10) (bits-dec-int byte 0 4))
+})
+
+(defun rtc-enc (num) {
+        (var lo (mod (to-i num) 10))
+        (var hi (/ (to-i num) 10))
+        (+ (shl hi 4) lo)
+})
+
+(defun rtc-read () {
+        (var rx (bufcreate 7))
+
+        (if (= (i2c-tx-rx 0x68 '(0) rx) 0)
+            {
+                (var ss (rtc-extract (bufget-u8 rx 0) 7))
+                (var mm (rtc-extract (bufget-u8 rx 1) 7))
+                (var hh (rtc-extract (bufget-u8 rx 2) 6))
+                (var wday (rtc-extract (bufget-u8 rx 3) 3))
+                (var dd (rtc-extract (bufget-u8 rx 4) 6))
+                (var mo (rtc-extract (bufget-u8 rx 5) 5))
+                (var yy (rtc-extract (bufget-u8 rx 6) 8))
+                (list wday yy mo dd hh mm ss)
+            }
+            nil
+        )
+})
+
+(defun rtc-set-date-time (wday yy mo dd hh mm ss) {
+        (if (> yy 2000) (setq yy (- yy 2000)))
+
+        (i2c-tx-rx 0x68 (list
+                0
+                (rtc-enc ss)
+                (rtc-enc mm)
+                (rtc-enc hh)
+                (rtc-enc wday)
+                (rtc-enc dd)
+                (rtc-enc mo)
+                (rtc-enc yy)
+                0x00 ; No square wave out
+        ))
+})
+
+;(rtc-set-date-time 1 2025 10 20 15 45 55)
+;(rtc-read)
+
 (def rtc-val-magic 115)
 
 ; Short-circuit protection (SCD)
@@ -642,6 +690,12 @@ loopwhile-thd
         (bufset-u16 buf-canid35 3 min-left) ; Battery A Charge Time Minutes
         (bufset-u16 buf-canid35 5 (* (bms-get-param 'batt_ah) 10.0))
         (can-send-sid 35 buf-canid35)
+
+        ; Date and time
+        (var date-time (rtc-read))
+        (if date-time {
+                (can-send-sid 204 date-time)
+        })
 
         (send-bms-can)
 })
