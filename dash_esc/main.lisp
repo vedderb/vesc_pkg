@@ -21,6 +21,42 @@
 (def log-running false)
 (def last-can-id -1)
 
+; Limits most recently pushed by set-profile, nil until the first one
+(def profile-last nil)
+
+; Current scales and erpm limits as configured, captured at startup before a
+; display can override them, so they can be put back if it goes away
+(def limits-stored nil)
+
+; systime of the last drive-mode frame from a display
+(def display-ts 0)
+
+; systime of the last drive mode change, used to hold a new mode briefly
+(def mode-ts 0)
+
+; Service switch. While this is set the drive profile is not applied, so the
+; configured limits are the live ones and the controller can be tuned with the
+; displays still connected. Current based measurements -- motor detection above
+; all -- are wrong if a current scale is applied while they run, so there has to
+; be a way to put the real limits back without unplugging anything.
+;
+; Deliberately not stored: a power cycle always clears it. Left set, a rider
+; would have no mode limiting and neutral would not hold the throttle shut.
+(def profile-suspend false)
+
+; Set when the stored motor parameters cannot describe a real motor
+(def motor-config-bad false)
+
+; True when the suspension above was not asked for by anyone, so it can be
+; lifted again without undoing a deliberate one
+(def suspend-auto false)
+
+; Drive mode at the moment the profile was suspended on its own
+(def suspend-mode 1)
+
+; What the limit capture saw, for checking on a bench
+(def capture-dbg nil)
+
 @const-start
 
 ; Provides ext-cmd-proc
@@ -34,21 +70,102 @@
 ])
 
 (defun set-profile (i-min i-max s-min s-max) {
-        (var txb (bufcreate 37))
-        (bufset-u8 txb 0 49) ; COMM_SET_MCCONF_TEMP_SETUP
-        (bufset-u8 txb 1 0) ; Store
-        (bufset-u8 txb 2 1) ; FWD CAN
-        (bufset-u8 txb 3 0) ; ack
-        (bufset-u8 txb 4 0) ; Divide by controllers
-        (bufset-f32 txb 5 i-min)
-        (bufset-f32 txb 9 i-max)
-        (bufset-f32 txb 13 s-min)
-        (bufset-f32 txb 17 s-max)
-        (bufset-f32 txb 21 (conf-get 'l-min-duty))
-        (bufset-f32 txb 25 (conf-get 'l-max-duty))
-        (bufset-f32 txb 29 (conf-get 'l-watt-min))
-        (bufset-f32 txb 33 (conf-get 'l-watt-max))
-        (ext-cmd-proc txb)
+        ; Every drive-mode frame from the display lands here, ten times a
+        ; second. Neutral holds the throttle shut with a max scale of 0, so the
+        ; profile has to keep being enforced, but rewriting the configuration
+        ; at that rate fights anything else writing it -- motor detection above
+        ; all. So write only when it is needed: the profile changed, or
+        ; something has moved the scales out from under it.
+        (var profile (list i-min i-max s-min s-max))
+
+        (if (and (not profile-suspend)
+                 (or (not (eq profile profile-last))
+                     (not (= (conf-get 'l-current-min-scale) i-min))
+                     (not (= (conf-get 'l-current-max-scale) i-max)))) {
+                (setq profile-last profile)
+
+                (var txb (bufcreate 37))
+                (bufset-u8 txb 0 49) ; COMM_SET_MCCONF_TEMP_SETUP
+                (bufset-u8 txb 1 0) ; Store
+                (bufset-u8 txb 2 1) ; FWD CAN
+                (bufset-u8 txb 3 0) ; ack
+                (bufset-u8 txb 4 0) ; Divide by controllers
+                (bufset-f32 txb 5 i-min)
+                (bufset-f32 txb 9 i-max)
+                (bufset-f32 txb 13 s-min)
+                (bufset-f32 txb 17 s-max)
+                (bufset-f32 txb 21 (conf-get 'l-min-duty))
+                (bufset-f32 txb 25 (conf-get 'l-max-duty))
+                (bufset-f32 txb 29 (conf-get 'l-watt-min))
+                (bufset-f32 txb 33 (conf-get 'l-watt-max))
+                (ext-cmd-proc txb)
+        })
+})
+
+; Put the configured limits back after a display goes away. Without this the
+; profile stays applied until the next power cycle, and motor detection run in
+; that state stores the profile as if it were the real configuration.
+; A detection run with a drive profile applied measures with the current
+; scaled down, and can store a flux linkage of -2000. The motor then will not
+; run at all and nothing anywhere says why. Only values that are never valid
+; for any motor are flagged, so an unusual one cannot trip this.
+(defun motor-config-check () {
+        (setq motor-config-bad (or
+            (<= (conf-get 'foc-motor-flux-linkage) 0.0)
+            (<= (conf-get 'foc-motor-r) 0.0)
+            (<= (conf-get 'foc-motor-l) 0.0)
+        ))
+})
+
+(defun profile-suspend-set (on) {
+        (setq profile-suspend (not-eq on 0))
+        (setq suspend-auto false)
+
+        (if profile-suspend
+            (if limits-stored
+                ; Put the configured limits back exactly
+                (restore-limits)
+                ; No baseline to restore, which is the normal state until the
+                ; controller has been through a power cycle since installing.
+                ; Suspending still has to mean "no scaling", so at least take
+                ; the scales out of the picture. The speed limit is left alone
+                ; because nothing here knows what it should be.
+                {
+                    (conf-set 'l-current-min-scale 1.0)
+                    (conf-set 'l-current-max-scale 1.0)
+                })
+        )
+
+        (setq profile-last nil)
+        profile-suspend
+})
+
+; Record the live limits as the ones to restore. Only meaningful while the
+; profile is suspended, because otherwise the live values are a drive profile
+; and adopting those is the very thing that corrupts a setup. This is the
+; reliable way to set the baseline -- the capture at startup can only guess,
+; and has to refuse whenever it cannot trust what it reads.
+(defun limits-capture () {
+        (if (not profile-suspend)
+            (print "Suspend drive profiles first, so the live limits are the real ones")
+            {
+                (setq limits-stored (list
+                    (conf-get 'l-current-min-scale)
+                    (conf-get 'l-current-max-scale)
+                    (conf-get 'l-min-erpm)
+                    (conf-get 'l-max-erpm)
+                ))
+                (print "Limits captured")
+            })
+        limits-stored
+})
+
+(defun restore-limits () {
+        (conf-set 'l-current-min-scale (ix limits-stored 0))
+        (conf-set 'l-current-max-scale (ix limits-stored 1))
+        (conf-set 'l-min-erpm (ix limits-stored 2))
+        (conf-set 'l-max-erpm (ix limits-stored 3))
+        (setq profile-last nil)
 })
 
 (defmacro run-m2 (code) `(atomic {
@@ -80,10 +197,22 @@
             })
 
             ((= id 201) {
+                    (setq display-ts (systime))
                     (var drive-mode-new (bufget-u8 data 0))
                     (setq light-on (bufget-u8 data 1))
 
-                    (if (!= drive-mode drive-mode-new) (setq cruise-on 0))
+                    ; A second display that has not caught up yet keeps sending
+                    ; the previous mode for a frame or two. Hold a new mode
+                    ; briefly so the limits cannot flick between two modes while
+                    ; the others catch up.
+                    (if (and (!= drive-mode-new drive-mode)
+                             (< (secs-since mode-ts) 0.3))
+                        (setq drive-mode-new drive-mode))
+
+                    (if (!= drive-mode drive-mode-new) {
+                            (setq cruise-on 0)
+                            (setq mode-ts (systime))
+                    })
 
                     (setq drive-mode drive-mode-new)
 
@@ -174,12 +303,50 @@
                                 (if (= cruise-on 1) (setq cruise-ts (systime)))
                         })
 
+                        ((= (bufget-u8 data 0) 2) { ; Toggle logging
+                                (if log-running
+                                    (stop-log (read-setting 'can-id))
+                                    (start-log
+                                        (read-setting 'can-id)
+                                        (read-setting 'append-gnss)
+                                        (read-setting 'log-local)
+                                        (read-setting 'log-can)
+                                        (read-setting 'log-bms)
+                                        (read-setting 'log-rate)
+                                    )
+                                )
+                        })
+
                         ((= (bufget-u8 data 0) 1) { ; About to turn off
-                                ; store-backup is very new, so fall back to conf-store
-                                ; if it does not exist using trap
-                                (match (trap (store-backup))
-                                    ((exit-ok (? a)) t)
-                                    (_ (conf-store))
+                                ; Close the log while there is still power. The
+                                ; firmware's own shutdown event does this too,
+                                ; but it does not fire when the display cuts
+                                ; power itself, which would leave the last
+                                ; records unwritten.
+                                (if log-running (stop-log last-can-id))
+
+                                ; Put the configured limits back first. This
+                                ; stores the motor configuration, and with a
+                                ; drive profile applied conf-store would write
+                                ; the profile's scales and speed limits into it
+                                ; as though they were the real settings.
+                                (if limits-stored (restore-limits))
+
+                                ; Only store once the limits are known to be the
+                                ; real ones: either they were just put back, or
+                                ; no profile has been applied at all. Without a
+                                ; trustworthy baseline this would write whatever
+                                ; drive profile is active in as the configuration,
+                                ; which is the very thing that corrupts a setup.
+                                ; Losing one backup beats that.
+                                (if (or limits-stored (eq profile-last nil))
+                                    ; store-backup is very new, so fall back to conf-store
+                                    ; if it does not exist using trap
+                                    (match (trap (store-backup))
+                                        ((exit-ok (? a)) t)
+                                        (_ (conf-store))
+                                    )
+                                    (print "Limits unknown, not storing configuration")
                                 )
                         })
                     )
@@ -566,6 +733,38 @@
         ; as that probably means something else is in eeprom
         (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
 
+        ; Capture the configured limits, but only when they can be trusted.
+        ; A temporary configuration outlives this package: reinstalling or
+        ; restarting the script leaves the previous run's profile applied, so
+        ; reading it then would capture the profile instead of the real
+        ; limits. Just after the controller booted, nothing has overridden
+        ; anything yet. The window is generous because this script is only
+        ; parsed and run some way into startup, while restarting it by hand
+        ; happens on a controller that has been up far longer.
+        ;
+        ; A max scale of zero is never a real setting, so refuse that: it is
+        ; what neutral applies, and restoring it would leave the motor unable
+        ; to make torque. Anything else a bad capture could pick up is one of
+        ; the drive profiles, which is more restrictive than the real limits
+        ; rather than less. Failing to capture at all only leaves
+        ; restore-limits inactive until the next power cycle.
+        (setq capture-dbg (list
+            (secs-since 0)
+            (conf-get 'l-current-min-scale)
+            (conf-get 'l-current-max-scale)
+            (conf-get 'l-max-erpm)
+        ))
+
+        (if (and (< (secs-since 0) 30.0)
+                 (> (conf-get 'l-current-max-scale) 0.0))
+            (setq limits-stored (list
+                (conf-get 'l-current-min-scale)
+                (conf-get 'l-current-max-scale)
+                (conf-get 'l-min-erpm)
+                (conf-get 'l-max-erpm)
+            ))
+        )
+
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
         (event-enable 'event-shutdown)
@@ -627,6 +826,18 @@
                 (bufset-u8 buf-can 0 cruise-on)
                 (can-send-sid 202 buf-can)
 
+                ; Logging state on an id of its own. 202 also carries the
+                ; wheelie settings the other way, and a display cannot tell a
+                ; controller's frame from another display's.
+                (bufclear buf-can)
+                (bufset-u8 buf-can 0 (if log-running 1 0))
+                ; The mode this controller is actually applying, so every
+                ; display shows the same thing rather than its own idea of it
+                (bufset-u8 buf-can 1 drive-mode)
+                (bufset-u8 buf-can 2 (if profile-suspend 1 0))
+                (bufset-u8 buf-can 3 (if motor-config-bad 1 0))
+                (can-send-sid 25 buf-can)
+
                 (sleep 0.1)
         })
 
@@ -645,6 +856,68 @@
                 (app-adc-override 3 cruise-on)
 
                 (sleep 0.05)
+        })
+
+        (loopwhile-thd ("Limits" 120) t {
+                ; A display that goes away leaves its profile applied until the
+                ; next power cycle. Put the configured limits back instead, so
+                ; the controller is not left running a drive profile it is no
+                ; longer being told about, and so motor detection done with the
+                ; display unplugged sees the real configuration.
+                ;
+                ; Only while stopped: losing a display mid-ride must not hand
+                ; the rider more power than the mode they were riding in.
+                (motor-config-check)
+
+                ; A motor whose parameters cannot describe a real motor will not
+                ; turn at all, so lifting the drive profile cannot make it less
+                ; safe -- and lifting it is exactly what allows the parameters to
+                ; be measured again. Do it without being asked, and put the
+                ; profile back the moment the configuration is usable, so the
+                ; recovery is just: detect, done.
+                (if motor-config-bad
+                    (if (not profile-suspend) {
+                            (profile-suspend-set 1)
+                            (setq suspend-auto true)
+                            (setq suspend-mode drive-mode)
+                    })
+
+                    ; The configuration also looks usable the instant the tool
+                    ; resets it to defaults, which is the step immediately
+                    ; before it measures. Putting the profile back there would
+                    ; scale the current away again and the detection would fail
+                    ; for the same reason as before. So wait to be told the
+                    ; work is finished: selecting a drive mode does that, and
+                    ; so does a power cycle, which clears this anyway.
+                    (if (and profile-suspend
+                             suspend-auto
+                             (!= drive-mode suspend-mode))
+                        (profile-suspend-set 0))
+                )
+
+                (if (and limits-stored
+                         (> (secs-since display-ts) 5.0)
+                         (< (abs (get-speed)) 0.5))
+                    (if profile-last
+                        (restore-limits)
+                        ; Nothing applied and no display: the configuration is
+                        ; the user's own again, so follow any changes they make
+                        ; while it is unplugged rather than restoring stale
+                        ; limits the next time one appears and goes away. Same
+                        ; sanity check as the first capture -- a max scale of
+                        ; zero is never something to adopt as the real setting.
+                        (if (> (conf-get 'l-current-max-scale) 0.0)
+                            (setq limits-stored (list
+                                (conf-get 'l-current-min-scale)
+                                (conf-get 'l-current-max-scale)
+                                (conf-get 'l-min-erpm)
+                                (conf-get 'l-max-erpm)
+                            ))
+                        )
+                    )
+                )
+
+                (sleep 0.5)
         })
 
         (start-code-server)

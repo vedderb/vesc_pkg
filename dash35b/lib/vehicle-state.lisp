@@ -7,6 +7,23 @@
 
 (def kickstand-down false)
 (def drive-mode 1)
+
+; systime of the last mode this display asserted itself. While that is recent
+; the controller's reported mode is not followed, so a button press, the
+; kickstand or charging cannot be undone by the controller echoing back a mode
+; it has not been told about yet.
+(def mode-cmd-ts 0)
+
+; The controller has suspended its drive profile for servicing
+(def service-mode false)
+
+; The controller's stored motor parameters cannot describe a real motor
+(def motor-bad false)
+
+(defun mode-set (m) {
+        (setq drive-mode m)
+        (setq mode-cmd-ts (systime))
+})
 (def performance-mode 'eco) ; 'eco 'normal 'sport UNUSED!
 
 (def cruise-control-active false)

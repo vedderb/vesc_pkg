@@ -27,7 +27,7 @@ Item {
     property var actionNames: [
         "Nothing", "Next page", "Previous page", "Settings page",
         "Drive mode up", "Drive mode down", "Lights", "Backlight dim",
-        "Cruise control"
+        "Cruise control", "Toggle logging"
     ]
 
     property var rowNames: [

@@ -3,7 +3,7 @@
 VESC Dash35B UI for single horizontal display with 480x320 resolution and four buttons on a cable.
 
 **Note**  
-Version 2.1 is a large change and adds a lot. It is tested on two bikes, but not every combination of settings has been ridden, so expect some rough edges.
+Version 2.4 goes with Dash ESC 2.4. The drive mode, the status banners and the logging button all need it.
 
 ## Settings
 
@@ -22,7 +22,7 @@ Which pages button 0 cycles through, and how many drive modes.
 Units, warning thresholds, backlight and the controller mode.
 
 **Buttons**  
-Short and long press actions for all four buttons. Short presses are overridden while the on-display settings page is open so it can always be navigated.
+Short and long press actions for all four buttons. Short presses are overridden while the on-display settings page is open so it can always be navigated. One of the actions starts and stops logging on the controller.
 
 config.lisp still holds the defaults, written on a fresh install or when the settings version changes.
 
@@ -34,7 +34,20 @@ If no dash_esc frame arrives for three seconds the display reads the standard CA
 
 Drive modes need dash_esc.
 
+## Status banners
+
+The display shows a banner across the middle when the controller reports something that makes what is on the rest of the screen misleading.
+
+**SERVICE** means drive profiles are suspended on the controller. The mode shown means nothing while that is set, and neutral is not holding the throttle shut.
+
+**MOTOR CONFIG BAD** means the controller's stored motor parameters cannot describe a real motor, so it will not run at all. The controller suspends its drive profile by itself in that state so the motor can be detected again.
+
 ## Changelog
+
+**Version 2.4 (2026-09-13)**
+* Drive mode follows the controller, so two displays always agree on it
+* Button action to start and stop logging on the controller
+* Banner while the controller has drive profiles suspended, or while its motor configuration cannot describe a real motor
 
 **Version 2.3 (2026-09-10)**
 * Load settings correctly on boot

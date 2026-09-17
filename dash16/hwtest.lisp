@@ -168,7 +168,6 @@
         (event-register-handler (spawn event-handler))
         (event-enable 'event-can-sid)
 
-        ;(if config-boot-animation-enable (start-boot-animation))
 
         (loopwhile-thd ("Stats" 200) t {
                 (print "Starting stats-thread")

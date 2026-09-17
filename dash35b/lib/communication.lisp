@@ -1,3 +1,4 @@
+(def log-active false)
 (def rx-cnt-can 0)
 (def crusie-new-msg-rx false)
 
@@ -121,6 +122,28 @@
                     (def battery-b-connected true) ; TODO: Allow for BMS B connected to timeout
                     (setq rx-cnt-can (+ rx-cnt-can 1))
             })
+            ; Logging state from the controller. Announced on change, so the
+            ; banner reflects what actually happened rather than what the
+            ; button asked for.
+            ((= id 25) {
+                    (var log-new (= (bufget-u8 data 0) 1))
+                    (if (not-eq log-new log-active)
+                        (notify (if log-new "Log Started" "Log Stopped")))
+                    (setq log-active log-new)
+
+                    ; The controller owns the drive mode. Follow what it reports
+                    ; unless this display has just asserted one itself, so two
+                    ; displays can never show different modes or fight over it.
+                    ; Out-of-range values are ignored rather than displayed.
+                    (var mode-new (bufget-u8 data 1))
+                    (if (and (> (secs-since mode-cmd-ts) 2.0)
+                             (< mode-new drive-mode-num))
+                        (setq drive-mode mode-new))
+
+                    (setq service-mode (= (bufget-u8 data 2) 1))
+                    (setq motor-bad (= (bufget-u8 data 3) 1))
+            })
+
 
             ((= id 202) {
                     (setq cruise-control-active (= (bufget-u8 data 0) 1))
@@ -151,6 +174,13 @@
 )))
 
 (defun comm-tx-thread () {
+        ; Let the controller report the mode it is applying before announcing
+        ; one. A display that restarts mid-ride would otherwise say it is in
+        ; neutral before it has heard otherwise, dropping the rider out of gear.
+        ; The controller allows five seconds of silence before it considers a
+        ; display gone, so this is well inside that.
+        (sleep 1.0)
+
         (loopwhile t {
                 (can-send-sid 201 (list drive-mode (if light-on 1 0) 0 0 0 0 0 0))
 
