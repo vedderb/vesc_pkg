@@ -897,8 +897,11 @@ def test_click_and_beep_regressions():
               "shutdown confirmation: power symbol and descending tones precede shutdown")
 
     readme_source = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
-    assert_eq('OFF&#95;AFTER&#95;' in readme_source, True,
-              "README rendering: shutdown settings use Qt-safe underscores")
+    deep_sleep_source = (Path(__file__).resolve().parents[1] / 'DEEP_SLEEP.md').read_text()
+    assert_eq('OFF&#95;AFTER&#95;' in deep_sleep_source, True,
+               "Deep Sleep guide rendering: shutdown settings use Qt-safe underscores")
+    assert_eq('./DEEP_SLEEP.md' in readme_source, True,
+               "README navigation: links to the Deep Sleep guide")
     assert_eq('blacktip\\_dpv' in readme_source, False,
               "README rendering: package filenames do not use broken backslash escapes")
     assert_eq('\\* this model' in readme_source, False,
