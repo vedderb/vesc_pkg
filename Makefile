@@ -1,4 +1,4 @@
-PKGS = balance blacktip_dpv refloat tnt vbms32 vbms32_micro
+PKGS = balance blacktip_dpv ebike refloat tnt vbms32 vbms32_micro
 PKGS += lib_files lib_interpolation lib_nau7802 lib_pn532
 PKGS += lib_ws2812 logui lib_code_server lib_midi lib_disp_ui
 PKGS += vdisp lib_tca9535 vbms_harmony32 vbms_harmony16
@@ -8,7 +8,7 @@ PKGS += mt6701_config dash_esc vesc_scooter_support lib_esp_led_strip vl_link_st
 PKGS += scooter_dashboard_support vesc_x3_bridge legacy_dc_dpv
 PKGS += dash_vdisp
 
-TEST_PKGS = blacktip_dpv
+TEST_PKGS = ebike
 
 all: vesc_pkg_all.rcc
 
