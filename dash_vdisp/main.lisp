@@ -226,7 +226,6 @@
         (disp-render imgbuf 60 200 colors-text-aa)
 
         (sleep 1.0)
-        (disp-clear color-bg)
 })
 
 (defun main () {
@@ -277,6 +276,12 @@
         ; Trapped: the backlight is off at this point, so a splash that throws
         ; would leave a dark unresponsive panel that looks like a dead unit.
         (if settings-splash (trap (show-splash)))
+
+        ; Outside the trap. This was the last line of show-splash, so anything
+        ; throwing in there skipped it and left the splash on screen for good -
+        ; nothing else clears the whole panel, so the normal view painted over
+        ; the top of it and the rest stayed visible behind.
+        (disp-clear color-bg)
         (bl-set settings-bl-bright)
 
         (event-register-handler (spawn event-handler))
