@@ -6,10 +6,10 @@
 (def vin-min 18)
 (def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
 
-(def m-vd (get-vd))
-(def m-vq (get-vq))
-(def m-id (get-id))
-(def m-iq (get-iq))
+(def m-vd 0.0)
+(def m-vq 0.0)
+(def m-id 0.0)
+(def m-iq 0.0)
 
 @const-start
 
