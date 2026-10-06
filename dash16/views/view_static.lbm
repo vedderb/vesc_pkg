@@ -53,9 +53,13 @@
 
         ; Wipe everything above the page area so a layout change leaves nothing
         ; behind. All of it is redrawn on this same forced pass.
-        (var wipe (img-buffer dm-pool 'indexed2 172 52))
+        ; 53 rows, not 52: three passes of 52 stop at y 155 and the page area
+        ; starts at 157, so row 156 was repainted by nothing. The notify banner
+        ; spans that row, which left a slice of its text on screen after it
+        ; cleared. 53 carries the wipe to 158 and the page redraw covers the rest.
+        (var wipe (img-buffer dm-pool 'indexed2 172 53))
         (img-clear wipe)
-        (looprange i 0 3 (disp-render wipe 34 (* i 52) '(0 0)))
+        (looprange i 0 3 (disp-render wipe 34 (* i 53) '(0 0)))
 
         (if top (disp-render img-vesc-small (+ 34 strip-inset) strip-top colors-vesc))
         (disp-render img-vesc 45 121 (if top colors-hidden colors-vesc))

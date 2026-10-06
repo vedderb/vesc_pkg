@@ -176,9 +176,13 @@
 
 ; An unwritten cell reads -1, which as a float is NaN, so test that first.
 (defun setting-clamp (v lo hi dflt)
-    (if (not (= v v)) dflt
-        (if (< v lo) dflt
-            (if (> v hi) dflt v))))
+    ; nil first: a cell that was never written reads back nil, and comparing
+    ; that to a number throws. That aborts settings-load partway, so nothing
+    ; after it is applied and colors-build never runs.
+    (if (eq v nil) dflt
+        (if (not (= v v)) dflt
+            (if (< v lo) dflt
+                (if (> v hi) dflt v)))))
 
 ; A never written cell reads nil, and comparing that to a number throws.
 (defun setting-flag (name dflt)
