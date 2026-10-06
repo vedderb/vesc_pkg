@@ -304,9 +304,12 @@
         })
 })
 
-(if (= (read-setting 'ver-code) 44i32) {
-        (migrate-btn-codes)
-        (write-setting 'ver-code settings-version)
-})
+; An unwritten EEPROM cell returns nil, which numeric equality rejects.
+(let ((saved-version (read-setting 'ver-code)))
+    (if (and (number? saved-version) (= saved-version 44i32)) {
+            (migrate-btn-codes)
+            (write-setting 'ver-code settings-version)
+    })
+)
 
 (if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
