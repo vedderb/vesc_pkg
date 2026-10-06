@@ -2,8 +2,6 @@
 (def log-running false)
 (def last-can-id -1)
 
-; Minimum input voltage, stop logging when voltage drops lower
-(def vin-min 18)
 (def is-esc (eq (sysinfo 'hw-type) 'hw-esc))
 
 (def m-vd 0.0)
@@ -274,15 +272,6 @@
             (_ nil) ; Ignore other events
 )))
 
-(defun vin-hw ()
-    (if is-esc
-        (get-vin)
-        (if (can-list-devs)
-            (canget-vin (first (can-list-devs)))
-            20.0
-        )
-))
-
 ; Persistent settings
 ; Format: (label . (offset type))
 (def eeprom-addrs '(
@@ -374,15 +363,6 @@
         (event-register-handler (spawn event-handler))
         (event-enable 'event-data-rx)
         (if is-esc (event-enable 'event-shutdown))
-
-        ; Voltage monitor thread that stops logging if the voltage drops too low
-        (loopwhile-thd 100 t {
-                (if (< (vin-hw) vin-min) {
-                        (stop-log last-can-id)
-                        (sleep 1)
-                })
-                (sleep 0.01)
-        })
 
         ; Restore settings if version number does not match
         ; as that probably means something else is in eeprom
