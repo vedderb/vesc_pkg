@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.5.2
+**Version:** 1.6.0
 
 ## License
 
@@ -38,6 +38,14 @@ Videos showing Smart Cruise controls and Deep Sleep:
 - [Deep Sleep setup and operation](./DEEP_SLEEP.md)
 
 ---
+
+## What's New in Version 1.6.0
+
+Feature release:
+
+- **Improved Reset to Defaults** — Resetting a Blacktip or CudaX profile now starts from the complete VESC firmware defaults before applying the DPV profile, so stale configuration fields are not retained.
+- **Centralised normal speed commands** — Normal speed changes, including Smart Cruise transitions, now use one command path while retaining the existing safe-start path.
+- **Action required:** To receive the revised configuration, select the correct scooter profile and use **Reset to Defaults** after updating. Record any personalised settings first and restore them afterwards.
 
 ## What's New in Version 1.5.2
 
@@ -380,9 +388,10 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Choose "blacktip&#95;dpv.vescpkg"
 - Confirm installation
 
-5. **Reset to defaults:**
+5. **Reset to Defaults:**
 
-- **This absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- **This is absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- **For version 1.6.0 and later, use Reset to Defaults after updating to receive revised profile configuration.** Record any personalised settings first and restore them afterwards.
 - Make sure to check your custom settings before the reset, and then restore them
 - In the VESC Tool or Mobile App go to "Settings" / "Scooter Hardware Configuration"
 - Make sure the correct model and hardware version is selected

@@ -824,6 +824,19 @@ def test_production_defaults_reset():
               "production reset: contains no test-fixture model")
 
 
+def test_release_documentation():
+    """Keep the release version and required reset guidance in the source README."""
+    print("\n=== Testing release documentation ===")
+    readme = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
+
+    assert_eq('**Version:** 1.6.0' in readme, True,
+              "release documentation: minor version is 1.6.0")
+    assert_eq('## What\'s New in Version 1.6.0' in readme, True,
+              "release documentation: includes 1.6.0 changelog")
+    assert_eq('**Reset to Defaults** after updating' in readme, True,
+              "release documentation: requires reset for revised configuration")
+
+
 def _safe_shutdown_state():
     return {
         'enable_five_click_shutdown': 1,
@@ -997,6 +1010,7 @@ def run_all_tests():
     test_state_metrics_reset()
     test_five_click_settings_and_migration()
     test_production_defaults_reset()
+    test_release_documentation()
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
