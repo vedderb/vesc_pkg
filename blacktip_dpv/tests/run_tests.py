@@ -781,6 +781,30 @@ def test_five_click_settings_and_migration():
     assert_eq(rejected, received, "settings receive: rejected buffer changes nothing")
 
 
+def test_production_defaults_reset():
+    """Production profiles must start from complete firmware defaults."""
+    print("\n=== Testing production defaults reset ===")
+    root = Path(__file__).resolve().parents[1]
+    ui_source = (root / 'ui.qml').read_text()
+
+    assert_eq('function reset_defaults_for_profile(profile)' in ui_source, True,
+              "production reset: common asynchronous reset entrypoint exists")
+    assert_eq('mCommands.getMcconfDefault()' in ui_source and
+              'mCommands.getAppConfDefault()' in ui_source, True,
+              "production reset: requests complete motor and app defaults")
+    assert_eq('!profileMotorDefaultsLoaded || !profileAppDefaultsLoaded' in ui_source, True,
+              "production reset: waits for both default responses")
+    assert_eq(ui_source.index('mCommands.getMcconfDefault()') <
+              ui_source.index('function apply_defaults_blacktip()'), True,
+              "production reset: default retrieval precedes Blacktip overrides")
+    assert_eq('function reset_defaults_blacktip() {\n        reset_defaults_for_profile("blacktip")' in ui_source,
+              True, "production reset: Blacktip uses the common reset")
+    assert_eq('function reset_defaults_cudax() {\n        reset_defaults_for_profile("cudax")' in ui_source,
+              True, "production reset: CudaX uses the common reset")
+    assert_eq('HARDWARE_TEST_FIXTURE' in ui_source, False,
+              "production reset: contains no test-fixture model")
+
+
 def _safe_shutdown_state():
     return {
         'enable_five_click_shutdown': 1,
@@ -952,6 +976,7 @@ def run_all_tests():
     test_blacktip_display_timeout_sequence()
     test_state_metrics_reset()
     test_five_click_settings_and_migration()
+    test_production_defaults_reset()
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
