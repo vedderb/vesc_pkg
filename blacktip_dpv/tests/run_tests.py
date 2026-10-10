@@ -5,7 +5,9 @@ Tests pure functions to catch regressions before flashing hardware
 """
 
 import csv
+import re
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -825,16 +827,44 @@ def test_production_defaults_reset():
 
 
 def test_release_documentation():
-    """Keep the release version and required reset guidance in the source README."""
+    """Verify generated package metadata derives its version from the source README."""
     print("\n=== Testing release documentation ===")
-    readme = (Path(__file__).resolve().parents[1] / 'README.md').read_text()
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / 'README.md').read_text()
 
-    assert_eq('**Version:** 1.6.0' in readme, True,
-              "release documentation: minor version is 1.6.0")
-    assert_eq('## What\'s New in Version 1.6.0' in readme, True,
-              "release documentation: includes 1.6.0 changelog")
     assert_eq('**Reset to Defaults** after updating' in readme, True,
               "release documentation: requires reset for revised configuration")
+
+    version_match = re.search(r'^\*\*Version:\*\* (\S+)$', readme, re.MULTILINE)
+    assert_eq(version_match is not None, True,
+              "release documentation: declares a source version")
+    if version_match is None:
+        return
+
+    subprocess.run([root / 'tools' / 'update_version.sh'], cwd=root, check=True)
+    generated_readme = (root / 'README.dist.md').read_text()
+    generated_ui = (root / 'ui.dist.qml').read_text()
+    generated_readme_match = re.search(r'^\*\*Version:\*\* `([^`]+)`$',
+                                       generated_readme, re.MULTILINE)
+    generated_ui_match = re.search(
+        r'readonly property string const_BLACKTIP_DPV_VERSION: "([^"]+)"',
+        generated_ui)
+
+    assert_eq(generated_readme_match is not None, True,
+              "release metadata: generated README has a version")
+    assert_eq(generated_ui_match is not None, True,
+              "release metadata: generated UI has a version")
+    if generated_readme_match is not None and generated_ui_match is not None:
+        generated_version = generated_readme_match.group(1)
+        assert_eq(generated_version.startswith(version_match.group(1) + '-'), True,
+                  "release metadata: generated version derives from README version")
+        assert_eq(generated_ui_match.group(1), generated_version,
+                  "release metadata: generated README and UI use the same version")
+
+    package_description = (root / 'pkgdesc.qml').read_text()
+    assert_eq('pkgDescriptionMd: "README.dist.md"' in package_description and
+              'pkgQml: "ui.dist.qml"' in package_description, True,
+              "release metadata: package uses generated versioned artefacts")
 
 
 def _safe_shutdown_state():
