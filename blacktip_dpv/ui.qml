@@ -37,6 +37,13 @@ Item {
 
     property bool readSettingsDone: false
 
+    // Firmware defaults arrive asynchronously. Apply a DPV profile only after
+    // both complete configuration objects have been replaced.
+    property bool profileResetPending: false
+    property bool profileMotorDefaultsLoaded: false
+    property bool profileAppDefaultsLoaded: false
+    property string profileResetTarget: ""
+
     // Callback holder for delay timer
     property var _delayCb: null
 
@@ -834,7 +841,48 @@ Item {
         console.log("Sent values")
     }
 
+    function reset_defaults_for_profile(profile) {
+        if (profileResetPending) {
+            console.warn("Defaults reset already in progress")
+            return
+        }
+
+        // Do not carry stale or firmware-version-specific fields into the DPV
+        // profile. The default responses replace mMcConf and mAppConf.
+        profileResetPending = true
+        profileMotorDefaultsLoaded = false
+        profileAppDefaultsLoaded = false
+        profileResetTarget = profile
+        mCommands.getMcconfDefault()
+        mCommands.getAppConfDefault()
+    }
+
+    function apply_reset_profile() {
+        if (!profileResetPending || !profileMotorDefaultsLoaded || !profileAppDefaultsLoaded) {
+            return
+        }
+
+        var profile = profileResetTarget
+        profileResetPending = false
+        profileResetTarget = ""
+        if (profile === "blacktip") {
+            apply_defaults_blacktip()
+        } else if (profile === "cudax") {
+            apply_defaults_cudax()
+        } else {
+            console.warn("Unknown defaults profile:", profile)
+        }
+    }
+
     function reset_defaults_blacktip() {
+        reset_defaults_for_profile("blacktip")
+    }
+
+    function reset_defaults_cudax() {
+        reset_defaults_for_profile("cudax")
+    }
+
+    function apply_defaults_blacktip() {
         var buffer1 = new ArrayBuffer(33)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 45)
@@ -943,7 +991,7 @@ Item {
         console.log("Defaults Reset for Blacktip")
     }
 
-    function reset_defaults_cudax() {
+    function apply_defaults_cudax() {
         var buffer1 = new ArrayBuffer(33)
         var da1 = new DataView(buffer1)
         da1.setUint8(0, 30)
@@ -1055,6 +1103,28 @@ Item {
 
     function isBlacktip(hardware_type) {
         return hardware_type < 3
+    }
+
+    Connections {
+        target: mMcConf
+
+        function onUpdated() {
+            if (profileResetPending) {
+                profileMotorDefaultsLoaded = true
+                apply_reset_profile()
+            }
+        }
+    }
+
+    Connections {
+        target: mAppConf
+
+        function onUpdated() {
+            if (profileResetPending) {
+                profileAppDefaultsLoaded = true
+                apply_reset_profile()
+            }
+        }
     }
 
     Connections {

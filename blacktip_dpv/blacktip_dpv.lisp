@@ -934,7 +934,7 @@
                     (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
                     (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
                     ; re command actual speed as reverification sets it to 0.8x
-                    (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                    (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                 })
             })
         } {
@@ -1006,16 +1006,22 @@
 (defun calculate_rpm (speed_index divisor)
 {
     (var speed_percent (speed_percentage_at speed_index))
-    (var max_rpm (cond
-        ((= scooter_type SCOOTER_BLACKTIP) MAX_ERPM_BLACKTIP)
-        ((= scooter_type SCOOTER_CUDAX) MAX_ERPM_CUDAX)
-        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") MAX_ERPM_BLACKTIP)
+    (var base_rpm (cond
+        ((= scooter_type SCOOTER_BLACKTIP) (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
+        ((= scooter_type SCOOTER_CUDAX) (* (/ MAX_ERPM_CUDAX divisor) speed_percent))
+        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
     ))
-    (var base_rpm (* (/ max_rpm divisor) speed_percent))
     (if (< speed_index SPEED_REVERSE_THRESHOLD)
         (- 0 base_rpm)
         base_rpm
     )
+})
+
+; Normal speed commands go through one helper so hardware-specific command
+; modes can share the state-machine and safe-start gates.
+(defun set_motor_speed (speed_index divisor)
+{
+    (set-rpm (calculate_rpm speed_index divisor))
 })
 
 ; =============================================================================
@@ -1082,7 +1088,7 @@
             (setvar 'disp_num DISPLAY_SMART_CRUISE_HALF)
             (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
             ; slow scooter to 80% to help people realize cruise is expiring
-            (set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))
+            (set_motor_speed speed SMART_CRUISE_SLOWDOWN_DIVISOR)
         })
     )
 })
@@ -1146,7 +1152,7 @@
         (debug_log "Smart Cruise: Re-enabled from warning mode")
         (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
         (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
     })
 })
 
@@ -1256,7 +1262,7 @@
                             (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
                             (setvar 'timer_start (systime))
                             (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-                            (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                            (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         } {
                             (debug_log "Click action: Triple click ignored (Smart Cruise disabled in settings)")
                         })
@@ -1508,7 +1514,7 @@
                 } {
                     ; Speed change while already running (not from off, not during soft-start)
                     (if (!= last_speed SPEED_SOFT_START_SENTINEL) {
-                        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                         (setvar 'last_speed speed)
                     })
@@ -1535,7 +1541,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (telemetry)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 (safe_start_success)
                                 (soft_start_set_active 0)
@@ -1562,7 +1568,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (timer)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 ; Clear timers without changing safe-start status (feature disabled)
                                 (setvar 'soft_start_timer 0)
