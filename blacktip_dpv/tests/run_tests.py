@@ -284,6 +284,25 @@ def test_calculate_rpm():
     assert_near(calculate_rpm(5, 1), 25000, 0.1, "calculate_rpm: speed 5 (at threshold, forward)")
 
 
+def test_motor_speed_command_centralisation():
+    """Normal selector commands must retain one RPM-controlled path."""
+    print("\n=== Testing motor speed command centralisation ===")
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+
+    assert_eq('(defun set_motor_speed (speed_index divisor)' in source, True,
+              "motor speed: common command helper exists")
+    assert_eq('(set-rpm (calculate_rpm speed_index divisor))' in source, True,
+              "motor speed: helper preserves RPM calculation")
+    assert_eq(source.count('(set_motor_speed speed ') == 7, True,
+              "motor speed: every normal speed command uses the helper")
+    assert_eq('(set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))' in source,
+              False, "motor speed: full-speed commands do not bypass the helper")
+    assert_eq('(set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))' in source,
+              False, "motor speed: Smart Cruise slowdown does not bypass the helper")
+    assert_eq('(set-duty SAFE_START_DUTY)' in source, True,
+              "motor speed: safe-start duty command remains separate")
+
+
 def test_display_lut_structure_and_rotation():
     """Keep the CSV layout and every physical-display rotation quartet stable."""
     print("\n=== Testing display LUT structure and rotation ===")
@@ -966,6 +985,7 @@ def run_all_tests():
     test_state_name_for()
     test_speed_percentage_at()
     test_calculate_rpm()
+    test_motor_speed_command_centralisation()
     test_display_lut_structure_and_rotation()
     test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()
