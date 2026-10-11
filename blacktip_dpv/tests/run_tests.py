@@ -305,6 +305,27 @@ def test_motor_speed_command_centralisation():
               "motor speed: safe-start duty command remains separate")
 
 
+def test_startup_tune_cancellation_for_motor_start():
+    """A motor start must prevent background startup audio reclaiming FOC."""
+    print("\n=== Testing startup tune cancellation ===")
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+
+    assert_eq("(setvar 'startup_tune_cancelled 1)" in source, True,
+              "startup audio: motor start cancels the conflicting startup tune")
+    assert_eq("(setvar 'batt_beeps_pending 0)" in source, True,
+              "startup audio: motor start cancels deferred battery beeps")
+    assert_eq("(setvar 'startup_tune_active 1)" in source, True,
+              "startup audio: startup marks the tune active")
+    assert_eq("(setvar 'startup_tune_active 0)" in source, True,
+              "startup audio: tune completion releases FOC ownership")
+    assert_eq('(defun startup_tune_note (tone time delay)' in source, True,
+              "startup audio: tune notes check for motor-start cancellation")
+    assert_eq('(foc-beep tone time beeps_vol)' in source, True,
+              "startup audio: tune retains its existing note generator")
+    assert_eq('(foc-play-tone 1 3000 beeps_vol)' in source, True,
+              "startup audio: normal double-click confirmation tone is retained")
+
+
 def test_display_lut_structure_and_rotation():
     """Keep the CSV layout and every physical-display rotation quartet stable."""
     print("\n=== Testing display LUT structure and rotation ===")
@@ -1029,6 +1050,7 @@ def run_all_tests():
     test_speed_percentage_at()
     test_calculate_rpm()
     test_motor_speed_command_centralisation()
+    test_startup_tune_cancellation_for_motor_start()
     test_display_lut_structure_and_rotation()
     test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()

@@ -45,6 +45,7 @@ Feature release:
 
 - **Improved Reset to Defaults** — Resetting a Blacktip or CudaX profile now starts from the complete VESC firmware defaults before applying the DPV profile, so stale configuration fields are not retained.
 - **Centralised normal speed commands** — Normal speed changes, including Smart Cruise transitions, now use one command path while retaining the existing safe-start path.
+- **Fix: Motor start during startup sound** — A propulsion request now cancels the remaining startup tune and deferred battery beeps between notes, so startup audio cannot take control back from the motor command.
 - **Action required:** To receive the revised configuration, select the correct scooter profile and use **Reset to Defaults** after updating. Record any personalised settings first and restore them afterwards.
 
 ## What's New in Version 1.5.2
@@ -201,6 +202,7 @@ A distinctive musical theme plays on power-up to confirm successful initializati
 
 - Plays automatically when the scooter is turned on
 - Trigger input becomes ready as soon as the motor, display and trigger paths have started; the startup and battery sounds continue in the background.
+- Starting the motor cancels any remaining startup tune and deferred battery beeps. A note already playing completes before the tune stops.
 - The startup display indicates readiness. If the trigger was held during startup, release it once before making a new click sequence.
 - When battery is full (3 bars, >75%), only the startup sound plays
 - When battery is not full (<75%), the startup sound is followed by battery level beeps

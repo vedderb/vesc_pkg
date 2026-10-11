@@ -18,6 +18,9 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Peripheral Loops:**
   * Separate threads for motor control, trigger/button polling, battery monitoring, and Smart Cruise background checks.
   * Each loop uses minimal stack and sleep intervals to conserve memory and CPU.
+* **Startup Audio Arbitration:**
+   * The startup tune and battery indication use synchronous `foc-beep`, which temporarily owns the FOC path.
+   * A motor start sets `startup_tune_cancelled` and clears deferred battery beeps. The tune observes cancellation between notes, allowing an active note to complete without later notes reclaiming motor control.
 * **Logging and Debugging:**
   * Conditional debug logging via `debug_log` and `when-debug` macros to minimize memory usage.
     * Debug output can be enabled for troubleshooting in VESC Tool.
