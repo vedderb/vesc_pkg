@@ -1902,7 +1902,7 @@ Item {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     topPadding:15
-                    text: "Use reset button to reset ALL the settings for the scooter. Must be used after a firmware update."
+                    text: "Use Reset Defaults to restore all scooter settings. Use it after a VESC controller firmware update or when Blacktip DPV release notes require revised profile configuration."
                 }
 
                 Button {
@@ -1925,7 +1925,7 @@ Item {
                     topPadding:5
                     font.pixelSize: Qt.application.font.pixelSize * 0.8
                     color: Utility.getAppHexColor("lightText")
-                    text: "* Will trigger a scooter reboot and potentially a reset to defaults"
+                    text: "*This restarts the scooter and may reset settings to defaults."
                 }
             }
         }

@@ -853,8 +853,16 @@ def test_release_documentation():
     root = Path(__file__).resolve().parents[1]
     readme = (root / 'README.md').read_text()
 
-    assert_eq('**Reset to Defaults** after updating' in readme, True,
-              "release documentation: requires reset for revised configuration")
+    assert_eq('**Reset Defaults** after updating' in readme, True,
+              "release documentation: uses the button label for revised configuration")
+    assert_eq('**After updating VESC controller firmware, use Reset Defaults**' in readme,
+              True, "release documentation: distinguishes controller firmware updates")
+    assert_eq('**A routine Blacktip DPV package update does not require Reset Defaults**' in readme,
+              True, "release documentation: routine package updates do not require a reset")
+
+    ui_source = (root / 'ui.qml').read_text()
+    assert_eq('text: "Reset Defaults"' in ui_source, True,
+              "release documentation: UI uses the documented button label")
 
     version_match = re.search(r'^\*\*Version:\*\* (\S+)$', readme, re.MULTILINE)
     assert_eq(version_match is not None, True,
