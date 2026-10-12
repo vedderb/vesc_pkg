@@ -281,6 +281,8 @@
 (define batt_disp_timer_start 0)      ; Timer to see if Battery display has been triggered
 (define last_batt_disp_num 3)         ; variable used to track last display screen show
 (define startup_tune_done_time 0)     ; Timestamp when startup tune finished (0 = not done yet)
+(define startup_tune_active 0)        ; Imperial March currently owns the synchronous FOC beeper.
+(define startup_tune_cancelled 0)     ; A motor start stops the tune between notes.
 (define batt_beeps_pending 0)         ; Battery beep count deferred until startup tune settle delay
 
 ; --- Balance-wire EMA + imbalance latch state ---
@@ -934,7 +936,7 @@
                     (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
                     (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
                     ; re command actual speed as reverification sets it to 0.8x
-                    (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                    (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                 })
             })
         } {
@@ -1006,16 +1008,22 @@
 (defun calculate_rpm (speed_index divisor)
 {
     (var speed_percent (speed_percentage_at speed_index))
-    (var max_rpm (cond
-        ((= scooter_type SCOOTER_BLACKTIP) MAX_ERPM_BLACKTIP)
-        ((= scooter_type SCOOTER_CUDAX) MAX_ERPM_CUDAX)
-        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") MAX_ERPM_BLACKTIP)
+    (var base_rpm (cond
+        ((= scooter_type SCOOTER_BLACKTIP) (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
+        ((= scooter_type SCOOTER_CUDAX) (* (/ MAX_ERPM_CUDAX divisor) speed_percent))
+        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
     ))
-    (var base_rpm (* (/ max_rpm divisor) speed_percent))
     (if (< speed_index SPEED_REVERSE_THRESHOLD)
         (- 0 base_rpm)
         base_rpm
     )
+})
+
+; Normal speed commands go through one helper so hardware-specific command
+; modes can share the state-machine and safe-start gates.
+(defun set_motor_speed (speed_index divisor)
+{
+    (set-rpm (calculate_rpm speed_index divisor))
 })
 
 ; =============================================================================
@@ -1082,7 +1090,7 @@
             (setvar 'disp_num DISPLAY_SMART_CRUISE_HALF)
             (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
             ; slow scooter to 80% to help people realize cruise is expiring
-            (set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))
+            (set_motor_speed speed SMART_CRUISE_SLOWDOWN_DIVISOR)
         })
     )
 })
@@ -1146,7 +1154,7 @@
         (debug_log "Smart Cruise: Re-enabled from warning mode")
         (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
         (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
     })
 })
 
@@ -1256,7 +1264,7 @@
                             (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
                             (setvar 'timer_start (systime))
                             (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-                            (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                            (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         } {
                             (debug_log "Click action: Triple click ignored (Smart Cruise disabled in settings)")
                         })
@@ -1491,6 +1499,18 @@
             (if (!= speed SPEED_OFF) {
                 ; Soft Start initiation section (only when starting from off)
                 (if (= last_speed SPEED_OFF) {
+                    ; The startup tune uses synchronous foc-beep, which owns
+                    ; the FOC control path and finishes each note at zero
+                    ; current. Stop it before requesting propulsion.
+                    (if (= startup_tune_active 1) {
+                        (debug_log "Motor: Cancelling startup tune")
+                        (setvar 'startup_tune_cancelled 1)
+                    })
+                    ; The startup battery indication also uses foc-beep. It is
+                    ; an off-state indication, so cancel any deferred instance
+                    ; rather than allowing it to contend with propulsion.
+                    (setvar 'batt_disp_timer_start 0)
+                    (setvar 'batt_beeps_pending 0)
                     (debug_log "Motor: Soft start initiated")
                     (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MIN_CURRENT_BLACKTIP MIN_CURRENT_CUDAX))
                     ; Start the soft-start timer regardless of safe-start being enabled so we can restore currents after a short period
@@ -1508,7 +1528,7 @@
                 } {
                     ; Speed change while already running (not from off, not during soft-start)
                     (if (!= last_speed SPEED_SOFT_START_SENTINEL) {
-                        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                         (setvar 'last_speed speed)
                     })
@@ -1535,7 +1555,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (telemetry)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 (safe_start_success)
                                 (soft_start_set_active 0)
@@ -1562,7 +1582,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (timer)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 ; Clear timers without changing safe-start status (feature disabled)
                                 (setvar 'soft_start_timer 0)
@@ -1903,58 +1923,54 @@
     (foc-beep (- Tone 200) Time beeps_vol)
 })
 
+; The synchronous foc-beep primitive temporarily takes exclusive FOC control.
+; Check for a motor-start cancellation between notes so it cannot repeatedly
+; overwrite a propulsion command. An already playing note completes normally.
+(defun startup_tune_note (tone time delay)
+{
+    (if (= startup_tune_cancelled 0) {
+        (foc-beep tone time beeps_vol)
+        (if (= startup_tune_cancelled 0)
+            (sleep delay))
+    })
+})
+
 ; ***** Imperial March Theme *****
-; Plays the first ~9 bars of the Imperial March on startup
+; Plays the first ~9 bars of the Imperial March on startup unless propulsion
+; is requested. Normal speed-confirmation tones use foc-play-tone separately.
 ; Note frequencies in Hz (approximations for beeper):
 ; G4=392, Eb4=311, Bb4=466, D5=587, Gb4=370
 (defun play_imperial_march ()
 {
     (if (> beeps_vol 0) { ; Only play if volume is not zero
         ; Bar 1-2: G G G Eb-Bb G
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.35 0.37) ; G quarter
 
         ; Bar 3-4: Eb-Bb G (hold)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.7 beeps_vol)  ; G half note
-        (sleep 0.74)
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.7 0.74)  ; G half note
 
         ; Bar 5-6: D D D Eb-Bb Gb
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
-        (sleep 0.37)
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 370 0.35 0.37) ; Gb quarter
 
         ; Bar 7-8: Eb-Bb G (hold)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.7 beeps_vol)  ; G half note
-        (sleep 0.74)
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.7 0.74)  ; G half note
     })
     (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
+    (setvar 'startup_tune_active 0)
 })
 
 ; ***** Program that beeps trigger clicks
@@ -2243,6 +2259,8 @@
     ; use the full 4-bar frame (3).
     (setvar 'last_batt_disp_num (if (> thirds_total 0) DISPLAY_THIRDS_OK 3)) ; variable used to track last display screen show
     (setvar 'startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (setvar 'startup_tune_active 1)
+    (setvar 'startup_tune_cancelled 0)
     (setvar 'batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
@@ -2257,8 +2275,8 @@
 
     (start_trigger_loop)
 
-    ; The motor, trigger and display paths are now live. Audio is optional and
-    ; continues independently, so it must not delay the first valid command.
+    ; The motor, trigger and display paths are now live. The startup tune is
+    ; optional and cancels between notes when propulsion is requested.
     (setvar 'trigger_input_ready 1)
     ; Sample synchronously after readiness so a press that started before it
     ; was published stays disarmed. The state machine starts only after this.

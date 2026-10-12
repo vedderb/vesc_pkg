@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.5.2
+**Version:** 1.6.0
 
 ## License
 
@@ -38,6 +38,15 @@ Videos showing Smart Cruise controls and Deep Sleep:
 - [Deep Sleep setup and operation](./DEEP_SLEEP.md)
 
 ---
+
+## What's New in Version 1.6.0
+
+Feature release:
+
+- **Improved Reset Defaults** — Resetting a Blacktip or CudaX profile now starts from the complete VESC firmware defaults before applying the DPV profile, so stale configuration fields are not retained.
+- **Centralised normal speed commands** — Normal speed changes, including Smart Cruise transitions, now use one command path while retaining the existing safe-start path.
+- **Fix: Motor start during startup sound** — A propulsion request now cancels the remaining startup tune and deferred battery beeps between notes, so startup audio cannot take control back from the motor command.
+- **Action required:** To receive the revised configuration, select the correct scooter profile and use **Reset Defaults** after updating. Record any personalised settings first and restore them afterwards.
 
 ## What's New in Version 1.5.2
 
@@ -193,6 +202,7 @@ A distinctive musical theme plays on power-up to confirm successful initializati
 
 - Plays automatically when the scooter is turned on
 - Trigger input becomes ready as soon as the motor, display and trigger paths have started; the startup and battery sounds continue in the background.
+- Starting the motor cancels any remaining startup tune and deferred battery beeps. A note already playing completes before the tune stops.
 - The startup display indicates readiness. If the trigger was held during startup, release it once before making a new click sequence.
 - When battery is full (3 bars, >75%), only the startup sound plays
 - When battery is not full (<75%), the startup sound is followed by battery level beeps
@@ -380,9 +390,11 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Choose "blacktip&#95;dpv.vescpkg"
 - Confirm installation
 
-5. **Reset to defaults:**
+5. **Reset Defaults:**
 
-- **This absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- **After updating VESC controller firmware, use Reset Defaults** to reload firmware-compatible controller defaults and reapply the selected DPV profile.
+- **A routine Blacktip DPV package update does not require Reset Defaults**, unless its release notes say that it includes revised profile configuration.
+- **For version 1.6.0 and later, use Reset Defaults after updating to receive revised profile configuration.** Record any personalised settings first and restore them afterwards.
 - Make sure to check your custom settings before the reset, and then restore them
 - In the VESC Tool or Mobile App go to "Settings" / "Scooter Hardware Configuration"
 - Make sure the correct model and hardware version is selected

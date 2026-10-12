@@ -5,7 +5,9 @@ Tests pure functions to catch regressions before flashing hardware
 """
 
 import csv
+import re
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -282,6 +284,46 @@ def test_calculate_rpm():
     # Edge case at threshold
     assert_near(calculate_rpm(4, 1), -20000, 0.1, "calculate_rpm: speed 4 (just below threshold)")
     assert_near(calculate_rpm(5, 1), 25000, 0.1, "calculate_rpm: speed 5 (at threshold, forward)")
+
+
+def test_motor_speed_command_centralisation():
+    """Normal selector commands must retain one RPM-controlled path."""
+    print("\n=== Testing motor speed command centralisation ===")
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+
+    assert_eq('(defun set_motor_speed (speed_index divisor)' in source, True,
+              "motor speed: common command helper exists")
+    assert_eq('(set-rpm (calculate_rpm speed_index divisor))' in source, True,
+              "motor speed: helper preserves RPM calculation")
+    assert_eq(source.count('(set_motor_speed speed ') == 7, True,
+              "motor speed: every normal speed command uses the helper")
+    assert_eq('(set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))' in source,
+              False, "motor speed: full-speed commands do not bypass the helper")
+    assert_eq('(set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))' in source,
+              False, "motor speed: Smart Cruise slowdown does not bypass the helper")
+    assert_eq('(set-duty SAFE_START_DUTY)' in source, True,
+              "motor speed: safe-start duty command remains separate")
+
+
+def test_startup_tune_cancellation_for_motor_start():
+    """A motor start must prevent background startup audio reclaiming FOC."""
+    print("\n=== Testing startup tune cancellation ===")
+    source = (Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp').read_text()
+
+    assert_eq("(setvar 'startup_tune_cancelled 1)" in source, True,
+              "startup audio: motor start cancels the conflicting startup tune")
+    assert_eq("(setvar 'batt_beeps_pending 0)" in source, True,
+              "startup audio: motor start cancels deferred battery beeps")
+    assert_eq("(setvar 'startup_tune_active 1)" in source, True,
+              "startup audio: startup marks the tune active")
+    assert_eq("(setvar 'startup_tune_active 0)" in source, True,
+              "startup audio: tune completion releases FOC ownership")
+    assert_eq('(defun startup_tune_note (tone time delay)' in source, True,
+              "startup audio: tune notes check for motor-start cancellation")
+    assert_eq('(foc-beep tone time beeps_vol)' in source, True,
+              "startup audio: tune retains its existing note generator")
+    assert_eq('(foc-play-tone 1 3000 beeps_vol)' in source, True,
+              "startup audio: normal double-click confirmation tone is retained")
 
 
 def test_display_lut_structure_and_rotation():
@@ -781,6 +823,79 @@ def test_five_click_settings_and_migration():
     assert_eq(rejected, received, "settings receive: rejected buffer changes nothing")
 
 
+def test_production_defaults_reset():
+    """Production profiles must start from complete firmware defaults."""
+    print("\n=== Testing production defaults reset ===")
+    root = Path(__file__).resolve().parents[1]
+    ui_source = (root / 'ui.qml').read_text()
+
+    assert_eq('function reset_defaults_for_profile(profile)' in ui_source, True,
+              "production reset: common asynchronous reset entrypoint exists")
+    assert_eq('mCommands.getMcconfDefault()' in ui_source and
+              'mCommands.getAppConfDefault()' in ui_source, True,
+              "production reset: requests complete motor and app defaults")
+    assert_eq('!profileMotorDefaultsLoaded || !profileAppDefaultsLoaded' in ui_source, True,
+              "production reset: waits for both default responses")
+    assert_eq(ui_source.index('mCommands.getMcconfDefault()') <
+              ui_source.index('function apply_defaults_blacktip()'), True,
+              "production reset: default retrieval precedes Blacktip overrides")
+    assert_eq('function reset_defaults_blacktip() {\n        reset_defaults_for_profile("blacktip")' in ui_source,
+              True, "production reset: Blacktip uses the common reset")
+    assert_eq('function reset_defaults_cudax() {\n        reset_defaults_for_profile("cudax")' in ui_source,
+              True, "production reset: CudaX uses the common reset")
+    assert_eq('HARDWARE_TEST_FIXTURE' in ui_source, False,
+              "production reset: contains no test-fixture model")
+
+
+def test_release_documentation():
+    """Verify generated package metadata derives its version from the source README."""
+    print("\n=== Testing release documentation ===")
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / 'README.md').read_text()
+
+    assert_eq('**Reset Defaults** after updating' in readme, True,
+              "release documentation: uses the button label for revised configuration")
+    assert_eq('**After updating VESC controller firmware, use Reset Defaults**' in readme,
+              True, "release documentation: distinguishes controller firmware updates")
+    assert_eq('**A routine Blacktip DPV package update does not require Reset Defaults**' in readme,
+              True, "release documentation: routine package updates do not require a reset")
+
+    ui_source = (root / 'ui.qml').read_text()
+    assert_eq('text: "Reset Defaults"' in ui_source, True,
+              "release documentation: UI uses the documented button label")
+
+    version_match = re.search(r'^\*\*Version:\*\* (\S+)$', readme, re.MULTILINE)
+    assert_eq(version_match is not None, True,
+              "release documentation: declares a source version")
+    if version_match is None:
+        return
+
+    subprocess.run([root / 'tools' / 'update_version.sh'], cwd=root, check=True)
+    generated_readme = (root / 'README.dist.md').read_text()
+    generated_ui = (root / 'ui.dist.qml').read_text()
+    generated_readme_match = re.search(r'^\*\*Version:\*\* `([^`]+)`$',
+                                       generated_readme, re.MULTILINE)
+    generated_ui_match = re.search(
+        r'readonly property string const_BLACKTIP_DPV_VERSION: "([^"]+)"',
+        generated_ui)
+
+    assert_eq(generated_readme_match is not None, True,
+              "release metadata: generated README has a version")
+    assert_eq(generated_ui_match is not None, True,
+              "release metadata: generated UI has a version")
+    if generated_readme_match is not None and generated_ui_match is not None:
+        generated_version = generated_readme_match.group(1)
+        assert_eq(generated_version.startswith(version_match.group(1) + '-'), True,
+                  "release metadata: generated version derives from README version")
+        assert_eq(generated_ui_match.group(1), generated_version,
+                  "release metadata: generated README and UI use the same version")
+
+    package_description = (root / 'pkgdesc.qml').read_text()
+    assert_eq('pkgDescriptionMd: "README.dist.md"' in package_description and
+              'pkgQml: "ui.dist.qml"' in package_description, True,
+              "release metadata: package uses generated versioned artefacts")
+
+
 def _safe_shutdown_state():
     return {
         'enable_five_click_shutdown': 1,
@@ -942,6 +1057,8 @@ def run_all_tests():
     test_state_name_for()
     test_speed_percentage_at()
     test_calculate_rpm()
+    test_motor_speed_command_centralisation()
+    test_startup_tune_cancellation_for_motor_start()
     test_display_lut_structure_and_rotation()
     test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()
@@ -952,6 +1069,8 @@ def run_all_tests():
     test_blacktip_display_timeout_sequence()
     test_state_metrics_reset()
     test_five_click_settings_and_migration()
+    test_production_defaults_reset()
+    test_release_documentation()
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
