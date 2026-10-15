@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConfigParams>
+    <Params>
+        <config_name>
+            <longName>none</longName>
+            <type>3</type>
+            <transmittable>0</transmittable>
+            <description>Boosted Doctor configuration</description>
+            <cDefine></cDefine>
+            <valString>BoostedConfig</valString>
+            <maxLen>0</maxLen>
+        </config_name>
+        <hw_name>
+            <longName>Boosted Doctor</longName>
+            <type>0</type>
+            <transmittable>0</transmittable>
+            <description>Settings for the Boosted battery bridge. The battery keep-alive ping, the cell report and the package UI are unaffected by anything here - they run whenever a pack is connected.</description>
+            <cDefine></cDefine>
+        </hw_name>
+
+        <bms_enabled>
+            <longName>Publish as VESC BMS</longName>
+            <type>5</type>
+            <transmittable>1</transmittable>
+            <description>Report the Boosted pack as a VESC BMS: pack voltage, current, state of charge and individual cell voltages, published locally and broadcast on the CAN bus so a separate motor controller can see them.
+
+Off by default, because this puts BMS frames on the bus and should not fight an existing BMS. Turn it on when the Boosted pack is the only BMS, and leave it off if something else on the bus already fills that role.
+
+The Boosted Doctor page shows everything either way, and the keep-alive ping that stops the pack powering itself down is not affected by this setting.
+
+Takes effect immediately - no reboot needed. Values already sent to the VESC are left where they are and will age out on their own.</description>
+            <cDefine>CFG_DFLT_BMS_ENABLED</cDefine>
+            <valInt>0</valInt>
+        </bms_enabled>
+    </Params>
+    <SerOrder>
+        <ser>bms_enabled</ser>
+    </SerOrder>
+    <Grouping>
+        <group>
+            <groupName>General</groupName>
+            <subgroup>
+                <subgroupName>BMS</subgroupName>
+                <subgroupParams>
+                    <param>bms_enabled</param>
+                </subgroupParams>
+            </subgroup>
+        </group>
+    </Grouping>
+</ConfigParams>
