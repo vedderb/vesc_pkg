@@ -29,6 +29,9 @@ If the stored motor parameters cannot describe a real motor, the profile is susp
 
 ## Changelog
 
+**Version 2.5 (2026-10-15)**
+* Support for mapping the Dash16 throttle to ADC1 or ADC2
+
 **Version 2.4 (2026-09-13)**
 * Drive profile is written when it changes rather than ten times a second, so it no longer fights anything else writing configuration
 * Configured limits are restored when no display is present, so a motor can be detected without a power cycle first
