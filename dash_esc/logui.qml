@@ -223,6 +223,23 @@ Item {
                         GroupBox {
                             Layout.fillWidth: true
                             Layout.columnSpan: 2
+                            title: "Throttle Mode"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+
+                                ComboBox {
+                                    id: thrModeBox
+                                    Layout.fillWidth: true
+                                    model: ["ADC1", "ADC2"]
+                                    currentIndex: 0
+                                }
+                            }
+                        }
+
+                        GroupBox {
+                            Layout.fillWidth: true
+                            Layout.columnSpan: 2
                             title: "Reverse"
 
                             GridLayout {
@@ -509,7 +526,11 @@ Item {
                 text: "Save Config"
 
                 onClicked: {
-                    sendCode("(save-config " + makeArgStr() + " " + startAtBoot.checked + ")")
+                    sendCode(
+                    "(save-config " + makeArgStr() + " " +
+                    startAtBoot.checked + " " +
+                    parseFloat(thrModeBox.currentIndex + 2).toFixed(0) + ")"
+                    )
                     sendCode("(save-modes " + makeModeStr() + ")")
                 }
             }
@@ -575,6 +596,7 @@ Item {
                 localLog.checked = Number(tokens[5])
                 canLog.checked = Number(tokens[6])
                 bmsLog.checked = Number(tokens[7])
+                thrModeBox.currentIndex = Number(tokens[8]) - 2
                 } else if (str.startsWith("msg ")) {
                 var msg = str.substring(4)
                 VescIf.emitMessageDialog("Logger", msg, false, false)

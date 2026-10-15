@@ -226,7 +226,7 @@
                                 )
 
                                 (app-adc-override 2 1)
-                                (app-adc-detach adc-detach-mode 3)
+                                (app-adc-detach adc-detach-mode (read-setting 'throttle-mode))
                         })
                         (1 { ; Neutral
                                 (set-profile
@@ -237,7 +237,7 @@
                                 )
 
                                 (app-adc-override 2 0)
-                                (app-adc-detach adc-detach-mode 3)
+                                (app-adc-detach adc-detach-mode (read-setting 'throttle-mode))
                         })
                         (2 { ; 1
                                 (set-profile
@@ -248,7 +248,7 @@
                                 )
 
                                 (app-adc-override 2 0)
-                                (app-adc-detach adc-detach-mode 3)
+                                (app-adc-detach adc-detach-mode (read-setting 'throttle-mode))
                         })
                         (3 { ; 2
                                 (set-profile
@@ -259,7 +259,7 @@
                                 )
 
                                 (app-adc-override 2 0)
-                                (app-adc-detach adc-detach-mode 3)
+                                (app-adc-detach adc-detach-mode (read-setting 'throttle-mode))
                         })
                         (4 { ; 3
                                 (set-profile
@@ -270,7 +270,7 @@
                                 )
 
                                 (app-adc-override 2 0)
-                                (app-adc-detach adc-detach-mode 3)
+                                (app-adc-detach adc-detach-mode (read-setting 'throttle-mode))
                         })
                     )
 
@@ -291,8 +291,13 @@
                     (setq volts-brk (/ (bufget-i16 data 2) 1000.0))
 
                     (setq adc-detach-mode 3)
-                    (app-adc-override 1 volts-brk)
-                    (app-adc-detach adc-detach-mode 3) ; Detach ADC2
+
+                    (if (= (read-setting 'throttle-mode) 2)
+                        (app-adc-override 0 volts-brk)
+                        (app-adc-override 1 volts-brk)
+                    )
+
+                    (app-adc-detach adc-detach-mode (read-setting 'throttle-mode)) ; Detach ADC2
             })
 
             ; Event
@@ -562,14 +567,15 @@
         })
 })
 
-(defun save-config (id append-gnss log-local log-can log-bms rate at-boot) {
-        (write-setting 'can-id id)
-        (write-setting 'log-at-boot at-boot)
-        (write-setting 'log-rate rate)
-        (write-setting 'append-gnss append-gnss)
-        (write-setting 'log-local log-local)
-        (write-setting 'log-can log-can)
-        (write-setting 'log-bms log-bms)
+(defun save-config () {
+        (write-setting 'can-id (rest-args 0))
+        (write-setting 'append-gnss (rest-args 1))
+        (write-setting 'log-local (rest-args 2))
+        (write-setting 'log-can (rest-args 3))
+        (write-setting 'log-bms (rest-args 4))
+        (write-setting 'log-rate (rest-args 5))
+        (write-setting 'log-at-boot (rest-args 6))
+        (write-setting 'throttle-mode (rest-args 7))
         (send-data "Settings Saved!")
 })
 
@@ -614,6 +620,8 @@
         (mode-3-speed       . (18 f))
         (mode-3-current     . (19 f))
         (mode-3-current-brk . (20 f))
+
+        (throttle-mode      . (21 i))
 ))
 
 (defun print-settings ()
@@ -622,7 +630,7 @@
 ))
 
 ; Settings version
-(def settings-version 240i32)
+(def settings-version 241i32)
 
 (defun read-setting (name)
     (let (
@@ -673,6 +681,8 @@
         (write-setting 'mode-3-speed 250.0)
         (write-setting 'mode-3-current 1.0)
         (write-setting 'mode-3-current-brk 1.0)
+
+        (write-setting 'throttle-mode 3)
 })
 
 (defun send-settings ()
@@ -685,6 +695,7 @@
             (if (read-setting 'log-local) "1 " "0 ")
             (if (read-setting 'log-can) "1 " "0 ")
             (if (read-setting 'log-bms) "1 " "0 ")
+            (str-from-n (read-setting 'throttle-mode) "%d ")
 )))
 
 (defun send-modes ()
