@@ -832,8 +832,18 @@ def test_production_defaults_reset():
     assert_eq('function reset_defaults_for_profile(profile)' in ui_source, True,
               "production reset: common asynchronous reset entrypoint exists")
     assert_eq('mCommands.getMcconfDefault()' in ui_source and
-              'mCommands.getAppConfDefault()' in ui_source, True,
-              "production reset: requests complete motor and app defaults")
+               'mCommands.getAppConfDefault()' in ui_source, True,
+               "production reset: requests complete motor and app defaults")
+    mc_connections_start = ui_source.index('target: mMcConf')
+    app_connections_start = ui_source.index('target: mAppConf')
+    reset_start = ui_source.index('function reset_defaults_for_profile(profile)')
+    reset_end = ui_source.index('function apply_reset_profile()', reset_start)
+    assert_eq('mCommands.getAppConfDefault()' not in ui_source[reset_start:reset_end], True,
+               "production reset: does not overlap motor and app default requests")
+    assert_eq('mCommands.getAppConfDefault()' in ui_source[mc_connections_start:app_connections_start], True,
+               "production reset: requests app defaults after motor defaults arrive")
+    assert_eq('profileMotorDefaultsLoaded &&\n                    !profileAppDefaultsLoaded' in ui_source[app_connections_start:], True,
+               "production reset: accepts app defaults only after motor defaults")
     assert_eq('!profileMotorDefaultsLoaded || !profileAppDefaultsLoaded' in ui_source, True,
               "production reset: waits for both default responses")
     assert_eq(ui_source.index('mCommands.getMcconfDefault()') <
@@ -853,16 +863,22 @@ def test_release_documentation():
     root = Path(__file__).resolve().parents[1]
     readme = (root / 'README.md').read_text()
 
-    assert_eq('**Reset Defaults** after updating' in readme, True,
-              "release documentation: uses the button label for revised configuration")
+    assert_eq('**Version:** 1.6.1' in readme, True,
+               "release documentation: increments the package version for the reset fix")
+    assert_eq('## What\'s New in Version 1.6.1' in readme, True,
+               "release documentation: includes a 1.6.1 changelog section")
+    assert_eq('**Action required for version 1.6.0 installations:** Update to 1.6.1 and use **Reset Defaults** again.' in readme,
+               True, "release documentation: tells 1.6.0 users to reset again")
+    assert_eq('Reset Defaults did not work correctly in 1.6.0' in readme, True,
+               "release documentation: identifies the fixed 1.6.0 reset defect")
     assert_eq('**After updating VESC controller firmware, use Reset Defaults**' in readme,
               True, "release documentation: distinguishes controller firmware updates")
     assert_eq('**A routine Blacktip DPV package update does not require Reset Defaults**' in readme,
               True, "release documentation: routine package updates do not require a reset")
 
     ui_source = (root / 'ui.qml').read_text()
-    assert_eq('text: "Reset Defaults"' in ui_source, True,
-              "release documentation: UI uses the documented button label")
+    assert_eq('text: "Reset Defaults*"' in ui_source, True,
+               "release documentation: UI uses the documented button label")
 
     version_match = re.search(r'^\*\*Version:\*\* (\S+)$', readme, re.MULTILINE)
     assert_eq(version_match is not None, True,

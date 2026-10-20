@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.6.0
+**Version:** 1.6.1
 
 ## License
 
@@ -38,6 +38,13 @@ Videos showing Smart Cruise controls and Deep Sleep:
 - [Deep Sleep setup and operation](./DEEP_SLEEP.md)
 
 ---
+
+## What's New in Version 1.6.1
+
+Bugfix release:
+
+- **Fix: Reset Defaults** — Reset Defaults now waits for the motor-controller defaults before requesting the application defaults, then applies the selected DPV profile only after both have arrived.
+- **Action required for version 1.6.0 installations:** Update to 1.6.1 and use **Reset Defaults** again. Reset Defaults did not work correctly in 1.6.0, so the selected scooter profile may not have been applied.
 
 ## What's New in Version 1.6.0
 
