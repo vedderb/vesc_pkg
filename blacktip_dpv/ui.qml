@@ -38,7 +38,8 @@ Item {
     property bool readSettingsDone: false
 
     // Firmware defaults arrive asynchronously. Apply a DPV profile only after
-    // both complete configuration objects have been replaced.
+    // both complete configuration objects have been replaced. Request them in
+    // sequence, as VESC Tool's own configuration restore flow does.
     property bool profileResetPending: false
     property bool profileMotorDefaultsLoaded: false
     property bool profileAppDefaultsLoaded: false
@@ -854,7 +855,6 @@ Item {
         profileAppDefaultsLoaded = false
         profileResetTarget = profile
         mCommands.getMcconfDefault()
-        mCommands.getAppConfDefault()
     }
 
     function apply_reset_profile() {
@@ -1109,9 +1109,9 @@ Item {
         target: mMcConf
 
         function onUpdated() {
-            if (profileResetPending) {
+            if (profileResetPending && !profileMotorDefaultsLoaded) {
                 profileMotorDefaultsLoaded = true
-                apply_reset_profile()
+                mCommands.getAppConfDefault()
             }
         }
     }
@@ -1120,7 +1120,8 @@ Item {
         target: mAppConf
 
         function onUpdated() {
-            if (profileResetPending) {
+            if (profileResetPending && profileMotorDefaultsLoaded &&
+                    !profileAppDefaultsLoaded) {
                 profileAppDefaultsLoaded = true
                 apply_reset_profile()
             }
