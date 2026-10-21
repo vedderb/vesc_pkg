@@ -1,0 +1,130 @@
+(defun t-bms (sensor)
+    (if (< sensor (get-bms-val 'bms-temp-adc-num))
+        (get-bms-val 'bms-temps-adc sensor)
+        -1
+    )
+)
+
+; State
+(def log-running false)
+(def last-can-id -1)
+
+; Variables
+(def esp-id 124)     ; C3-Supermini CAN-ID
+(def fw-cap 1048576) ; 1 MiB
+(def fw-ofs 0)       ; current write offset on ESP
+(def buf (bufcreate 448)) ; batching buffer for efficiency
+(def blen 0)         ; buffered payload length
+
+; Format
+; (optKey optName optUnit optPrecision optIsRel optIsTime value-function)
+;
+; All entries except value-function are optional and
+; default values will be used if they are left out.
+(def loglist-local '(
+        ("Input Voltage" "V"            (get-vin))
+        ("Current" "A"                  (get-current))
+        ("Current In" "A"               (get-current-in))
+        ("Duty"                         (get-duty))
+        ("RPM"                          (get-rpm))
+        ("Temp Fet" "degC" 1            (get-temp-fet))
+        ("Temp Motor" "degC" 1          (get-temp-mot))
+        ("Batt" "%"                     (* (get-batt) 100))
+        ("fault"                        (get-fault))
+        ("trip_vesc" "m"                (get-dist))
+        ("trip_vesc_abs" "m"            (get-dist-abs))
+        ("cnt_ah" "Ah" "Amp Hours"      (get-ah))
+        ("cnt_wh" "Wh" "Watt Hours"     (get-wh))
+        ("cnt_ah_chg" "Ah" "Ah Chg"     (get-ah-chg))
+        ("cnt_wh_chg" "Wh" "Wh Chg"     (get-wh-chg))
+        ("ADC1" "V"                     (get-adc 0))
+        ("ADC2" "V"                     (get-adc 1))
+        ("Pedal Torque" "Nm"            (* 1 pdl-trq))
+        ("Pedal Out"                    (* 1 trq-out))
+        ("Pedal RPM"                    (* 1 pdl-rpm))
+        ("Wheel RPM"                    (* 1 wheel-rpm))
+        ("Wheel kmh"                    (* 1 wheel-kmh))
+        ("PAS Set"                      (* 1 disp-pas-set))
+        ;("BMS T Mos" "degC"             (t-bms 0))
+        ;("BMS T2" "degC"                (t-bms 1))
+        ;("BMS T3" "degC"                (t-bms 2))
+        ;("BMS Current" "A"              (get-bms-val 'bms-i-in-ic))
+        ("Current limit"                (conf-get 'l-current-max-scale))
+))
+
+(defun loglist-parse (id lst res-fun)
+    (looprange row 0 (length lst)
+        (let (
+                (field (ix lst row))
+                (get-field
+                    (fn (type default)
+                        (let ((f (first field)))
+                            (if (eq (type-of f) type)
+                                (progn
+                                    (setvar 'field (rest field))
+                                    f
+                                )
+                                default
+                ))))
+                (key       (get-field type-array (str-from-n row "Field %d")))
+                (unit      (get-field type-array ""))
+                (name      (get-field type-array key))
+                (precision (get-field type-i 2))
+                (is-rel    (get-field type-symbol false))
+                (is-time   (get-field type-symbol false))
+            )
+            (res-fun
+                id ; CAN id
+                row ; Field
+                key ; Key
+                name ; Name
+                unit ; Unit
+                precision ; Precision
+                is-rel ; Is relative
+                is-time ; Is timestamp
+            )
+)))
+
+; Confiure all log fields based on loglist lst
+(defun log-configure (id lst) (loglist-parse id lst 'log-config-field))
+
+(defun log-thd (id rate lst)
+    (loopwhile log-running {
+            (log-send-f32 id 0
+                (map
+                    (fn (x) (eval (ix x -1)))
+                    lst
+                )
+            )
+            (sleep (/ 1.0 rate))}))
+
+(defun start-log (id append-gnss log-local log-can log-bms rate) {
+        ;(setq id esp-id)
+
+        (def last-can-id id)
+        (stop-log id)
+
+        (def loglist loglist-local)
+
+        (log-configure id loglist)
+
+        (log-start
+            id ; CAN id
+            (length loglist) ; Field num
+            rate ; Rate Hz
+            true ; Append time
+            append-gnss ; Append gnss
+        )
+
+        (def log-running true)
+        (def log-thd-id (spawn log-thd id rate loglist))
+        (send-data "Log Started")})
+
+(defun stop-log (id) {
+        (log-stop id)
+        (if log-running {
+                (def log-running false)
+                (wait log-thd-id)
+                (send-data "Log stopped")})})
+
+(defun send-settings () nil)
