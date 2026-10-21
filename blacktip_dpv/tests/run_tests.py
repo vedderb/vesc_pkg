@@ -1031,6 +1031,9 @@ def test_click_and_beep_regressions():
     deep_sleep_source = (Path(__file__).resolve().parents[1] / 'DEEP_SLEEP.md').read_text()
     assert_eq('OFF&#95;AFTER&#95;' in deep_sleep_source, True,
                "Deep Sleep guide rendering: shutdown settings use Qt-safe underscores")
+    for video_id in ('l-zNqO2AnJg', 'Bld37fwkB-8', '1F8GzoRw_EM'):
+        assert_eq(f'https://www.youtube.com/watch?v={video_id}' in deep_sleep_source, True,
+                   f"Deep Sleep guide: links the instructional video {video_id}")
     assert_eq('./DEEP_SLEEP.md' in readme_source, True,
                "README navigation: links to the Deep Sleep guide")
     assert_eq('blacktip\\_dpv' in readme_source, False,
