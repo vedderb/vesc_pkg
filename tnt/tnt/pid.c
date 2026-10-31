@@ -212,19 +212,24 @@ void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, t
 	p->stability_kprate = 1 + p->stabl * config->stabl_rate_max_scale / 100;
 }
 
-float roll_erpm_scale(PidData *p, State *state, float abs_erpm, KpArray *roll_accel_kp, tnt_config *config) {
-	//Apply ERPM Scale
-	float erpmscale = 1;
-	if ((p->brake_roll && abs_erpm < 750) ||
-		state->sat == SAT_CENTERING) { 				
-		// If we want to actually stop at low speed reduce kp to 0
-		erpmscale = 0;
-	} else if (roll_accel_kp->count!=0 && abs_erpm < config->rollkp_higherpm) { 
-		erpmscale = 1 + erpm_scale(config->rollkp_lowerpm, config->rollkp_higherpm, config->rollkp_maxscale / 100.0f, 0, abs_erpm);
-	} else if (roll_accel_kp->count!=0 && abs_erpm > config->roll_hs_lowerpm) { 
-		erpmscale = 1 + erpm_scale(config->roll_hs_lowerpm, config->roll_hs_higherpm, 0, config->roll_hs_maxscale / 100.0f, abs_erpm);
-	}
-	return erpmscale;
+float roll_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config) {
+    if (state->sat == SAT_CENTERING)
+        return 0.0f;
+
+    if (state->braking_pos && abs_erpm < 750.0f)
+        return 0.0f;
+
+    if (abs_erpm < config->rollkp_higherpm) {
+        return 1.0f + erpm_scale(config->rollkp_lowerpm,config->rollkp_higherpm,
+            config->rollkp_maxscale / 100.0f, 0.0f, abs_erpm);
+    }
+
+    if (abs_erpm > config->roll_hs_lowerpm) {
+        return 1.0f + erpm_scale(config->roll_hs_lowerpm, config->roll_hs_higherpm, 
+			0.0f, config->roll_hs_maxscale / 100.0f, abs_erpm);
+    }
+
+    return 1.0f;
 }
 
 void reset_pid(PidData *p, PidDebug *pid_dbg) {
@@ -264,10 +269,16 @@ void configure_pid(PidData *p, tnt_config *config, PidDebug *pid_dbg) {
 }
 
 float yaw_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config) {
-	float yaw_erpm_scale = (abs_erpm < 750 || 
-		abs_erpm < config->yaw_minerpm || 
-		state->sat == SAT_CENTERING) ? 0 : 1;
-	return yaw_erpm_scale;
+    if (state->sat == SAT_CENTERING)
+        return 0.0f;
+
+    if (state->braking_pos && abs_erpm < 750.0f)
+        return 0.0f;
+
+    if (abs_erpm < config->yaw_minerpm)
+        return 0.0f;
+
+    return 1.0f;
 }
 
 void brake(float current, RuntimeData *rt, MotorData *motor) {
