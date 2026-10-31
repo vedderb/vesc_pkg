@@ -272,8 +272,8 @@ static void tnt_thd(void *arg) {
 				d->pid.pitch_kp = angle_kp_select(d->pid.abs_prop_smooth, d->pid.brake_pitch ? &d->brake_kp : &d->accel_kp);
 				
 				//Roll and Yaw Kp			
-				d->pid.roll_erpm_scaler = roll_erpm_scale(&d->pid, &d->state, d->motor.abs_erpm, &d->roll_accel_kp, &d->tnt_conf);
-				d->pid.yaw_erpm_scaler = yaw_erpm_scale(&d->pid, &d->state, d->motor.abs_erpm, &d->tnt_conf);
+				d->pid.roll_erpm_scaler = roll_erpm_scale(&d->state, d->motor.abs_erpm, &d->tnt_conf);
+				d->pid.yaw_erpm_scaler = yaw_erpm_scale(&d->state, d->motor.abs_erpm, &d->tnt_conf);
 				d->pid.rollkp = angle_kp_select(d->rt.abs_roll_angle, d->pid.brake_roll ? &d->roll_brake_kp : &d->roll_accel_kp);
 				d->pid.yawkp = angle_kp_select(d->yaw.abs_change, d->pid.brake_yaw ? &d->yaw_brake_kp : &d->yaw_accel_kp);
 
