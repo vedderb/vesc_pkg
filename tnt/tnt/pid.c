@@ -264,7 +264,7 @@ void configure_pid(PidData *p, tnt_config *config, PidDebug *pid_dbg) {
 }
 
 float yaw_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config) {
-	float yaw_erpm_scale = ((p->brake_yaw && abs_erpm < 750) || 
+	float yaw_erpm_scale = (abs_erpm < 750 || 
 		abs_erpm < config->yaw_minerpm || 
 		state->sat == SAT_CENTERING) ? 0 : 1;
 	return yaw_erpm_scale;
