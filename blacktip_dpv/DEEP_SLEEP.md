@@ -9,7 +9,11 @@ This optional feature is **disabled by default**. It requires all of the followi
 
 ## Video
 
-[Watch the Deep Sleep setup and operation video](https://www.youtube.com/watch?v=jHv2DCvL-u0).
+Instructional videos for using Deep Sleep:
+
+- [Wake the Blacktip DPV before a dive](https://www.youtube.com/watch?v=l-zNqO2AnJg)
+- [Put the Blacktip DPV into Deep Sleep during a dive](https://www.youtube.com/watch?v=Bld37fwkB-8)
+- [Wake the Blacktip DPV from Deep Sleep during a dive](https://www.youtube.com/watch?v=1F8GzoRw_EM)
 
 ## Operation
 
