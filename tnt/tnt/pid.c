@@ -22,7 +22,7 @@
 
 float angle_kp_select(const float angle, const KpArray *k) {
 	//Early exit
-	if (k->count = 0)
+	if (k->count == 0)
 		return 0;
 	
 	// For sorted array, linear search is optimal at this small size
