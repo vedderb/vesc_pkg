@@ -216,7 +216,7 @@ void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, t
 	p->stability_kprate = 1 + p->stabl * config->stabl_rate_max_scale / 100;
 }
 
-float roll_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config) {
+float roll_erpm_scale(State *state, float abs_erpm, tnt_config *config) {
     if (state->sat == SAT_CENTERING)
         return 0.0f;
 
@@ -272,7 +272,7 @@ void configure_pid(PidData *p, tnt_config *config, PidDebug *pid_dbg) {
 	pid_dbg->current = config->is_currentdebug_enabled;
 }
 
-float yaw_erpm_scale(PidData *p, State *state, float abs_erpm, tnt_config *config) {
+float yaw_erpm_scale(State *state, float abs_erpm, tnt_config *config) {
     if (state->sat == SAT_CENTERING)
         return 0.0f;
 
