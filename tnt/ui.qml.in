@@ -275,6 +275,8 @@ Item {
                     beepString = "Motor Temp Recovery"
 		}else if(beep_reason == 17){
                     beepString = "Charge Complete"
+		}else if(beep_reason == 18){
+                    beepString = "Write Cfg"
 		}
   
                 var switchString
