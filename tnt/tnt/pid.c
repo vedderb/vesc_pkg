@@ -217,9 +217,10 @@ void apply_stability(PidData *p, float abs_erpm, float inputtilt_interpolated, t
 }
 
 float roll_erpm_scale(State *state, float abs_erpm, tnt_config *config) {
-    if (state->sat == SAT_CENTERING)
+    if (state->sat == SAT_CENTERING) {
         return 0.0f;
-
+	}
+	
 	if (state->braking_pos) {
 		if (abs_erpm < 750.0f)
         	return 0.0f;
