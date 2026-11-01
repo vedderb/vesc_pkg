@@ -69,13 +69,18 @@ For more instructions on setting up your board please refer to the [Set Up Guide
     * The new parameter defines the center frequency of the stop band to exclude gyro IMU noise.
   * Braking
     * Changed the way Braking Pitch Rate Kp is applied to make it more impactful to the board tune
+  * FOC Tones
+    * Added triple descending tone if the TNT Cfg does not match the App Cfg IMU sample rate
+    * Last beep reason "Write Cfg" added to AppUI indicating user needs to write package config  
 * _Fixes/Improvements_
   * Changed the main control loop so the IMU and lower priority functions operate at the IMU sample rate. Other functions continue to operate at the package loop rate.
   * Optimized the function that calculates pitch, roll, and yaw gain
   * Optimized the debug calculations by only calculating values currently displayed on AppUI
+  * Organized debug values for control math to one function
   * Optimized traction control functions
   * Optimized the function that engages FOC tones
   * Removed legacy Kalman filter as it is no longer required with low Mahoney kp.
+  * Refactored control math
 
 ### 1.6
 * **This version requires 6.05+ firmware to function properly**
