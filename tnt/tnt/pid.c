@@ -220,9 +220,11 @@ float roll_erpm_scale(State *state, float abs_erpm, tnt_config *config) {
     if (state->sat == SAT_CENTERING)
         return 0.0f;
 
-    if (state->braking_pos && abs_erpm < 750.0f)
-        return 0.0f;
-
+	if (state->braking_pos) {
+		if (abs_erpm < 750.0f)
+        	return 0.0f;
+	} else return 1.0f;
+		
     if (abs_erpm < config->rollkp_higherpm) {
         return 1.0f + erpm_scale(config->rollkp_lowerpm,config->rollkp_higherpm,
             config->rollkp_maxscale / 100.0f, 0.0f, abs_erpm);
