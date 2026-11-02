@@ -295,9 +295,16 @@ static void tnt_thd(void *arg) {
 			//Calculate pitch current demand
 			d->pid.pitch_current = d->pid.pitch_kp * d->pid.proportional * d->pid.stability_kp;
 			
-			//Calculate the demand from roll and yaw
-			d->pid.pid_mod = fabsf(d->pid.pitch_current) * 			//pitch demand, abs value because kp is already signed by motor direction
-				(d->pid.roll_kp_mod  + d->pid.yaw_kp_mod) + 		//roll and yaw multiplier			
+			//Calculate the demand from roll, capping roll demand to 80% pitch current if braking
+			float roll_current = d->state.braking_pos ? 
+				min(fabsf(d->pid.pitch_current) * d->pid.roll_kp_mod, fabsf(d->pid.pitch_current) * 0.8f) :
+				fabsf(d->pid.pitch_current) * d->pid.roll_kp_mod;	//pitch demand abs value because kp is already signed by motor direction
+
+			//Calculate the demand from yaw. This does not have the scaling roll has so the cap is not needed
+			float yaw_current = fabsf(d->pid.pitch_current) * d->pid.yaw_kp_mod; //pitch demand abs value because kp is already signed by motor direction
+			
+			//Calculate the demand from roll and yaw			
+			d->pid.pid_mod = roll_current +	yaw_current +	
 				d->pid.kp_rate_current * d->pid.selected_stability_kprate;	//pitch rate adder
 			
 			//Overide the calculated pid_mod with soft start if starting
