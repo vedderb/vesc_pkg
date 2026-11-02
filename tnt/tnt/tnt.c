@@ -286,17 +286,18 @@ static void tnt_thd(void *arg) {
 				d->pid.kp_rate_current = d->pid.yaw_kp_rate_current + d->pid.pitch_rate_current;
 			}
 
-			//Filter roll and yaw kp
-			ema(&d->pid.roll_kp_mod, d->rt.yaw_ema_factor, d->pid.rollkp * d->motor.erpm_sign); 	//always act in the direciton of travel	
-			ema(&d->pid.yaw_kp_mod, d->rt.yaw_ema_factor, d->pid.yawkp * d->motor.erpm_sign); 	//always act in the direciton of travel
+			//Filter roll and yaw kp, apply erpm scaler, apply motor sign to always act in the direciton of travel
+			ema(&d->pid.roll_kp_mod, d->rt.yaw_ema_factor, 
+				d->pid.rollkp * d->motor.erpm_sign * d->pid.roll_erpm_scaler); 		
+			ema(&d->pid.yaw_kp_mod, d->rt.yaw_ema_factor, 
+				d->pid.yawkp * d->motor.erpm_sign * d->pid.yaw_erpm_scaler);
 
 			//Calculate pitch current demand
 			d->pid.pitch_current = d->pid.pitch_kp * d->pid.proportional * d->pid.stability_kp;
 			
 			//Calculate the demand from roll and yaw
-			d->pid.pid_mod = fabsf(d->pid.pitch_current) * 				//pitch demand, abs value because kp is already signed by motor direction
-				((d->pid.roll_kp_mod * d->pid.roll_erpm_scaler) + 		//roll multiplier
-				(d->pid.yaw_kp_mod * d->pid.yaw_erpm_scaler)) + 			//yaw multiplier
+			d->pid.pid_mod = fabsf(d->pid.pitch_current) * 			//pitch demand, abs value because kp is already signed by motor direction
+				(d->pid.roll_kp_mod  + d->pid.yaw_kp_mod) + 		//roll and yaw multiplier			
 				d->pid.kp_rate_current * d->pid.selected_stability_kprate;	//pitch rate adder
 			
 			//Overide the calculated pid_mod with soft start if starting
