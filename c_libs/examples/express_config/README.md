@@ -108,7 +108,7 @@ On the RISC-V targets the lib executes in place from flash with no load-time rel
 make
 ```
 
-builds the library for all four chips. Needs `vesc_tool` in the path for the conf generation, the `riscv32-esp-elf` and `xtensa-esp32s3-elf` toolchains, and the `c_libs/express/RVfplib` submodule initialized (`git submodule update --init`).
+builds the library for all five chips. Needs `vesc_tool` in the path for the conf generation, the `riscv32-esp-elf` and `xtensa-esp32s3-elf` toolchains, and the `c_libs/express/RVfplib` submodule initialized (`git submodule update --init`).
 
 ```sh
 make pkg
