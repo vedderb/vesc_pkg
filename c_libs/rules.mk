@@ -82,7 +82,7 @@ clean:
 else ifeq ($(ARCH),esp32)
 # ======================================================================
 #  VESC Express   Native-lib rules (PIC blob for LispBM)
-#  - RISC-V targets (esp32c3 default, esp32c6, esp32p4): position-
+#  - RISC-V targets (esp32c3 default, esp32c6, esp32p4, esp32s31): position-
 #    independent blob, executed in place from flash (XIP). Writes to
 #    .data/.bss do not work - keep state in allocated memory. Statically
 #    initialized POINTERS (e.g. const char *tab[] = {"a", ...}) hold
@@ -116,13 +116,18 @@ else ifeq ($(ESP_TARGET),esp32p4)
   ARCH_CFLAGS    := -march=rv32imafc_zicsr_zifencei -mabi=ilp32f
   ESP_TARGET_DEF := CONFIG_IDF_TARGET_ESP32P4
   USE_RVFP       := no    # hardware single-precision FPU
+else ifeq ($(ESP_TARGET),esp32s31)
+  LOAD_MODEL     := xip
+  ARCH_CFLAGS    := -march=rv32imafc_zicsr_zifencei -mabi=ilp32f
+  ESP_TARGET_DEF := CONFIG_IDF_TARGET_ESP32S31
+  USE_RVFP       := no    # hardware single-precision FPU
 else ifeq ($(ESP_TARGET),esp32s3)
   LOAD_MODEL     := ram
   ARCH_CFLAGS    :=
   ESP_TARGET_DEF := CONFIG_IDF_TARGET_ESP32S3
   USE_RVFP       := no    # hardware single-precision FPU
 else
-  $(error Unknown ESP_TARGET=$(ESP_TARGET); use esp32c3, esp32c6, esp32p4 or esp32s3)
+  $(error Unknown ESP_TARGET=$(ESP_TARGET); use esp32c3, esp32c6, esp32p4, esp32s31 or esp32s3)
 endif
 
 # Run 'make clean' when switching ESP_TARGET - objects are not
@@ -156,7 +161,7 @@ endif
 
 # ---- RVfplib (soft-float targets only) ---------------------------------
 # Expect RVfplib sources at $(VESC_C_LIB_PATH)/express/RVfplib/
-# Not used on esp32p4, which has a hardware FPU (ilp32f ABI).
+# Not used on esp32p4/esp32s31, which have a hardware FPU (ilp32f ABI).
 RVFP_SRC_DIR   := $(VESC_C_LIB_PATH)/express/RVfplib
 RVFP_VARIANT   ?= rvfp_nd_s
 ifeq ($(USE_RVFP),yes)

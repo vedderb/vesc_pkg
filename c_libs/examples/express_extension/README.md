@@ -27,7 +27,7 @@ Restarting or stopping the lisp script should print `Test lib stopped, counter w
 make
 ```
 
-builds the library for all four chips (needs the `riscv32-esp-elf` and `xtensa-esp32s3-elf` toolchains in the path and the `c_libs/express/RVfplib` submodule initialized: `git submodule update --init`).
+builds the library for all five chips (needs the `riscv32-esp-elf` and `xtensa-esp32s3-elf` toolchains in the path and the `c_libs/express/RVfplib` submodule initialized: `git submodule update --init`).
 
 ```sh
 make pkg

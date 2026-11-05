@@ -9,7 +9,7 @@
 # (or VESC_TOOL=/path/to/vesc_tool).
 
 VESC_TOOL ?= vesc_tool
-ESP_TARGETS = esp32c3 esp32c6 esp32s3 esp32p4
+ESP_TARGETS = esp32c3 esp32c6 esp32s3 esp32p4 esp32s31
 
 # Emitted by 'vesc_tool --xmlConfToCode conf/settings.xml' - not in git.
 GENERATED = conf/confparser.c conf/confparser.h conf/confxml.c \

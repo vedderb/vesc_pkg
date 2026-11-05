@@ -6,7 +6,7 @@
 #   make clean
 
 VESC_TOOL ?= vesc_tool
-ESP_TARGETS = esp32c3 esp32c6 esp32s3 esp32p4
+ESP_TARGETS = esp32c3 esp32c6 esp32s3 esp32p4 esp32s31
 
 ifdef ESP_TARGET
 # Recursive invocation: build one target's lib via the common rules.
