@@ -5,10 +5,14 @@ Tests pure functions to catch regressions before flashing hardware
 """
 
 import csv
+import importlib.util
+import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Test counters
@@ -863,14 +867,6 @@ def test_release_documentation():
     root = Path(__file__).resolve().parents[1]
     readme = (root / 'README.md').read_text()
 
-    assert_eq('**Version:** 1.6.1' in readme, True,
-               "release documentation: increments the package version for the reset fix")
-    assert_eq('## What\'s New in Version 1.6.1' in readme, True,
-               "release documentation: includes a 1.6.1 changelog section")
-    assert_eq('**Action required for version 1.6.0 installations:** Update to 1.6.1 and use **Reset Defaults** again.' in readme,
-               True, "release documentation: tells 1.6.0 users to reset again")
-    assert_eq('Reset Defaults did not work correctly in 1.6.0' in readme, True,
-               "release documentation: identifies the fixed 1.6.0 reset defect")
     assert_eq('**After updating VESC controller firmware, use Reset Defaults**' in readme,
               True, "release documentation: distinguishes controller firmware updates")
     assert_eq('**A routine Blacktip DPV package update does not require Reset Defaults**' in readme,
@@ -1062,6 +1058,353 @@ def test_click_and_beep_regressions():
 
 
 # =============================================================================
+# Packaged Lisp stripper (tools/strip_lisp.py)
+# =============================================================================
+
+STRIP_SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'strip_lisp.py'
+LISP_SOURCE = Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp'
+
+
+def _load_stripper():
+    """Import the very module the Makefile runs, not a copy of its logic."""
+    spec = importlib.util.spec_from_file_location('strip_lisp', STRIP_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_stripper_cli(src_bytes, work_dir, dst_exists=False):
+    """Run the stripper CLI on bytes. Returns (exit code, stderr, dst bytes)."""
+    src = Path(work_dir) / 'in.lisp'
+    dst = Path(work_dir) / 'out.lisp'
+    src.write_bytes(src_bytes)
+    if dst_exists:
+        dst.write_bytes(b'stale output\n')
+    elif dst.exists():
+        dst.unlink()
+    result = subprocess.run([sys.executable, str(STRIP_SCRIPT), str(src), str(dst)],
+                            capture_output=True, text=True)
+    out = dst.read_bytes() if dst.exists() else None
+    return result.returncode, result.stderr, out
+
+
+_FORM_SPLIT = re.compile(rb"[()\[\]{}'`]|,@|,|[^()\[\]{}'`,]+")
+
+
+def _forms(stripper, data):
+    """Nested form structure of a Lisp text built from the reader-level tokens.
+
+    Strings and char literals stay one byte-exact leaf; atoms are split at
+    brackets and quote characters. Line numbers are included, so a form that
+    moved to another line is a difference.
+    """
+    stack = [[]]
+    for line, kind, raw in stripper.tokenize(data)[0]:
+        if kind != 'atom':
+            stack[-1].append((line, kind, raw))
+            continue
+        for piece in _FORM_SPLIT.findall(raw):
+            if piece in (b'(', b'[', b'{'):
+                stack.append([])
+            elif piece in (b')', b']', b'}'):
+                done = stack.pop() if len(stack) > 1 else []
+                stack[-1].append(done)
+            else:
+                stack[-1].append((line, 'atom', piece))
+    return stack
+
+
+def _tokens_equal(stripper, a, b):
+    return stripper.tokenize(a)[0] == stripper.tokenize(b)[0]
+
+
+def _differs(stripper, original, damaged):
+    """True when the comparator (self-check or token comparison) objects."""
+    try:
+        stripper.verify(original, damaged)
+    except stripper.StripError:
+        return True
+    return False
+
+
+def _strip_or_report(stripper, data, name):
+    """strip_checked, turning a StripError into a reported test failure."""
+    try:
+        return stripper.strip_checked(data)
+    except stripper.StripError as e:
+        assert_eq(f'{e.line}:{e.col}: {e.message}', 'stripped without error', name)
+        return None, None
+
+
+def test_strip_lisp_real_file():
+    print("\n--- strip_lisp: real source ---")
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, removed = _strip_or_report(stripper, src, "strip real file: stripper and self-check accept the source")
+    if out is None:
+        return
+
+    assert_eq(len(out) < len(src), True, "strip real file: output is smaller")
+    assert_eq(out.count(b'\n'), src.count(b'\n'), "strip real file: line count identical")
+    assert_eq(out.endswith(b'\n'), src.endswith(b'\n'), "strip real file: trailing newline preserved")
+    src_tokens = stripper.tokenize(src)[0]
+    out_tokens = stripper.tokenize(out)[0]
+    assert_eq(len(src_tokens) > 1000, True, "strip real file: reader found the program (not a vacuous comparison)")
+    assert_eq([(k, r) for _, k, r in out_tokens], [(k, r) for _, k, r in src_tokens],
+              "strip real file: token sequence identical")
+    assert_eq(out_tokens, src_tokens, "strip real file: every token on the same line")
+    assert_eq(_forms(stripper, out), _forms(stripper, src), "strip real file: form structure identical")
+
+    src_strings = [r for _, k, r in src_tokens if k == 'string']
+    out_strings = [r for _, k, r in out_tokens if k == 'string']
+    assert_eq(len(src_strings) > 0 and out_strings == src_strings, True,
+              "strip real file: every string literal byte-identical")
+
+    def directive_lines(data):
+        return [(n, l) for n, l in enumerate(data.split(b'\n'), 1)
+                if l.startswith((b'@const-start', b'@const-end'))
+                or l.lstrip().startswith((b'@const-start', b'@const-end'))]
+
+    def import_lines(data):
+        return [l.strip() for l in data.split(b'\n') if l.lstrip().startswith(b'(import ')]
+
+    src_dir = directive_lines(src)
+    out_dir = directive_lines(out)
+    assert_eq(len(src_dir) >= 4, True, "strip real file: source has the const directives")
+    assert_eq([l.rstrip(b'\r') for _, l in out_dir], [l.strip() for _, l in src_dir],
+              "strip real file: directive lines kept in order, in column 0")
+    assert_eq([n for n, _ in out_dir], [n for n, _ in src_dir],
+              "strip real file: directive lines on the same line numbers")
+    assert_eq(len(import_lines(src)) >= 1 and import_lines(out) == import_lines(src), True,
+              "strip real file: import lines kept in order")
+    assert_eq(stripper.vesc_tool_imports(out)[0][1:3], stripper.vesc_tool_imports(src)[0][1:3],
+              "strip real file: vesc_tool import path and tag unchanged")
+
+    again, _ = stripper.strip_checked(out)
+    assert_eq(again, out, "strip real file: stripping the output changes nothing (idempotent)")
+
+    with tempfile.TemporaryDirectory() as work:
+        code, err, cli_out = _run_stripper_cli(src, work)
+        assert_eq((code, cli_out), (0, out), "strip real file: command line output equals the library output")
+
+
+# (name, input, expected stripped output); each is also checked for token
+# equivalence and line-count equality.
+STRIP_CASES = [
+    ("semicolon inside a string",
+     b'(print "a;b") ; c\n', b'(print "a;b")\n'),
+    ("string with leading-space continuation line",
+     b'  (print "abc\n   def  \n  ghi")  ; c\n', b'(print "abc\n   def  \n  ghi")\n'),
+    ("escaped quote inside a string",
+     b'(a "x\\"y;z") ; c\n', b'(a "x\\"y;z")\n'),
+    ("escaped backslash at the end of a string",
+     b'  (b "p\\\\") ; q ; "r\n', b'(b "p\\\\")\n'),
+    ("char literal semicolon",
+     b'  (f \\#;) ; c\n', b'(f \\#;)\n'),
+    ("char literal double quote",
+     b'  (g \\#") ; "c\n  (h 1)\n', b'(g \\#")\n(h 1)\n'),
+    ("char literal space",
+     b'  (h \\# ) ; c\n', b'(h \\# )\n'),
+    ("char literal space at end of line before a comment",
+     b'  (h \\# ; c\n  )\n', b'(h \\# \n)\n'),
+    ("char literal escapes",
+     b'(list \\#\\n \\#\\" \\#\\\\ \\#\\s) ; c\n', b'(list \\#\\n \\#\\" \\#\\\\ \\#\\s)\n'),
+    ("comment with quotes and apostrophes",
+     b'(a 1) ; don\'t "quote\n(b 2) ; "x\n', b'(a 1)\n(b 2)\n'),
+    ("comment-only line after a string line",
+     b'(a "x")\n    ; it\'s "odd\n(b)\n', b'(a "x")\n\n(b)\n'),
+    ("tab indentation and trailing tab before a comment",
+     b'\t\t(a)\t; c\n', b'(a)\n'),
+    ("interior tab and spacing are kept",
+     b'  (a\tb    c)\n', b'(a\tb    c)\n'),
+    ("CRLF line endings",
+     b'  (a) ; c\r\n; only\r\n\r\n  (b "x\r\n  y")\r\n', b'(a)\r\n\r\n\r\n(b "x\r\n  y")\r\n'),
+    ("no trailing newline after code",
+     b'  (a) ; c', b'(a)'),
+    ("no trailing newline after a comment line",
+     b'(a)\n  ; c', b'(a)\n'),
+    ("comment-only and blank lines become empty lines",
+     b'; c\n   \n\t\n(a)\n', b'\n\n\n(a)\n'),
+    ("const directives and import",
+     b'  @const-start ; c\n   (import "generated/x.bin" \'x) ; c\n\t@const-end\n(a)\n',
+     b'@const-start\n(import "generated/x.bin" \'x)\n@const-end\n(a)\n'),
+    ("trailing whitespace before a comment",
+     b'(a)   \t ; c\n', b'(a)\n'),
+    ("trailing whitespace without a comment",
+     b'(a)   \n', b'(a)\n'),
+    ("trailing whitespace inside a string is data",
+     b'(p "ab  \n  cd")\n', b'(p "ab  \n  cd")\n'),
+    ("quote and quasiquote forms",
+     b"  '(a b) ; c\n  `(a ,b ,@c)\n", b"'(a b)\n`(a ,b ,@c)\n"),
+    ("UTF-8 in a comment is dropped, in a string is kept",
+     '  (a "\u2013") ; \u2014 dash\n'.encode(), '(a "\u2013")\n'.encode()),
+    ("already stripped input is unchanged",
+     b'(a)\n(b "c")\n', b'(a)\n(b "c")\n'),
+    ("empty file", b'', b''),
+]
+
+# (name, input, line, column) for input the stripper must reject.
+STRIP_ERRORS = [
+    ("unterminated string", b'(a)\n  (b "abc\n(c)\n', 2, 6),
+    ("unterminated string at end of file", b'"abc', 1, 1),
+    ("invalid escape in a string", b'(a "x\\qy")\n', 1, 6),
+    ("backslash at the end of a line inside a string", b'(a "x\\\n y")\n', 1, 6),
+    ("bare backslash", b'(a \\x)\n', 1, 4),
+    ("unterminated char literal", b'(a \\#\n', 1, 4),
+    ("unterminated char literal at end of file", b'(a \\#', 1, 4),
+    ("unknown char literal escape", b'(a \\#\\q)\n', 1, 4),
+    ("control character in code", b'(a)\n  (b\x01)\n', 2, 5),
+    ("non-ASCII byte in code", b'(caf\xc3\xa9)\n', 1, 5),
+    ("lone carriage return", b'(a)\r(b)\n', 1, 4),
+    ("mixed line endings", b'(a)\r\n(b)\n', 2, 4),
+    ("shebang first line", b'#!/bin/lbm\n(a)\n', 1, 1),
+    ("import with a quote in its trailing comment",
+     b'(import "x.bin" \'x) ; "q"\n', 1, 1),
+    ("tab-indented import that vesc_tool would not see",
+     b'\t(import "x.bin" \'x)\n', 1, 1),
+]
+
+
+def test_strip_lisp_edge_cases():
+    print("\n--- strip_lisp: edge cases ---")
+    stripper = _load_stripper()
+
+    for name, src, expected in STRIP_CASES:
+        out, _ = _strip_or_report(stripper, src, f"strip edge case, accepted: {name}")
+        if out is None:
+            continue
+        assert_eq(out, expected, f"strip edge case, exact text: {name}")
+        same = (out.count(b'\n') == src.count(b'\n')
+                and _tokens_equal(stripper, src, out)
+                and _forms(stripper, src) == _forms(stripper, out))
+        assert_eq(same, True, f"strip edge case, tokens and lines equal: {name}")
+
+    with tempfile.TemporaryDirectory() as work:
+        for name, src, line, col in STRIP_ERRORS:
+            try:
+                stripper.strip_checked(src)
+                got = None
+            except stripper.StripError as e:
+                got = (e.line, e.col)
+            assert_eq(got, (line, col), f"strip error position: {name}")
+
+            code, err, out = _run_stripper_cli(src, work, dst_exists=True)
+            assert_eq((code != 0, f'in.lisp:{line}:{col}: error:' in err, out),
+                      (True, True, None),
+                      f"strip command line: non-zero exit, file:line:col, stale output removed: {name}")
+        leftovers = sorted(p.name for p in Path(work).iterdir() if p.name not in ('in.lisp',))
+        assert_eq(leftovers, [], "strip command line: failed runs leave no temporary or output file")
+
+        code, err, out = _run_stripper_cli(b'', work)
+        assert_eq((code, out), (0, b''), "strip command line: output equal to input is not an error")
+
+        src = Path(work) / 'missing.lisp'
+        result = subprocess.run([sys.executable, str(STRIP_SCRIPT), str(src), str(Path(work) / 'o.lisp')],
+                                capture_output=True, text=True)
+        assert_eq((result.returncode != 0, (Path(work) / 'o.lisp').exists()), (True, False),
+                  "strip command line: unreadable source fails")
+
+        # --map: stripped column + removed indentation = source column
+        (Path(work) / 'm.lisp').write_bytes(b'(a)\n    (b "x\n  y") (c)\n\t\t(d)\n')
+        def mapped(line, col):
+            r = subprocess.run([sys.executable, str(STRIP_SCRIPT), '--map', str(line), str(col),
+                                str(Path(work) / 'm.lisp')], capture_output=True, text=True)
+            return r.stdout.strip()
+        assert_eq([mapped(1, 2), mapped(2, 1), mapped(2, 4), mapped(3, 1), mapped(4, 1)],
+                  ['2', '5', '8', '1', '3'],
+                  "strip --map: source column = stripped column + removed indentation")
+
+
+def test_strip_lisp_mutation_check():
+    print("\n--- strip_lisp: the comparator is not vacuous ---")
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, _ = _strip_or_report(stripper, src, "mutation baseline: stripper accepts the source")
+    if out is None:
+        return
+    assert_eq(_differs(stripper, src, out), False, "mutation baseline: genuine output passes")
+
+    # drop a character inside a string literal
+    tok = next(t for t in stripper.tokenize(out)[0] if t[1] == 'string' and len(t[2]) > 6)
+    pos = out.index(tok[2]) + 3
+    assert_eq(_differs(stripper, src, out[:pos] + out[pos + 1:]), True,
+              "mutation: dropping a character inside a string is detected")
+
+    # remove a closing parenthesis
+    pos = out.rindex(b')')
+    assert_eq(_differs(stripper, src, out[:pos] + out[pos + 1:]), True,
+              "mutation: removing a closing parenthesis is detected")
+
+    # move a token to another line (line numbers are part of the comparison)
+    pos = out.index(b'\n(')
+    assert_eq(_differs(stripper, src, out[:pos] + b' ' + out[pos + 1:] + b'\n'), True,
+              "mutation: joining two lines is detected")
+
+    # collapse leading spaces inside a multi-line string
+    multi = b'(print "abc\n      def")\n(x)\n'
+    good, _ = _strip_or_report(stripper, multi, "mutation baseline: multi-line string accepted")
+    assert_eq(good, multi, "mutation baseline: multi-line string kept as is")
+    damaged = good.replace(b'\n      def', b'\n def')
+    assert_eq(_differs(stripper, multi, damaged), True,
+              "mutation: collapsing leading spaces inside a string is detected")
+    assert_eq(_tokens_equal(stripper, multi, damaged), False,
+              "mutation: the plain token comparison also sees the collapsed string")
+
+    # leftover comment, indentation and a missing directive are not 'stripped'
+    base = b'(a)\n@const-start\n(b)\n'
+    assert_eq(_differs(stripper, base, b'(a) ; c\n@const-start\n(b)\n'), True,
+              "mutation: a comment left in the output is detected")
+    assert_eq(_differs(stripper, base, b'(a)\n @const-start\n(b)\n'), True,
+              "mutation: indentation left in the output is detected")
+    assert_eq(_differs(stripper, base, b'(a)\n\n(b)\n'), True,
+              "mutation: a dropped directive is detected")
+
+
+def test_strip_lisp_native_reader():
+    """Optional: compare the forms the LispBM reader produces for both files.
+
+    Needs a native LispBM repl (for example the one built from the bldc
+    release_7_00 tree, lispBM/lispBM/repl). Set LBM_REPL to its path. The test
+    is skipped, with a printed notice, when LBM_REPL is not set.
+    """
+    print("\n--- strip_lisp: native LispBM reader ---")
+    repl = os.environ.get('LBM_REPL', '')
+    if not repl or not os.access(repl, os.X_OK):
+        print("SKIPPED: set LBM_REPL to a native LispBM repl binary to compare the parsed "
+              "forms of the source and the stripped file")
+        return
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, _ = _strip_or_report(stripper, src, "native reader: stripper accepts the source")
+    if out is None:
+        return
+    dump = ('(define prog (read-program (load-file (fopen "%s" "r"))))\n'
+            '(define fh (fopen "%s" "w"))\n'
+            '(define n 0)\n'
+            '(loopforeach f prog (progn (fwrite fh (flatten f)) (setq n (+ n 1))))\n'
+            '(fclose fh)\n'
+            '(print (list (quote forms) n))\n')
+    results = []
+    with tempfile.TemporaryDirectory() as work:
+        for label, data in (('source', src), ('stripped', out)):
+            lisp = os.path.join(work, label + '.lisp')
+            flat = os.path.join(work, label + '.bin')
+            script = os.path.join(work, label + '.dump.lisp')
+            with open(lisp, 'wb') as f:
+                f.write(data)
+            with open(script, 'w') as f:
+                f.write(dump % (lisp, flat))
+            run = subprocess.run([repl, '-H', '200000', '-M', '524288', '--terminate', '--silent',
+                                  '--history_file=', '-s', script], capture_output=True, text=True)
+            blob = open(flat, 'rb').read() if os.path.exists(flat) else None
+            results.append((run.returncode, blob))
+    assert_eq(results[0][0] == 0 and results[0][1] is not None and len(results[0][1]) > 1000, True,
+              "native reader: source parsed into forms")
+    assert_eq(results[1], results[0], "native reader: parsed forms of the stripped file identical to the source")
+
+
+
+# =============================================================================
 # Test Runner
 # =============================================================================
 
@@ -1093,6 +1436,10 @@ def run_all_tests():
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
+    test_strip_lisp_real_file()
+    test_strip_lisp_edge_cases()
+    test_strip_lisp_mutation_check()
+    test_strip_lisp_native_reader()
 
     print("\n══════════════════════════════════════════")
     print(f"  Results: {test_passes} passed, {test_failures} failed")

@@ -186,7 +186,8 @@ Before calling the VESC hardware shutdown path, the request selects the existing
 The project uses GNU Make for building the VESC package:
 
 ```text
-make              # Build blacktip_dpv.vescpkg
+make              # Build blacktip_dpv.vescpkg (packaged Lisp stripped of comments and indentation)
+make debug        # Build blacktip_dpv.vescpkg from the unmodified Lisp source (bench work, debugging)
 make clean        # Remove generated files
 make test         # Run code quality checks and smoke tests
 make smoke-tests  # Run unit-style smoke tests only
@@ -205,7 +206,7 @@ The build system automatically generates version information for the package:
 * **Distribution**: During build, `tools/update_version.sh` creates `ui.dist.qml` with the full version and build timestamp
 * **Package**: The `.vescpkg` includes `README.dist.md` and `ui.dist.qml` (referenced in `pkgdesc.qml`) so users see the detailed version info
 * **Repository**: The `README.md` in the repository shows only the base version for simplicity
-* **Rebuild behavior**: The package is only rebuilt when source files change (`blacktip_dpv.lisp`, `ui.qml`, `pkgdesc.qml`, `README.md`)
+* **Rebuild behavior**: The package is only rebuilt when source files change (`blacktip_dpv.lisp`, `ui.qml`, `pkgdesc.qml`, `README.md`), when `tools/strip_lisp.py` changes, or when the build mode switches between stripped and unstripped (see [Packaged Lisp is stripped](#packaged-lisp-is-stripped))
 
 To update the version:
 
@@ -213,6 +214,47 @@ To update the version:
 1. Run `make` - the distribution file will be generated automatically with a new timestamp
 
 **Note**: `README.dist.md` and `ui.dist.qml` are generated during build and should not be committed to git.
+
+### Packaged Lisp is stripped
+
+`make` packages a copy of `blacktip_dpv.lisp` with the comments and the indentation removed. The source file stays as readable as before; only the Lisp inside `blacktip_dpv.vescpkg` is stripped. VESC Tool stores the Lisp text byte for byte and the Lisp data has a fixed size limit (one 128 KiB flash block; VESC Tool prints the `Lisp data size` against it during the build), so every comment byte and every leading space counts against it. A comment in the source therefore costs nothing in the package, and indentation can be used freely.
+
+**What `tools/strip_lisp.py` removes**
+
+* Full-line comments and trailing `;` comments, and the whitespace in front of a trailing comment.
+* All leading indentation (spaces and tabs), and trailing whitespace outside strings.
+* Comment-only and blank lines become **empty lines**: the line count never changes.
+
+Nothing else is touched. Strings (including strings that span lines, where the leading spaces of a continuation line are data), char literals (`\#;`, `\#"`, `\# ` and the `\#\n` forms), `@const-start` / `@const-end` and the `(import ...)` line are kept as they are, apart from their indentation. The lexical rules are those of the LispBM reader in VESC firmware 7.00 (`tokpar.c`), so a `;` or a quote inside a string or a char literal never starts a comment, and a quote or apostrophe inside a comment is dropped with the comment.
+
+**Safety.** The script runs a self-check on every build: it re-reads the source and the output with a second, independent reader and requires identical token sequences (strings byte for byte, every token on the same line), identical line count, line ending style and import lines, and no comment or indentation left over. Anything it cannot handle with certainty (unterminated string, bad escape, bad char literal, bare backslash, control or non-ASCII byte in code, lone CR or mixed line endings) stops `make` with `file:line:col: error: message`, and any stale stripped file is removed, so a package is never built from an old stripped copy. `make test` repeats the comparison on the real source and on edge cases, including a mutation check that the comparison detects damage. When `LBM_REPL` points at a native LispBM repl (for example one built from the `lispBM/lispBM/repl` directory of the VESC firmware 7.00 tree), `make test` also compares the forms that the LispBM reader produces for both files.
+
+**How the build works.** The stripped file is written to `generated/pkg/blacktip_dpv.lisp` (not in git). VESC Tool resolves `pkgLisp`, the other package files and the `generated/display_lut.bin` import relative to its working directory, so `make` runs it in `generated/pkg/`, which holds the stripped Lisp, copies of `pkgdesc.qml`, `README.dist.md`, `ui.dist.qml` and `generated/display_lut.bin`. The result is moved to `blacktip_dpv.vescpkg` in the project directory, as before. `pkgdesc.qml` is copied unchanged, so the package descriptor stored in the package is identical in both modes. The mode is recorded in `generated/pkg_mode.stamp`, so switching mode rebuilds the package.
+
+**Unstripped build (opt-out).**
+
+```text
+make debug             # unstripped package; same as: make STRIP_LISP=0
+make STRIP_LISP=0      # the same, from the unmodified source, exactly as before this step
+make                   # stripped release package (the default)
+```
+
+`make debug` produces `blacktip_dpv.vescpkg` unstripped and **overwrites** the stripped package. Run `make` again before building a release or quoting sizes. Use the unstripped build for bench work or when debugging, so that error columns match the source exactly.
+
+**Sizes.** Quote sizes in release notes from the stripped build (the `Lisp data size` line printed by `make`), not from `make debug`. When this step was introduced, the Lisp data of the package was 106,143 B (81.0 %) unstripped and 54,295 B (41.4 %) stripped.
+
+**Mapping an error back to the source.** In the LispBM sources of firmware 7.00 (`eval_cps.c`), the position in an error message is the reader's position in the text it was given, which is the stripped text:
+
+* Read errors (invalid token, bad string or char literal, unexpected end of the stream, unbalanced parenthesis, incorrect use of `.`) print `Line:` and `Column:`. These are 1-based, count bytes, and are the reader's position when it gave up, at or just after the offending token. This is the only error kind that carries a column.
+* Other errors (`type_error`, `eval_error`, `out_of_memory` and so on) print no line or column. If the context has a row range, they print `Starting at row: N` or `Between row N and M`, the rows of the top-level form that was being read when the context started. Contexts started with `spawn` have no row range.
+
+The stripped text has the same lines as the source, so **every line number and row refers to the same line in `blacktip_dpv.lisp`**. Columns shift by the indentation that was removed from that line:
+
+```text
+source column = stripped column + indentation (in bytes) of that source line
+```
+
+or let the tool do it: `python3 tools/strip_lisp.py --map LINE COLUMN blacktip_dpv.lisp` prints the source column for a `Line:` and `Column:` taken from the error message. For a line that starts inside a multi-line string nothing was removed from it, so the columns are equal.
 
 ### Test Suite
 
@@ -239,9 +281,11 @@ Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM impl
     │   └── display_lut.csv             // Display artwork, with four rotation variants per named display
     ├── tools/                           // Build and development tools
     │   ├── generate_lut_binary.py      // Generates binary files from CSV
-    │   └── preview_display.py          // ASCII/PGM visualization tool
+    │   ├── preview_display.py          // ASCII/PGM visualization tool
+    │   └── strip_lisp.py               // Strips comments and indentation from the packaged Lisp
     ├── generated/                       // Auto-generated files (not in git)
-    │   └── display_lut.bin             // Generated binary display data
+    │   ├── display_lut.bin             // Generated binary display data
+    │   └── pkg/                        // Staging directory for the stripped package build
     ├── blacktip_dpv.lisp               // Main lispBM runtime source
     ├── ui.qml                           // User interface
     ├── pkgdesc.qml                     // Package descriptor

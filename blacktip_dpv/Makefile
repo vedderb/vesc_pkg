@@ -12,6 +12,30 @@ SOURCE_FILES := blacktip_dpv.lisp ui.qml pkgdesc.qml README.md
 ASSET_FILES := assets/display_lut.csv
 BINARY_GENERATOR := tools/generate_lut_binary.py
 VERSION_GENERATOR := tools/update_version.sh
+LISP_STRIPPER := tools/strip_lisp.py
+
+# The packaged Lisp is a comment-free, indentation-free copy of
+# blacktip_dpv.lisp by default (see "Packaged Lisp is stripped" in
+# DEVELOPMENT.md). STRIP_LISP=0 packages the unmodified source instead.
+STRIP_LISP ?= 1
+ifeq ($(STRIP_LISP),0)
+PKG_MODE := unstripped
+else ifeq ($(STRIP_LISP),1)
+PKG_MODE := stripped
+else
+$(error STRIP_LISP must be 0 or 1, got '$(STRIP_LISP)')
+endif
+
+# vesc_tool resolves pkgLisp, pkgQml, pkgDescriptionMd and the import path
+# relative to the working directory, so the stripped build runs it in a staging
+# directory that mirrors the package layout with the stripped Lisp in place of
+# the source. pkgdesc.qml is copied unchanged, so the package descriptor stored
+# in the package is identical in both modes.
+STAGE_DIR := $(GENERATED_DIR)/pkg
+STRIPPED_LISP := $(STAGE_DIR)/blacktip_dpv.lisp
+# make does not track variables: the stamp changes only when the mode changes,
+# so switching between stripped and unstripped rebuilds the package.
+MODE_STAMP := $(GENERATED_DIR)/pkg_mode.stamp
 
 # Track the current git branch to detect branch changes
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -37,8 +61,34 @@ $(BRANCH_FILE): FORCE
 $(DIST_FILES) &: $(SOURCE_FILES) $(VERSION_GENERATOR) $(BRANCH_FILE)
 	@$(BASH) $(VERSION_GENERATOR)
 
-blacktip_dpv.vescpkg: README.dist.md $(LUT_BINARY)
+$(MODE_STAMP): FORCE
+	@mkdir -p $(GENERATED_DIR)
+	@if [ "$$(cat $@ 2>/dev/null)" != "$(PKG_MODE)" ]; then \
+		echo "$(PKG_MODE)" > $@; \
+	fi
+
+# On failure the stripper removes any existing output, so make stops here and
+# the package is never built from a stale stripped file.
+$(STRIPPED_LISP): blacktip_dpv.lisp $(LISP_STRIPPER)
+	@mkdir -p $(STAGE_DIR)
+	$(PYTHON) $(LISP_STRIPPER) blacktip_dpv.lisp $@
+
+ifeq ($(PKG_MODE),stripped)
+blacktip_dpv.vescpkg: README.dist.md $(LUT_BINARY) $(MODE_STAMP) $(STRIPPED_LISP)
+	@mkdir -p $(STAGE_DIR)/generated
+	cp README.dist.md ui.dist.qml pkgdesc.qml $(STAGE_DIR)/
+	cp $(LUT_BINARY) $(STAGE_DIR)/generated/
+	cd $(STAGE_DIR) && $(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'vesc:test'
+	mv -f $(STAGE_DIR)/blacktip_dpv.vescpkg blacktip_dpv.vescpkg
+else
+blacktip_dpv.vescpkg: README.dist.md $(LUT_BINARY) $(MODE_STAMP)
 	$(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'vesc:test'
+endif
+
+# Unstripped package for bench work and debugging. This overwrites
+# blacktip_dpv.vescpkg; run plain 'make' again for the stripped release package.
+debug:
+	@$(MAKE) --no-print-directory STRIP_LISP=0 blacktip_dpv.vescpkg
 
 check-whitespace:
 	@echo "Checking for trailing whitespace..."
@@ -62,6 +112,6 @@ clean:
 	rm -f blacktip_dpv.vescpkg $(DIST_FILES) $(BRANCH_FILE)
 	rm -rf $(GENERATED_DIR)
 
-.PHONY: all test clean check-whitespace smoke-tests binary FORCE
+.PHONY: all test clean check-whitespace smoke-tests binary debug FORCE
 
 FORCE:
