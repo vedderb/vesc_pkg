@@ -696,6 +696,9 @@
     (setvar 'rotation (eeprom-read-i 17))
     (setvar 'disp_brightness (eeprom-read-i 18))
     (setvar 'hardware_configuration (eeprom-read-i 19))
+    ; Rig-only compatibility: treat fixture profile 5 as series 2 without
+    ; Bluetooth (profile 1). Leave the persisted setting untouched.
+    (if (= hardware_configuration 5) (setvar 'hardware_configuration 1))
     (setvar 'enable_battery_beeps (eeprom-read-i 20))
     (setvar 'beeps_vol (eeprom-read-i 21))
     (setvar 'cudax_flip (eeprom-read-i 22))

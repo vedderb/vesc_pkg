@@ -1943,6 +1943,64 @@ def test_display_native_rotation_and_i2c():
               "native display thread: no stack overflow reported")
 
 
+def test_rig_config5_fallback():
+    """The rig-only profile must behave exactly like existing profile 1."""
+    source = LISP_SOURCE.read_text()
+    start = source.index('(defun update_settings_from_eeprom ()')
+    end = source.index('(defun log_settings_1 ()', start)
+    settings = source[start:end]
+    assert_eq("(setvar 'hardware_configuration (eeprom-read-i 19))\n"
+              "    ; Rig-only compatibility: treat fixture profile 5 as series 2 without\n"
+              "    ; Bluetooth (profile 1). Leave the persisted setting untouched.\n"
+              "    (if (= hardware_configuration 5) (setvar 'hardware_configuration 1))"
+              in settings, True, 'rig profile 5 normalises only the RAM configuration')
+    assert_eq("(if (<= hardware_configuration HARDWARE_BLACKTIP_MAX)" in settings, True,
+              'rig profile does not reclassify CudaX 3 and 4')
+    assert_eq("(eeprom-store-i" in settings or "(conf-set" in settings, False,
+              'rig profile never writes persistent configuration')
+    repl = os.environ.get('LBM_REPL', '')
+    if not repl:
+        print('SKIPPED: native rig profile execution requires LBM_REPL')
+        return
+    src = log_native_source()
+    start = src.index('(defun update_settings_from_eeprom ()')
+    end = src.index('(defun log_settings_1 ()', start)
+    src = src[:start] + src[start:end].replace('(eeprom-read-i ', '(mock-rig-read ') + src[end:]
+    start = src.index('(defun peripherals_setup ()')
+    end = src.index('(defun validate_lut_header', start)
+    src = (src[:start] + src[start:end].replace('(i2c-start ', '(mock-i2c-start ')
+           .replace('(i2c-tx-rx ', '(mock-i2c-tx-rx ') + src[end:])
+    src += '''
+(define mock_rig_hw 0)
+(define mock_rig_pins nil)
+(define mock_rig_result nil)
+(defun mock-rig-read (addr) (if (= addr 19) mock_rig_hw 0))
+(defun mock-i2c-start (rate sda scl) (setvar 'mock_rig_pins (list sda scl)))
+(defun mock-i2c-tx-rx (addr data) t)
+(looprange hw 0 6 {
+    (setvar 'mock_rig_hw hw)
+    (update_settings_from_eeprom)
+    (peripherals_setup)
+    (setvar 'mock_rig_result (append mock_rig_result
+        (list (list hardware_configuration scooter_type mock_rig_pins))))
+})
+mock_rig_result
+'''
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'rig_profile.lisp'
+        path.write_text(src)
+        result = subprocess.run([repl, '-H', '2753', '-M', '262144', '-C', '262144',
+                                 '--bldc_stubs', '--terminate', '-s', str(path)],
+                                capture_output=True, text=True, timeout=60)
+    values = [line[2:] for line in result.stdout.splitlines() if line.startswith('> ')]
+    assert_eq(result.returncode, 0, 'native rig profile REPL exits normally')
+    assert_eq(values[-1] if values else result.stdout[-500:],
+              '((0 0 (pin-swdio pin-swclk)) (1 0 (pin-rx pin-tx)) '
+              '(2 0 (pin-tx pin-rx)) (3 1 (pin-swdio pin-swclk)) '
+              '(4 1 (pin-rx pin-tx)) (1 0 (pin-rx pin-tx)))',
+              'native rig profile 5 equals 1; configurations 0–4 unchanged')
+
+
 # =============================================================================
 # Test Runner
 # =============================================================================
@@ -1978,6 +2036,7 @@ def run_all_tests():
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
+    test_rig_config5_fallback()
     test_strip_lisp_real_file()
     test_strip_lisp_edge_cases()
     test_strip_lisp_mutation_check()
