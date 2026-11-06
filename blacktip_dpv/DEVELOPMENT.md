@@ -10,7 +10,7 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Display Update Loop:**
   * Periodically updates the OLED display with speed, battery, Smart Cruise status, error codes, and timer bar.
   * Uses a lookup table for LED timer bar mapping (left-to-right countdown).
-    * Loads display frames from a binary file generated from a CSV asset.
+    * Loads display frames from a binary file generated from a CSV asset. Each frame is stored once and rotated at run time.
 * **Smart Cruise Logic:**
   * Allows hands-free operation with configurable timeout and auto-engage.
   * Visual feedback via display and 8-LED timer bar; warning mode triggers slowdown and beep.
@@ -144,7 +144,7 @@ The imbalance warning replaces only the `DISPLAY_SENTINEL` (idle) frame, so it a
 * **At rest** (`speed = SPEED_OFF`): the warning is shown continuously.
 * **While running:** the warning flashes on for `IMBALANCE_RUN_FLASH_ON` (1 s) out of every `IMBALANCE_RUN_FLASH_PERIOD` (5 s). This keeps reminding the rider mid-ride without permanently clobbering the smart-cruise timer bar / speed display.
 
-The warning uses the `BATTERY_IMBALANCE_DISPLAY_PACK_1` and `BATTERY_IMBALANCE_DISPLAY_PACK_2` display identifiers. The `Display Battery 1 Low` and `Display Battery 2 Low` entries in `assets/display_lut.csv`, each with four rotation variants, provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
+The warning uses the `BATTERY_IMBALANCE_DISPLAY_PACK_1` and `BATTERY_IMBALANCE_DISPLAY_PACK_2` display identifiers. The `Display Battery 1 Low` and `Display Battery 2 Low` entries in `assets/display_lut.csv` provide the artwork (rotation 0; the firmware rotates it). The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
 
 ### SOC Correction
 
@@ -241,7 +241,7 @@ make                   # stripped release package (the default)
 
 `make debug` produces `blacktip_dpv.vescpkg` unstripped and **overwrites** the stripped package. Run `make` again before building a release or quoting sizes. Use the unstripped build for bench work or when debugging, so that error columns match the source exactly.
 
-**Sizes.** Quote sizes in release notes from the stripped build (the `Lisp data size` line printed by `make`), not from `make debug`. When this step was introduced, the Lisp data of the package was 106,143 B (81.0 %) unstripped and 54,295 B (41.4 %) stripped.
+**Sizes.** Quote sizes in release notes from the stripped build (the `Lisp data size` line printed by `make`), not from `make debug`. When this step was introduced, the Lisp data of the package was 106,143 B (81.0 %) unstripped and 54,295 B (41.4 %) stripped. With the display table holding each frame once (536 B instead of 2,120 B) and the run-time rotation, it is 104,123 B (79.4 %) unstripped and 52,167 B (39.8 %) stripped.
 
 **Mapping an error back to the source.** In the LispBM sources of firmware 7.00 (`eval_cps.c`), the position in an error message is the reader's position in the text it was given, which is the stripped text:
 
@@ -274,12 +274,15 @@ make smoke-tests  # Run 30+ unit tests for pure functions
 
 Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM implementations and verify correctness without needing hardware.
 
+**Display path in a native repl.** The tests that need no repl check the CSV, the generator (including that it rejects malformed CSVs and removes a stale table), the Python reference rotation in `tools/display_rotation.py` (four quarter turns are the identity, two equal flipping both axes, and an asymmetric bitmap equals hand-typed bytes), and the timer bar. When `LBM_REPL` points at a native LispBM repl with constant memory (for example `repl_big` from the `lispBM/lispBM/repl` directory of the VESC firmware 7.00 tree), `make test` also loads the real `blacktip_dpv.lisp`, runs the real `rotate_display_frame` for every frame and turn count, runs one iteration of the real display loop for every frame, rotation setting, screen (Blacktip, CudaX with and without `cudax_flip`) and timer bar LED count, and requires the real rotation to equal the reference rotation, and the recorded I2C transfers to equal the rotation 0 CSV row turned by the reference rotation plus the per-rotation timer bar overlay. It also runs the display thread at the configured `THREAD_STACK_DISPLAY` and fails on `out_of_stack`. Without `LBM_REPL` these tests print a `SKIPPED` notice.
+
 ## Project Structure
 
     blacktip_dpv/
     ├── assets/                          // Source data files
-    │   └── display_lut.csv             // Display artwork, with four rotation variants per named display
+    │   └── display_lut.csv             // Display artwork: one row per display, in rotation 0
     ├── tools/                           // Build and development tools
+    │   ├── display_rotation.py         // Reference quarter-turn rotation (preview tool and tests)
     │   ├── generate_lut_binary.py      // Generates binary files from CSV
     │   ├── preview_display.py          // ASCII/PGM visualization tool
     │   └── strip_lisp.py               // Strips comments and indentation from the packaged Lisp
@@ -297,9 +300,9 @@ Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM impl
 
 The OLED screen artwork lives in `assets/display_lut.csv` as a CSV file:
 
-* **`display_lut.csv`** — Pre-rotated display artwork, with one row for each named display and rotation variant
+* **`display_lut.csv`** — Display artwork: one row for each named display, in rotation 0, with the columns `index`, `name` and `b0` to `b15`
 
-This CSV file is the source of truth. The build system automatically generates the binary display LUT from it.
+This CSV file is the source of truth, and the only place the artwork exists: the other three rotations are not stored anywhere, the firmware rotates the frame clockwise by the configured rotation when it draws. The build system automatically generates the binary display LUT from it, one table entry per row. `tools/generate_lut_binary.py` stops the build, naming the CSV line, when a row has the wrong number of fields, a value outside 0 to 255, a non-zero even byte, a duplicate or empty name, or an `index` that is not its position, and it removes a stale table when it fails.
 
 ### Preview Tool
 
@@ -318,7 +321,7 @@ python tools/preview_display.py --show-all-rotation 0
 python tools/preview_display.py --index 0 --output preview.pgm
 ```
 
-The preview tool applies a fixed hardware-orientation transform to match the physical display. This transform is independent of the configured frame rotation: in the physical preview, rotation 1 is 90° clockwise from rotation 0, rotation 2 is 180° clockwise, and rotation 3 is 270° clockwise.
+The preview tool applies a fixed hardware-orientation transform to match the physical display. This transform is independent of the configured frame rotation: in the physical preview, rotation 1 is 90° clockwise from rotation 0, rotation 2 is 180° clockwise, and rotation 3 is 270° clockwise. The CSV holds only rotation 0, so the tool computes the other rotations with the same quarter-turn rule as the firmware (`tools/display_rotation.py`). `--index` is `4 * display index + rotation`, so `--index 5` is display 1 turned once.
 
 ### Binary File Format
 
@@ -328,9 +331,11 @@ The lispBM runtime loads display data from a binary file at runtime using LispBM
 
 * Header (8 bytes):
   * Magic number: 0x4C555444 ("LUTD" in ASCII)
-  * Version: u16 (currently 1)
-  * Frame count: u16
-* Frame data: a sequence of 16-byte interleaved frames
+  * Version: u16 (currently 2)
+  * Frame count: u16 (33: one entry per display)
+* Frame data: a sequence of 16-byte interleaved frames in rotation 0, display `n` at offset `8 + 16 * n`
+
+Version 1 stored all four rotations of every display (display `n`, rotation `r` at offset `8 + 64 * n + 16 * r`). The version was raised to 2 when only rotation 0 was kept, so a table of one format is rejected by firmware that expects the other.
 
 ## Development Workflow
 
@@ -344,11 +349,11 @@ The binary files will be automatically regenerated from the CSV.
 
 ### Adding New Displays
 
-1. Add four rows to `display_lut.csv` (one per rotation 0-3). The `index` field must be sequential and unique. Each row has 16 byte fields (`b0` through `b15`) representing the 8×8 pixel matrix as interleaved low/high column bytes.
+1. Add one row to `display_lut.csv`, in rotation 0. The `index` field must be the next number after the last row (it is the display number the firmware uses) and the name must be unique. The row has 16 byte fields (`b0` through `b15`) representing the 8×8 pixel matrix as interleaved low/high column bytes, and the even bytes must be 0 (the generator checks this and names the line that is wrong). The tests pin the number of displays, so also update `DISPLAY_LUT_FRAMES` in `tests/run_tests.py`.
 
 ## Display Orientation
 
-The display hardware has a fixed orientation transform relative to the natural orientation. The preview tool applies that transform for its physical view. The LispBM runtime does not transform frame pixels: it selects each pre-rotated 16-byte asset using `display * 64 + rotation * 16`, where increasing configured rotation is clockwise in the physical view.
+The display hardware has a fixed orientation transform relative to the natural orientation. The preview tool applies that transform for its physical view. The LispBM runtime copies the 16-byte rotation 0 frame of the display (offset `8 + 16 * display` in the table), applies the Smart Cruise timer bar to it, and then rotates the finished frame clockwise with `rotate_display_frame`: one pass of 64 pixel moves for each quarter turn, with the configured rotation taken modulo 4. Increasing configured rotation is clockwise in the physical view, and the timer bar turns with the frame. Rotation 0 sends the bytes of the CSV row (plus the timer bar bits); rotations 1 to 3 send that frame turned by the quarter-turn rule, which the tests check against the Python reference rotation.
 
 Each display frame consists of:
 
@@ -480,8 +485,8 @@ The runtime uses LispBM's `import` statement to load binary data at runtime:
 (import "generated/display_lut.bin" 'display_lut_bin)
 ; Validate headers
 (defun validate_lut_header (data magic expected_version) { … })
-; Access display data (offset by 8-byte header)
-(bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+; Access display data (offset by 8-byte header, 16 bytes per display, rotation 0)
+(bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16)
 ```
 
 ### Why `pixbuf` is Required
@@ -489,11 +494,14 @@ The runtime uses LispBM's `import` statement to load binary data at runtime:
 The `pixbuf` variable is a 16-byte working buffer that is essential to the display system and **cannot be removed**:
 
 ```lisp
-(let ((start_pos 0)
-         (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
+(let ((pixbuf (array-create 16))
+         (rotbuf (array-create 8))) {  // Temporary 16-byte buffer and rotation scratch
       …
       // Copy 16 bytes from binary file to pixbuf
-      (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+      (bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16)
+      // Timer bar overlay, then rotate by the configured rotation
+      (apply_smart_cruise_timer_bar pixbuf)
+      (rotate_display_frame pixbuf rotbuf rotation)
 
       // Send pixbuf to display via I2C
       (i2c-tx-rx mpu-addr pixbuf)
@@ -505,7 +513,8 @@ The `pixbuf` variable is a 16-byte working buffer that is essential to the displ
 1. The `i2c-tx-rx` function requires a buffer to send data
 2. We cannot send data directly from the binary file to I2C
 3. The buffer extracts the specific 16-byte frame we need from the larger binary file
-4. It's a small (16 bytes) stack-allocated array with negligible overhead
+4. It's a small (16 bytes) array, allocated once when the display loop starts, with negligible overhead
+5. The frame is overlaid and rotated in place before it is sent, so the table itself is never modified
 
 ## Build Dependencies
 

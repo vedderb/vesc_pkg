@@ -43,7 +43,7 @@ Videos showing Smart Cruise controls and Deep Sleep:
 
 Maintenance release:
 
-- **Improved: Smaller firmware script** — The packaged firmware script is now about half its previous size, down from roughly 106 KB to 54 KB (from 81 % to 41 % of the available script space). This leaves room for future features. Behaviour and settings are unchanged, and no action is required when updating.
+- **Improved: Smaller firmware script** — The packaged firmware script is now about half its previous size, down from roughly 106 KB to 52 KB (from 81 % to 40 % of the available script space), by leaving out comments and indentation and by storing the display data once instead of four times. This leaves room for future features. Behaviour and settings are unchanged, and no action is required when updating.
 
 ## What's New in Version 1.6.1
 

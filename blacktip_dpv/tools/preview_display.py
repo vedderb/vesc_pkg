@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Preview or export display frames from ``assets/display_lut.csv``.
 
+The CSV holds every display once, in rotation 0. The other three rotations are
+computed here with the rule the firmware applies at run time (see
+``tools/display_rotation.py``). Frames are numbered the way they always were
+in this tool: ``--index`` is ``4 * display index + rotation``.
+
 Examples
 --------
 List the available display names::
@@ -23,10 +28,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from display_rotation import rotate_frame  # noqa: E402
+
+ROTATIONS = 4
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ASSET_PATH = REPO_ROOT / "assets" / "display_lut.csv"
 
@@ -39,12 +49,18 @@ class DisplayFrame:
     bytes: List[int]
 
     @classmethod
-    def from_row(cls, row: dict[str, str]) -> "DisplayFrame":
+    def from_row(cls, row: dict[str, str]) -> List["DisplayFrame"]:
+        """Return the frame of a CSV row in rotations 0 to 3 (the CSV has rotation 0).
+
+        The absolute index of a frame is 4 * display index + rotation.
+        """
         data = [int(row[f"b{i}"], 10) for i in range(16)]
-        return cls(index=int(row["index"], 10),
-                   name=row["name"].strip(),
-                   rotation=int(row["rotation"], 10),
-                   bytes=data)
+        display = int(row["index"], 10)
+        return [cls(index=ROTATIONS * display + rotation,
+                    name=row["name"].strip(),
+                    rotation=rotation,
+                    bytes=rotate_frame(data, rotation))
+                for rotation in range(ROTATIONS)]
 
     def columns(self) -> List[int]:
         """Return the high-byte of each column (odd-indexed entries).
@@ -62,9 +78,9 @@ class DisplayFrame:
         Each column byte has 8 bits representing pixels vertically (MSB=top).
 
         This view always applies the display's fixed hardware-orientation
-        transform. It is separate from the configured frame rotation: CSV
-        rotation 1 is 90° clockwise from rotation 0 in this physical view,
-        followed by rotations 2 (180°) and 3 (270°).
+        transform. It is separate from the configured frame rotation: rotation
+        1 is 90° clockwise from rotation 0 in this physical view, followed by
+        rotations 2 (180°) and 3 (270°).
 
         The fixed transform maps:
         - Column N (left to right) becomes row N (top to bottom)
@@ -89,12 +105,12 @@ def load_frames(path: Path) -> List[DisplayFrame]:
     frames: List[DisplayFrame] = []
     with path.open(newline="") as f:
         reader = csv.DictReader(f)
-        required = {"index", "name", "rotation"} | {f"b{i}" for i in range(16)}
+        required = {"index", "name"} | {f"b{i}" for i in range(16)}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise ValueError(f"CSV file is missing columns: {sorted(missing)}")
         for row in reader:
-            frames.append(DisplayFrame.from_row(row))
+            frames.extend(DisplayFrame.from_row(row))
     return frames
 
 
@@ -144,7 +160,7 @@ def export_pgm(rows: List[str], path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--index', type=int, help='Select frame by absolute index')
+    parser.add_argument('--index', type=int, help='Select frame by absolute index (4 * display index + rotation)')
     parser.add_argument('--name', help='Select frame by label (case-insensitive)')
     parser.add_argument('--rotation', type=int, help='Rotation number when selecting by name')
     parser.add_argument('--output', type=Path, help='Optional PGM output path')
