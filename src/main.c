@@ -169,6 +169,7 @@ static void main_freq_update_reconfigure(float frequency) {
 static void imu_freq_update_reconfigure(float frequency) {
     Data *d = (Data *) ARG;
 
+    balance_filter_configure(&d->balance_filter, &d->float_conf, frequency);
     motor_control_configure(&d->motor_control, &d->float_conf, frequency);
     pid_configure(&d->pid, frequency);
     booster_configure(&d->booster, frequency);
@@ -178,8 +179,6 @@ static void imu_freq_update_reconfigure(float frequency) {
 }
 
 static void reconfigure(Data *d) {
-    balance_filter_configure(&d->balance_filter, &d->float_conf);
-
     main_freq_update_reconfigure(d->main_freq_tracker.filter_frequency);
     imu_freq_update_reconfigure(d->imu_freq_tracker.filter_frequency);
 
@@ -292,6 +291,10 @@ static float get_setpoint_adjustment_speed(Data *d) {
 
 bool can_engage(const Data *d) {
     if (d->state.charging) {
+        return false;
+    }
+
+    if (!imu_data_settled(&d->imu, &d->time)) {
         return false;
     }
 
@@ -743,7 +746,7 @@ static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
 
     frequency_tracker_update(&d->imu_freq_tracker, dt);
 
-    imu_update(&d->imu, &d->balance_filter, &d->state);
+    imu_update(&d->imu, &d->balance_filter, &d->state, &d->time);
 
     if (d->state.state == STATE_RUNNING) {
         pid_control(d, dt);
@@ -833,9 +836,26 @@ static void refloat_thd(void *arg) {
         bms_update(&d->bms, &d->float_conf.bms, &d->time);
 
         motor_data_evaluate_alerts(&d->motor, &d->alert_tracker, &d->time);
+
+        if (imu_check_timeout(&d->imu, &d->time)) {
+            if (d->state.state == STATE_RUNNING) {
+                state_stop(&d->state, STOP_IMU_TIMEOUT);
+                data_recorder_trigger(&d->data_record, false);
+            }
+            // The IMU callback which normally applies motor control is dead,
+            // apply it from here. When the callback resumes, both threads may
+            // call this concurrently for up to one loop tick (benign).
+            motor_control_apply(
+                &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
+            );
+            alert_tracker_add(&d->alert_tracker, &d->time, ALERT_IMU_TIMEOUT, 0);
+        }
+
         alert_tracker_finalize(&d->alert_tracker, &d->time);
         if (alert_tracker_is_alert_active(&d->alert_tracker, ALERT_FW_FAULT)) {
             d->beep_reason = BEEP_FW_FAULT;
+        } else if (alert_tracker_is_alert_active(&d->alert_tracker, ALERT_IMU_TIMEOUT)) {
+            d->beep_reason = BEEP_ERROR;
         }
 
         // Control Loop State Logic
@@ -896,10 +916,11 @@ static void refloat_thd(void *arg) {
                 d->setpoint_target,
                 get_setpoint_adjustment_speed(d) * dt
             );
-            d->setpoint = d->setpoint_target_interpolated;
+
+            float setpoint = d->setpoint_target_interpolated;
 
             remote_update(&d->remote, &d->state, &d->float_conf, dt);
-            d->setpoint += d->remote.setpoint.value;
+            setpoint += d->remote.setpoint.value;
 
             if (!d->state.darkride) {
                 if (!d->state.wheelslip) {
@@ -915,25 +936,29 @@ static void refloat_thd(void *arg) {
                     &d->motor,
                     &d->atr,
                     d->state.wheelslip,
-                    d->setpoint - d->imu.balance_pitch,
+                    setpoint - d->imu.balance_pitch,
                     dt
                 );
                 turn_tilt_update(&d->turn_tilt, &d->motor, &d->float_conf, d->state.wheelslip, dt);
 
-                d->setpoint += d->noseangling_interpolated;
-                d->setpoint += d->turn_tilt.setpoint.value;
+                setpoint += d->noseangling_interpolated;
+                setpoint += d->turn_tilt.setpoint.value;
 
                 // aggregated torque tilts:
                 // if signs match between torque tilt and ATR + brake tilt, use the more significant
                 // one if signs do not match, they are simply added together
                 float ab_offset = d->atr.setpoint.value + d->brake_tilt.setpoint.value;
                 if (sign(ab_offset) == sign(d->torque_tilt.setpoint.value)) {
-                    d->setpoint += sign(ab_offset) *
+                    setpoint += sign(ab_offset) *
                         fmaxf(fabsf(ab_offset), fabsf(d->torque_tilt.setpoint.value));
                 } else {
-                    d->setpoint += ab_offset + d->torque_tilt.setpoint.value;
+                    setpoint += ab_offset + d->torque_tilt.setpoint.value;
                 }
             }
+
+            // The setpoint is used in the IMU callback and therefore needs to
+            // be set only once, otherwise it'll race
+            d->setpoint = setpoint;
 
             break;
         case (STATE_READY):
@@ -1114,9 +1139,16 @@ static void aux_thd(void *arg) {
     }
 
     time_t motor_config_refresh_timer = 0;
+    int imu_sample_rate = VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 
     while (!VESC_IF->should_terminate()) {
         bool running = d->state.state == STATE_RUNNING;
+
+        int new_imu_sample_rate = VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
+        if (new_imu_sample_rate != imu_sample_rate) {
+            imu_sample_rate = new_imu_sample_rate;
+            frequency_tracker_recalibrate(&d->imu_freq_tracker, imu_sample_rate, &d->time);
+        }
 
         frequency_tracker_check(
             &d->main_freq_tracker, running, &d->time, &main_freq_update_reconfigure
@@ -1195,7 +1227,7 @@ static void data_init(Data *d) {
     balance_filter_init(&d->balance_filter);
 
     motor_data_init(&d->motor);
-    imu_init(&d->imu);
+    imu_init(&d->imu, &d->time);
     pid_init(&d->pid);
     motor_control_init(&d->motor_control);
 
@@ -1211,6 +1243,14 @@ static void data_init(Data *d) {
     haptic_feedback_init(&d->haptic_feedback);
     alert_tracker_init(&d->alert_tracker);
     reverse_stop_init(&d->reverse_stop);
+
+    // Must run before leds_setup(): beeper_init() configures VESC_PIN_PPM as a GPIO
+    // output, which on some hardware is the same pad as LED_PIN_B6. Whichever is
+    // configured last owns the pin, so the LED driver has to come second.
+    if ((d->float_conf.is_beeper_enabled) ||
+        (d->float_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
+        beeper_init();
+    }
 
     leds_init(&d->leds);
     leds_setup(&d->leds, &d->float_conf.hardware.leds, &d->float_conf.leds);
@@ -1622,6 +1662,15 @@ static void cmd_runtime_tune(Data *d, unsigned char *cfg, int len) {
             d->float_conf.atr.filter.on_speed_limit = h1 * 2;
             d->float_conf.atr.filter.off_speed_limit = h2 * 2;
         }
+    }
+    if (len >= 26) {
+        d->float_conf.atr.filter.time_constant = (float) max(1, cfg[19]) / 100.0f;
+        d->float_conf.atr.filter.on_speed_time_constant = (float) max(1, cfg[20]) / 100.0f;
+        d->float_conf.atr.filter.off_speed_time_constant = (float) max(1, cfg[21]) / 100.0f;
+        d->float_conf.torque_tilt.filter.time_constant = (float) max(1, cfg[22]) / 100.0f;
+        d->float_conf.torque_tilt.filter.on_speed_time_constant = (float) max(1, cfg[23]) / 100.0f;
+        d->float_conf.torque_tilt.filter.off_speed_time_constant = (float) max(1, cfg[24]) / 100.0f;
+        d->float_conf.turn_tilt.filter.time_constant = (float) max(1, cfg[25]) / 100.0f;
     }
 
     reconfigure(d);
@@ -2148,7 +2197,7 @@ static void cmd_realtime_data(Data *d, uint8_t *buf, int len) {
     add_rt_item(buffer, &ind, mask1, RT_MASK1_REMOTE_SETPOINT, d->remote.setpoint.value, use_f32);
     add_rt_item(buffer, &ind, mask1, RT_MASK1_BALANCE_CURRENT, d->balance_current.value, use_f32);
     add_rt_item(
-        buffer, &ind, mask1, RT_MASK1_LOOP_FREQUENCY, d->imu_freq_tracker.frequency.value, use_f32
+        buffer, &ind, mask1, RT_MASK1_LOOP_FREQUENCY, d->imu_freq_tracker.frequency, use_f32
     );
 
     // MASK2
@@ -2688,11 +2737,6 @@ INIT_FUN(lib_info *info) {
     motor_data_refresh_motor_config(
         &d->motor, d->float_conf.tiltback_lv, d->float_conf.tiltback_hv
     );
-
-    if ((d->float_conf.is_beeper_enabled) ||
-        (d->float_conf.inputtilt_remote_type != INPUTTILT_PPM)) {
-        beeper_init();
-    }
 
     d->main_thread = VESC_IF->spawn(refloat_thd, 1536, "Refloat Main", d);
     if (!d->main_thread) {
