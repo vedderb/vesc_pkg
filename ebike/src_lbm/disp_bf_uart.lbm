@@ -1,0 +1,274 @@
+(def arr-rx (bufcreate 32))
+(def disp-pas-set 0)
+(def disp-pas-set-raw 0x06)
+(def disp-pas-mode -1) ; -1=9lvl, 0=5lvl eco, 1=5lvl sport
+(def disp-wheel-rpm 0.0)
+(def disp-update-time (systime))
+(def disp-type -1)
+(def disp-nolimit-rx 0)
+(def disp-light 0)
+(def disp-walkmode -1)
+(def disp-thr-follow -1)
+(def disp-speed-rpm 0)
+(def disp-error-code 0x01)
+
+@const-start
+
+; assist mapping function
+(defunret pas-apply () {
+        (var pas-new
+            (match disp-pas-mode
+                (0 (match disp-pas-set-raw             ; 5-level ECO
+                    (0x06 -1) (0x00 0) (0x0B 1) (0x0D 2) (0x15 3) (0x17 4) (0x03 5)))
+                (1 (match disp-pas-set-raw             ; 5-level SPORT
+                    (0x06 -1) (0x00 0) (0x0B 6) (0x0D 7) (0x15 8) (0x17 9) (0x03 10)))
+                (_ {
+                        (match disp-pas-set-raw             ; 9-level
+                            (0x06 -1) (0x00 0) (0x01 2) (0x0B 3) (0x0C 4) (0x0D 5)
+                            (0x02 6) (0x15 7) (0x16 8) (0x17 9) (0x03 10))})))
+        (if (!= pas-new disp-pas-set) {
+                ;(print (str-from-n disp-pas-set-raw "0x%02X"))
+                ;(print (str-merge (str-from-n disp-pas-set) " " (str-from-n pas-new) " " (str-from-n disp-pas-mode)))
+                (if (or (and (= disp-pas-set 5) (= pas-new 1) (= disp-pas-mode 0)) ; filters if pas-new arrives before disp-pas-mode
+                        (and (= disp-pas-set 6) (= pas-new 10) (= disp-pas-mode 1))) (return t))
+                (setq disp-pas-set pas-new)
+                (setq assist-scale
+                    (match disp-pas-set
+                        (-1 (read-setting 'assist-w))
+                        (0 0)
+                        (_ (read-setting (str2sym (str-from-n (trunc disp-pas-set 1 10) "assist-%d"))))))})})
+
+(defun disp-bafang-uart () {
+        (uart-start 1200)
+        (var arr-rx (bufcreate 32))
+
+        (loopwhile t {
+                (uart-read-bytes arr-rx 1 0)
+                (var byte (bufget-u8 arr-rx 0))
+
+                (cond
+                    ((= byte 0x16) { ; CMD Write
+                            (uart-read-bytes arr-rx 1 0)
+                            (var cmd (bufget-u8 arr-rx 0))
+                            (cond
+
+                                ((= cmd 0x00) { ; Bigstone M210CTL - Display automatic shutoff
+                                        (print "Display turned off (timeout)")
+                                })
+
+                                ((= cmd 0x0C) { ; Mode eco(0x02)/sport(0x040) - tested OK
+                                        (uart-read-bytes arr-rx 2 0)
+                                        (var mode (bufget-u8 arr-rx 0))
+                                        (var csum (bufget-u8 arr-rx 1))
+                                        (var csum-calc (mod (+ byte cmd mode) 0xff))
+                                        (if (= csum csum-calc) {
+                                                (setq disp-pas-mode (if (= mode 0x02) 0 1))
+                                                (pas-apply)
+                                        })
+                                })
+
+                                ((= cmd 0x0B) { ; PAS Level
+                                        (uart-read-bytes arr-rx 2 0)
+                                        (var pas (bufget-u8 arr-rx 0))
+                                        (var csum (bufget-u8 arr-rx 1))
+                                        (var csum-calc (mod (+ byte cmd pas) 0xff))
+                                        (if (= csum csum-calc) {
+                                                (setq disp-pas-set-raw pas)
+                                                (pas-apply)
+                                        })
+                                })
+
+                                ((= cmd 0x1A) { ; Light - tested OK
+                                        (uart-read-bytes arr-rx 1 0)
+                                        (var light (bufget-u8 arr-rx 0))
+                                        (setq disp-light (- light 240))
+                                })
+
+                                ((= cmd 0x1F) { ; Speedlimit (rpm) set in display - tested OK
+                                        (uart-read-bytes arr-rx 3 0)
+                                        (var spd-h (bufget-u8 arr-rx 0))
+                                        (var spd-l (bufget-u8 arr-rx 1))
+                                        (var csum (bufget-u8 arr-rx 2))
+                                        (var csum-calc (bitwise-and (+ byte cmd spd-h spd-l) 0xff))
+                                        (if (= csum csum-calc) {
+                                            (setq disp-speed-rpm (+ (shl spd-h 8) spd-l))
+                                        })
+                                })
+
+                                ;((= cmd 0x16) { ; From Velofox DM03
+                                ;})
+
+                                ;((= cmd 0x0D) { ; From Velofox DM09
+                                ;})
+
+                                ((= cmd 0x9A) { ; Bigstone M210CTL - Battery current
+                                        (uart-read-bytes arr-rx 2 0)
+                                        (var curr1 (* (bufget-u8 arr-rx 0) 0.5))
+                                        (var curr2 (* (bufget-u8 arr-rx 1) 0.5))
+                                        (if (and (= curr1 curr2) (or (not-eq curr1 in-current-max) (not-eq curr2 in-current-max))) {
+                                                (setq in-current-max curr1)
+                                                (conf-set 'l-in-current-max in-current-max)
+                                        })
+                                })
+
+                                ((= cmd 0x9B) { ; Bigstone M210CTL - Throttle follow PAS on/off
+                                        (uart-read-bytes arr-rx 1 0)
+                                        (var thr-fl (bufget-u8 arr-rx 0))
+                                        (setq disp-thr-follow (- thr-fl 240))
+                                })
+
+                                ((= cmd 0x9C) { ; Bigstone M210CTL - Walkmode on/off
+                                        (uart-read-bytes arr-rx 1 0)
+                                        (var walk (bufget-u8 arr-rx 0))
+                                        (setq disp-walkmode (- walk 240))
+                                })
+
+                                (t (print (str-merge "Unknown: 0x16 0x" (str-from-n cmd "%02X"))))
+                            )
+                    })
+
+                    ((= byte 0x11) { ; CMD Read
+                            (uart-read-bytes arr-rx 1 0)
+                            (var cmd (bufget-u8 arr-rx 0))
+                            (cond
+
+                                ;((= cmd 0x90) { ; Read protocol version
+                                ;        (var arr-tx (bufcreate 3))
+                                ;        (bufset-u8 arr-tx 0 0x90)
+                                ;        (bufset-u8 arr-tx 1 0x40)
+                                ;        (bufset-u8 arr-tx 1 0xD0)
+                                ;        (uart-write arr-tx)
+                                ;        (print "Display read protocol version")
+                                ;})
+
+                                ; untested, implemented according to BF-UART-protocol, maybe outdated/unused
+                                ;((= cmd 0x51) { ; Switch from 1200kbps to 9600kbps
+                                ;        (print "Baud change requested")
+                                ;        (uart-read-bytes arr-rx 3 0)
+                                ;        (var baud-h (bufget-u8 arr-rx 0))
+                                ;        (var baud-l (bufget-u8 arr-rx 1))
+                                ;        (var csum (bufget-u8 arr-rx 2))
+                                ;        (var csum-calc (mod (+ byte cmd baud-h baud-l) 0xff))
+                                ;        (if (= csum csum-calc) {
+                                ;            (uart-stop)
+                                ;            (uart-start 9600)
+                                ;            (var arr-tx (bufcreate 3))
+                                ;            (bufset-u8 arr-tx 0 0x90)
+                                ;            (bufset-u8 arr-tx 1 0x40)
+                                ;            (bufset-u8 arr-tx 1 0xD0)
+                                ;            (uart-write arr-tx)
+                                ;            (print "Switched to 9600kbps")
+                                ;        })
+                                ;})
+
+                                ((= cmd 0x0A) { ; Battery Half Amps
+                                        (var arr-tx (bufcreate 2))
+                                        (bufset-u8 arr-tx 0 (* (get-current-in) 2))
+                                        (bufset-u8 arr-tx 1 (+ (bufget-u8 arr-tx 0)))
+                                        (uart-write arr-tx)
+                                })
+
+                                ((= cmd 0x08) { ; Read status
+                                        (var arr-tx (bufcreate 1))
+                                        (bufset-u8 arr-tx 0 disp-error-code)
+                                        (uart-write arr-tx)
+                                })
+
+                                ((= cmd 0x11) { ; Battery SOC
+                                        (var arr-tx (bufcreate 2))
+                                        (bufset-u8 arr-tx 0 (* (get-batt) 100.0))
+                                        (bufset-u8 arr-tx 1 (+ (bufget-u8 arr-tx 0)))
+                                        (uart-write arr-tx)
+                                })
+
+                                ((= cmd 0x12) { ; Battery voltage
+                                        (var arr-tx (bufcreate 3))
+                                        (bufset-u16 arr-tx 0 (* (get-vin) 100))
+                                        (bufset-u8 arr-tx 2 (+ (bufget-u8 arr-tx 0) (bufget-u8 arr-tx 1) cmd))
+                                        (uart-write arr-tx)
+                                })
+
+                                ((= cmd 0x20) { ; Wheel RPM
+                                        (var arr-tx (bufcreate 3))
+                                        (bufset-u16 arr-tx 0 disp-wheel-rpm)
+                                        (bufset-u8 arr-tx 2 (+ (bufget-u8 arr-tx 0) (bufget-u8 arr-tx 1) cmd))
+                                        (uart-write arr-tx)
+                                        (setq disp-update-time (systime))
+                                })
+
+                                ;((= cmd 0x31) { ; Working status
+                                ;        ; 31 31 = 1) Current 2) RPM 3) Speed 4) Power assist pulse/torque signal
+                                ;        ; 30 30 = none if none is active
+                                ;})
+
+                                (t (print (str-merge "Unknown: 0x11 0x" (str-from-n cmd "%02X"))))
+                            )
+
+                    })
+
+                    ((= byte 0xFF) { ; Display turned on
+                    })
+
+                    ((or (= byte 0x6E) (= unlock-mode 0)) { ; Remove Speedlimit
+                        (if (eq disp-nolimit-rx 0) {
+                                (setq disp-nolimit-rx 1)
+                                (print "Speedlimit removed")
+                        })
+                    })
+
+                    ((= byte 0x66) { ; Display type is Topology SW102
+                        (if (= disp-type -1) {
+                                (setq disp-nolimit-rx 0)
+                                (setq disp-type 102)
+                                (print "disp-type 102 (Topology SW102)")
+                        })
+                    })
+
+                    ((= byte 0x67) { ; Display type is Velofox DM03
+                        (if (= disp-type -1) {
+                                (setq disp-nolimit-rx 0)
+                                (setq disp-type 103)
+                                (print "disp-type 103 (Velofox DM03)")
+                        })
+                    })
+
+                    ((= byte 0x70) { ; Display type is Bigstone M210CTL
+                        (if (= disp-type -1) {
+                                (setq disp-nolimit-rx 0)
+                                (setq disp-type 104)
+                                (print "disp-type 104 (Bigstone M210CTL)")
+                        })
+                    })
+
+                    (t (print (str-merge "Unknown: 0x" (str-from-n byte "%02X"))))
+                )
+        })
+})
+
+(defun bafang-fault-thread () {
+        (loopwhile t {
+                (var fault (get-fault))
+
+                (if (< (get-temp-fet) -15) {
+                        (setq fault 30)
+                })
+
+                (if (< (get-temp-mot) -15) {
+                        (setq fault 31)
+                })
+
+                (setq disp-error-code
+                    (match fault
+                        (1 0x07)  ; FAULT_CODE_OVER_VOLTAGE - tested OK
+                        (2 0x06)  ; FAULT_CODE_UNDER_VOLTAGE (not shown by display)
+                        (5 0x14)  ; FAULT_CODE_OVER_TEMP_FET
+                        (6 0x10)  ; FAULT_CODE_OVER_TEMP_MOTOR
+                        (30 0x10) ; T Fet fault
+                        (31 0x11) ; T Mot fault - tested OK
+                        (_ 0x01)  ; FAULT_CODE_NONE
+                    )
+                )
+
+                (sleep 0.04)
+        })
+})
