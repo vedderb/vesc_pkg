@@ -26,10 +26,8 @@ int32_t confparser_serialize_tnt_config(uint8_t *buffer, const tnt_config *conf)
 	buffer[ind++] = conf->pitch_kp_input;
 	buffer_append_float16(buffer, conf->mahony_kp, 100, &ind);
 	buffer_append_float16(buffer, conf->kp_rate, 100, &ind);
+	buffer_append_float16(buffer, conf->gyro_filter, 10, &ind);
 	buffer_append_float16(buffer, conf->pitch_filter, 10, &ind);
-	buffer_append_float16(buffer, conf->kalman_factor1, 100, &ind);
-	buffer_append_float16(buffer, conf->kalman_factor2, 100, &ind);
-	buffer_append_float16(buffer, conf->kalman_factor3, 100, &ind);
 	buffer[ind++] = conf->brake_curve;
 	buffer_append_float16(buffer, conf->brake_kp0, 1, &ind);
 	buffer_append_float16(buffer, conf->brakekp_rate, 100, &ind);
@@ -214,10 +212,8 @@ bool confparser_deserialize_tnt_config(const uint8_t *buffer, tnt_config *conf) 
 	conf->pitch_kp_input = buffer[ind++];
 	conf->mahony_kp = buffer_get_float16(buffer, 100, &ind);
 	conf->kp_rate = buffer_get_float16(buffer, 100, &ind);
+	conf->gyro_filter = buffer_get_float16(buffer, 10, &ind);
 	conf->pitch_filter = buffer_get_float16(buffer, 10, &ind);
-	conf->kalman_factor1 = buffer_get_float16(buffer, 100, &ind);
-	conf->kalman_factor2 = buffer_get_float16(buffer, 100, &ind);
-	conf->kalman_factor3 = buffer_get_float16(buffer, 100, &ind);
 	conf->brake_curve = buffer[ind++];
 	conf->brake_kp0 = buffer_get_float16(buffer, 1, &ind);
 	conf->brakekp_rate = buffer_get_float16(buffer, 100, &ind);
@@ -395,10 +391,8 @@ void confparser_set_defaults_tnt_config(tnt_config *conf) {
 	conf->pitch_kp_input = APPCONF_TNT_PITCH_KP_INPUT;
 	conf->mahony_kp = APPCONF_TNT_MAHONY_KP;
 	conf->kp_rate = APPCONF_TNT_KP_RATE;
+	conf->gyro_filter = APPCONF_TNT_GYRO_FILTER;
 	conf->pitch_filter = APPCONF_TNT_PITCH_FILTER;
-	conf->kalman_factor1 = APPCONF_TNT_KALMAN1;
-	conf->kalman_factor2 = APPCONF_TNT_KALMAN2;
-	conf->kalman_factor3 = APPCONF_TNT_KALMAN3;
 	conf->brake_curve = APPCONF_TNT_BRAKE_CURVE;
 	conf->brake_kp0 = APPCONF_TNT_BRAKEKP0;
 	conf->brakekp_rate = APPCONF_TNT_BRAKEKP_RATE;

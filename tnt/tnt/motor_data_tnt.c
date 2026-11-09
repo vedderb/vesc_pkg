@@ -46,18 +46,18 @@ void motor_data_reset(MotorData *m) {
     m->voltage_filtered = VESC_IF->mc_get_input_voltage_filtered();
 }
 
-void motor_data_configure(MotorData *m, tnt_config *config) {
-    biquad_configure(&m->current_biquad, BQ_LOWPASS, 1.0 * config->current_filter / config->hertz);
-    biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / config->hertz);
+void motor_data_configure(MotorData *m, tnt_config *config, int loop_rate) {
+    biquad_configure(&m->current_biquad, BQ_LOWPASS, 1.0 * config->current_filter / loop_rate);
+    biquad_configure(&m->erpm_biquad, BQ_LOWPASS, 1.0 * config->wheelslip_filter_freq / loop_rate);
    
-    m->erpm_sign_factor = 0.9984 / config->hertz; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
+    m->erpm_sign_factor = 0.9984 / loop_rate; //originally configured for 832 hz to delay an erpm sign change for 1 second (0.0012 factor)
 
     m->mc_max_temp_fet = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_fet_start) - 3;
     m->mc_max_temp_mot = VESC_IF->get_cfg_float(CFG_PARAM_l_temp_motor_start) - 3;
     m->mc_current_max = VESC_IF->get_cfg_float(CFG_PARAM_l_current_max); 
     m->mc_current_min = fabsf(VESC_IF->get_cfg_float(CFG_PARAM_l_current_min));    // min current is a positive value here!
-    m->voltage_filter_factor = 0.001 * 832 / config->hertz;
-    m->duty_filter_factor = 0.01 * 832 / config->hertz;
+    m->voltage_filter_factor = 0.001 * 832 / loop_rate;
+    m->duty_filter_factor = 0.01 * 832 / loop_rate;
 }
 
 void update_erpm_sign(MotorData *m) {

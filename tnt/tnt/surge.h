@@ -46,9 +46,10 @@ typedef struct {
 	float debug7;
 	float debug8;
 	float debug9;
+    bool enabled;
 } SurgeDebug;
 
 void check_current(MotorData *m, SurgeData *surge, State *state, tnt_config *config, ToneData *tone, ToneConfig *toneconfig);
 void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, PidData *p, float setpoint, SurgeDebug *surge_dbg);
-void configure_surge(SurgeData *surge, tnt_config *config);
+void configure_surge(SurgeData *surge, tnt_config *config, SurgeDebug *surge_dbg);
 void reset_surge(SurgeData *surge);

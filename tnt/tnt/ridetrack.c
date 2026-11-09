@@ -19,8 +19,8 @@
 #include "utils_tnt.h"
 #include <math.h>
 
-void configure_ride_tracking(RideTrackData *ridetrack, tnt_config *config) {
-	ridetrack->min_yaw_change = 100.0f / config->hertz;
+void configure_ride_tracking(RideTrackData *ridetrack) {
+	ridetrack->min_yaw_change = 50.0f;
 }
 
 void reset_ride_tracking(RideTrackData *ridetrack) {
@@ -67,8 +67,8 @@ void reset_ride_tracking_on_configure(RideTrackData *ridetrack, tnt_config *conf
 	}
 }
 
-void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw, tnt_config *config) {
-	carve_tracking(rt, yaw, ridetrack, config);
+void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *yaw) {
+	carve_tracking(rt, yaw, ridetrack);
 	float corr_factor;
 	if (ridetrack->ride_time > 0) {
 		corr_factor =  (ridetrack->rest_time + ridetrack->ride_time) / ridetrack->ride_time ;
@@ -80,11 +80,11 @@ void ride_tracking_update(RideTrackData *ridetrack, RuntimeData *rt, YawData *ya
 	ridetrack->efficiency = ridetrack->distance < 0.001 ? 0 : (VESC_IF->mc_get_watt_hours(false) - VESC_IF->mc_get_watt_hours_charged(false)) / (ridetrack->distance);
 }
 
-void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack, tnt_config *config) {
+void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack) {
 	//Apply a minimum yaw change and time yaw change is applied to filter out noise
 	if (yaw->abs_change < ridetrack->min_yaw_change) {
 		ridetrack->yaw_timer = rt->current_time;
-	} else if (rt->current_time - ridetrack->yaw_timer > .05) {
+	} else if (rt->current_time - ridetrack->yaw_timer > 0.04f) {
 		ridetrack->yaw_sign = sign(yaw->change);
 
 		// Track the change in yaw change sign to determine carves
@@ -110,7 +110,7 @@ void carve_tracking(RuntimeData *rt, YawData *yaw, RideTrackData *ridetrack, tnt
 		ridetrack->yaw_sign = 0;
 	} else {
 		ridetrack->max_carve_chain = fmaxf(ridetrack->max_carve_chain, ridetrack->carve_chain);
-		ridetrack->max_yaw_temp = fmaxf( ridetrack->max_yaw_temp, yaw->abs_change > 1500.0 / config->hertz ? 0 : yaw->abs_change);
+		ridetrack->max_yaw_temp = fmaxf( ridetrack->max_yaw_temp, yaw->abs_change > 1500.0f ? 0.0f : yaw->abs_change);
 		ridetrack->max_roll_temp = fmaxf( ridetrack->max_roll_temp, rt->abs_roll_angle);
 	}
 	ridetrack->last_yaw_sign = ridetrack->yaw_sign;

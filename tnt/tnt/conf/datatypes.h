@@ -48,10 +48,8 @@ typedef struct {
 	bool pitch_kp_input;
 	float mahony_kp;
 	float kp_rate;
+	float gyro_filter;
 	float pitch_filter;
-	float kalman_factor1;
-	float kalman_factor2;
-	float kalman_factor3;
 	bool brake_curve;
 	float brake_kp0;
 	float brakekp_rate;

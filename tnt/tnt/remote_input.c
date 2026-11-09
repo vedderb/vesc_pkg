@@ -100,12 +100,13 @@ void update_remote(tnt_config *config, RemoteData *r) {
 		servo_val = VESC_IF->get_ppm();
 		remote_connected = VESC_IF->get_ppm_age() < 1;
 		break;
-	case (INPUTTILT_UART): ; // Don't delete ";", required to avoid compiler error with first line variable init
+	case (INPUTTILT_UART): { 
 		remote_state remote = VESC_IF->get_remote_state();
 		servo_val = remote.js_y;
 		remote_connected = remote.age_s < 1;
 		break;
-	case (INPUTTILT_NONE):
+	}
+		case (INPUTTILT_NONE):
 		break;
 	}
 
@@ -127,7 +128,7 @@ void update_remote(tnt_config *config, RemoteData *r) {
 
 void configure_remote_features(tnt_config *config, RemoteData *r, StickyTiltData *s) {
 	r->smoothing_factor = config->inputtilt_smoothing_factor;
-	r->step_size = 1.0 * config->inputtilt_speed / config->hertz;
+	r->step_size = 1.0 * config->inputtilt_speed / 	VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 	r->ramped_step_size = 0;
 	s->low_value = config->stickytiltval1; // Value that defines where tilt will stick for both nose up and down. Can be made UI input later.
 	s->high_value = config->stickytiltval2; // Value of 0 or above max disables. Max value <=  r->angle_limit. 

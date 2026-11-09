@@ -52,6 +52,7 @@ typedef struct {
 	float freq_factor;
 	float max_time;
 	uint32_t bonks_total;
+	bool enabled;
 } TractionDebug;
 
 typedef struct {
@@ -75,11 +76,12 @@ typedef struct {
 	float debug9;
 	float aggregate_timer;
 	float freq_factor;
+	bool enabled;
 } BrakingDebug;
 
 void check_traction(MotorData *m, TractionData *traction, State *state, tnt_config *config, PidData *p, TractionDebug *traction_dbg);
 void reset_traction(TractionData *traction, State *state, BrakingData *braking);
 void deactivate_traction(TractionData *traction, State *state, TractionDebug *traction_dbg, float abs_erpm, float exit);
-void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg);
+void configure_traction(TractionData *traction, BrakingData *braking, tnt_config *config, TractionDebug *traction_dbg, BrakingDebug *braking_dbg, int loop_rate);
 void check_traction_braking(BrakingData *braking, MotorData *m, State *state, tnt_config *config, float inputtilt_interpolated, PidData *pid, BrakingDebug *braking_dbg);
 void rate_limit_erpm(MotorData *m, TractionData *traction);

@@ -22,15 +22,16 @@
 
 void setpoint_configure(SetpointData *s, tnt_config *config) {
 	//Setpoint Adjustment
-	s->startup_step_size = 1.0 * config->startup_speed / config->hertz;
-	s->tiltback_duty_step_size = 1.0 * config->tiltback_duty_speed / config->hertz;
-	s->tiltback_hv_step_size = 1.0 * config->tiltback_hv_speed / config->hertz;
-	s->tiltback_lv_step_size = 1.0 * config->tiltback_lv_speed / config->hertz;
-	s->tiltback_return_step_size = 1.0 * config->tiltback_return_speed / config->hertz;
-	s->tiltback_ht_step_size = 1.0 * config->tiltback_ht_speed / config->hertz;
-	s->noseangling_step_size = 1.0 * config->noseangling_speed / config->hertz;
-	s->tiltback_duty = 1.0 * config->tiltback_duty / 100.0;
-	s->surge_tiltback_step_size = 1.0 * config->tiltback_surge_speed / config->hertz;
+	float imu_sample_rate = VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
+	s->startup_step_size = 1.0f * config->startup_speed / imu_sample_rate;
+	s->tiltback_duty_step_size = 1.0f * config->tiltback_duty_speed / imu_sample_rate;
+	s->tiltback_hv_step_size = 1.0f * config->tiltback_hv_speed / imu_sample_rate;
+	s->tiltback_lv_step_size = 1.0f * config->tiltback_lv_speed / imu_sample_rate;
+	s->tiltback_return_step_size = 1.0f * config->tiltback_return_speed / imu_sample_rate;
+	s->tiltback_ht_step_size = 1.0f * config->tiltback_ht_speed / imu_sample_rate;
+	s->noseangling_step_size = 1.0f * config->noseangling_speed / imu_sample_rate;
+	s->tiltback_duty = 1.0f * config->tiltback_duty / 100.0;
+	s->surge_tiltback_step_size = 1.0f * config->tiltback_surge_speed / imu_sample_rate;
 
 	// Feature: Dirty Landings
 	s->startup_pitch_trickmargin = config->startup_dirtylandings_enabled ? 10 : 0;

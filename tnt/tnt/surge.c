@@ -33,14 +33,16 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 		surge->new_duty_cycle = m->erpm_sign * m->duty_cycle;
 		
 		//Debug Data Section
-		surge_dbg->debug1 = p->proportional;				
-		surge_dbg->debug2 = m->current_filtered;
-		surge_dbg->debug3 = surge->start_current;
-		surge_dbg->debug4 = m->duty_cycle;
-		surge_dbg->debug5 = 0;
-		surge_dbg->debug6 = 0;
-		surge_dbg->debug7 = 0;
-		surge_dbg->debug8 = 0;
+		if (surge_dbg->enabled) {
+			surge_dbg->debug1 = p->proportional;				
+			surge_dbg->debug2 = m->current_filtered;
+			surge_dbg->debug3 = surge->start_current;
+			surge_dbg->debug4 = m->duty_cycle;
+			surge_dbg->debug5 = 0;
+			surge_dbg->debug6 = 0;
+			surge_dbg->debug7 = 0;
+			surge_dbg->debug8 = 0;
+		}
 	}
 	
 	//Conditions to stop surge and increment the duty cycle
@@ -55,15 +57,17 @@ void check_surge(MotorData *m, SurgeData *surge, State *state, RuntimeData *rt, 
 			p->pid_value = VESC_IF->mc_get_tot_current_directional_filtered();		//This allows a smooth transition to PID current control
 			
 			//Debug Data Section
-			surge_dbg->debug7 = rt->current_time - surge->timer;					//Register how long the surge cycle lasted
-			surge_dbg->debug5 = m->duty_cycle - surge_dbg->debug4;					//Added surge duty
-			surge_dbg->debug8 = surge_dbg->debug5/ (rt->current_time - surge->timer) * 100;		//Surge ramp rate
-			if (rt->current_time - surge->timer >= 0.5) {						//End condition
-				surge_dbg->debug6 = 111;
-			} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle){
-				surge_dbg->debug6 = rt->pitch_angle;
-			} else if (state->wheelslip){
-				surge_dbg->debug6 = 222;
+			if (surge_dbg->enabled) {			
+				surge_dbg->debug7 = rt->current_time - surge->timer;					//Register how long the surge cycle lasted
+				surge_dbg->debug5 = m->duty_cycle - surge_dbg->debug4;					//Added surge duty
+				surge_dbg->debug8 = surge_dbg->debug5/ (rt->current_time - surge->timer) * 100;		//Surge ramp rate
+				if (rt->current_time - surge->timer >= 0.5) {						//End condition
+					surge_dbg->debug6 = 111;
+				} else if (-1 * (surge->setpoint - rt->pitch_angle) * m->erpm_sign > surge->maxangle){
+					surge_dbg->debug6 = rt->pitch_angle;
+				} else if (state->wheelslip){
+					surge_dbg->debug6 = 222;
+				}
 			}
 		}
 	}
@@ -85,9 +89,11 @@ void check_current(MotorData *m, SurgeData *surge, State *state, tnt_config *con
 	} else { surge->high_current = false; } 
 }
 
-void configure_surge(SurgeData *surge, tnt_config *config){
-	surge->ramp_rate = 1.0 * config->surge_duty / 100.0 / config->hertz;
+void configure_surge(SurgeData *surge, tnt_config *config, SurgeDebug *surge_dbg){
+	surge->ramp_rate = 1.0 * config->surge_duty / 100.0f / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 	surge->maxangle = config->surge_maxangle;
+	if (config->is_surgedebug_enabled)
+		surge_dbg->enabled = true;
 }
 
 void reset_surge(SurgeData *surge){

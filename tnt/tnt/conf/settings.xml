@@ -379,8 +379,30 @@ p, li { white-space: pre-wrap; }
             <suffix></suffix>
             <vTx>7</vTx>
         </kp_rate>
+        <gyro_filter>
+            <longName>Gyro Notch Filter</longName>
+            <type>1</type>
+            <transmittable>1</transmittable>
+            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This factor affects the biquad notch filter applied to the pitch gyro (pitch rate kp). Increase and decrease this value to identify the right frequency to filter out board vibration.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+            <cDefine>APPCONF_TNT_GYRO_FILTER</cDefine>
+            <editorDecimalsDouble>1</editorDecimalsDouble>
+            <editorScale>1</editorScale>
+            <editAsPercentage>0</editAsPercentage>
+            <maxDouble>10000</maxDouble>
+            <minDouble>0</minDouble>
+            <showDisplay>0</showDisplay>
+            <stepDouble>10</stepDouble>
+            <valDouble>0</valDouble>
+            <vTxDoubleScale>10</vTxDoubleScale>
+            <suffix> Hz</suffix>
+            <vTx>7</vTx>
+        </gyro_filter>
         <pitch_filter>
-            <longName>Pitch Filter</longName>
+            <longName>Pitch LP Filter</longName>
             <type>1</type>
             <transmittable>1</transmittable>
             <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -401,78 +423,6 @@ p, li { white-space: pre-wrap; }
             <suffix> Hz</suffix>
             <vTx>7</vTx>
         </pitch_filter>
-        <kalman_factor1>
-            <longName>Kalman Factor 1</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_KALMAN1</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>100000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </kalman_factor1>
-        <kalman_factor2>
-            <longName>Kalman Factor 2</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_KALMAN2</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>100000</maxDouble>
-            <minDouble>0</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>0</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </kalman_factor2>
-        <kalman_factor3>
-            <longName>Kalman Factor 3</longName>
-            <type>1</type>
-            <transmittable>1</transmittable>
-            <description>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A Kalman filter is applied to the pitch angle to prevent board vibration. Kalman factor 1 is Q_pitch. Higher values will put more weight to the IMU pitch value and track closer to the IMU pitch value. Set to zero to disable filter. Kalman factor 2 is Q_bias. Higher values will put more weight to the IMU gyro value (pitch angle speed). Kalman factor 3 is R_measured. Higher values will act against Q_pitch and Q_bias to provide a dampened response. Values too high will create a noticeable delay in board reaction.&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended values to reduce vibration: Start with factor1:10, factor2:0, factor3:0.5. Reduce factor 1 and add in factor 3. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
-            <cDefine>APPCONF_TNT_KALMAN3</cDefine>
-            <editorDecimalsDouble>2</editorDecimalsDouble>
-            <editorScale>1</editorScale>
-            <editAsPercentage>0</editAsPercentage>
-            <maxDouble>100000</maxDouble>
-            <minDouble>0.01</minDouble>
-            <showDisplay>0</showDisplay>
-            <stepDouble>0.5</stepDouble>
-            <valDouble>0.5</valDouble>
-            <vTxDoubleScale>100</vTxDoubleScale>
-            <suffix></suffix>
-            <vTx>7</vTx>
-        </kalman_factor3>
         <brake_curve>
             <longName>Enable Brake Curve</longName>
             <type>5</type>
@@ -852,7 +802,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.05</stepDouble>
-            <valDouble>0.3</valDouble>
+            <valDouble>0.1</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -918,7 +868,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>35</valDouble>
+            <valDouble>15</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -984,7 +934,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.05</stepDouble>
-            <valDouble>0.2</valDouble>
+            <valDouble>0.05</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1050,7 +1000,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>35</valDouble>
+            <valDouble>15</valDouble>
             <vTxDoubleScale>10</vTxDoubleScale>
             <suffix> °</suffix>
             <vTx>7</vTx>
@@ -1093,7 +1043,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>500</stepInt>
-            <valInt>2500</valInt>
+            <valInt>4000</valInt>
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </rollkp_higherpm>
@@ -1133,7 +1083,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>250</stepInt>
-            <valInt>750</valInt>
+            <valInt>2000</valInt>
             <suffix> ERPM</suffix>
             <vTx>3</vTx>
         </rollkp_lowerpm>
@@ -1262,7 +1212,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.02</valDouble>
+            <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1305,8 +1255,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>10</stepDouble>
-            <valDouble>60</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>30</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1327,8 +1277,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>500</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>50</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1349,8 +1299,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>750</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>100</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1416,7 +1366,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>0.01</stepDouble>
-            <valDouble>0.02</valDouble>
+            <valDouble>0</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -1459,8 +1409,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>10</stepDouble>
-            <valDouble>60</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>30</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1481,8 +1431,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>500</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>50</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1503,8 +1453,8 @@ p, li { white-space: pre-wrap; }
             <maxDouble>5000</maxDouble>
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
-            <stepDouble>25</stepDouble>
-            <valDouble>750</valDouble>
+            <stepDouble>5</stepDouble>
+            <valDouble>100</valDouble>
             <vTxDoubleScale>1</vTxDoubleScale>
             <suffix> °/s</suffix>
             <vTx>7</vTx>
@@ -1577,7 +1527,7 @@ p, li { white-space: pre-wrap; }
             <minInt>0</minInt>
             <showDisplay>0</showDisplay>
             <stepInt>1</stepInt>
-            <valInt>40</valInt>
+            <valInt>45</valInt>
             <suffix> A</suffix>
             <vTx>3</vTx>
         </surge_start_hd_current>
@@ -2207,7 +2157,7 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the code cycle that runs the package. Generally the minimum frequencies should be the IMU sample rate or one half the sample rate. &lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This is the frequency of the code cycle that runs the package. Generally the minimum frequencies should be the IMU sample rate.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Higher frequencies are advantageous for board vibration reduction, traction control, and high current. Frequencies as high as 15kHz have been trail tested and 20kHz has been bench tested. 10kHz recommended.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_HERTZ</cDefine>
@@ -2229,11 +2179,13 @@ p, li { white-space: pre-wrap; }
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Roboto'; ; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The exponential moving average (EMA) filter is applied to the current demand that the package sends to the motor. The EMA filter works by adding the new current demand to the previous current with a factor that softens the change, i.e. current demand = new current*factor + old current*(1- factor), where factor is: imu sample rate / package fequency * EMA Filter Adjustment Factor. The imu sample rate is in App Cfg-&amp;gt;IMU and the package frequency is found in TNT Cfg-&amp;gt;Specs.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The exponential moving average (EMA) filter is applied to the current output that the package sends to the motor. The EMA filter works by adding the new current demand to the previous current with a factor that softens the change.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Larger values of EMA Filter Adjustment Factor allow the current demand to change faster, but could induce board vibration. Lower EMA Filter Adjustment Factors will reduce vibration better but react slower. Using a larger package fequency compared to the IMU sample rate will allow a larger range of EMA Filter Adjustment Factor. Recommended 1.0 for 10,000Hz.&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The EMA filter has the strongest effect on the pitch gyro response, corresponding to Pitch Rate Kp. Lower values will soften the effect of the gyro response making rough trails smoother but values too low will effect the ability of the board to bonk and nudge, which require sharper responses.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;The largest EMA Filter Adjustment Factor that can be applied is package frequency / imu sample frequency.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Larger values of EMA Filter Adjustment Factor allow the current demand to change faster, but could induce board vibration. To help remove vibration the gyro notch filter on TNT Cfg-&amp;gt;Acceleration can be used.&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Recommended 0.5 to 1.0 for a package loop rate of 10,000Hz.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</description>
             <cDefine>APPCONF_TNT_EMA_FACTOR</cDefine>
             <editorDecimalsDouble>1</editorDecimalsDouble>
             <editorScale>1</editorScale>
@@ -3548,7 +3500,7 @@ p, li { white-space: pre-wrap; }
             <minDouble>0</minDouble>
             <showDisplay>0</showDisplay>
             <stepDouble>1</stepDouble>
-            <valDouble>1.6</valDouble>
+            <valDouble>1.7</valDouble>
             <vTxDoubleScale>100</vTxDoubleScale>
             <suffix></suffix>
             <vTx>7</vTx>
@@ -3571,10 +3523,8 @@ p, li { white-space: pre-wrap; }
         <ser>pitch_kp_input</ser>
         <ser>mahony_kp</ser>
         <ser>kp_rate</ser>
+        <ser>gyro_filter</ser>
         <ser>pitch_filter</ser>
-        <ser>kalman_factor1</ser>
-        <ser>kalman_factor2</ser>
-        <ser>kalman_factor3</ser>
         <ser>brake_curve</ser>
         <ser>brake_kp0</ser>
         <ser>brakekp_rate</ser>
@@ -3756,10 +3706,8 @@ p, li { white-space: pre-wrap; }
                     <param>pitch_kp_input</param>
                     <param>::sep::Filter</param>
                     <param>mahony_kp</param>
+                    <param>gyro_filter</param>
                     <param>pitch_filter</param>
-                    <param>kalman_factor1</param>
-                    <param>kalman_factor2</param>
-                    <param>kalman_factor3</param>
                 </subgroupParams>
             </subgroup>
             <subgroup>

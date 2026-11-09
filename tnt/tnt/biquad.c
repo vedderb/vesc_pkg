@@ -35,12 +35,18 @@ void biquad_configure(Biquad *biquad, BiquadType type, float frequency) {
         biquad->a0 = K * K * norm;
         biquad->a1 = 2 * biquad->a0;
         biquad->a2 = biquad->a0;
+        biquad->b1 = 2 * (K * K - 1) * norm;
     } else if (type == BQ_HIGHPASS) {
         biquad->a0 = 1 * norm;
         biquad->a1 = -2 * biquad->a0;
         biquad->a2 = biquad->a0;
+        biquad->b1 = 2 * (K * K - 1) * norm;
+    } else if (type == BQ_NOTCH) {
+        biquad->a0 = (1 + K * K) * norm;
+        biquad->a1 = 2 * (K * K - 1) * norm;
+        biquad->a2 =  biquad->a0;
+        biquad->b1 =  biquad->a1;
     }
-    biquad->b1 = 2 * (K * K - 1) * norm;
     biquad->b2 = (1 - K / Q + K * K) * norm;
 }
 
