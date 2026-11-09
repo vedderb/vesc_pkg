@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.6.1
+**Version:** 1.6.2
 
 ## License
 
@@ -38,6 +38,12 @@ Videos showing Smart Cruise controls and Deep Sleep:
 - [Deep Sleep setup and operation](./DEEP_SLEEP.md)
 
 ---
+
+## What's New in Version 1.6.2
+
+Maintenance release:
+
+- **Improved: Smaller firmware script** — The packaged firmware script is now about half its previous size, down from roughly 106 KB to 52 KB (from 81 % to 40 % of the available script space), by leaving out comments and indentation and by storing the display data once instead of four times. This leaves room for future features. Behaviour and settings are unchanged, and no action is required when updating.
 
 ## What's New in Version 1.6.1
 

@@ -4,11 +4,18 @@ BlackTip DPV Smoke Tests
 Tests pure functions to catch regressions before flashing hardware
 """
 
+import contextlib
 import csv
+import importlib.util
+import io
+import os
+import random
 import re
+import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Test counters
@@ -45,10 +52,36 @@ def assert_near(actual, expected, tolerance, test_name):
 
 SPEED_REVERSE_THRESHOLD = 5
 DISPLAY_LUT_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'display_lut.csv'
-DISPLAY_LUT_HEADERS = ['index', 'name', 'rotation'] + [f'b{i}' for i in range(16)]
+DISPLAY_LUT_HEADERS = ['index', 'name'] + [f'b{i}' for i in range(16)]
+DISPLAY_LUT_GENERATOR = Path(__file__).resolve().parents[1] / 'tools' / 'generate_lut_binary.py'
+DISPLAY_ROTATION_MODULE = Path(__file__).resolve().parents[1] / 'tools' / 'display_rotation.py'
+DISPLAY_LUT_BIN_PATH = Path(__file__).resolve().parents[1] / 'generated' / 'display_lut.bin'
+DISPLAY_LUT_FRAMES = 33
+DISPLAY_LUT_VERSION = 2
 TIMER_BAR_MASKS = [0x00, 0x40, 0x60, 0x70, 0x78, 0x7C, 0x7E, 0x7F, 0xFF]
-TIMER_BAR_SOURCE_BITS = [0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40]
-TIMER_BAR_ROTATION_2_BITS = [0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80]
+# Bit of a row byte that drives physical column 0..7 (DISPLAY_COLUMN_BITS in the Lisp).
+DISPLAY_COLUMN_BITS = [0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40]
+# Legacy constants of the timer bar that was drawn on the pre-rotated frames
+# (firmware 1.6.1 and 1.6.2 before the table stored one orientation). They are
+# an independent, hand-written oracle for where the timer bar lands at each
+# rotation, not code under test.
+LEGACY_TIMER_BAR_SOURCE_BITS = DISPLAY_COLUMN_BITS
+LEGACY_TIMER_BAR_ROTATION_2_BITS = [0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80]
+
+def _load_display_rotation():
+    """Import the shared reference rotation (also used by tools/preview_display.py)."""
+    spec = importlib.util.spec_from_file_location('display_rotation', DISPLAY_ROTATION_MODULE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The reference rotation: defined from the geometry (a quarter turn moves
+# pixel (row a, column b) to (row b, column 7 - a)), not copied from the Lisp.
+# test_display_rotation_reference anchors it to hand-typed bytes.
+DISPLAY_ROTATION = _load_display_rotation()
+rotate_frame = DISPLAY_ROTATION.rotate_frame
+
 
 def clamp(value, min_val, max_val):
     """Clamp value between min and max"""
@@ -102,41 +135,41 @@ def calculate_rpm(speed_index, divisor, max_erpm=50000):
         return base_rpm
 
 
-def physical_display_matrix(frame_bytes):
-    """Mirror preview_display.py's fixed hardware-orientation transform."""
-    columns = frame_bytes[1::2]
-    bit_positions = [7, *range(7)]
-    return [[(columns[row] >> bit_positions[column]) & 1
-             for column in range(8)]
-            for row in range(8)]
-
-
-def rotate_display_clockwise(matrix):
-    """Rotate a physical display matrix 90° clockwise."""
-    return [[matrix[7 - column][row] for column in range(8)]
-            for row in range(8)]
-
-
-def apply_timer_bar_overlay(frame_bytes, leds_lit, rotation):
-    """Mirror the rotation-aware Smart Cruise timer overlay."""
+def apply_timer_bar_overlay(frame_bytes, leds_lit):
+    """Mirror apply_smart_cruise_timer_bar: one set of bits, rotation 0 frame."""
     frame = list(frame_bytes)
-    mask = TIMER_BAR_MASKS[leds_lit]
+    if leds_lit != -1:
+        frame[15] |= TIMER_BAR_MASKS[max(0, min(8, leds_lit))]
+    return frame
+
+
+def legacy_timer_bar_overlay(frame_bytes, leds_lit, rotation):
+    """The overlay that was applied to an already rotated frame (oracle only)."""
+    frame = list(frame_bytes)
+    if leds_lit == -1:
+        return frame
+    mask = TIMER_BAR_MASKS[max(0, min(8, leds_lit))]
 
     if rotation == 0:
         frame[15] |= mask
     elif rotation == 1:
-        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+        for column, source_bit in enumerate(LEGACY_TIMER_BAR_SOURCE_BITS):
             if mask & source_bit:
                 frame[column * 2 + 1] |= 0x80
     elif rotation == 2:
-        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+        for column, source_bit in enumerate(LEGACY_TIMER_BAR_SOURCE_BITS):
             if mask & source_bit:
-                frame[1] |= TIMER_BAR_ROTATION_2_BITS[column]
+                frame[1] |= LEGACY_TIMER_BAR_ROTATION_2_BITS[column]
     elif rotation == 3:
-        for column, source_bit in enumerate(TIMER_BAR_SOURCE_BITS):
+        for column, source_bit in enumerate(LEGACY_TIMER_BAR_SOURCE_BITS):
             if mask & source_bit:
                 frame[(7 - column) * 2 + 1] |= 0x40
     return frame
+
+
+def frame_to_send(rotation0_frame, leds_lit, rotation):
+    """What the display path sends: overlay at rotation 0, then rotate (reference rotation)."""
+    return rotate_frame(apply_timer_bar_overlay(rotation0_frame, leds_lit), rotation)
 
 
 # Five-click shutdown mirrors. The third fw-ver value is the beta/test build;
@@ -326,71 +359,334 @@ def test_startup_tune_cancellation_for_motor_start():
               "startup audio: normal double-click confirmation tone is retained")
 
 
-def test_display_lut_structure_and_rotation():
-    """Keep the CSV layout and every physical-display rotation quartet stable."""
-    print("\n=== Testing display LUT structure and rotation ===")
+def _load_lut_generator():
+    """Import the very module the Makefile runs, not a copy of its logic."""
+    spec = importlib.util.spec_from_file_location('generate_lut_binary', DISPLAY_LUT_GENERATOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _read_display_csv_frames():
+    """Return (rows, frames): the CSV rows and the 16 bytes of each of the 33 displays."""
+    with DISPLAY_LUT_PATH.open(newline='') as asset:
+        rows = list(csv.DictReader(asset))
+    return rows, [[int(row[f'b{i}']) for i in range(16)] for row in rows]
+
+
+def test_display_lut_structure():
+    """Keep the CSV layout stable: one rotation 0 row for each of the 33 displays."""
+    print("\n=== Testing display LUT structure ===")
 
     with DISPLAY_LUT_PATH.open(newline='') as asset:
         reader = csv.DictReader(asset)
         rows = list(reader)
 
     assert_eq(reader.fieldnames, DISPLAY_LUT_HEADERS,
-              "display LUT: CSV has the required frame and byte columns")
-    assert_eq(len(rows), 132, "display LUT: frame count is unchanged")
-    assert_eq([int(row['index']) for row in rows], list(range(132)),
-              "display LUT: frame indices remain sequential")
+              "display LUT: CSV columns are index, name and b0..b15 (no rotation column)")
+    assert_eq(len(rows), DISPLAY_LUT_FRAMES, "display LUT: 33 displays, one row each")
+    assert_eq([int(row['index']) for row in rows], list(range(DISPLAY_LUT_FRAMES)),
+              "display LUT: indices are sequential, so row n is display n")
     assert_eq(all(set(row) == set(DISPLAY_LUT_HEADERS) for row in rows), True,
               "display LUT: each row has exactly the required fields")
+    names = [row['name'] for row in rows]
+    assert_eq(all(names) and len(set(names)) == len(names), True,
+              "display LUT: every display has a unique name")
 
     frame_bytes = [[int(row[f'b{i}']) for i in range(16)] for row in rows]
     assert_eq(all(0 <= value <= 255 for frame in frame_bytes for value in frame), True,
               "display LUT: byte values are unsigned octets")
     assert_eq(all(frame[0::2] == [0] * 8 for frame in frame_bytes), True,
-              "display LUT: low/high interleaved layout is preserved")
+              "display LUT: low/high interleaved layout is preserved (even bytes are 0)")
 
-    for first in range(0, len(rows), 4):
-        quartet = rows[first:first + 4]
-        name = quartet[0]['name']
-        assert_eq([row['name'] for row in quartet], [name] * 4,
-                  f"display LUT: {name} retains one named quartet")
-        assert_eq([int(row['rotation']) for row in quartet], [0, 1, 2, 3],
-                  f"display LUT: {name} retains rotations 0 through 3")
 
-        expected = physical_display_matrix(frame_bytes[first])
-        for rotation in range(1, 4):
-            expected = rotate_display_clockwise(expected)
-            actual = physical_display_matrix(frame_bytes[first + rotation])
-            assert_eq(actual, expected,
-                      f"display LUT: {name} rotation {rotation} is clockwise in physical view")
+def test_display_lut_binary_single_orientation():
+    """The binary stores rotation 0 of each frame once; the firmware rotates it."""
+    print("\n=== Testing display LUT binary (one orientation per frame) ===")
+    generator = _load_lut_generator()
+    rows, frames = _read_display_csv_frames()
 
-    # A single top-left pixel rotates to the top-right, not the bottom-left.
-    # This catches accidentally swapping clockwise and counter-clockwise maths.
-    asymmetric_fixture = [[1 if row == 0 and column == 0 else 0 for column in range(8)]
-                          for row in range(8)]
-    expected_clockwise = [[1 if row == 0 and column == 7 else 0 for column in range(8)]
-                          for row in range(8)]
-    expected_counter_clockwise = [[1 if row == 7 and column == 0 else 0 for column in range(8)]
-                                  for row in range(8)]
-    actual_clockwise = rotate_display_clockwise(asymmetric_fixture)
-    assert_eq(actual_clockwise, expected_clockwise,
-              "display LUT: asymmetric fixture rotates clockwise")
-    assert_eq(actual_clockwise == expected_counter_clockwise, False,
-              "display LUT: asymmetric fixture rejects counter-clockwise rotation")
+    # Expected table, built here from the CSV without the generator's code.
+    expected = struct.pack('<IHH', DISPLAY_LUT_MAGIC, DISPLAY_LUT_VERSION, DISPLAY_LUT_FRAMES)
+    expected += b''.join(bytes(frame) for frame in frames)
+
+    with tempfile.TemporaryDirectory() as work:
+        out_dir = Path(work) / 'generated'
+        saved = (generator.GENERATED_DIR, generator.DISPLAY_BIN)
+        generator.GENERATED_DIR, generator.DISPLAY_BIN = out_dir, out_dir / 'display_lut.bin'
+        try:
+            generator.generate_display_binary()
+            data = generator.DISPLAY_BIN.read_bytes()
+        finally:
+            generator.GENERATED_DIR, generator.DISPLAY_BIN = saved
+
+    assert_eq(data[:4], b'DTUL', "display binary: magic bytes spell LUTD little-endian")
+    assert_eq(struct.unpack_from('<IHH', data, 0),
+              (DISPLAY_LUT_MAGIC, DISPLAY_LUT_VERSION, DISPLAY_LUT_FRAMES),
+              "display binary: header is magic, version 2, 33 frames")
+    assert_eq(validate_lut_header(data, DISPLAY_LUT_MAGIC, DISPLAY_LUT_VERSION), DISPLAY_LUT_FRAMES,
+              "display binary: version 2 passes the firmware header check")
+    assert_eq(validate_lut_header(data, DISPLAY_LUT_MAGIC, 1), None,
+              "display binary: the firmware's old version 1 check rejects it")
+    assert_eq(len(data), 536,
+              "display binary: 8 byte header plus 16 bytes for each of the 33 frames is 536 bytes")
+    assert_eq(data, expected, "display binary: the 33 CSV rows converted straight to the table")
+    assert_eq([list(data[8 + 16 * n:24 + 16 * n]) for n in range(DISPLAY_LUT_FRAMES)], frames,
+              "display binary: entry n is the CSV row of display n")
+
+    # The Lisp source must check for the version this generator writes.
+    source = LISP_SOURCE.read_text()
+    assert_eq('(validate_lut_header display_lut_bin 0x4C555444u32 %d)' % generator.VERSION in source, True,
+              "display binary: the firmware checks for the generator's version")
+    assert_eq(generator.VERSION, DISPLAY_LUT_VERSION, "display binary: generator writes version 2")
+
+    # Optional: a table left over from an earlier build of another format.
+    if DISPLAY_LUT_BIN_PATH.exists():
+        assert_eq(DISPLAY_LUT_BIN_PATH.read_bytes() == data, True,
+                  "display binary: generated/display_lut.bin is current (run 'make binary' if not)")
+    else:
+        print("SKIPPED: generated/display_lut.bin not built; run 'make binary' to check it too")
+
+
+def _run_generator_on(generator, csv_text):
+    """Run the generator's entry point on csv_text.
+
+    A stale table is put in place first. Returns (exit status, stderr text,
+    table bytes or None if no table exists afterwards).
+    """
+    with tempfile.TemporaryDirectory() as work:
+        csv_path = Path(work) / 'input.csv'
+        csv_path.write_text(csv_text)
+        out_dir = Path(work) / 'generated'
+        out_dir.mkdir()
+        (out_dir / 'display_lut.bin').write_bytes(b'stale')
+        saved = (generator.DISPLAY_CSV, generator.GENERATED_DIR, generator.DISPLAY_BIN)
+        generator.DISPLAY_CSV = csv_path
+        generator.GENERATED_DIR, generator.DISPLAY_BIN = out_dir, out_dir / 'display_lut.bin'
+        errors = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
+                status = generator.main()
+        finally:
+            generator.DISPLAY_CSV, generator.GENERATED_DIR, generator.DISPLAY_BIN = saved
+        table = (out_dir / 'display_lut.bin')
+        return status, errors.getvalue(), table.read_bytes() if table.exists() else None
+
+
+def test_display_lut_generator_validation():
+    """The generator converts a clean CSV and fails loudly, with the line, on a malformed one."""
+    print("\n=== Testing display LUT generator validation ===")
+    generator = _load_lut_generator()
+    lines = DISPLAY_LUT_PATH.read_text().splitlines()
+    assert_eq(len(lines), 1 + DISPLAY_LUT_FRAMES, "generator validation: the CSV under test has 33 rows")
+    frames = generator.read_frames(DISPLAY_LUT_PATH)
+    assert_eq((len(frames), frames == _read_display_csv_frames()[1]), (DISPLAY_LUT_FRAMES, True),
+              "generator validation: the real CSV is read as its 33 rows")
+
+    def csv_of(rows):
+        return '\n'.join(rows) + '\n'
+
+    def with_line(number, text):
+        copy = list(lines)
+        copy[number - 1] = text
+        return csv_of(copy)
+
+    def fields(number):
+        return lines[number - 1].split(',')
+
+    def with_fields(number, change):
+        parts = fields(number)
+        change(parts)
+        return with_line(number, ','.join(parts))
+
+    # The clean CSV goes through the same entry point, so the failures below
+    # are not an artefact of the helper.
+    status, message, table = _run_generator_on(generator, csv_of(lines))
+    assert_eq((status, message, table is not None and len(table)), (0, '', 536),
+              "generator validation: the clean CSV converts and leaves a 536 byte table")
+    # A display can be added without changing the generator (the tests pin 33).
+    status, _, table = _run_generator_on(generator, csv_of(lines[:-1]))
+    assert_eq((status, table is not None and len(table)), (0, 8 + 16 * 32),
+              "generator validation: the table size follows the number of rows")
+
+    def odd_names(parts):
+        parts[1] = fields(3)[1]
+
+    # (what is wrong, the CSV text, expected line in the message or None, expected snippet)
+    cases = [
+        ("a CSV with no rows", csv_of(lines[:1]), None, 'no display rows'),
+        ("an empty file", '', 1, 'expected the columns'),
+        ("the old rotation column", csv_of(
+            [lines[0].replace('name,', 'name,rotation,')] + lines[1:]), 1, 'expected the columns'),
+        ("a missing row in the middle", csv_of(lines[:6] + lines[7:]), 7, 'index 6, expected 5'),
+        ("a row with the wrong index", with_fields(5, lambda p: p.__setitem__(0, '9')), 5, 'index 9'),
+        ("too few byte fields", with_fields(5, lambda p: p.pop()), 5, 'got 17'),
+        ("too many byte fields", with_fields(5, lambda p: p.append('0')), 5, 'got 19'),
+        ("an empty byte field", with_fields(5, lambda p: p.__setitem__(6, '')), 5, 'invalid literal'),
+        ("a byte above 255", with_fields(5, lambda p: p.__setitem__(7, '256')), 5, '0..255'),
+        ("a negative byte", with_fields(5, lambda p: p.__setitem__(7, '-1')), 5, '0..255'),
+        ("a byte that is not a number", with_fields(5, lambda p: p.__setitem__(7, 'x')), 5, 'invalid literal'),
+        ("a non-zero even byte", with_fields(6, lambda p: p.__setitem__(2, '1')), 6, 'even bytes'),
+        ("a non-zero last even byte", with_fields(6, lambda p: p.__setitem__(16, '4')), 6, 'even bytes'),
+        ("a duplicate name", with_fields(9, odd_names), 9, 'already used'),
+        ("an empty name", with_fields(9, lambda p: p.__setitem__(1, ' ')), 9, 'no name'),
+    ]
+    for label, text, line, snippet in cases:
+        status, message, table = _run_generator_on(generator, text)
+        expected_message = snippet in message and (line is None or f'line {line}:' in message)
+        assert_eq((status, expected_message, table), (1, True, None),
+                  f"generator validation: {label} makes the generator exit 1 with "
+                  f"'{snippet}'{'' if line is None else f' at line {line}'} and removes the stale table")
+
+
+def _typed_asymmetric_frames():
+    """An asymmetric bitmap and its clockwise turns, typed by hand.
+
+    Pixels of the bitmap (row a from the top, column b from the left):
+        row 0: # # # . . . . .
+        row 1: # . . . . . . .
+        row 2: # # . . . . . .
+        row 3: # . . . . . . .
+        rows 4 to 6 empty
+        row 7: . . . . . . . #
+    The bits of a row byte, for columns 0 to 7, are 0x80, 0x01, 0x02, 0x04,
+    0x08, 0x10, 0x20, 0x40. A quarter turn moves pixel (a, b) to (b, 7 - a).
+    """
+    turns = [
+        # as drawn: row 0 = columns 0, 1, 2 = 0x83; row 7 = column 7 = 0x40
+        [0, 0x83, 0, 0x80, 0, 0x81, 0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0x40],
+        # one turn: the rows become columns 7, 6, 5, 4 of the first rows
+        [0, 0x78, 0, 0x50, 0, 0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80],
+        # two turns: the bitmap upside down and mirrored left to right
+        [0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0x60, 0, 0x40, 0, 0x70],
+        # three turns: one counter-clockwise turn
+        [0, 0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0, 0x82, 0, 0x87],
+    ]
+    return turns
+
+
+def _flip_both_axes(frame):
+    """Rows bottom to top and columns right to left, written with the bit masks."""
+    flipped = [0] * 16
+    for a in range(8):
+        for b in range(8):
+            if frame[2 * a + 1] & DISPLAY_COLUMN_BITS[b]:
+                flipped[2 * (7 - a) + 1] |= DISPLAY_COLUMN_BITS[7 - b]
+    return flipped
+
+
+def test_display_rotation_reference():
+    """Anchor the shared Python reference rotation to the geometry and to hand-typed bytes."""
+    print("\n=== Testing the reference display rotation ===")
+    rows, display_frames = _read_display_csv_frames()
+
+    # The physical column to bit map, from a hand-written example.
+    assert_eq(DISPLAY_ROTATION.COLUMN_BITS, [7, 0, 1, 2, 3, 4, 5, 6],
+              "reference rotation: physical column to bit map is 7, 0, 1, 2, 3, 4, 5, 6")
+    for row, column, byte_index, mask in ((0, 0, 1, 0x80), (0, 1, 1, 0x01), (0, 7, 1, 0x40),
+                                          (3, 5, 7, 0x10), (7, 0, 15, 0x80), (7, 7, 15, 0x40)):
+        single = [0] * 16
+        single[byte_index] = mask
+        grid = DISPLAY_ROTATION.frame_to_grid(single)
+        assert_eq(sum(map(sum, grid)) == 1 and grid[row][column] == 1, True,
+                  f"reference rotation: byte {byte_index} mask 0x{mask:02X} is row {row}, column {column}")
+        assert_eq(DISPLAY_ROTATION.grid_to_frame(grid), single,
+                  f"reference rotation: row {row}, column {column} converts back to byte {byte_index}")
+
+    # An asymmetric bitmap against bytes typed from the geometric rule.
+    typed = _typed_asymmetric_frames()
+    for turns in range(4):
+        assert_eq(rotate_frame(typed[0], turns), typed[turns],
+                  f"reference rotation: the asymmetric bitmap turned {turns} x 90 degrees "
+                  "equals the hand-typed bytes")
+    assert_eq(rotate_frame(typed[0], 1) != typed[3], True,
+              "reference rotation: a clockwise turn is not a counter-clockwise turn")
+    top_left = [0, 0x80] + [0] * 14
+    assert_eq(rotate_frame(top_left, 1), [0, 0x40] + [0] * 14,
+              "reference rotation: the top-left pixel goes to the top-right corner")
+    assert_eq(rotate_frame(top_left, 3), [0] * 14 + [0, 0x80],
+              "reference rotation: the top-left pixel goes to the bottom-left corner")
+
+    # Properties on the 33 displays, every single pixel and pseudo-random bitmaps.
+    singles = []
+    for a in range(8):
+        for b in range(8):
+            single = [0] * 16
+            single[2 * a + 1] = DISPLAY_COLUMN_BITS[b]
+            singles.append(single)
+    generator = random.Random(2026)
+    randoms = [[0 if i % 2 == 0 else generator.randrange(256) for i in range(16)] for _ in range(200)]
+    corpus = display_frames + singles + randoms + [[0] * 16, [0, 255] * 8]
+    four_turns = sum(1 for f in corpus if rotate_frame(rotate_frame(rotate_frame(rotate_frame(f, 1), 1), 1), 1) != f)
+    assert_eq((len(corpus), four_turns), (len(corpus), 0),
+              "reference rotation: four quarter turns are the identity "
+              f"({len(corpus)} bitmaps)")
+    half_turns = sum(1 for f in corpus if rotate_frame(f, 2) != _flip_both_axes(f))
+    assert_eq(half_turns, 0, "reference rotation: two quarter turns equal flipping both axes")
+    composed = sum(1 for f in corpus for m in range(4) for n in range(4)
+                   if rotate_frame(rotate_frame(f, m), n) != rotate_frame(f, m + n))
+    assert_eq(composed, 0, "reference rotation: turns add up (every pair of turn counts)")
+    pixels = sum(1 for f in corpus for t in range(4)
+                 if sum(map(sum, DISPLAY_ROTATION.frame_to_grid(rotate_frame(f, t))))
+                 != sum(map(sum, DISPLAY_ROTATION.frame_to_grid(f))))
+    assert_eq(pixels, 0, "reference rotation: the number of lit pixels never changes")
+    assert_eq(sum(1 for f in singles if rotate_frame(f, 1) == f), 0,
+              "reference rotation: no single pixel stays put under a quarter turn")
+    assert_eq(all(rotate_frame(f, t)[0::2] == [0] * 8 for f in corpus for t in range(1, 4)), True,
+              "reference rotation: the even bytes of a rotated frame are 0")
+
+    # Turn counts are taken modulo 4, negative ones included.
+    sample = display_frames[11]
+    for turns, equivalent in ((4, 0), (5, 1), (6, 2), (7, 3), (-1, 3), (-2, 2), (-3, 1), (-4, 0), (8, 0)):
+        assert_eq(rotate_frame(sample, turns), rotate_frame(sample, equivalent),
+                  f"reference rotation: out-of-range turn count {turns} behaves as {equivalent}")
+
+    # The preview tool uses this very module, not a copy of the rule.
+    preview = (Path(__file__).resolve().parents[1] / 'tools' / 'preview_display.py').read_text()
+    assert_eq('from display_rotation import rotate_frame' in preview, True,
+              "reference rotation: preview_display.py imports the shared rotation")
 
 
 def test_smart_cruise_timer_bar_rotation():
-    """The timer overlay must rotate with the pre-rotated display frame."""
+    """The timer overlay is applied to the stored frame, then both rotate together."""
     print("\n=== Testing Smart Cruise timer bar rotation ===")
 
     base_frame = [0] * 16
     for leds_lit in range(9):
-        expected = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, 0))
+        expected = DISPLAY_ROTATION.frame_to_grid(apply_timer_bar_overlay(base_frame, leds_lit))
         for rotation in range(4):
             if rotation > 0:
-                expected = rotate_display_clockwise(expected)
-            actual = physical_display_matrix(apply_timer_bar_overlay(base_frame, leds_lit, rotation))
+                expected = DISPLAY_ROTATION.rotate_grid_clockwise(expected)
+            actual = DISPLAY_ROTATION.frame_to_grid(frame_to_send(base_frame, leds_lit, rotation))
             assert_eq(actual, expected,
                       f"timer bar: {leds_lit} LEDs rotates clockwise at rotation {rotation}")
+            assert_eq(frame_to_send(base_frame, leds_lit, rotation),
+                      legacy_timer_bar_overlay(rotate_frame(base_frame, rotation), leds_lit, rotation),
+                      f"timer bar: {leds_lit} LEDs at rotation {rotation} matches the earlier "
+                      "per-rotation overlay on an empty frame")
+
+    # Overlay then rotate equals the hand-written per-rotation overlay on the
+    # rotated frame, for every frame, rotation and LED count. The frames are
+    # the 33 rotation 0 rows turned by the reference rotation.
+    rows, frames = _read_display_csv_frames()
+    differences = 0
+    checked = 0
+    for frame in frames:
+        for rotation in range(4):
+            for leds_lit in range(-1, 9):
+                checked += 1
+                old = legacy_timer_bar_overlay(rotate_frame(frame, rotation), leds_lit, rotation)
+                if frame_to_send(frame, leds_lit, rotation) != old:
+                    differences += 1
+    assert_eq((checked, differences), (33 * 4 * 10, 0),
+              "timer bar: overlay then rotate equals the per-rotation overlay on the rotated frame "
+              "(33 frames x 4 rotations x LED counts -1..8)")
+    # Non-vacuous: the wrong rotation does change the bytes.
+    wrong = sum(1 for frame in frames for leds_lit in range(1, 9)
+                if rotate_frame(apply_timer_bar_overlay(frame, leds_lit), 1)
+                != legacy_timer_bar_overlay(rotate_frame(frame, 2), leds_lit, 2))
+    assert_eq(wrong > 0, True, "timer bar: comparing against the wrong rotation is detected")
+
 
 # =============================================================================
 # New functions added in PR (VESC 7.00 compatibility)
@@ -863,14 +1159,6 @@ def test_release_documentation():
     root = Path(__file__).resolve().parents[1]
     readme = (root / 'README.md').read_text()
 
-    assert_eq('**Version:** 1.6.1' in readme, True,
-               "release documentation: increments the package version for the reset fix")
-    assert_eq('## What\'s New in Version 1.6.1' in readme, True,
-               "release documentation: includes a 1.6.1 changelog section")
-    assert_eq('**Action required for version 1.6.0 installations:** Update to 1.6.1 and use **Reset Defaults** again.' in readme,
-               True, "release documentation: tells 1.6.0 users to reset again")
-    assert_eq('Reset Defaults did not work correctly in 1.6.0' in readme, True,
-               "release documentation: identifies the fixed 1.6.0 reset defect")
     assert_eq('**After updating VESC controller firmware, use Reset Defaults**' in readme,
               True, "release documentation: distinguishes controller firmware updates")
     assert_eq('**A routine Blacktip DPV package update does not require Reset Defaults**' in readme,
@@ -1062,6 +1350,658 @@ def test_click_and_beep_regressions():
 
 
 # =============================================================================
+# Packaged Lisp stripper (tools/strip_lisp.py)
+# =============================================================================
+
+STRIP_SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'strip_lisp.py'
+LISP_SOURCE = Path(__file__).resolve().parents[1] / 'blacktip_dpv.lisp'
+
+
+def _load_stripper():
+    """Import the very module the Makefile runs, not a copy of its logic."""
+    spec = importlib.util.spec_from_file_location('strip_lisp', STRIP_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_stripper_cli(src_bytes, work_dir, dst_exists=False):
+    """Run the stripper CLI on bytes. Returns (exit code, stderr, dst bytes)."""
+    src = Path(work_dir) / 'in.lisp'
+    dst = Path(work_dir) / 'out.lisp'
+    src.write_bytes(src_bytes)
+    if dst_exists:
+        dst.write_bytes(b'stale output\n')
+    elif dst.exists():
+        dst.unlink()
+    result = subprocess.run([sys.executable, str(STRIP_SCRIPT), str(src), str(dst)],
+                            capture_output=True, text=True)
+    out = dst.read_bytes() if dst.exists() else None
+    return result.returncode, result.stderr, out
+
+
+_FORM_SPLIT = re.compile(rb"[()\[\]{}'`]|,@|,|[^()\[\]{}'`,]+")
+
+
+def _forms(stripper, data):
+    """Nested form structure of a Lisp text built from the reader-level tokens.
+
+    Strings and char literals stay one byte-exact leaf; atoms are split at
+    brackets and quote characters. Line numbers are included, so a form that
+    moved to another line is a difference.
+    """
+    stack = [[]]
+    for line, kind, raw in stripper.tokenize(data)[0]:
+        if kind != 'atom':
+            stack[-1].append((line, kind, raw))
+            continue
+        for piece in _FORM_SPLIT.findall(raw):
+            if piece in (b'(', b'[', b'{'):
+                stack.append([])
+            elif piece in (b')', b']', b'}'):
+                done = stack.pop() if len(stack) > 1 else []
+                stack[-1].append(done)
+            else:
+                stack[-1].append((line, 'atom', piece))
+    return stack
+
+
+def _tokens_equal(stripper, a, b):
+    return stripper.tokenize(a)[0] == stripper.tokenize(b)[0]
+
+
+def _differs(stripper, original, damaged):
+    """True when the comparator (self-check or token comparison) objects."""
+    try:
+        stripper.verify(original, damaged)
+    except stripper.StripError:
+        return True
+    return False
+
+
+def _strip_or_report(stripper, data, name):
+    """strip_checked, turning a StripError into a reported test failure."""
+    try:
+        return stripper.strip_checked(data)
+    except stripper.StripError as e:
+        assert_eq(f'{e.line}:{e.col}: {e.message}', 'stripped without error', name)
+        return None, None
+
+
+def test_strip_lisp_real_file():
+    print("\n--- strip_lisp: real source ---")
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, removed = _strip_or_report(stripper, src, "strip real file: stripper and self-check accept the source")
+    if out is None:
+        return
+
+    assert_eq(len(out) < len(src), True, "strip real file: output is smaller")
+    assert_eq(out.count(b'\n'), src.count(b'\n'), "strip real file: line count identical")
+    assert_eq(out.endswith(b'\n'), src.endswith(b'\n'), "strip real file: trailing newline preserved")
+    src_tokens = stripper.tokenize(src)[0]
+    out_tokens = stripper.tokenize(out)[0]
+    assert_eq(len(src_tokens) > 1000, True, "strip real file: reader found the program (not a vacuous comparison)")
+    assert_eq([(k, r) for _, k, r in out_tokens], [(k, r) for _, k, r in src_tokens],
+              "strip real file: token sequence identical")
+    assert_eq(out_tokens, src_tokens, "strip real file: every token on the same line")
+    assert_eq(_forms(stripper, out), _forms(stripper, src), "strip real file: form structure identical")
+
+    src_strings = [r for _, k, r in src_tokens if k == 'string']
+    out_strings = [r for _, k, r in out_tokens if k == 'string']
+    assert_eq(len(src_strings) > 0 and out_strings == src_strings, True,
+              "strip real file: every string literal byte-identical")
+
+    def directive_lines(data):
+        return [(n, l) for n, l in enumerate(data.split(b'\n'), 1)
+                if l.startswith((b'@const-start', b'@const-end'))
+                or l.lstrip().startswith((b'@const-start', b'@const-end'))]
+
+    def import_lines(data):
+        return [l.strip() for l in data.split(b'\n') if l.lstrip().startswith(b'(import ')]
+
+    src_dir = directive_lines(src)
+    out_dir = directive_lines(out)
+    assert_eq(len(src_dir) >= 4, True, "strip real file: source has the const directives")
+    assert_eq([l.rstrip(b'\r') for _, l in out_dir], [l.strip() for _, l in src_dir],
+              "strip real file: directive lines kept in order, in column 0")
+    assert_eq([n for n, _ in out_dir], [n for n, _ in src_dir],
+              "strip real file: directive lines on the same line numbers")
+    assert_eq(len(import_lines(src)) >= 1 and import_lines(out) == import_lines(src), True,
+              "strip real file: import lines kept in order")
+    assert_eq(stripper.vesc_tool_imports(out)[0][1:3], stripper.vesc_tool_imports(src)[0][1:3],
+              "strip real file: vesc_tool import path and tag unchanged")
+
+    again, _ = stripper.strip_checked(out)
+    assert_eq(again, out, "strip real file: stripping the output changes nothing (idempotent)")
+
+    with tempfile.TemporaryDirectory() as work:
+        code, err, cli_out = _run_stripper_cli(src, work)
+        assert_eq((code, cli_out), (0, out), "strip real file: command line output equals the library output")
+
+
+# (name, input, expected stripped output); each is also checked for token
+# equivalence and line-count equality.
+STRIP_CASES = [
+    ("semicolon inside a string",
+     b'(print "a;b") ; c\n', b'(print "a;b")\n'),
+    ("string with leading-space continuation line",
+     b'  (print "abc\n   def  \n  ghi")  ; c\n', b'(print "abc\n   def  \n  ghi")\n'),
+    ("escaped quote inside a string",
+     b'(a "x\\"y;z") ; c\n', b'(a "x\\"y;z")\n'),
+    ("escaped backslash at the end of a string",
+     b'  (b "p\\\\") ; q ; "r\n', b'(b "p\\\\")\n'),
+    ("char literal semicolon",
+     b'  (f \\#;) ; c\n', b'(f \\#;)\n'),
+    ("char literal double quote",
+     b'  (g \\#") ; "c\n  (h 1)\n', b'(g \\#")\n(h 1)\n'),
+    ("char literal space",
+     b'  (h \\# ) ; c\n', b'(h \\# )\n'),
+    ("char literal space at end of line before a comment",
+     b'  (h \\# ; c\n  )\n', b'(h \\# \n)\n'),
+    ("char literal escapes",
+     b'(list \\#\\n \\#\\" \\#\\\\ \\#\\s) ; c\n', b'(list \\#\\n \\#\\" \\#\\\\ \\#\\s)\n'),
+    ("comment with quotes and apostrophes",
+     b'(a 1) ; don\'t "quote\n(b 2) ; "x\n', b'(a 1)\n(b 2)\n'),
+    ("comment-only line after a string line",
+     b'(a "x")\n    ; it\'s "odd\n(b)\n', b'(a "x")\n\n(b)\n'),
+    ("tab indentation and trailing tab before a comment",
+     b'\t\t(a)\t; c\n', b'(a)\n'),
+    ("interior tab and spacing are kept",
+     b'  (a\tb    c)\n', b'(a\tb    c)\n'),
+    ("CRLF line endings",
+     b'  (a) ; c\r\n; only\r\n\r\n  (b "x\r\n  y")\r\n', b'(a)\r\n\r\n\r\n(b "x\r\n  y")\r\n'),
+    ("no trailing newline after code",
+     b'  (a) ; c', b'(a)'),
+    ("no trailing newline after a comment line",
+     b'(a)\n  ; c', b'(a)\n'),
+    ("comment-only and blank lines become empty lines",
+     b'; c\n   \n\t\n(a)\n', b'\n\n\n(a)\n'),
+    ("const directives and import",
+     b'  @const-start ; c\n   (import "generated/x.bin" \'x) ; c\n\t@const-end\n(a)\n',
+     b'@const-start\n(import "generated/x.bin" \'x)\n@const-end\n(a)\n'),
+    ("trailing whitespace before a comment",
+     b'(a)   \t ; c\n', b'(a)\n'),
+    ("trailing whitespace without a comment",
+     b'(a)   \n', b'(a)\n'),
+    ("trailing whitespace inside a string is data",
+     b'(p "ab  \n  cd")\n', b'(p "ab  \n  cd")\n'),
+    ("quote and quasiquote forms",
+     b"  '(a b) ; c\n  `(a ,b ,@c)\n", b"'(a b)\n`(a ,b ,@c)\n"),
+    ("UTF-8 in a comment is dropped, in a string is kept",
+     '  (a "\u2013") ; \u2014 dash\n'.encode(), '(a "\u2013")\n'.encode()),
+    ("already stripped input is unchanged",
+     b'(a)\n(b "c")\n', b'(a)\n(b "c")\n'),
+    ("empty file", b'', b''),
+]
+
+# (name, input, line, column) for input the stripper must reject.
+STRIP_ERRORS = [
+    ("unterminated string", b'(a)\n  (b "abc\n(c)\n', 2, 6),
+    ("unterminated string at end of file", b'"abc', 1, 1),
+    ("invalid escape in a string", b'(a "x\\qy")\n', 1, 6),
+    ("backslash at the end of a line inside a string", b'(a "x\\\n y")\n', 1, 6),
+    ("bare backslash", b'(a \\x)\n', 1, 4),
+    ("unterminated char literal", b'(a \\#\n', 1, 4),
+    ("unterminated char literal at end of file", b'(a \\#', 1, 4),
+    ("unknown char literal escape", b'(a \\#\\q)\n', 1, 4),
+    ("control character in code", b'(a)\n  (b\x01)\n', 2, 5),
+    ("non-ASCII byte in code", b'(caf\xc3\xa9)\n', 1, 5),
+    ("lone carriage return", b'(a)\r(b)\n', 1, 4),
+    ("mixed line endings", b'(a)\r\n(b)\n', 2, 4),
+    ("shebang first line", b'#!/bin/lbm\n(a)\n', 1, 1),
+    ("import with a quote in its trailing comment",
+     b'(import "x.bin" \'x) ; "q"\n', 1, 1),
+    ("tab-indented import that vesc_tool would not see",
+     b'\t(import "x.bin" \'x)\n', 1, 1),
+]
+
+
+def test_strip_lisp_edge_cases():
+    print("\n--- strip_lisp: edge cases ---")
+    stripper = _load_stripper()
+
+    for name, src, expected in STRIP_CASES:
+        out, _ = _strip_or_report(stripper, src, f"strip edge case, accepted: {name}")
+        if out is None:
+            continue
+        assert_eq(out, expected, f"strip edge case, exact text: {name}")
+        same = (out.count(b'\n') == src.count(b'\n')
+                and _tokens_equal(stripper, src, out)
+                and _forms(stripper, src) == _forms(stripper, out))
+        assert_eq(same, True, f"strip edge case, tokens and lines equal: {name}")
+
+    with tempfile.TemporaryDirectory() as work:
+        for name, src, line, col in STRIP_ERRORS:
+            try:
+                stripper.strip_checked(src)
+                got = None
+            except stripper.StripError as e:
+                got = (e.line, e.col)
+            assert_eq(got, (line, col), f"strip error position: {name}")
+
+            code, err, out = _run_stripper_cli(src, work, dst_exists=True)
+            assert_eq((code != 0, f'in.lisp:{line}:{col}: error:' in err, out),
+                      (True, True, None),
+                      f"strip command line: non-zero exit, file:line:col, stale output removed: {name}")
+        leftovers = sorted(p.name for p in Path(work).iterdir() if p.name not in ('in.lisp',))
+        assert_eq(leftovers, [], "strip command line: failed runs leave no temporary or output file")
+
+        code, err, out = _run_stripper_cli(b'', work)
+        assert_eq((code, out), (0, b''), "strip command line: output equal to input is not an error")
+
+        src = Path(work) / 'missing.lisp'
+        result = subprocess.run([sys.executable, str(STRIP_SCRIPT), str(src), str(Path(work) / 'o.lisp')],
+                                capture_output=True, text=True)
+        assert_eq((result.returncode != 0, (Path(work) / 'o.lisp').exists()), (True, False),
+                  "strip command line: unreadable source fails")
+
+        # --map: stripped column + removed indentation = source column
+        (Path(work) / 'm.lisp').write_bytes(b'(a)\n    (b "x\n  y") (c)\n\t\t(d)\n')
+        def mapped(line, col):
+            r = subprocess.run([sys.executable, str(STRIP_SCRIPT), '--map', str(line), str(col),
+                                str(Path(work) / 'm.lisp')], capture_output=True, text=True)
+            return r.stdout.strip()
+        assert_eq([mapped(1, 2), mapped(2, 1), mapped(2, 4), mapped(3, 1), mapped(4, 1)],
+                  ['2', '5', '8', '1', '3'],
+                  "strip --map: source column = stripped column + removed indentation")
+
+
+def test_strip_lisp_mutation_check():
+    print("\n--- strip_lisp: the comparator is not vacuous ---")
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, _ = _strip_or_report(stripper, src, "mutation baseline: stripper accepts the source")
+    if out is None:
+        return
+    assert_eq(_differs(stripper, src, out), False, "mutation baseline: genuine output passes")
+
+    # drop a character inside a string literal
+    tok = next(t for t in stripper.tokenize(out)[0] if t[1] == 'string' and len(t[2]) > 6)
+    pos = out.index(tok[2]) + 3
+    assert_eq(_differs(stripper, src, out[:pos] + out[pos + 1:]), True,
+              "mutation: dropping a character inside a string is detected")
+
+    # remove a closing parenthesis
+    pos = out.rindex(b')')
+    assert_eq(_differs(stripper, src, out[:pos] + out[pos + 1:]), True,
+              "mutation: removing a closing parenthesis is detected")
+
+    # move a token to another line (line numbers are part of the comparison)
+    pos = out.index(b'\n(')
+    assert_eq(_differs(stripper, src, out[:pos] + b' ' + out[pos + 1:] + b'\n'), True,
+              "mutation: joining two lines is detected")
+
+    # collapse leading spaces inside a multi-line string
+    multi = b'(print "abc\n      def")\n(x)\n'
+    good, _ = _strip_or_report(stripper, multi, "mutation baseline: multi-line string accepted")
+    assert_eq(good, multi, "mutation baseline: multi-line string kept as is")
+    damaged = good.replace(b'\n      def', b'\n def')
+    assert_eq(_differs(stripper, multi, damaged), True,
+              "mutation: collapsing leading spaces inside a string is detected")
+    assert_eq(_tokens_equal(stripper, multi, damaged), False,
+              "mutation: the plain token comparison also sees the collapsed string")
+
+    # leftover comment, indentation and a missing directive are not 'stripped'
+    base = b'(a)\n@const-start\n(b)\n'
+    assert_eq(_differs(stripper, base, b'(a) ; c\n@const-start\n(b)\n'), True,
+              "mutation: a comment left in the output is detected")
+    assert_eq(_differs(stripper, base, b'(a)\n @const-start\n(b)\n'), True,
+              "mutation: indentation left in the output is detected")
+    assert_eq(_differs(stripper, base, b'(a)\n\n(b)\n'), True,
+              "mutation: a dropped directive is detected")
+
+
+def test_strip_lisp_native_reader():
+    """Optional: compare the forms the LispBM reader produces for both files.
+
+    Needs a native LispBM repl (for example the one built from the bldc
+    release_7_00 tree, lispBM/lispBM/repl). Set LBM_REPL to its path. The test
+    is skipped, with a printed notice, when LBM_REPL is not set.
+    """
+    print("\n--- strip_lisp: native LispBM reader ---")
+    repl = os.environ.get('LBM_REPL', '')
+    if not repl or not os.access(repl, os.X_OK):
+        print("SKIPPED: set LBM_REPL to a native LispBM repl binary to compare the parsed "
+              "forms of the source and the stripped file")
+        return
+    stripper = _load_stripper()
+    src = LISP_SOURCE.read_bytes()
+    out, _ = _strip_or_report(stripper, src, "native reader: stripper accepts the source")
+    if out is None:
+        return
+    dump = ('(define prog (read-program (load-file (fopen "%s" "r"))))\n'
+            '(define fh (fopen "%s" "w"))\n'
+            '(define n 0)\n'
+            '(loopforeach f prog (progn (fwrite fh (flatten f)) (setq n (+ n 1))))\n'
+            '(fclose fh)\n'
+            '(print (list (quote forms) n))\n')
+    results = []
+    with tempfile.TemporaryDirectory() as work:
+        for label, data in (('source', src), ('stripped', out)):
+            lisp = os.path.join(work, label + '.lisp')
+            flat = os.path.join(work, label + '.bin')
+            script = os.path.join(work, label + '.dump.lisp')
+            with open(lisp, 'wb') as f:
+                f.write(data)
+            with open(script, 'w') as f:
+                f.write(dump % (lisp, flat))
+            run = subprocess.run([repl, '-H', '200000', '-M', '524288', '--terminate', '--silent',
+                                  '--history_file=', '-s', script], capture_output=True, text=True)
+            blob = open(flat, 'rb').read() if os.path.exists(flat) else None
+            results.append((run.returncode, blob))
+    assert_eq(results[0][0] == 0 and results[0][1] is not None and len(results[0][1]) > 1000, True,
+              "native reader: source parsed into forms")
+    assert_eq(results[1], results[0], "native reader: parsed forms of the stripped file identical to the source")
+
+
+
+# =============================================================================
+# Display path in a native LispBM repl (optional, needs LBM_REPL)
+# =============================================================================
+
+HARNESS_LOOP_OPEN = '(loopwhile-thd THREAD_STACK_DISPLAY t {'
+HARNESS_IMPORT = '(import "generated/display_lut.bin" \'display_lut_bin)'
+HARNESS_STUBS = """(define puts (lambda (s) nil))
+(define loop_budget 0)
+(define leds_g -1)
+"""
+# Driver for the cases. Each case runs ONE iteration of the real display loop
+# synchronously (the thread is replaced by a loop that runs loop_budget times,
+# so nothing races with the driver) and prints every i2c transfer.
+HARNESS_DRIVER = """
+(defun smart_cruise_leds_count () leds_g)
+(defun i2c-tx-rx (addr data) (progn (print (list 'i2c addr data)) 0))
+(defun run_case (st flip r1 r2 d leds) {
+    (print (list 'case st flip r1 r2 d leds))
+    (setvar 'scooter_type st)
+    (setvar 'cudax_flip flip)
+    (setvar 'rotation r1)
+    (setvar 'rotation2 r2)
+    (setvar 'disp_num d)
+    (setvar 'last_disp_num -2)
+    (setvar 'leds_g leds)
+    (setvar 'loop_budget 1)
+    (start_display_output_loop)
+})
+"""
+
+
+def display_harness_script(source, lut, body):
+    """Build a repl script from the real Lisp source.
+
+    Everything from the boot sequence at the end of the file is dropped, the
+    display table is defined from the given bytes instead of imported, the
+    display loop sleeps 1 ms and runs one iteration per call instead of
+    forever in a thread, and the timer bar LED count comes from a variable.
+    The code under test is otherwise the source text unchanged. body is the
+    Lisp that exercises it.
+    """
+    assert source.count(HARNESS_IMPORT) == 1 and source.count(HARNESS_LOOP_OPEN) == 1
+    assert source.count('(define SLEEP_UI_UPDATE 0.25)') == 1
+    end = source.rindex('\n(init)\n')
+    text = source[:end] + '\n'
+    define = '(define display_lut_bin (bufcreate %d))\n' % len(lut)
+    define += ''.join('(bufset-u8 display_lut_bin %d %d)\n' % (i, b) for i, b in enumerate(lut) if b)
+    text = text.replace(HARNESS_IMPORT, define)
+    text = text.replace(HARNESS_LOOP_OPEN,
+                        "(loopwhile (> loop_budget 0) {(setvar 'loop_budget (- loop_budget 1))")
+    text = text.replace('(define SLEEP_UI_UPDATE 0.25)', '(define SLEEP_UI_UPDATE 0.001)')
+    return HARNESS_STUBS + text + HARNESS_DRIVER + body
+
+
+def run_display_harness(repl, script_text, timeout=600):
+    with tempfile.TemporaryDirectory() as work:
+        script = os.path.join(work, 'display.lisp')
+        with open(script, 'w') as f:
+            f.write(script_text)
+        run = subprocess.run([repl, '-H', '200000', '-M', '1048576', '-C', '131072', '--terminate',
+                              '--silent', '--history_file=', '-s', script],
+                             capture_output=True, text=True, timeout=timeout)
+    return run
+
+
+def _lisp_list(values):
+    return '(list ' + ' '.join(str(v) for v in values) + ')'
+
+
+def parse_i2c_log(output):
+    """Return [(case tuple, [(addr, data), ...]), ...] from the harness output."""
+    cases = []
+    for line in output.splitlines():
+        line = ''.join(ch for ch in line if ' ' <= ch <= '~')
+        match = re.match(r'^\(case ([-\d ]+)\)$', line)
+        if match:
+            cases.append((tuple(int(v) for v in match.group(1).split()), []))
+            continue
+        match = re.match(r'^\(i2c (\d+) (?:\[([\d ]*)\]|\(([\d ]*)\))\)$', line)
+        if match and cases:
+            data = match.group(2) if match.group(2) is not None else match.group(3)
+            cases[-1][1].append((int(match.group(1)), [int(v) for v in data.split()]))
+    return cases
+
+
+def display_screen_address(scooter_type, cudax_flip, disp_num):
+    """Mirror the screen selection in start_display_output_loop."""
+    address = 0x70
+    if scooter_type == 1:
+        first_group = disp_num in (0, 1, 2, 3) or disp_num > 17
+        if first_group and cudax_flip == 1:
+            address = 0x71
+        if not first_group and cudax_flip != 1:
+            address = 0x71
+    return address
+
+
+def expected_display_traffic(frames, case):
+    """What the display loop must send for a case.
+
+    The rotation 0 row of the display (the 33 CSV rows), turned by the
+    reference rotation, with the hand-written per-rotation timer bar overlay on
+    the turned frame, then the display-on command. This is also what the
+    earlier firmware, with a table of pre-rotated rows, sent.
+    """
+    scooter_type, cudax_flip, rotation, rotation2, disp_num, leds = case
+    address = display_screen_address(scooter_type, cudax_flip, disp_num)
+    used = rotation if address == 0x70 else rotation2
+    base = [0] * 16 if disp_num == 99 else frames[disp_num]
+    return [(address, legacy_timer_bar_overlay(rotate_frame(base, used), leds, used)), (address, [0x81])]
+
+
+def display_cases(frames_to_draw=tuple(range(33)) + (99,), leds_counts=tuple(range(-1, 9))):
+    cases = []
+    for d in frames_to_draw:
+        for leds in leds_counts:
+            for r1 in range(4):
+                cases.append((0, 0, r1, (r1 + 2) % 4, d, leds))
+            for flip in (0, 1):
+                for r1 in range(4):
+                    for r2 in range(4):
+                        cases.append((1, flip, r1, r2, d, leds))
+    return cases
+
+
+def display_case_driver(cases):
+    return ''.join('(run_case %d %d %d %d %d %d)\n' % case for case in cases)
+
+
+def test_display_native_rotation_and_i2c():
+    """Optional: run the real rotation and the real display loop in a native repl.
+
+    Set LBM_REPL to a native LispBM repl (see test_strip_lisp_native_reader).
+    The repl runs rotate_display_frame for every frame and several turn counts,
+    and one iteration of the real display loop for every frame, rotation
+    setting, screen and timer bar LED count, recording the i2c transfers. They
+    must equal the oracle: the rotation 0 CSV row turned by the reference
+    rotation, plus the hand-written per-rotation timer bar overlay.
+    """
+    print("\n--- display path: native LispBM repl ---")
+    repl = os.environ.get('LBM_REPL', '')
+    if not repl or not os.access(repl, os.X_OK):
+        print("SKIPPED: set LBM_REPL to a native LispBM repl binary to run the real "
+              "rotate_display_frame and display loop and compare the i2c bytes")
+        return
+    source = LISP_SOURCE.read_text()
+    rows, frames = _read_display_csv_frames()
+    generator = _load_lut_generator()
+    lut = generator.build_binary(generator.read_frames(DISPLAY_LUT_PATH))
+
+    # Part 1: the real rotate_display_frame on every stored frame.
+    turn_counts = (0, 1, 2, 3, 4, 5, 7, -1, -2)
+    body = ('(define pb (bufcreate 16))\n(define sc (bufcreate 8))\n'
+            '(define rot_frames (list %s))\n'
+            '(define turn_counts (list %s))\n'
+            '(loopforeach f rot_frames (loopforeach tn turn_counts {\n'
+            '  (bufclear pb)\n'
+            '  (looprange r 0 8 (bufset-u8 pb (+ (* r 2) 1) (ix f r)))\n'
+            '  (rotate_display_frame pb sc tn)\n'
+            "  (print (list 'rot tn (bufget-u8 pb 1) (bufget-u8 pb 3) (bufget-u8 pb 5) (bufget-u8 pb 7)\n"
+            '    (bufget-u8 pb 9) (bufget-u8 pb 11) (bufget-u8 pb 13) (bufget-u8 pb 15)\n'
+            '    (bufget-u8 pb 0) (bufget-u8 pb 2) (bufget-u8 pb 14)))\n'
+            '}))\n') % (
+                ' '.join(_lisp_list(frame[1::2]) for frame in frames),
+                ' '.join(str(t) for t in turn_counts))
+    run = run_display_harness(repl, display_harness_script(source, lut, body))
+    got = []
+    for line in run.stdout.splitlines():
+        match = re.match(r'^\(rot ([-\d ]+)\)$', ''.join(c for c in line if ' ' <= c <= '~'))
+        if match:
+            got.append([int(v) for v in match.group(1).split()])
+    expected = []
+    for stored in frames:
+        for turns in turn_counts:
+            frame = rotate_frame(stored, turns)
+            expected.append([turns] + frame[1::2] + [frame[0], frame[2], frame[14]])
+    if not got and 'Error writing to flash' in run.stdout + run.stderr:
+        print("SKIPPED: this repl cannot store the const blocks (try the repl_big build, "
+              "or a repl started with a larger constant memory)")
+        return
+    assert_eq(len(got), len(expected), "native rotation: one result for each frame and turn count")
+    if len(got) != len(expected):
+        print("  repl output:")
+        print("  " + "\n  ".join((run.stdout + run.stderr).strip().splitlines()[:8]))
+        return
+    assert_eq(got == expected, True,
+              "native rotation: rotate_display_frame equals the reference rotation for every "
+              "frame and turn count (including 4, 5, 7, -1, -2)")
+    even_bytes_clear = all(result[9:] == [0, 0, 0] for result in got if result[0] % 4)
+    assert_eq(even_bytes_clear, True,
+              "native rotation: the even bytes of a rotated frame are 0")
+
+    # Part 2: the real display loop, byte for byte.
+    cases = display_cases()
+    run = run_display_harness(repl, display_harness_script(source, lut, display_case_driver(cases)))
+    logged = parse_i2c_log(run.stdout)
+    assert_eq([c for c, _ in logged], cases,
+              f"native display loop: {len(cases)} cases (frames x rotation settings x screens x "
+              "LED counts) all ran")
+    bad = [(case, sent) for case, sent in logged if sent != expected_display_traffic(frames, case)]
+    if bad:
+        print("  first difference:", bad[0][0])
+        print("  sent:    ", bad[0][1])
+        print("  expected:", expected_display_traffic(frames, bad[0][0]))
+    assert_eq(len(bad), 0,
+              "native display loop: the i2c bytes equal the rotated rotation 0 rows with the overlay")
+    screens = {sent[0][0] for _, sent in logged}
+    assert_eq(screens, {0x70, 0x71}, "native display loop: both screens were driven")
+    # Non-vacuous: a wrong rotation, and no rotation at all, must not match.
+    wrong_rotation = sum(1 for case, sent in logged
+                         if sent != expected_display_traffic(
+                             frames, case[:2] + ((case[2] + 1) % 4, (case[3] + 1) % 4) + case[4:]))
+    assert_eq(wrong_rotation > len(logged) // 2, True,
+              "native display loop: the comparison fails for a wrong rotation setting")
+
+    # Part 3: the real display thread, at the stack size the source configures,
+    # draws every rotation, screen and a timer bar without running out of stack.
+    stack = re.search(r'\(define THREAD_STACK_DISPLAY (\d+)\)', source)
+    assert_eq(stack is not None, True, "native display thread: stack size found in the source")
+    thread_body = """
+(defun smart_cruise_leds_count () leds_g)
+(define ndraw 0)
+(defun i2c-tx-rx (addr data) (progn (setvar 'ndraw (+ ndraw 1)) 0))
+(defun trig (st flip r1 r2 d) {
+    (setvar 'scooter_type st) (setvar 'cudax_flip flip) (setvar 'rotation r1) (setvar 'rotation2 r2)
+    (setvar 'disp_num d) (setvar 'last_disp_num -2) (sleep 0.05)
+})
+(setvar 'leds_g 8)
+(start_display_output_loop)
+(sleep 0.05)
+"""
+    triggers = [(0, 0, r, 0, d) for r in range(4) for d in (5, 32, 99)]
+    triggers += [(1, 0, 0, r, d) for r in range(4) for d in (5, 32, 99)]
+    thread_body += ''.join('(trig %d %d %d %d %d)\n' % t for t in triggers)
+    thread_body += "(print (list 'done ndraw))\n"
+    text = display_harness_script(source, lut, '')
+    text = text.replace("(loopwhile (> loop_budget 0) {(setvar 'loop_budget (- loop_budget 1))",
+                        HARNESS_LOOP_OPEN)
+    run = run_display_harness(repl, text + thread_body, timeout=120)
+    done = re.search(r'\(done (\d+)\)', run.stdout)
+    assert_eq(done.group(1) if done else None, str(2 * (len(triggers) + 1)),
+              "native display thread: every redraw completed at THREAD_STACK_DISPLAY "
+              "(%s words), no out_of_stack" % (stack.group(1) if stack else '?'))
+    assert_eq('out_of_stack' in run.stdout, False,
+              "native display thread: no stack overflow reported")
+
+
+def test_rig_config5_fallback():
+    """The rig-only profile must behave exactly like existing profile 1."""
+    source = LISP_SOURCE.read_text()
+    start = source.index('(defun update_settings_from_eeprom ()')
+    end = source.index('(defun log_settings_1 ()', start)
+    settings = source[start:end]
+    assert_eq("(setvar 'hardware_configuration (eeprom-read-i 19))\n"
+              "    ; Rig-only compatibility: treat fixture profile 5 as series 2 without\n"
+              "    ; Bluetooth (profile 1). Leave the persisted setting untouched.\n"
+              "    (if (= hardware_configuration 5) (setvar 'hardware_configuration 1))"
+              in settings, True, 'rig profile 5 normalises only the RAM configuration')
+    assert_eq("(if (<= hardware_configuration HARDWARE_BLACKTIP_MAX)" in settings, True,
+              'rig profile does not reclassify CudaX 3 and 4')
+    assert_eq("(eeprom-store-i" in settings or "(conf-set" in settings, False,
+              'rig profile never writes persistent configuration')
+    repl = os.environ.get('LBM_REPL', '')
+    if not repl:
+        print('SKIPPED: native rig profile execution requires LBM_REPL')
+        return
+    src = log_native_source()
+    start = src.index('(defun update_settings_from_eeprom ()')
+    end = src.index('(defun log_settings_1 ()', start)
+    src = src[:start] + src[start:end].replace('(eeprom-read-i ', '(mock-rig-read ') + src[end:]
+    start = src.index('(defun peripherals_setup ()')
+    end = src.index('(defun validate_lut_header', start)
+    src = (src[:start] + src[start:end].replace('(i2c-start ', '(mock-i2c-start ')
+           .replace('(i2c-tx-rx ', '(mock-i2c-tx-rx ') + src[end:])
+    src += '''
+(define mock_rig_hw 0)
+(define mock_rig_pins nil)
+(define mock_rig_result nil)
+(defun mock-rig-read (addr) (if (= addr 19) mock_rig_hw 0))
+(defun mock-i2c-start (rate sda scl) (setvar 'mock_rig_pins (list sda scl)))
+(defun mock-i2c-tx-rx (addr data) t)
+(looprange hw 0 6 {
+    (setvar 'mock_rig_hw hw)
+    (update_settings_from_eeprom)
+    (peripherals_setup)
+    (setvar 'mock_rig_result (append mock_rig_result
+        (list (list hardware_configuration scooter_type mock_rig_pins))))
+})
+mock_rig_result
+'''
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'rig_profile.lisp'
+        path.write_text(src)
+        result = subprocess.run([repl, '-H', '2753', '-M', '262144', '-C', '262144',
+                                 '--bldc_stubs', '--terminate', '-s', str(path)],
+                                capture_output=True, text=True, timeout=60)
+    values = [line[2:] for line in result.stdout.splitlines() if line.startswith('> ')]
+    assert_eq(result.returncode, 0, 'native rig profile REPL exits normally')
+    assert_eq(values[-1] if values else result.stdout[-500:],
+              '((0 0 (pin-swdio pin-swclk)) (1 0 (pin-rx pin-tx)) '
+              '(2 0 (pin-tx pin-rx)) (3 1 (pin-swdio pin-swclk)) '
+              '(4 1 (pin-rx pin-tx)) (1 0 (pin-rx pin-tx)))',
+              'native rig profile 5 equals 1; configurations 0–4 unchanged')
+
+
+# =============================================================================
 # Test Runner
 # =============================================================================
 
@@ -1078,7 +2018,10 @@ def run_all_tests():
     test_calculate_rpm()
     test_motor_speed_command_centralisation()
     test_startup_tune_cancellation_for_motor_start()
-    test_display_lut_structure_and_rotation()
+    test_display_lut_structure()
+    test_display_lut_binary_single_orientation()
+    test_display_lut_generator_validation()
+    test_display_rotation_reference()
     test_smart_cruise_timer_bar_rotation()
     test_validate_lut_header()
     test_debug_log()
@@ -1093,6 +2036,12 @@ def run_all_tests():
     test_five_click_shutdown_decision()
     test_startup_trigger_readiness()
     test_click_and_beep_regressions()
+    test_rig_config5_fallback()
+    test_strip_lisp_real_file()
+    test_strip_lisp_edge_cases()
+    test_strip_lisp_mutation_check()
+    test_strip_lisp_native_reader()
+    test_display_native_rotation_and_i2c()
 
     print("\n══════════════════════════════════════════")
     print(f"  Results: {test_passes} passed, {test_failures} failed")

@@ -132,8 +132,8 @@
 
 ; Masks for 0..8 LEDs lit (ordered per hardware bit mapping)
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
-(define TIMER_BAR_SOURCE_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
-(define TIMER_BAR_ROTATION_2_BITS (list 0x40 0x20 0x10 0x08 0x04 0x02 0x01 0x80))
+; Bit of a display row byte that drives physical column 0..7 (left to right)
+(define DISPLAY_COLUMN_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
 
 ; EEPROM settings buffer size. Five-click shutdown is stored in slot 32.
 (define EEPROM_SETTINGS_COUNT 33)
@@ -696,6 +696,9 @@
     (setvar 'rotation (eeprom-read-i 17))
     (setvar 'disp_brightness (eeprom-read-i 18))
     (setvar 'hardware_configuration (eeprom-read-i 19))
+    ; Rig-only compatibility: treat fixture profile 5 as series 2 without
+    ; Bluetooth (profile 1). Leave the persisted setting untouched.
+    (if (= hardware_configuration 5) (setvar 'hardware_configuration 1))
     (setvar 'enable_battery_beeps (eeprom-read-i 20))
     (setvar 'beeps_vol (eeprom-read-i 21))
     (setvar 'cudax_flip (eeprom-read-i 22))
@@ -1611,9 +1614,11 @@
     })
 })
 
-(defun apply_smart_cruise_timer_bar (pixbuf frame_rotation)
+(defun apply_smart_cruise_timer_bar (pixbuf)
 {
     ; Apply Smart Cruise timer bar to the bottom row when active
+    ; The frame in pixbuf is in the stored (rotation 0) orientation; the caller
+    ; rotates the finished frame, so the bar follows the display rotation.
     ; The display buffer is organized as 8 rows of 2 bytes each (16 bytes total)
     ; b0,b1 = row 0 (top), b2,b3 = row 1, ..., b14,b15 = row 7 (bottom)
     ; Within each row: b15 (odd byte) contains the 8 LED bits with the following mapping:
@@ -1625,45 +1630,40 @@
 
     (if (!= leds_lit -1) {
         ; Build the bottom row byte value - LEDs turn off left to right (LED 1->2->3->4->5->6->7->8)
-        ; Physical LED positions mapped to byte bits: LED1=bit7, LED2=bit0, LED3=bit1, LED4=bit2, LED5=bit3, LED6=bit4, LED7=bit5, LED8=bit6
         ; Lookup table approach for clarity
-        (var bottom_row_value (ix TIMER_BAR_MASKS (clamp leds_lit 0 8)))
-
-        ; The frame is pre-rotated before this overlay is applied. Rotate the
-        ; logical bottom-row bar by the same amount so it follows the display.
-        (cond
-            ((= frame_rotation 0) {
-                (var current_byte (bufget-u8 pixbuf 15))
-                (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
-            })
-            ((= frame_rotation 1)
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf (+ (* col 2) 1)
-                            (bitwise-or (bufget-u8 pixbuf (+ (* col 2) 1)) 0x80)))))
-            ((= frame_rotation 2) {
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf 1
-                            (bitwise-or (bufget-u8 pixbuf 1) (ix TIMER_BAR_ROTATION_2_BITS col)))))
-            })
-            ((= frame_rotation 3)
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf (+ (* (- 7 col) 2) 1)
-                            (bitwise-or (bufget-u8 pixbuf (+ (* (- 7 col) 2) 1)) 0x40)))))
-            (t
-                (debug_log_format (str-merge "Display: Invalid rotation " (to-str frame_rotation) " for timer bar")))
-        )
+        (bufset-u8 pixbuf 15 (bitwise-or (bufget-u8 pixbuf 15) (ix TIMER_BAR_MASKS (clamp leds_lit 0 8))))
     })
 
     leds_lit ; Return the LED count or -1
 })
 
+(defun rotate_display_frame (pixbuf scratch turns)
+{
+    ; Rotate the 8x8 frame in pixbuf clockwise by 'turns' quarter turns
+    ; (taken modulo 4, so a stray setting cannot select anything else).
+    ; Row r of the frame is the odd byte 2r+1 (the even bytes stay 0); column c is
+    ; the bit DISPLAY_COLUMN_BITS[c] of it. One quarter turn moves pixel (row a,
+    ; column b) to (row b, column 7-a).
+    ; scratch is an 8 byte array owned by the caller, so no array is allocated here.
+    (var n (bitwise-and turns 3))
+    (looprange pass 0 n {
+        (bufclear scratch)
+        (var i 0)
+        (loopwhile (< i 64) {
+            (var a (shr i 3))
+            (var b (bitwise-and i 7))
+            (if (!= (bitwise-and (bufget-u8 pixbuf (+ (* a 2) 1)) (ix DISPLAY_COLUMN_BITS b)) 0)
+                (bufset-u8 scratch b (bitwise-or (bufget-u8 scratch b) (ix DISPLAY_COLUMN_BITS (- 7 a)))))
+            (setvar 'i (+ i 1))
+        })
+        (looprange r 0 8 (bufset-u8 pixbuf (+ (* r 2) 1) (bufget-u8 scratch r)))
+    })
+})
+
 (defun start_display_output_loop ()
 {
-    (var start_pos 0) ; variable used to define start position in the array of diferent display screens
     (var pixbuf (array-create 16)) ; create a temp array to store display bytes in
+    (var rotbuf (array-create 8)) ; scratch for rotate_display_frame, allocated once
     (var display_mpu_addr 0x70) ; I2C Address for the screen
     (var last_timer_bar_leds -1) ; Cache for Smart Cruise timer bar LED count to minimize I2C updates
     (loopwhile-thd THREAD_STACK_DISPLAY t {
@@ -1774,17 +1774,16 @@
             (if (!= eff_disp last_disp_num) {
                 (setvar 'disp_timer_start (systime))
             })
-            (if (= display_mpu_addr 0x70)
-                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation))) ; define the correct start position in the array for the display
-                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation2)))
-            )
             (bufclear pixbuf)
             ; Copy display data from binary LUT only if not sentinel (allows timer bar only display)
+            ; The table stores each frame once, in rotation 0 (16 bytes per frame after the 8 byte header)
             (if (!= eff_disp DISPLAY_SENTINEL)
-                (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16) ; copy the required display from binary LUT to "pixbuf"
+                (bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16) ; copy the required display from binary LUT to "pixbuf"
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
-            (apply_smart_cruise_timer_bar pixbuf (if (= display_mpu_addr 0x70) rotation rotation2))
+            (apply_smart_cruise_timer_bar pixbuf)
+            ; Rotate the finished frame (display and timer bar) for this screen
+            (rotate_display_frame pixbuf rotbuf (if (= display_mpu_addr 0x70) rotation rotation2))
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
             (setvar 'last_disp_num eff_disp)
@@ -2082,7 +2081,7 @@
     ; display_lut_bin is imported at top level (between the const blocks); here
     ; we only validate the already-loaded byte array.
     ; Initialize display LUT (returns number of frames or nil on error)
-    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
+    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 2))
 
     ; Verify LUTs loaded successfully - halt if validation fails
     (if (not display_num_frames)
