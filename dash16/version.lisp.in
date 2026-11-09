@@ -1,0 +1,1 @@
+(def splash-version "{{VERSION}}")

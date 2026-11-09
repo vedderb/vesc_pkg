@@ -94,14 +94,15 @@
         ((= a 1) (setq page-now (mod (+ page-now 1) page-num)))
         ((= a 2) (setq page-now (mod (+ page-now (- page-num 1)) page-num)))
         ((= a 3) (setq page-now (if (= page-now page-num) 0 page-num)))
-        ((= a 4) (if (< drive-mode (- drive-mode-num 1)) (setq drive-mode (+ drive-mode 1))))
-        ((= a 5) (if (> drive-mode 0) (setq drive-mode (- drive-mode 1))))
+        ((= a 4) (if (< drive-mode (- drive-mode-num 1)) (mode-set (+ drive-mode 1))))
+        ((= a 5) (if (> drive-mode 0) (mode-set (- drive-mode 1))))
         ((= a 6) (setq light-on (not light-on)))
         ((= a 7) {
                 (setq backlight-dim (not backlight-dim))
                 (disp-set-bl (if backlight-dim settings-bl-dim settings-bl-bright))
         })
         ((= a 8) (comm-send-event 0))
+        ((= a 9) (comm-send-event 2)) ; start or stop logging on the controller
         (t nil)
 ))
 
@@ -119,6 +120,59 @@
 ))
 
 ; Shown once at boot, so a dead panel looks different from a blank one.
+; A short-lived banner over the normal views, used for things the controller
+; reports back such as logging starting and stopping. Cleared by forcing the
+; views to redraw rather than by repainting what was underneath.
+(def notify-txt nil)
+(def notify-ts 0)
+
+(defun notify (txt) {
+        (setq notify-txt txt)
+        (setq notify-ts (systime))
+})
+
+(defun notify-draw (txt) {
+        (var imgbuf (img-buffer dm-pool 'indexed4 260 34))
+        (img-clear imgbuf)
+        (img-rectangle imgbuf 0 0 260 34 1 '(rounded 6))
+        (ttf-txt-center txt font-16 imgbuf)
+        (disp-render imgbuf 110 143 colors-text-aa)
+})
+
+(defun notify-thread () {
+        (var service-last false)
+
+        (loopwhile t {
+                ; Leaving service mode uncovers whatever the banner sat on
+                (if (and service-last (not (or service-mode motor-bad))) {
+                        (setq view-force-static true)
+                        (setq view-force-pages true)
+                })
+                (setq service-last (or service-mode motor-bad))
+
+                (cond
+                    ; The motor will not run at all in this state, so this
+                    ; outranks everything else on screen.
+                    (motor-bad (notify-draw "MOTOR CONFIG BAD"))
+
+                    ; With the drive profile suspended the mode on screen means
+                    ; nothing and neutral no longer holds the throttle shut, so
+                    ; say so, and keep saying it until it is switched back.
+                    (service-mode (notify-draw "SERVICE"))
+
+                    (notify-txt
+                        (if (> (secs-since notify-ts) 2.5) {
+                                (setq notify-txt nil)
+                                (setq view-force-static true)
+                                (setq view-force-pages true)
+                        }
+                        (notify-draw notify-txt)))
+                )
+
+                (sleep 0.2)
+        })
+})
+
 (defun show-splash () {
         (print "Splash")
 
@@ -225,6 +279,17 @@
                 (sleep 5.0)
         })
 
+        (loopwhile-thd ("Notify" 120) t {
+                (print "Starting Notify-thread")
+
+                (match (trap (notify-thread))
+                    ((exit-ok (? a)) (print "Notify-thread exit"))
+                    (_ (print "Notify-thread crashed"))
+                )
+
+                (sleep 5.0)
+        })
+
         (loopwhile-thd ("ViewStatic" 200) t {
                 (print "Starting ViewStatic-thread")
 
@@ -260,8 +325,8 @@
 
         (loopwhile-thd ("Worker" 150) t {
                 (if settings-redraw (trap (settings-apply-visual)))
-                (if battery-a-charging (setq drive-mode 1)) ; Put in neutral when charging
-                (if kickstand-down (setq drive-mode 1)) ; Put in neutral when kickstand is down
+                (if battery-a-charging (mode-set 1)) ; Put in neutral when charging
+                (if kickstand-down (mode-set 1)) ; Put in neutral when kickstand is down
                 (sleep 0.1)
         })
 

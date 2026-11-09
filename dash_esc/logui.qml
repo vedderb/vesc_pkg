@@ -179,6 +179,67 @@ Item {
                         GroupBox {
                             Layout.fillWidth: true
                             Layout.columnSpan: 2
+                            title: "Servicing"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    color: Utility.getAppHexColor("lightText")
+                                    text: "Drive profiles scale the motor current, and anything measured " +
+                                          "with current is wrong while a scale is applied. Suspend them before " +
+                                          "detecting a motor or writing configuration, so the controller's own " +
+                                          "limits are the live ones. This turns itself off at the next power " +
+                                          "cycle, and the displays show SERVICE while it is on: there is no mode " +
+                                          "limiting and neutral does not hold the throttle shut."
+                                }
+
+                                CheckBox {
+                                    id: suspendBox
+                                    text: "Suspend drive profiles"
+                                    onClicked: sendCode("(profile-suspend-set " + (checked ? 1 : 0) + ")")
+                                }
+
+                                Button {
+                                    Layout.fillWidth: true
+                                    text: "Capture these limits as the baseline"
+                                    enabled: suspendBox.checked
+                                    onClicked: sendCode("(limits-capture)")
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    color: Utility.getAppHexColor("lightText")
+                                    text: "Press this once the controller is configured the way you want it. " +
+                                          "Those limits are what gets put back whenever the displays are unplugged " +
+                                          "or the profile is suspended."
+                                }
+                            }
+                        }
+
+                        GroupBox {
+                            Layout.fillWidth: true
+                            Layout.columnSpan: 2
+                            title: "Throttle Mode"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+
+                                ComboBox {
+                                    id: thrModeBox
+                                    Layout.fillWidth: true
+                                    model: ["ADC1", "ADC2"]
+                                    currentIndex: 0
+                                }
+                            }
+                        }
+
+                        GroupBox {
+                            Layout.fillWidth: true
+                            Layout.columnSpan: 2
                             title: "Reverse"
 
                             GridLayout {
@@ -465,7 +526,11 @@ Item {
                 text: "Save Config"
 
                 onClicked: {
-                    sendCode("(save-config " + makeArgStr() + " " + startAtBoot.checked + ")")
+                    sendCode(
+                    "(save-config " + makeArgStr() + " " +
+                    startAtBoot.checked + " " +
+                    parseFloat(thrModeBox.currentIndex + 2).toFixed(0) + ")"
+                    )
                     sendCode("(save-modes " + makeModeStr() + ")")
                 }
             }
@@ -531,6 +596,7 @@ Item {
                 localLog.checked = Number(tokens[5])
                 canLog.checked = Number(tokens[6])
                 bmsLog.checked = Number(tokens[7])
+                thrModeBox.currentIndex = Number(tokens[8]) - 2
                 } else if (str.startsWith("msg ")) {
                 var msg = str.substring(4)
                 VescIf.emitMessageDialog("Logger", msg, false, false)

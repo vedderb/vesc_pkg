@@ -2,6 +2,7 @@
 (import "express_extension_esp32c6.bin" 'lib-esp32c6)
 (import "express_extension_esp32s3.bin" 'lib-esp32s3)
 (import "express_extension_esp32p4.bin" 'lib-esp32p4)
+(import "express_extension_esp32s31.bin" 'lib-esp32s31)
 
 ; Native libs only run on the chip they were built for, so pick the
 ; binary matching this hardware. Requires firmware with support for
@@ -13,6 +14,7 @@
     ((= (str-cmp target "esp32c6") 0) lib-esp32c6)
     ((= (str-cmp target "esp32s3") 0) lib-esp32s3)
     ((= (str-cmp target "esp32p4") 0) lib-esp32p4)
+    ((= (str-cmp target "esp32s31") 0) lib-esp32s31)
     (t nil)
 ))
 

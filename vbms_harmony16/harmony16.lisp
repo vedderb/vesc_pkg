@@ -91,7 +91,7 @@ loopwhile-thd
 
 (defun beep (times dt) {
         (loopwhile (> times 0) {
-                (pwm-set-duty 0.5 0)
+                (pwm-set-duty 0.2 0)
                 (sleep dt)
                 (pwm-set-duty 0.0 0)
                 (sleep dt)

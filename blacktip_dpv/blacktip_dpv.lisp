@@ -132,8 +132,8 @@
 
 ; Masks for 0..8 LEDs lit (ordered per hardware bit mapping)
 (define TIMER_BAR_MASKS (list 0x00 0x40 0x60 0x70 0x78 0x7C 0x7E 0x7F 0xFF))
-(define TIMER_BAR_SOURCE_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
-(define TIMER_BAR_ROTATION_2_BITS (list 0x40 0x20 0x10 0x08 0x04 0x02 0x01 0x80))
+; Bit of a display row byte that drives physical column 0..7 (left to right)
+(define DISPLAY_COLUMN_BITS (list 0x80 0x01 0x02 0x04 0x08 0x10 0x20 0x40))
 
 ; EEPROM settings buffer size. Five-click shutdown is stored in slot 32.
 (define EEPROM_SETTINGS_COUNT 33)
@@ -281,6 +281,8 @@
 (define batt_disp_timer_start 0)      ; Timer to see if Battery display has been triggered
 (define last_batt_disp_num 3)         ; variable used to track last display screen show
 (define startup_tune_done_time 0)     ; Timestamp when startup tune finished (0 = not done yet)
+(define startup_tune_active 0)        ; Imperial March currently owns the synchronous FOC beeper.
+(define startup_tune_cancelled 0)     ; A motor start stops the tune between notes.
 (define batt_beeps_pending 0)         ; Battery beep count deferred until startup tune settle delay
 
 ; --- Balance-wire EMA + imbalance latch state ---
@@ -694,6 +696,9 @@
     (setvar 'rotation (eeprom-read-i 17))
     (setvar 'disp_brightness (eeprom-read-i 18))
     (setvar 'hardware_configuration (eeprom-read-i 19))
+    ; Rig-only compatibility: treat fixture profile 5 as series 2 without
+    ; Bluetooth (profile 1). Leave the persisted setting untouched.
+    (if (= hardware_configuration 5) (setvar 'hardware_configuration 1))
     (setvar 'enable_battery_beeps (eeprom-read-i 20))
     (setvar 'beeps_vol (eeprom-read-i 21))
     (setvar 'cudax_flip (eeprom-read-i 22))
@@ -934,7 +939,7 @@
                     (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
                     (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
                     ; re command actual speed as reverification sets it to 0.8x
-                    (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                    (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                 })
             })
         } {
@@ -1006,16 +1011,22 @@
 (defun calculate_rpm (speed_index divisor)
 {
     (var speed_percent (speed_percentage_at speed_index))
-    (var max_rpm (cond
-        ((= scooter_type SCOOTER_BLACKTIP) MAX_ERPM_BLACKTIP)
-        ((= scooter_type SCOOTER_CUDAX) MAX_ERPM_CUDAX)
-        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") MAX_ERPM_BLACKTIP)
+    (var base_rpm (cond
+        ((= scooter_type SCOOTER_BLACKTIP) (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
+        ((= scooter_type SCOOTER_CUDAX) (* (/ MAX_ERPM_CUDAX divisor) speed_percent))
+        (t (debug_log "Invalid scooter_type, defaulting to Blacktip") (* (/ MAX_ERPM_BLACKTIP divisor) speed_percent))
     ))
-    (var base_rpm (* (/ max_rpm divisor) speed_percent))
     (if (< speed_index SPEED_REVERSE_THRESHOLD)
         (- 0 base_rpm)
         base_rpm
     )
+})
+
+; Normal speed commands go through one helper so hardware-specific command
+; modes can share the state-machine and safe-start gates.
+(defun set_motor_speed (speed_index divisor)
+{
+    (set-rpm (calculate_rpm speed_index divisor))
 })
 
 ; =============================================================================
@@ -1082,7 +1093,7 @@
             (setvar 'disp_num DISPLAY_SMART_CRUISE_HALF)
             (setvar 'click_beep BEEP_SMART_CRUISE_CHANGE)
             ; slow scooter to 80% to help people realize cruise is expiring
-            (set-rpm (calculate_rpm speed SMART_CRUISE_SLOWDOWN_DIVISOR))
+            (set_motor_speed speed SMART_CRUISE_SLOWDOWN_DIVISOR)
         })
     )
 })
@@ -1146,7 +1157,7 @@
         (debug_log "Smart Cruise: Re-enabled from warning mode")
         (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
         (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
     })
 })
 
@@ -1256,7 +1267,7 @@
                             (setvar 'smart_cruise SMART_CRUISE_FULLY_ENABLED)
                             (setvar 'timer_start (systime))
                             (setvar 'disp_num DISPLAY_SMART_CRUISE_FULL)
-                            (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                            (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         } {
                             (debug_log "Click action: Triple click ignored (Smart Cruise disabled in settings)")
                         })
@@ -1491,6 +1502,18 @@
             (if (!= speed SPEED_OFF) {
                 ; Soft Start initiation section (only when starting from off)
                 (if (= last_speed SPEED_OFF) {
+                    ; The startup tune uses synchronous foc-beep, which owns
+                    ; the FOC control path and finishes each note at zero
+                    ; current. Stop it before requesting propulsion.
+                    (if (= startup_tune_active 1) {
+                        (debug_log "Motor: Cancelling startup tune")
+                        (setvar 'startup_tune_cancelled 1)
+                    })
+                    ; The startup battery indication also uses foc-beep. It is
+                    ; an off-state indication, so cancel any deferred instance
+                    ; rather than allowing it to contend with propulsion.
+                    (setvar 'batt_disp_timer_start 0)
+                    (setvar 'batt_beeps_pending 0)
                     (debug_log "Motor: Soft start initiated")
                     (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MIN_CURRENT_BLACKTIP MIN_CURRENT_CUDAX))
                     ; Start the soft-start timer regardless of safe-start being enabled so we can restore currents after a short period
@@ -1508,7 +1531,7 @@
                 } {
                     ; Speed change while already running (not from off, not during soft-start)
                     (if (!= last_speed SPEED_SOFT_START_SENTINEL) {
-                        (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                        (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                         (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                         (setvar 'last_speed speed)
                     })
@@ -1535,7 +1558,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (telemetry)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 (safe_start_success)
                                 (soft_start_set_active 0)
@@ -1562,7 +1585,7 @@
                             {
                                 (debug_log "Motor: Soft start completed (timer)")
                                 (conf-set 'l-in-current-max (if (= scooter_type SCOOTER_BLACKTIP) MAX_CURRENT_BLACKTIP MAX_CURRENT_CUDAX))
-                                (set-rpm (calculate_rpm speed RPM_PERCENT_DENOMINATOR))
+                                (set_motor_speed speed RPM_PERCENT_DENOMINATOR)
                                 (setvar 'disp_num (+ speed DISPLAY_SPEED_OFFSET))
                                 ; Clear timers without changing safe-start status (feature disabled)
                                 (setvar 'soft_start_timer 0)
@@ -1591,9 +1614,11 @@
     })
 })
 
-(defun apply_smart_cruise_timer_bar (pixbuf frame_rotation)
+(defun apply_smart_cruise_timer_bar (pixbuf)
 {
     ; Apply Smart Cruise timer bar to the bottom row when active
+    ; The frame in pixbuf is in the stored (rotation 0) orientation; the caller
+    ; rotates the finished frame, so the bar follows the display rotation.
     ; The display buffer is organized as 8 rows of 2 bytes each (16 bytes total)
     ; b0,b1 = row 0 (top), b2,b3 = row 1, ..., b14,b15 = row 7 (bottom)
     ; Within each row: b15 (odd byte) contains the 8 LED bits with the following mapping:
@@ -1605,45 +1630,40 @@
 
     (if (!= leds_lit -1) {
         ; Build the bottom row byte value - LEDs turn off left to right (LED 1->2->3->4->5->6->7->8)
-        ; Physical LED positions mapped to byte bits: LED1=bit7, LED2=bit0, LED3=bit1, LED4=bit2, LED5=bit3, LED6=bit4, LED7=bit5, LED8=bit6
         ; Lookup table approach for clarity
-        (var bottom_row_value (ix TIMER_BAR_MASKS (clamp leds_lit 0 8)))
-
-        ; The frame is pre-rotated before this overlay is applied. Rotate the
-        ; logical bottom-row bar by the same amount so it follows the display.
-        (cond
-            ((= frame_rotation 0) {
-                (var current_byte (bufget-u8 pixbuf 15))
-                (bufset-u8 pixbuf 15 (bitwise-or current_byte bottom_row_value))
-            })
-            ((= frame_rotation 1)
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf (+ (* col 2) 1)
-                            (bitwise-or (bufget-u8 pixbuf (+ (* col 2) 1)) 0x80)))))
-            ((= frame_rotation 2) {
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf 1
-                            (bitwise-or (bufget-u8 pixbuf 1) (ix TIMER_BAR_ROTATION_2_BITS col)))))
-            })
-            ((= frame_rotation 3)
-                (looprange col 0 8
-                    (if (!= (bitwise-and bottom_row_value (ix TIMER_BAR_SOURCE_BITS col)) 0)
-                        (bufset-u8 pixbuf (+ (* (- 7 col) 2) 1)
-                            (bitwise-or (bufget-u8 pixbuf (+ (* (- 7 col) 2) 1)) 0x40)))))
-            (t
-                (debug_log_format (str-merge "Display: Invalid rotation " (to-str frame_rotation) " for timer bar")))
-        )
+        (bufset-u8 pixbuf 15 (bitwise-or (bufget-u8 pixbuf 15) (ix TIMER_BAR_MASKS (clamp leds_lit 0 8))))
     })
 
     leds_lit ; Return the LED count or -1
 })
 
+(defun rotate_display_frame (pixbuf scratch turns)
+{
+    ; Rotate the 8x8 frame in pixbuf clockwise by 'turns' quarter turns
+    ; (taken modulo 4, so a stray setting cannot select anything else).
+    ; Row r of the frame is the odd byte 2r+1 (the even bytes stay 0); column c is
+    ; the bit DISPLAY_COLUMN_BITS[c] of it. One quarter turn moves pixel (row a,
+    ; column b) to (row b, column 7-a).
+    ; scratch is an 8 byte array owned by the caller, so no array is allocated here.
+    (var n (bitwise-and turns 3))
+    (looprange pass 0 n {
+        (bufclear scratch)
+        (var i 0)
+        (loopwhile (< i 64) {
+            (var a (shr i 3))
+            (var b (bitwise-and i 7))
+            (if (!= (bitwise-and (bufget-u8 pixbuf (+ (* a 2) 1)) (ix DISPLAY_COLUMN_BITS b)) 0)
+                (bufset-u8 scratch b (bitwise-or (bufget-u8 scratch b) (ix DISPLAY_COLUMN_BITS (- 7 a)))))
+            (setvar 'i (+ i 1))
+        })
+        (looprange r 0 8 (bufset-u8 pixbuf (+ (* r 2) 1) (bufget-u8 scratch r)))
+    })
+})
+
 (defun start_display_output_loop ()
 {
-    (var start_pos 0) ; variable used to define start position in the array of diferent display screens
     (var pixbuf (array-create 16)) ; create a temp array to store display bytes in
+    (var rotbuf (array-create 8)) ; scratch for rotate_display_frame, allocated once
     (var display_mpu_addr 0x70) ; I2C Address for the screen
     (var last_timer_bar_leds -1) ; Cache for Smart Cruise timer bar LED count to minimize I2C updates
     (loopwhile-thd THREAD_STACK_DISPLAY t {
@@ -1754,17 +1774,16 @@
             (if (!= eff_disp last_disp_num) {
                 (setvar 'disp_timer_start (systime))
             })
-            (if (= display_mpu_addr 0x70)
-                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation))) ; define the correct start position in the array for the display
-                (setvar 'start_pos (+(* 64 eff_disp) (* 16 rotation2)))
-            )
             (bufclear pixbuf)
             ; Copy display data from binary LUT only if not sentinel (allows timer bar only display)
+            ; The table stores each frame once, in rotation 0 (16 bytes per frame after the 8 byte header)
             (if (!= eff_disp DISPLAY_SENTINEL)
-                (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16) ; copy the required display from binary LUT to "pixbuf"
+                (bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16) ; copy the required display from binary LUT to "pixbuf"
             )
             ; Apply Smart Cruise timer bar overlay to bottom row if active
-            (apply_smart_cruise_timer_bar pixbuf (if (= display_mpu_addr 0x70) rotation rotation2))
+            (apply_smart_cruise_timer_bar pixbuf)
+            ; Rotate the finished frame (display and timer bar) for this screen
+            (rotate_display_frame pixbuf rotbuf (if (= display_mpu_addr 0x70) rotation rotation2))
             (i2c-tx-rx display_mpu_addr pixbuf) ; send display characters
             (i2c-tx-rx display_mpu_addr (list 0x81)) ; Turn on display
             (setvar 'last_disp_num eff_disp)
@@ -1903,58 +1922,54 @@
     (foc-beep (- Tone 200) Time beeps_vol)
 })
 
+; The synchronous foc-beep primitive temporarily takes exclusive FOC control.
+; Check for a motor-start cancellation between notes so it cannot repeatedly
+; overwrite a propulsion command. An already playing note completes normally.
+(defun startup_tune_note (tone time delay)
+{
+    (if (= startup_tune_cancelled 0) {
+        (foc-beep tone time beeps_vol)
+        (if (= startup_tune_cancelled 0)
+            (sleep delay))
+    })
+})
+
 ; ***** Imperial March Theme *****
-; Plays the first ~9 bars of the Imperial March on startup
+; Plays the first ~9 bars of the Imperial March on startup unless propulsion
+; is requested. Normal speed-confirmation tones use foc-play-tone separately.
 ; Note frequencies in Hz (approximations for beeper):
 ; G4=392, Eb4=311, Bb4=466, D5=587, Gb4=370
 (defun play_imperial_march ()
 {
     (if (> beeps_vol 0) { ; Only play if volume is not zero
         ; Bar 1-2: G G G Eb-Bb G
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.35 beeps_vol)  ; G quarter
-        (sleep 0.37)
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 392 0.35 0.37) ; G quarter
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.35 0.37) ; G quarter
 
         ; Bar 3-4: Eb-Bb G (hold)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.7 beeps_vol)  ; G half note
-        (sleep 0.74)
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.7 0.74)  ; G half note
 
         ; Bar 5-6: D D D Eb-Bb Gb
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 587 0.35 beeps_vol)  ; D quarter
-        (sleep 0.37)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 370 0.35 beeps_vol)  ; Gb quarter
-        (sleep 0.37)
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 587 0.35 0.37) ; D quarter
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 370 0.35 0.37) ; Gb quarter
 
         ; Bar 7-8: Eb-Bb G (hold)
-        (foc-beep 311 0.25 beeps_vol) ; Eb short
-        (sleep 0.27)
-        (foc-beep 466 0.12 beeps_vol) ; Bb very short
-        (sleep 0.14)
-        (foc-beep 392 0.7 beeps_vol)  ; G half note
-        (sleep 0.74)
+        (startup_tune_note 311 0.25 0.27) ; Eb short
+        (startup_tune_note 466 0.12 0.14) ; Bb very short
+        (startup_tune_note 392 0.7 0.74)  ; G half note
     })
     (setvar 'startup_tune_done_time (systime)) ; Record when startup tune finished
+    (setvar 'startup_tune_active 0)
 })
 
 ; ***** Program that beeps trigger clicks
@@ -2066,7 +2081,7 @@
     ; display_lut_bin is imported at top level (between the const blocks); here
     ; we only validate the already-loaded byte array.
     ; Initialize display LUT (returns number of frames or nil on error)
-    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 1))
+    (var display_num_frames (validate_lut_header display_lut_bin 0x4C555444u32 2))
 
     ; Verify LUTs loaded successfully - halt if validation fails
     (if (not display_num_frames)
@@ -2243,6 +2258,8 @@
     ; use the full 4-bar frame (3).
     (setvar 'last_batt_disp_num (if (> thirds_total 0) DISPLAY_THIRDS_OK 3)) ; variable used to track last display screen show
     (setvar 'startup_tune_done_time 0) ; Timestamp when startup tune finished (0 = not done yet)
+    (setvar 'startup_tune_active 1)
+    (setvar 'startup_tune_cancelled 0)
     (setvar 'batt_beeps_pending 0)    ; Battery beep count deferred until startup tune settle delay
 
     (start_display_battery_loop)
@@ -2257,8 +2274,8 @@
 
     (start_trigger_loop)
 
-    ; The motor, trigger and display paths are now live. Audio is optional and
-    ; continues independently, so it must not delay the first valid command.
+    ; The motor, trigger and display paths are now live. The startup tune is
+    ; optional and cancels between notes when propulsion is requested.
     (setvar 'trigger_input_ready 1)
     ; Sample synchronously after readiness so a press that started before it
     ; was published stays disarmed. The state machine starts only after this.

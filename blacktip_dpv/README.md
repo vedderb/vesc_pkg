@@ -2,7 +2,7 @@
 
 ![Blacktip DPV Logo](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/shark_with_laser.png)
 
-**Version:** 1.5.2
+**Version:** 1.6.2
 
 ## License
 
@@ -31,12 +31,35 @@ This package gives your DPV advanced features like Smart Cruise control, enhance
 
 ## Instructions
 
-Some videos showing the basic commands to control Smart Cruise while diving:
+Videos showing Smart Cruise controls and Deep Sleep:
 
 - [basic commands](https://youtu.be/oFRCwuKf2qQ)
 - [manually enabling and disabling Smart Cruise](https://youtu.be/riwqB_mttLM)
+- [Deep Sleep setup and operation](./DEEP_SLEEP.md)
 
 ---
+
+## What's New in Version 1.6.2
+
+Maintenance release:
+
+- **Improved: Smaller firmware script** — The packaged firmware script is now about half its previous size, down from roughly 106 KB to 52 KB (from 81 % to 40 % of the available script space), by leaving out comments and indentation and by storing the display data once instead of four times. This leaves room for future features. Behaviour and settings are unchanged, and no action is required when updating.
+
+## What's New in Version 1.6.1
+
+Bugfix release:
+
+- **Fix: Reset Defaults** — Reset Defaults now waits for the motor-controller defaults before requesting the application defaults, then applies the selected DPV profile only after both have arrived.
+- **Action required for version 1.6.0 installations:** Update to 1.6.1 and use **Reset Defaults** again. Reset Defaults did not work correctly in 1.6.0, so the selected scooter profile may not have been applied.
+
+## What's New in Version 1.6.0
+
+Feature release:
+
+- **Improved Reset Defaults** — Resetting a Blacktip or CudaX profile now starts from the complete VESC firmware defaults before applying the DPV profile, so stale configuration fields are not retained.
+- **Centralised normal speed commands** — Normal speed changes, including Smart Cruise transitions, now use one command path while retaining the existing safe-start path.
+- **Fix: Motor start during startup sound** — A propulsion request now cancels the remaining startup tune and deferred battery beeps between notes, so startup audio cannot take control back from the motor command.
+- **Action required:** To receive the revised configuration, select the correct scooter profile and use **Reset Defaults** after updating. Record any personalised settings first and restore them afterwards.
 
 ## What's New in Version 1.5.2
 
@@ -55,7 +78,7 @@ Bugfix release:
 
 Feature release:
 
-- **Optional five-click deep shutdown (MK5 only)** — A reversible phantom-button jumper lets five rapid trigger clicks put supported controllers into true hardware-off mode, allowing batteries to remain installed with very low standby drain. A power-off symbol and four descending tones confirm the command before the controller switches off. See [Five-click deep shutdown](#five-click-deep-shutdown--mk5-only) before enabling it.
+- **Optional five-click Deep Sleep (MK5 only)** — A reversible phantom-button jumper lets five rapid trigger clicks put supported controllers into true hardware-off mode, allowing batteries to remain installed with very low standby drain. A power-off symbol and four descending tones confirm the command before the controller switches off. See [Deep Sleep](./DEEP_SLEEP.md) before enabling it.
 
 ## What's New in Version 1.4.1
 
@@ -182,57 +205,9 @@ Detects when one of the two series battery packs becomes significantly more depl
 - Enabled by default with a 2.00 V threshold (suitable for stock hardware); both the threshold and the balance-wire ADC multiplier are configurable from the Battery Settings dialog
 - **Disable only when using a custom battery pack with an on-board BMS that manages cell balancing independently**
 
-### Five-click deep shutdown — MK5 only
+### Deep Sleep — MK5 only
 
-This optional feature is **disabled by default**. It requires all of the following:
-
-- a Flipsky Mini V6 MK5 controller (detected VESC hardware name 60&#95;MK5);
-- stable VESC firmware 7.00, or a 7.00 beta build numbered 2 or newer;
-- the phantom-button hardware modification below; and
-- the **Enable five-click deep shutdown (MK5 only)** checkbox in Battery Configuration.
-
-Five rapid trigger clicks while the motor is off show the power-off symbol and play four descending tones (high, medium-high, medium-low and low) before switching the controller into true hardware-off mode. The tones use the configured beep volume, so the visual confirmation remains available when sound is disabled. The command is ignored while the motor is commanded to run. After shutdown, spin the propeller to wake the controller. The modified controller also starts in the off state after fresh battery insertion and must be woken by spinning the propeller.
-
-There is no `.2` component in the stable release: `7.00` is the complete version and is supported. The extra number is only VESC's beta/test-build field. This package's **Home** tab displays such a pre-release as `7.00 BETA 2`; stable firmware remains `7.00`.
-
-The existing OFF&#95;AFTER&#95;5H setting remains the fallback when manual shutdown is forgotten. On one measured example unit, hardware-off current was approximately **18–20 µA**; this is an observed measurement, not a guaranteed Flipsky specification. The modification is reversible: remove the batteries, remove the jumper, and insulate/reassemble the connector as it was originally.
-
-#### Phantom-button jumper modification
-
-1. Remove both batteries before opening or touching the scooter.
-2. Open the motor assembly using the [existing disassembly instructions](#installation-steps).
-3. Locate the MK5 three-wire power-button connector near the bottom of the ESC.
-4. Identify its cavities by wire colour, not by left/right position, because connector orientation can be reversed:
-   - **BLACK:** ground
-   - **RED:** power-button LED connection
-   - **YELLOW:** shutdown-button sense
-5. Insert a short, insulated and mechanically secure jumper between the connector cavities attached to **BLACK** and **YELLOW**.
-6. Leave **RED** completely unconnected.
-7. Ensure no bare conductor can contact the red terminal, controller, plate or enclosure.
-8. With the jumper inserted, fit heat-shrink tubing around the header/connector to insulate and retain it.
-9. Secure the jumper so vibration cannot loosen it or allow it to rattle.
-10. Reassemble the unit before installing batteries.
-
-![Phantom button jumper between the black and yellow wires](https://raw.githubusercontent.com/vedderb/vesc_pkg/main/blacktip_dpv/assets/phantom_button_jumper.png)
-
-> **Warning:** Hardware modifications are undertaken at the owner's risk. Complete and validate the dry bench test before relying on the DPV, and complete additional dry testing before any in-water test.
-
-#### Required dry bench-test checklist
-
-1. Upgrade to stable firmware 7.00 (or 7.00 BETA 2 or newer) and confirm the version on the package **Home** tab.
-2. Install the jumper with batteries removed.
-3. Insert batteries: the controller should remain in hardware-off state, and the motor must not start.
-4. Spin the propeller by hand: the controller should wake normally.
-5. Read these hardware-modification instructions, then enable the five-click checkbox.
-6. Wake the scooter, leave the motor stopped and perform five rapid clicks: the power-off symbol and descending tones should play before the controller switches off and remains off.
-7. Confirm five clicks do nothing when the checkbox is disabled.
-8. Confirm the shutdown command is ignored while forward or reverse operation is active.
-9. Complete additional dry tests before any in-water test.
-
-#### Optional additional testing
-
-- Temporarily select OFF&#95;AFTER&#95;1M, verify that an idle controller shuts down and remains off, and restore OFF&#95;AFTER&#95;5H immediately afterwards.
-- Where suitable test equipment is available, measure off-state current.
+Optional five-click Deep Sleep puts supported controllers into true hardware-off mode. See the [Deep Sleep setup and operation guide](./DEEP_SLEEP.md) before enabling it.
 
 ### Startup Sound
 
@@ -240,6 +215,7 @@ A distinctive musical theme plays on power-up to confirm successful initializati
 
 - Plays automatically when the scooter is turned on
 - Trigger input becomes ready as soon as the motor, display and trigger paths have started; the startup and battery sounds continue in the background.
+- Starting the motor cancels any remaining startup tune and deferred battery beeps. A note already playing completes before the tune stops.
 - The startup display indicates readiness. If the trigger was held during startup, release it once before making a new click sequence.
 - When battery is full (3 bars, >75%), only the startup sound plays
 - When battery is not full (<75%), the startup sound is followed by battery level beeps
@@ -427,9 +403,11 @@ This package includes substantial improvements over the original [V1.50 Dive Xtr
 - Choose "blacktip&#95;dpv.vescpkg"
 - Confirm installation
 
-5. **Reset to defaults:**
+5. **Reset Defaults:**
 
-- **This absolutely required after firmware updates or a fresh install.** If you miss it your scooter will not work properly.
+- **After updating VESC controller firmware, use Reset Defaults** to reload firmware-compatible controller defaults and reapply the selected DPV profile.
+- **A routine Blacktip DPV package update does not require Reset Defaults**, unless its release notes say that it includes revised profile configuration.
+- **For version 1.6.0 and later, use Reset Defaults after updating to receive revised profile configuration.** Record any personalised settings first and restore them afterwards.
 - Make sure to check your custom settings before the reset, and then restore them
 - In the VESC Tool or Mobile App go to "Settings" / "Scooter Hardware Configuration"
 - Make sure the correct model and hardware version is selected

@@ -176,9 +176,13 @@
 
 ; An unwritten cell reads -1, which as a float is NaN, so test that first.
 (defun setting-clamp (v lo hi dflt)
-    (if (not (= v v)) dflt
-        (if (< v lo) dflt
-            (if (> v hi) dflt v))))
+    ; nil first: a cell that was never written reads back nil, and comparing
+    ; that to a number throws. That aborts settings-load partway, so nothing
+    ; after it is applied and colors-build never runs.
+    (if (eq v nil) dflt
+        (if (not (= v v)) dflt
+            (if (< v lo) dflt
+                (if (> v hi) dflt v)))))
 
 ; A never written cell reads nil, and comparing that to a number throws.
 (defun setting-flag (name dflt)
@@ -204,9 +208,9 @@
         (setq settings-page-mask (setting-clamp (read-setting 'page-mask) 1 0xF 0xF))
         (setq settings-setting-mask (setting-clamp (read-setting 'setting-mask) 0 0x7FF 0xF))
 
-        (setq btn-actions-short (map (fn (n) (setting-clamp (read-setting n) 0 8 0))
+        (setq btn-actions-short (map (fn (n) (setting-clamp (read-setting n) 0 9 0))
                 '(btn0-short btn1-short btn2-short btn3-short)))
-        (setq btn-actions-long (map (fn (n) (setting-clamp (read-setting n) 0 8 0))
+        (setq btn-actions-long (map (fn (n) (setting-clamp (read-setting n) 0 9 0))
                 '(btn0-long btn1-long btn2-long btn3-long)))
 
         (setq settings-esc-mode (setting-clamp (read-setting 'esc-mode) 0 2 0))
@@ -227,7 +231,7 @@
         (setq settings-slot-maxs (map (fn (n) (setting-clamp (read-setting n) -1000.0 10000.0 100.0))
                 '(slot-max-0 slot-max-1 slot-max-2 slot-max-3)))
 
-        (if (>= drive-mode drive-mode-num) (setq drive-mode 0))
+        (if (>= drive-mode drive-mode-num) (mode-set 0))
 })
 
 ; Rows from the mask, capped so none draw off the page.

@@ -1,0 +1,479 @@
+@const-start
+
+; Was an 8 kB bitmap of a solid rectangle
+(defun page-clear () {
+        (var strip (img-buffer dm-pool 'indexed2 268 14))
+        (looprange i 0 8 (disp-render strip page-x (+ page-y (* i 14))
+            (list color-bg color-bg)))
+})
+
+(def page-x 48)
+(def page-y 38)
+(def page-w 268)
+(def page-h 112)
+
+; Round with decimals
+; E.g. (round-x 1.23 0.1) -> 1.2
+(defun round-x (val x) {
+        (* (round (/ val x)) x)
+})
+
+;; Association list that contains the resources allocated for the current page.
+;; When a page is switched, the page-resources variable is rebound and the previous
+;; resources can be freed by GC.
+(def page-resources nil)
+
+;; Given an image buffer draw a right aligned text in there and
+;; then stuff the image buffer onto display at pos x y
+(defun ttf-txt-right (imgbuf x y str) {
+        (var color colors-text-aa)
+        (if (rest-args) (setq color (rest-args 0)))
+
+        (var (w-txt h-txt) (ttf-text-dims font-16 str))
+        (var (w-img h-img) (img-dims imgbuf))
+        (var render-x (- w-img w-txt))
+        (img-clear imgbuf)
+        (ttf-text imgbuf render-x 13 '(0 1 2 3) font-16 str)
+        (disp-render imgbuf x y color)
+})
+
+;; Given an image buffer draw a left aligned text in there and
+;; then stuff the image buffer onto display at pos x y
+(defun ttf-txt-left (imgbuf x y str) {
+        (var color colors-text-aa)
+        (if (rest-args) (setq color (rest-args 0)))
+
+        (img-clear imgbuf)
+        (ttf-text imgbuf 0 13 '(0 1 2 3) font-16 str)
+        (disp-render imgbuf x y color)
+})
+
+(defun trunc01 (x)
+    (cond
+        ((< x 0.0) 0.0)
+        ((> x 1.0) 1.0)
+        (t x)
+))
+
+;; pages can take arguments saying if is is displayed as a result of a page switch
+;; or if it was already active and just possibly needs an update.
+;; But not really sure there is any efficient way to clear the entire "page"-area.
+;; would need to create a image buffer of the correct size and then blit that to the page area.
+
+(defun get-page-1-state () (list
+        (round-x (if (and (> stats-km 0.1) (> stats-wh 0.5)) (/ (* stats-battery-ah stats-battery-soc stats-vin) (/ stats-wh stats-km)) 0.0) 0.1) ; Range
+        (round-x stats-km 0.1)             ; 1 - Trip
+        (round-x stats-odom 0.1)           ; 2 - ODO
+        (round-x (if (> stats-km 0.1) (/ stats-wh stats-km) 0) 0.1) ; 3 - Efficiency
+))
+
+(def page-1-state (get-page-1-state))
+(defun page-1 (s) {
+        (var cat-col-x 20)
+        (var val-col-x 120)
+
+        (var curr-state (get-page-1-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-1-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state)) ; Update all fields on page switch
+
+                (setq page-resources
+                    (list
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 80 16))
+                ))
+
+                (page-clear)
+
+                (var textimg (assoc page-resources 'text-img))
+
+                ; Draw static labels
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 16) "Range")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 38) "Trip")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 60) "ODO")
+                (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 82) "Efficiency")
+        })
+
+        (var textimg (assoc page-resources 'text-img))
+
+        (if (ix update-state 0)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 16)
+                (str-merge (str-from-n (u-dist (ix curr-state 0)) "%.1f ") (u-dist-str)))
+        )
+        (if (ix update-state 1)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 38)
+                (str-merge (str-from-n (u-dist (ix curr-state 1)) "%.1f ") (u-dist-str)))
+        )
+        (if (ix update-state 2)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 60)
+                (str-merge (str-from-n (u-dist (ix curr-state 2)) "%.1f ") (u-dist-str)))
+        )
+        (if (ix update-state 3)
+            (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 82)
+                (str-merge (str-from-n (/ (ix curr-state 3) (if (eq (car settings-units-speeds) 'mph) km-to-mi 1.0)) "%.1f ")
+                           (u-eff-str)))
+        )
+
+        (setq page-1-state curr-state)
+})
+
+(defun get-page-2-state () (list
+        (round (secs-since 0))                       ; 0 - Time
+        (round-x stats-wh 0.1)                       ; 1 - Wh
+        (round-x stats-duty 0.01)                    ; 2 - Duty
+        stats-kmh-max                                ; 3 - Speed Max
+        (round (* stats-kw 1000.0))                  ; 4 - Power Now
+        (* stats-kw-max 1000.0)                      ; 5 - Power Max
+        (round stats-temp-motor)                     ; 6 - T Mot Now
+        stats-temp-motor-max                         ; 7 - T Mot Max
+        (round stats-temp-esc)                       ; 8 - T FET Now
+        stats-temp-esc-max                           ; 9 - T FET Max
+        (round-x stats-amps-now 0.1)                 ; 10 - I Now
+        (round-x stats-amps-now-max 0.1)             ; 11 - I Max
+))
+
+(def page-2-state (get-page-2-state))
+
+; One column of totals and session maxima. The "now" readings this page used to
+; carry are all available as live-page slots, and two label/value column pairs
+; were too cramped for a 268px page.
+(defun page-2 (s) {
+        (var lbl-x (+ page-x 10))
+        (var val-x (+ page-x 116))
+
+        (var curr-state (get-page-2-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-2-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state)) ;; Update all the volatile fields if s
+                ;; Draw the static postion of this page once when called with s = true
+
+                (setq page-resources
+                    (list
+                        (cons 'lbl-img (img-buffer dm-pool 'indexed4 90 16))
+                        (cons 'val-img (img-buffer dm-pool 'indexed4 110 16))
+                ))
+
+                (page-clear)
+
+                (var lblimg (assoc page-resources 'lbl-img))
+
+                (ttf-txt-right lblimg lbl-x (+ page-y 0)  "Time")
+                (ttf-txt-right lblimg lbl-x (+ page-y 18) "Wh")
+                (ttf-txt-right lblimg lbl-x (+ page-y 36) "Speed Max")
+                (ttf-txt-right lblimg lbl-x (+ page-y 54) "Power Max")
+                (ttf-txt-right lblimg lbl-x (+ page-y 72) "I Max")
+                (ttf-txt-right lblimg lbl-x (+ page-y 90) "T FET Max")
+        })
+
+        (var valimg (assoc page-resources 'val-img))
+
+        (if (ix update-state 0) {
+                (var secs (to-i (ix curr-state 0)))
+                (var hh (mod (/ secs 3600) 24))
+                (var mm (mod (/ secs 60) 60))
+                (var ss (mod secs 60))
+                (var str (str-merge (str-from-n hh "%02d:") (str-from-n mm "%02d:") (str-from-n ss "%02d")))
+                (ttf-txt-left valimg val-x (+ page-y 0) str)
+        })
+        (if (ix update-state 1)
+            (ttf-txt-left valimg val-x (+ page-y 18) (str-from-n (ix curr-state 1) "%.1f Wh"))
+        )
+        (if (ix update-state 3)
+            (ttf-txt-left valimg val-x (+ page-y 36) (str-from-n (ix curr-state 3) "%.1f km/h"))
+        )
+        (if (ix update-state 5)
+            (ttf-txt-left valimg val-x (+ page-y 54) (str-from-n (ix curr-state 5) "%.0f W"))
+        )
+        (if (ix update-state 11)
+            (ttf-txt-left valimg val-x (+ page-y 72) (str-from-n (ix curr-state 11) "%.0f A"))
+        )
+        (if (ix update-state 9)
+            (ttf-txt-left valimg val-x (+ page-y 90) (str-from-n (ix curr-state 9) "%.0f C"))
+        )
+
+        (setq page-2-state curr-state)
+})
+
+(defun draw-bat-cell (cell imgbuf x y v-empty v-full volt bal) {
+        (img-clear imgbuf)
+        (var (w h) (img-dims imgbuf))
+
+        ; Calculate fill ratio (0.0 to 1.0)
+        (var voltage-range (- v-full v-empty))
+        (var current-level (- volt v-empty))
+        (var fill-ratio (trunc01 (/ current-level voltage-range)))
+
+        ; Calculate fill height
+        (var fill-height (to-i (* fill-ratio (- h 2))))
+
+        ; Draw cell outline
+        (img-rectangle imgbuf 0 0 w h 2 '(filled) '(rounded 3))
+
+        ; Fill cell with appropriate color
+        (if (> fill-height 0) {
+                (var fill-color (if bal 4 3))  ; Red if low, normal color otherwise
+                (img-rectangle imgbuf 0 (- h 0 fill-height) w fill-height fill-color '(filled) '(rounded 3))
+        })
+
+        (ttf-text imgbuf (- w 2) (- h 2) '(0 1) font-16-2c (str-merge (str-from-n cell "%02d") (str-from-n (to-float volt) "-%.2f")) 'up)
+
+        (disp-render imgbuf x y (list 0x000000 0xFFFFFF 0x787878 0x00C321 0xFF7700 0 0 0 0 0 0 0 0 0 0 0))
+})
+
+(defun get-page-3-state () (list
+        (get-bms-val 'bms-cell-num) ; 0
+        (map (fn (x) (round-x (get-bms-val 'bms-v-cell x) 0.01)) (range (/ (get-bms-val 'bms-cell-num) 2))) ; 1 - First half of cells
+        (map (fn (x) (= (get-bms-val 'bms-bal-state x) 1)) (range (/ (get-bms-val 'bms-cell-num) 2))) ; 2 - First half of balance states
+        (map (fn (x) (round-x (get-bms-val 'bms-v-cell x) 0.01)) (range (/ (get-bms-val 'bms-cell-num) 2) (get-bms-val 'bms-cell-num))) ; 3 - Second half of cells
+        (map (fn (x) (= (get-bms-val 'bms-bal-state x) 1)) (range (/ (get-bms-val 'bms-cell-num) 2) (get-bms-val 'bms-cell-num))) ; 4 - Second half of balance states
+        (if (> (get-bms-val 'bms-temp-adc-num) 2) (get-bms-val 'bms-temps-adc 2) 0.0) ; 5 - T Cell Max
+        (if (> (get-bms-val 'bms-temp-adc-num) 3) (get-bms-val 'bms-temps-adc 3) 0.0) ; T 6 - Mos
+        (get-bms-val 'bms-hum)        ; 7
+        (get-bms-val 'bms-v-cell-min) ; 8
+        (get-bms-val 'bms-v-cell-max) ; 9
+        (get-bms-val 'bms-i-in-ic)    ; 10
+))
+
+(def page-3-state (get-page-3-state))
+(defun page-3 (s) {
+        (var curr-state (get-page-3-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-3-state curr-state))
+
+        (var num-cells (ix curr-state 0))
+        (var cell-width 13)
+        (var cell-height 44)
+        (var cell-spacing-x 2)
+
+        (if (or s (ix update-state 0))
+            (page-clear)
+        )
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state))
+                (setq page-resources
+                    (list
+                        (cons 'cell-img (img-buffer dm-pool 'indexed16 cell-width cell-height))
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 46 16))
+                ))
+
+                (var textimg (assoc page-resources 'text-img))
+
+                (ttf-txt-right textimg 200 46 "T Cell")
+                (ttf-txt-right textimg 200 63 "T PCB")
+                (ttf-txt-right textimg 200 80 "Hum")
+                (ttf-txt-right textimg 200 97 "C Min")
+                (ttf-txt-right textimg 200 114 "C Max")
+                (ttf-txt-right textimg 200 131 "I")
+        })
+
+        (var cellimg (assoc page-resources 'cell-img))
+        (var textimg (assoc page-resources 'text-img))
+
+        (var cell-xs (+ cell-width cell-spacing-x))
+        (var ofs-x (+ 50 (* 0.5 (- 120 (* cell-xs (/ num-cells 2))))))
+
+        ; Upper cells
+        (if (or (ix update-state 1) (ix update-state 2)) {
+                (looprange i 0 (/ num-cells 2) {
+                        (draw-bat-cell (+ i 1) cellimg (+ ofs-x (* i cell-xs)) 48 2.8 4.2
+                            (ix (ix curr-state 1) i) (ix (ix curr-state 2) i)
+                        )
+                })
+        })
+
+        ; Lower cells
+        (if (or (ix update-state 3) (ix update-state 4)) {
+                (looprange i (/ num-cells 2) num-cells {
+                        (var ind0 (- i (/ num-cells 2)))
+                        (draw-bat-cell (+ i 1) cellimg (+ ofs-x (* ind0 cell-xs)) 96 2.8 4.2
+                            (ix (ix curr-state 3) ind0) (ix (ix curr-state 4) ind0)
+                        )
+                })
+        })
+
+        (if (ix update-state 5)
+            (ttf-txt-left textimg 252 46 (str-from-n (ix curr-state 5) "%.0fC"))
+        )
+
+        (if (ix update-state 6)
+            (ttf-txt-left textimg 252 63 (str-from-n (ix curr-state 6) "%.0fC"))
+        )
+
+        (if (ix update-state 7)
+            (ttf-txt-left textimg 252 80 (str-from-n (ix curr-state 7) "%.0f%%"))
+        )
+
+        (if (ix update-state 8)
+            (ttf-txt-left textimg 252 97 (str-from-n (ix curr-state 8) "%.2fV"))
+        )
+
+        (if (ix update-state 9)
+            (ttf-txt-left textimg 252 114 (str-from-n (ix curr-state 9) "%.2fV"))
+        )
+
+        (if (ix update-state 10)
+            (ttf-txt-left textimg 252 131 (str-from-n (ix curr-state 10) "%.1fA"))
+        )
+
+        (setq page-3-state curr-state)
+})
+
+(defun get-page-4-state () (append
+        (map (fn (n) (read-setting n)) setting-list-page1)
+        (list setting-now)
+))
+
+(def page-4-state (get-page-4-state))
+(defun page-4 (s) {
+        (var cat-col-x 40)
+        (var val-col-x 130)
+        (var rows (length setting-list-page1))
+
+        (var curr-state (get-page-4-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-4-state curr-state))
+
+        (if s {
+                (setq update-state (map (fn (x) t) curr-state)) ; Update all fields on page switch
+
+                (setq page-resources
+                    (list
+                        (cons 'text-img (img-buffer dm-pool 'indexed4 80 16))
+                        (cons 'title-img (img-buffer dm-pool 'indexed4 (- 320 page-x 4) 16))
+                ))
+
+                (page-clear)
+
+                (var textimg (assoc page-resources 'text-img))
+                (var titleimg (assoc page-resources 'title-img))
+
+                ; Draw static labels
+                (ttf-txt-center "Settings" font-16 titleimg)
+                (disp-render titleimg page-x page-y colors-text-aa)
+
+                (looprange i 0 rows
+                    (ttf-txt-right textimg (+ page-x cat-col-x) (+ page-y 16 (* i 16))
+                        (ix setting-label-page1 i))
+                )
+        })
+
+        (var textimg (assoc page-resources 'text-img))
+
+        (looprange i 0 rows
+            (if (or (ix update-state i) (ix update-state rows))
+                (ttf-txt-left textimg (+ page-x val-col-x) (+ page-y 16 (* i 16))
+                    (str-from-n (ix curr-state i) (ix setting-fmt-page1 i))
+                    (if (= (ix curr-state rows) i) colors-text-sel-aa colors-text-aa)
+            ))
+        )
+
+        (setq page-4-state curr-state)
+})
+
+; Fixed colour, or a green to red ramp across the slot range
+(defun slot-colors (i) {
+        (if (= (ix settings-slot-modes i) 0) (ix colors-slots i) {
+                (var lo (ix settings-slot-mins i))
+                (var hi (ix settings-slot-maxs i))
+                (var v (slot-value (ix settings-slots i)))
+                (var f (if (<= hi lo) 0.0 (/ (- v lo) (- hi lo))))
+                (cond
+                    ((> f 0.85) colors-crit)
+                    ((> f 0.6) colors-warn)
+                    (t colors-ok)
+                )
+        })
+})
+
+(defun get-page-5-state () (list
+        (str-from-n (to-float (slot-value (ix settings-slots 0))) (slot-fmt (ix settings-slots 0)))
+        (str-from-n (to-float (slot-value (ix settings-slots 1))) (slot-fmt (ix settings-slots 1)))
+        (str-from-n (to-float (slot-value (ix settings-slots 2))) (slot-fmt (ix settings-slots 2)))
+        (str-from-n (to-float (slot-value (ix settings-slots 3))) (slot-fmt (ix settings-slots 3)))
+))
+
+(def page-5-state (get-page-5-state))
+
+; Four readings, two by two. Page area is 268x112, so cells are 134x56
+(defun page-5 (s) {
+        (var curr-state (get-page-5-state))
+        (var update-state (zipwith (fn (x y) (not-eq x y)) page-5-state curr-state))
+
+        ; A ramped slot can change colour while its text does not
+        (looprange i 0 4
+            (if (= (ix settings-slot-modes i) 1) (setix update-state i true)))
+
+        (if s {
+                (setq update-state (map (fn (x) t) update-state))
+
+                (setq page-resources (list
+                        (cons 'lbl-img (img-buffer dm-pool 'indexed4 130 16))
+                        (cons 'val-img (img-buffer dm-pool 'indexed4 130 28))
+                ))
+
+                (page-clear)
+
+                (var lblimg (assoc page-resources 'lbl-img))
+                (looprange i 0 4 {
+                        (var cx (+ page-x (* (mod i 2) 134)))
+                        (var cy (+ page-y (* (/ i 2) 56)))
+                        (var src (ix settings-slots i))
+                        (img-clear lblimg)
+                        (ttf-text lblimg 4 13 '(0 1 2 3) font-16
+                            (str-merge (slot-label src) "  " (slot-unit src)))
+                        (disp-render lblimg cx (+ cy 2) colors-text-aa)
+                })
+        })
+
+        (var valimg (assoc page-resources 'val-img))
+        (looprange i 0 4
+            (if (ix update-state i) {
+                    (var cx (+ page-x (* (mod i 2) 134)))
+                    (var cy (+ page-y (* (/ i 2) 56)))
+                    (var str (ix curr-state i))
+                    (img-clear valimg)
+
+                    (ttf-text valimg 14 25 '(0 1 2 3) font-32 str)
+                    (disp-render valimg cx (+ cy 20) (slot-colors i))
+            })
+        )
+
+        (setq page-5-state curr-state)
+})
+
+(def page-catalog (list page-5 page-1 page-2 page-3))
+
+(defun settings-apply-pages () {
+        (var sel nil)
+        (looprange i 0 (length page-catalog)
+            (if (!= 0 (bitwise-and settings-page-mask (shl 1 i)))
+                (setq sel (cons (ix page-catalog i) sel))
+        ))
+        (setq sel (reverse sel))
+
+        (if (eq sel nil) (setq sel (list (ix page-catalog 0))))
+
+        (setq page-num (length sel))
+        (setq pages (append sel (list page-4)))
+        (if (> page-now page-num) (setq page-now 0))
+})
+
+(def pages (list page-5 page-1 page-2 page-3 page-4))
+(settings-apply-pages)
+
+(defun view-pages-thread () {
+        ;; recreated if the view thread restarts
+        (var last-page 100) ;; Should mean that we get s on first call
+
+        ;; Could make an assoc list or  a struct for the various arguments passed to the page-fun.
+
+        (loopwhile t {
+                (var page-now-sample page-now)
+                (var curr-page (ix pages page-now-sample))
+                (var force view-force-pages)
+                (setq view-force-pages false)
+                (if curr-page (curr-page (or force (not (= last-page page-now-sample)))))
+                (setq last-page page-now-sample)
+                (sleep 0.05)
+        })
+})

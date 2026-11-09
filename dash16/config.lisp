@@ -7,7 +7,6 @@
 
 (def config-gnss-use-speed false) ; Prefer GPS speed over ESC speed
 
-(def config-boot-animation-enable false) ; Enable VESC logo animation
 (def config-code-server true) ; Enable remote code execution
 
 (def config-battery-hot 55.0) ; Displays warning indicator, Degrees C

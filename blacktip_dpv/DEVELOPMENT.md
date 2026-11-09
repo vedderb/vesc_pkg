@@ -10,7 +10,7 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Display Update Loop:**
   * Periodically updates the OLED display with speed, battery, Smart Cruise status, error codes, and timer bar.
   * Uses a lookup table for LED timer bar mapping (left-to-right countdown).
-    * Loads display frames from a binary file generated from a CSV asset.
+    * Loads display frames from a binary file generated from a CSV asset. Each frame is stored once and rotated at run time.
 * **Smart Cruise Logic:**
   * Allows hands-free operation with configurable timeout and auto-engage.
   * Visual feedback via display and 8-LED timer bar; warning mode triggers slowdown and beep.
@@ -18,6 +18,9 @@ The BlackTip DPV lispBM runtime is organized as a set of cooperative threads and
 * **Peripheral Loops:**
   * Separate threads for motor control, trigger/button polling, battery monitoring, and Smart Cruise background checks.
   * Each loop uses minimal stack and sleep intervals to conserve memory and CPU.
+* **Startup Audio Arbitration:**
+   * The startup tune and battery indication use synchronous `foc-beep`, which temporarily owns the FOC path.
+   * A motor start sets `startup_tune_cancelled` and clears deferred battery beeps. The tune observes cancellation between notes, allowing an active note to complete without later notes reclaiming motor control.
 * **Logging and Debugging:**
   * Conditional debug logging via `debug_log` and `when-debug` macros to minimize memory usage.
     * Debug output can be enabled for troubleshooting in VESC Tool.
@@ -141,7 +144,7 @@ The imbalance warning replaces only the `DISPLAY_SENTINEL` (idle) frame, so it a
 * **At rest** (`speed = SPEED_OFF`): the warning is shown continuously.
 * **While running:** the warning flashes on for `IMBALANCE_RUN_FLASH_ON` (1 s) out of every `IMBALANCE_RUN_FLASH_PERIOD` (5 s). This keeps reminding the rider mid-ride without permanently clobbering the smart-cruise timer bar / speed display.
 
-The warning uses the `BATTERY_IMBALANCE_DISPLAY_PACK_1` and `BATTERY_IMBALANCE_DISPLAY_PACK_2` display identifiers. The `Display Battery 1 Low` and `Display Battery 2 Low` entries in `assets/display_lut.csv`, each with four rotation variants, provide the artwork. The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
+The warning uses the `BATTERY_IMBALANCE_DISPLAY_PACK_1` and `BATTERY_IMBALANCE_DISPLAY_PACK_2` display identifiers. The `Display Battery 1 Low` and `Display Battery 2 Low` entries in `assets/display_lut.csv` provide the artwork (rotation 0; the firmware rotates it). The CudaX timeout-recovery path also explicitly resets to the cached battery frame when one of these warning frames is currently shown, so the warning cannot persist past its window.
 
 ### SOC Correction
 
@@ -183,7 +186,8 @@ Before calling the VESC hardware shutdown path, the request selects the existing
 The project uses GNU Make for building the VESC package:
 
 ```text
-make              # Build blacktip_dpv.vescpkg
+make              # Build blacktip_dpv.vescpkg (packaged Lisp stripped of comments and indentation)
+make debug        # Build blacktip_dpv.vescpkg from the unmodified Lisp source (bench work, debugging)
 make clean        # Remove generated files
 make test         # Run code quality checks and smoke tests
 make smoke-tests  # Run unit-style smoke tests only
@@ -202,7 +206,7 @@ The build system automatically generates version information for the package:
 * **Distribution**: During build, `tools/update_version.sh` creates `ui.dist.qml` with the full version and build timestamp
 * **Package**: The `.vescpkg` includes `README.dist.md` and `ui.dist.qml` (referenced in `pkgdesc.qml`) so users see the detailed version info
 * **Repository**: The `README.md` in the repository shows only the base version for simplicity
-* **Rebuild behavior**: The package is only rebuilt when source files change (`blacktip_dpv.lisp`, `ui.qml`, `pkgdesc.qml`, `README.md`)
+* **Rebuild behavior**: The package is only rebuilt when source files change (`blacktip_dpv.lisp`, `ui.qml`, `pkgdesc.qml`, `README.md`), when `tools/strip_lisp.py` changes, or when the build mode switches between stripped and unstripped (see [Packaged Lisp is stripped](#packaged-lisp-is-stripped))
 
 To update the version:
 
@@ -210,6 +214,47 @@ To update the version:
 1. Run `make` - the distribution file will be generated automatically with a new timestamp
 
 **Note**: `README.dist.md` and `ui.dist.qml` are generated during build and should not be committed to git.
+
+### Packaged Lisp is stripped
+
+`make` packages a copy of `blacktip_dpv.lisp` with the comments and the indentation removed. The source file stays as readable as before; only the Lisp inside `blacktip_dpv.vescpkg` is stripped. VESC Tool stores the Lisp text byte for byte and the Lisp data has a fixed size limit (one 128 KiB flash block; VESC Tool prints the `Lisp data size` against it during the build), so every comment byte and every leading space counts against it. A comment in the source therefore costs nothing in the package, and indentation can be used freely.
+
+**What `tools/strip_lisp.py` removes**
+
+* Full-line comments and trailing `;` comments, and the whitespace in front of a trailing comment.
+* All leading indentation (spaces and tabs), and trailing whitespace outside strings.
+* Comment-only and blank lines become **empty lines**: the line count never changes.
+
+Nothing else is touched. Strings (including strings that span lines, where the leading spaces of a continuation line are data), char literals (`\#;`, `\#"`, `\# ` and the `\#\n` forms), `@const-start` / `@const-end` and the `(import ...)` line are kept as they are, apart from their indentation. The lexical rules are those of the LispBM reader in VESC firmware 7.00 (`tokpar.c`), so a `;` or a quote inside a string or a char literal never starts a comment, and a quote or apostrophe inside a comment is dropped with the comment.
+
+**Safety.** The script runs a self-check on every build: it re-reads the source and the output with a second, independent reader and requires identical token sequences (strings byte for byte, every token on the same line), identical line count, line ending style and import lines, and no comment or indentation left over. Anything it cannot handle with certainty (unterminated string, bad escape, bad char literal, bare backslash, control or non-ASCII byte in code, lone CR or mixed line endings) stops `make` with `file:line:col: error: message`, and any stale stripped file is removed, so a package is never built from an old stripped copy. `make test` repeats the comparison on the real source and on edge cases, including a mutation check that the comparison detects damage. When `LBM_REPL` points at a native LispBM repl (for example one built from the `lispBM/lispBM/repl` directory of the VESC firmware 7.00 tree), `make test` also compares the forms that the LispBM reader produces for both files.
+
+**How the build works.** The stripped file is written to `generated/pkg/blacktip_dpv.lisp` (not in git). VESC Tool resolves `pkgLisp`, the other package files and the `generated/display_lut.bin` import relative to its working directory, so `make` runs it in `generated/pkg/`, which holds the stripped Lisp, copies of `pkgdesc.qml`, `README.dist.md`, `ui.dist.qml` and `generated/display_lut.bin`. The result is moved to `blacktip_dpv.vescpkg` in the project directory, as before. `pkgdesc.qml` is copied unchanged, so the package descriptor stored in the package is identical in both modes. The mode is recorded in `generated/pkg_mode.stamp`, so switching mode rebuilds the package.
+
+**Unstripped build (opt-out).**
+
+```text
+make debug             # unstripped package; same as: make STRIP_LISP=0
+make STRIP_LISP=0      # the same, from the unmodified source, exactly as before this step
+make                   # stripped release package (the default)
+```
+
+`make debug` produces `blacktip_dpv.vescpkg` unstripped and **overwrites** the stripped package. Run `make` again before building a release or quoting sizes. Use the unstripped build for bench work or when debugging, so that error columns match the source exactly.
+
+**Sizes.** Quote sizes in release notes from the stripped build (the `Lisp data size` line printed by `make`), not from `make debug`. When this step was introduced, the Lisp data of the package was 106,143 B (81.0 %) unstripped and 54,295 B (41.4 %) stripped. With the display table holding each frame once (536 B instead of 2,120 B) and the run-time rotation, it is 104,123 B (79.4 %) unstripped and 52,167 B (39.8 %) stripped.
+
+**Mapping an error back to the source.** In the LispBM sources of firmware 7.00 (`eval_cps.c`), the position in an error message is the reader's position in the text it was given, which is the stripped text:
+
+* Read errors (invalid token, bad string or char literal, unexpected end of the stream, unbalanced parenthesis, incorrect use of `.`) print `Line:` and `Column:`. These are 1-based, count bytes, and are the reader's position when it gave up, at or just after the offending token. This is the only error kind that carries a column.
+* Other errors (`type_error`, `eval_error`, `out_of_memory` and so on) print no line or column. If the context has a row range, they print `Starting at row: N` or `Between row N and M`, the rows of the top-level form that was being read when the context started. Contexts started with `spawn` have no row range.
+
+The stripped text has the same lines as the source, so **every line number and row refers to the same line in `blacktip_dpv.lisp`**. Columns shift by the indentation that was removed from that line:
+
+```text
+source column = stripped column + indentation (in bytes) of that source line
+```
+
+or let the tool do it: `python3 tools/strip_lisp.py --map LINE COLUMN blacktip_dpv.lisp` prints the source column for a `Line:` and `Column:` taken from the error message. For a line that starts inside a multi-line string nothing was removed from it, so the columns are equal.
 
 ### Test Suite
 
@@ -229,16 +274,21 @@ make smoke-tests  # Run 30+ unit tests for pure functions
 
 Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM implementations and verify correctness without needing hardware.
 
+**Display path in a native repl.** The tests that need no repl check the CSV, the generator (including that it rejects malformed CSVs and removes a stale table), the Python reference rotation in `tools/display_rotation.py` (four quarter turns are the identity, two equal flipping both axes, and an asymmetric bitmap equals hand-typed bytes), and the timer bar. When `LBM_REPL` points at a native LispBM repl with constant memory (for example `repl_big` from the `lispBM/lispBM/repl` directory of the VESC firmware 7.00 tree), `make test` also loads the real `blacktip_dpv.lisp`, runs the real `rotate_display_frame` for every frame and turn count, runs one iteration of the real display loop for every frame, rotation setting, screen (Blacktip, CudaX with and without `cudax_flip`) and timer bar LED count, and requires the real rotation to equal the reference rotation, and the recorded I2C transfers to equal the rotation 0 CSV row turned by the reference rotation plus the per-rotation timer bar overlay. It also runs the display thread at the configured `THREAD_STACK_DISPLAY` and fails on `out_of_stack`. Without `LBM_REPL` these tests print a `SKIPPED` notice.
+
 ## Project Structure
 
     blacktip_dpv/
     ├── assets/                          // Source data files
-    │   └── display_lut.csv             // Display artwork, with four rotation variants per named display
+    │   └── display_lut.csv             // Display artwork: one row per display, in rotation 0
     ├── tools/                           // Build and development tools
+    │   ├── display_rotation.py         // Reference quarter-turn rotation (preview tool and tests)
     │   ├── generate_lut_binary.py      // Generates binary files from CSV
-    │   └── preview_display.py          // ASCII/PGM visualization tool
+    │   ├── preview_display.py          // ASCII/PGM visualization tool
+    │   └── strip_lisp.py               // Strips comments and indentation from the packaged Lisp
     ├── generated/                       // Auto-generated files (not in git)
-    │   └── display_lut.bin             // Generated binary display data
+    │   ├── display_lut.bin             // Generated binary display data
+    │   └── pkg/                        // Staging directory for the stripped package build
     ├── blacktip_dpv.lisp               // Main lispBM runtime source
     ├── ui.qml                           // User interface
     ├── pkgdesc.qml                     // Package descriptor
@@ -250,9 +300,9 @@ Tests are implemented in Python (`tests/run_tests.py`) to mirror the LispBM impl
 
 The OLED screen artwork lives in `assets/display_lut.csv` as a CSV file:
 
-* **`display_lut.csv`** — Pre-rotated display artwork, with one row for each named display and rotation variant
+* **`display_lut.csv`** — Display artwork: one row for each named display, in rotation 0, with the columns `index`, `name` and `b0` to `b15`
 
-This CSV file is the source of truth. The build system automatically generates the binary display LUT from it.
+This CSV file is the source of truth, and the only place the artwork exists: the other three rotations are not stored anywhere, the firmware rotates the frame clockwise by the configured rotation when it draws. The build system automatically generates the binary display LUT from it, one table entry per row. `tools/generate_lut_binary.py` stops the build, naming the CSV line, when a row has the wrong number of fields, a value outside 0 to 255, a non-zero even byte, a duplicate or empty name, or an `index` that is not its position, and it removes a stale table when it fails.
 
 ### Preview Tool
 
@@ -271,7 +321,7 @@ python tools/preview_display.py --show-all-rotation 0
 python tools/preview_display.py --index 0 --output preview.pgm
 ```
 
-The preview tool applies a fixed hardware-orientation transform to match the physical display. This transform is independent of the configured frame rotation: in the physical preview, rotation 1 is 90° clockwise from rotation 0, rotation 2 is 180° clockwise, and rotation 3 is 270° clockwise.
+The preview tool applies a fixed hardware-orientation transform to match the physical display. This transform is independent of the configured frame rotation: in the physical preview, rotation 1 is 90° clockwise from rotation 0, rotation 2 is 180° clockwise, and rotation 3 is 270° clockwise. The CSV holds only rotation 0, so the tool computes the other rotations with the same quarter-turn rule as the firmware (`tools/display_rotation.py`). `--index` is `4 * display index + rotation`, so `--index 5` is display 1 turned once.
 
 ### Binary File Format
 
@@ -281,9 +331,11 @@ The lispBM runtime loads display data from a binary file at runtime using LispBM
 
 * Header (8 bytes):
   * Magic number: 0x4C555444 ("LUTD" in ASCII)
-  * Version: u16 (currently 1)
-  * Frame count: u16
-* Frame data: a sequence of 16-byte interleaved frames
+  * Version: u16 (currently 2)
+  * Frame count: u16 (33: one entry per display)
+* Frame data: a sequence of 16-byte interleaved frames in rotation 0, display `n` at offset `8 + 16 * n`
+
+Version 1 stored all four rotations of every display (display `n`, rotation `r` at offset `8 + 64 * n + 16 * r`). The version was raised to 2 when only rotation 0 was kept, so a table of one format is rejected by firmware that expects the other.
 
 ## Development Workflow
 
@@ -297,11 +349,11 @@ The binary files will be automatically regenerated from the CSV.
 
 ### Adding New Displays
 
-1. Add four rows to `display_lut.csv` (one per rotation 0-3). The `index` field must be sequential and unique. Each row has 16 byte fields (`b0` through `b15`) representing the 8×8 pixel matrix as interleaved low/high column bytes.
+1. Add one row to `display_lut.csv`, in rotation 0. The `index` field must be the next number after the last row (it is the display number the firmware uses) and the name must be unique. The row has 16 byte fields (`b0` through `b15`) representing the 8×8 pixel matrix as interleaved low/high column bytes, and the even bytes must be 0 (the generator checks this and names the line that is wrong). The tests pin the number of displays, so also update `DISPLAY_LUT_FRAMES` in `tests/run_tests.py`.
 
 ## Display Orientation
 
-The display hardware has a fixed orientation transform relative to the natural orientation. The preview tool applies that transform for its physical view. The LispBM runtime does not transform frame pixels: it selects each pre-rotated 16-byte asset using `display * 64 + rotation * 16`, where increasing configured rotation is clockwise in the physical view.
+The display hardware has a fixed orientation transform relative to the natural orientation. The preview tool applies that transform for its physical view. The LispBM runtime copies the 16-byte rotation 0 frame of the display (offset `8 + 16 * display` in the table), applies the Smart Cruise timer bar to it, and then rotates the finished frame clockwise with `rotate_display_frame`: one pass of 64 pixel moves for each quarter turn, with the configured rotation taken modulo 4. Increasing configured rotation is clockwise in the physical view, and the timer bar turns with the frame. Rotation 0 sends the bytes of the CSV row (plus the timer bar bits); rotations 1 to 3 send that frame turned by the quarter-turn rule, which the tests check against the Python reference rotation.
 
 Each display frame consists of:
 
@@ -433,8 +485,8 @@ The runtime uses LispBM's `import` statement to load binary data at runtime:
 (import "generated/display_lut.bin" 'display_lut_bin)
 ; Validate headers
 (defun validate_lut_header (data magic expected_version) { … })
-; Access display data (offset by 8-byte header)
-(bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+; Access display data (offset by 8-byte header, 16 bytes per display, rotation 0)
+(bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16)
 ```
 
 ### Why `pixbuf` is Required
@@ -442,11 +494,14 @@ The runtime uses LispBM's `import` statement to load binary data at runtime:
 The `pixbuf` variable is a 16-byte working buffer that is essential to the display system and **cannot be removed**:
 
 ```lisp
-(let ((start_pos 0)
-         (pixbuf (array-create 16))) {  // Temporary 16-byte buffer
+(let ((pixbuf (array-create 16))
+         (rotbuf (array-create 8))) {  // Temporary 16-byte buffer and rotation scratch
       …
       // Copy 16 bytes from binary file to pixbuf
-      (bufcpy pixbuf 0 display_lut_bin (+ 8 start_pos) 16)
+      (bufcpy pixbuf 0 display_lut_bin (+ 8 (* 16 eff_disp)) 16)
+      // Timer bar overlay, then rotate by the configured rotation
+      (apply_smart_cruise_timer_bar pixbuf)
+      (rotate_display_frame pixbuf rotbuf rotation)
 
       // Send pixbuf to display via I2C
       (i2c-tx-rx mpu-addr pixbuf)
@@ -458,7 +513,8 @@ The `pixbuf` variable is a 16-byte working buffer that is essential to the displ
 1. The `i2c-tx-rx` function requires a buffer to send data
 2. We cannot send data directly from the binary file to I2C
 3. The buffer extracts the specific 16-byte frame we need from the larger binary file
-4. It's a small (16 bytes) stack-allocated array with negligible overhead
+4. It's a small (16 bytes) array, allocated once when the display loop starts, with negligible overhead
+5. The frame is overlaid and rotated in place before it is sent, so the table itself is never modified
 
 ## Build Dependencies
 
