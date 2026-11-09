@@ -17,7 +17,6 @@
 
 #pragma once
 #include "biquad.h"
-#include "kalman.h"
 #include "conf/datatypes.h"
 #include "vesc_c_if.h"
 #include <stdint.h>
@@ -33,26 +32,27 @@ typedef struct { //Run time values used in various features
  	float true_pitch_angle;
 	float gyro[3];
 	float gyro_y;
-	float gyro_z;
+	float gyro_turning;
 	float gyro_y_smooth;
 	Biquad gyro_y_biquad; // Notch Filter
 	float pitch_smooth; // Low Pass Filter
 	Biquad pitch_biquad; // Low Pass Filter
-	KalmanFilter pitch_kalman; // Kalman Filter
-	float pitch_smooth_kalman; // Kalman Filter
 	float diff_time, last_time;
 	ATTITUDE_INFO m_att_ref; // Feature: True Pitch / Yaw
-	bool brake_pitch, brake_roll, brake_yaw;
 	float disengage_timer, nag_timer;
 	uint32_t loop_time_us;
+	uint32_t imu_loop_time_us;
 	float motor_timeout_s;
 	float odo_timer;
 	int odometer_dirty;
 	uint64_t odometer;
 	float brake_timeout;
 	float fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer, fault_switch_half_timer; // Seconds
-	float imu_rate_factor;
 	float ema_factor;
+	float gyro_yaw;
+	int imu_sample_rate;
+	int loop_rate;
+	float yaw_ema_factor;
 } RuntimeData;
 
 typedef struct {
@@ -73,8 +73,9 @@ typedef struct {
 } YawDebugData;
 
 void runtime_data_update(RuntimeData *rt);
+void imu_data_update(RuntimeData *rt);
 void apply_filters(RuntimeData *rt, tnt_config *config);
-void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg, int hertz);
+void calc_yaw_change(YawData *yaw, RuntimeData *rt, YawDebugData *yaw_dbg);
 void reset_runtime(RuntimeData *rt, YawData *yaw, YawDebugData *yaw_dbg);
 void configure_runtime(RuntimeData *rt, tnt_config *config);
 void check_odometer(RuntimeData *rt);

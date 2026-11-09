@@ -19,33 +19,49 @@
 #include "utils_tnt.h"
 #include <math.h>
 
-void tone_update(ToneData *tone, RuntimeData *rt, State *state) {
+void tone_update(ToneData *tone, const RuntimeData *rt, const State *state) {
 	//This function is updated every code cycle to execute initiated tones
-	int index;
+	const float current_time = rt->current_time;
+	const int is_running = state->state == STATE_RUNNING;
 	
-	if (tone->duration > 30 &&		//Don't allow continuous tones outiside run state
-	    state->state != STATE_RUNNING) {	
+	if (tone->duration > 30.0f && !is_running) { //Don't allow continuous tones outiside run state
 		end_tone(tone);
 	}
-	
-	if (!tone->pause) { 					//only play or stop tones outside of pause period
-		tone->pause_timer = rt->current_time; 		// keep updated until we are in pause state
-		if (!tone->tone_in_progress && tone->times != 0) { //play if times>0 and we are ready for the next tone
-			index = min(2, tone->times - 1);	//Use index/times to play frequencies in reverser order: 3 2 1
-			if (state->state == STATE_RUNNING) { 	//Choose function based on state
-				tone->tone_in_progress = VESC_IF->foc_play_tone(0,  tone->freq[index], tone->voltage);
-			} else { tone->tone_in_progress = VESC_IF->foc_beep(tone->freq[index], tone->duration, tone->voltage); }
-			tone->timer = rt->current_time;		//Used to track tone duration
-			tone->times--; 				//Decrement the times property until 0
-		} else if (rt->current_time - tone->timer > tone->duration && tone->tone_in_progress) {
-			VESC_IF->foc_stop_audio(true);	//stop foc play tone after duration
-			if (tone->times > 0) 		
-				tone->pause = true; 		//put in pause if there is another play to do
-			tone->tone_in_progress = false; 
+
+	if (tone->pause) { 	// Pause tones until timeout.
+		if (current_time - tone->pause_timer > 0.1f) {
+			tone->pause = false;
 		}
-	} else if (rt->current_time - tone->pause_timer > 0.1) { //Hard coded pause of 100 ms
-		tone->pause = false;
+		return;
 	}
+	
+	tone->pause_timer = current_time;	// Keep the pause timer current while not paused.
+	
+	if (tone->tone_in_progress) { // Stop an active tone once its duration has elapsed.
+		if (current_time - tone->timer > tone->duration) {
+			VESC_IF->foc_stop_audio(true);
+			tone->tone_in_progress = false;
+			if (tone->times > 0) {
+				tone->pause = true;
+			}
+		}
+		return; // skip the rest of the code if we are already making tones
+	}
+
+	if (tone->times <= 0) { // Exit if no tone is queued.
+		return;
+	}
+	
+	const int index = tone->times - 1; 	//Use tone->times to play freq[index] in reverser order: index 2 1 0
+	
+	if (is_running) {
+		tone->tone_in_progress = VESC_IF->foc_play_tone(0, tone->freq[index], tone->voltage);
+	} else {
+		tone->tone_in_progress = VESC_IF->foc_beep(tone->freq[index], tone->duration, tone->voltage);
+	}
+
+	tone->timer = current_time; //update timer
+	tone->times--; //decrement the number of times the tone is executed
 }
 
 void play_tone(ToneData *tone, ToneConfig *toneconfig, int beep_reason) {
@@ -89,7 +105,7 @@ void tone_reset_on_configure(ToneData *tone) {
 	tone->lowrange_activated = false;
 }
 
-void tone_reset(ToneData *tone) {
+void tone_reset(ToneData *tone, int imu_sample_rate) {
 	tone->duty_tone_count = 0;
 	tone->duty_beep_count = 0; 
 	tone->midrange_count = 0;
@@ -98,6 +114,7 @@ void tone_reset(ToneData *tone) {
 	tone->lowvolt_count = 0;
 	tone->voltage_diff = 0;
 	tone->last_voltage = VESC_IF->mc_get_input_voltage_filtered();
+	tone->write_error = (imu_sample_rate != VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate));
 }
 
 void tone_configure(ToneConfig *toneconfig, float freq1, float freq2, float freq3, float voltage, float duration, int times, float delay, int priority) {
@@ -111,7 +128,7 @@ void tone_configure(ToneConfig *toneconfig, float freq1, float freq2, float freq
 	toneconfig->priority = priority;
 }
 
-void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *tone) {
+void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *tone, int loop_rate) {
 	float beep_voltage = config->is_beeper_enabled ? config->beep_voltage : 0;
 	tone_configure(&toneconfig->continuous1, 659.3, 0, 0, beep_voltage, 601, 1, 0, 1);
 	tone_configure(&toneconfig->fastdouble1, 659.3, 659.3, 0, beep_voltage, .1, 2, 10, 1);
@@ -122,7 +139,7 @@ void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *t
 	tone_configure(&toneconfig->slowtriple1, 659.3, 659.3, 659.3, beep_voltage, .3, 3, 10, 5); 	//Temp motor
 	tone_configure(&toneconfig->slowtriple2, 784, 784, 784, beep_voltage, .3, 3, 10, 5);		//Temp fets
 	tone_configure(&toneconfig->fasttripleup, 784, 698.5, 659.3, beep_voltage, .1, 3, 10, 5);	//temp recovery
-	tone_configure(&toneconfig->fasttripledown, 659.3, 698.5, 784, beep_voltage, .1, 3, 30, 1);
+	tone_configure(&toneconfig->fasttripledown, 659.3, 698.5, 784, beep_voltage, .1, 3, 10, 5); //write error
 	tone_configure(&toneconfig->slowtripleup, 784, 698.5, 659.3, beep_voltage, .3, 3, 5, 7);	//high voltage
 	tone_configure(&toneconfig->slowtripledown, 659.3, 698.5, 784, beep_voltage, .3, 3, 30, 8);	//low voltage
 	tone_configure(&toneconfig->midvoltwarning, 659.3, 784, 784, beep_voltage, .3, 3, 0, 7);	//mid range
@@ -140,10 +157,10 @@ void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *t
 	beep_voltage = config->haptic_buzz_current ? config->tone_volt_high_current : 0; 		//High Current Tone
 	tone_configure(&toneconfig->currenttone, config->tone_freq_high_current, 0, 0, beep_voltage, config->overcurrent_period, 1, 0, 12);
 
-	tone->tone_duty = 1.0 * config->tiltback_duty / 100.0; 
-	tone->delay_100ms = config->hertz / 10;
-	tone->delay_250ms = config->hertz / 4;
-	tone->delay_500ms = config->hertz / 2;
+	tone->tone_duty = 1.0f * config->tiltback_duty / 100.0f; 
+	tone->delay_100ms = loop_rate / 10.0f;
+	tone->delay_250ms = loop_rate / 4.0f;
+	tone->delay_500ms = loop_rate / 2.0f;
 	tone->lowrange_warning = config->lowvolt_warning;
 	tone->midrange_warning = config->midvolt_warning;
 	tone->lowvolt_warning = config->tiltback_lv;
@@ -257,18 +274,24 @@ void check_tone(ToneData *tone, ToneConfigs *toneconfig, MotorData *motor) {
 	}
 
 	//Low and high voltages	
-	if (input_voltage > tone->highvolt_warning) 
+	if (input_voltage > tone->highvolt_warning) {
 		tone->highvolt_count++; 
-	else tone->highvolt_count = 0;
+		if (tone->highvolt_count > tone->delay_500ms) 
+			play_tone(tone, &toneconfig->slowtripleup, BEEP_HV);
+	} else tone->highvolt_count = 0;
 	
-	if (input_voltage < tone->lowvolt_warning) 
+	if (input_voltage < tone->lowvolt_warning) {
 		tone->lowvolt_count++;
-	else tone->lowvolt_count = 0;
+		if (tone->lowvolt_count > tone->delay_500ms) 
+			play_tone(tone, &toneconfig->slowtripledown, BEEP_LV);
+	} else tone->lowvolt_count = 0;
 
-	if (tone->highvolt_count > tone->delay_500ms) 
-		play_tone(tone, &toneconfig->slowtripleup, BEEP_HV);
-	else if (tone->lowvolt_count > tone->delay_500ms) 
-		play_tone(tone, &toneconfig->slowtripledown, BEEP_LV);
+	//IMU sample rate in App config does not match IMU sample rate in Package
+	if (tone->write_error) { //New IMU sample rate was written in App Cfg and not configured in TNT
+		tone->write_error_count++;
+		if (tone->write_error_count > tone->delay_500ms) 
+			play_tone(tone, &toneconfig->fasttripledown, WRITE_CFG);
+	} else tone->write_error_count = 0;
 }
 
 void play_footpad_beep(ToneData *tone, MotorData *motor, FootpadSensor *fs, ToneConfig *toneconfig) {

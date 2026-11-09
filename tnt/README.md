@@ -5,6 +5,8 @@ Trick and Trail Package was developed based on Float Package 1.2 by Surfdado and
 
 This package has been improved thanks to the contributions of Lukas Hrazky with Refloat.
 
+This package was not written with AI. I started in 2023 before AI was readily available. I have since used AI to help optimize the code, but I read and understand every line. I apply the changes manually.
+
 [READ THE WIKI](https://github.com/Izzygit/TrickandTrailReleases/wiki) https://github.com/Izzygit/TrickandTrailReleases/wiki
 
 ### Features
@@ -29,7 +31,7 @@ Default settings are based on 20s battery, Hypercore (Future Motion motor), and 
   * Current 3 (default pitch angle 1.5 deg) will affect nose height in medium demand (i.e. slight uphills/downhills)
   * Current 4 (default pitch angle 2 deg) will affect nose height in high demand (i.e. steep uphills/downhills)
   * Angle 5 (default current 150A) can be decreased to make the board more aggressive and surge more readily (better for bonks). Higher values will make the high current response softer which can be smoother for rough trails.
-  * Current 1 (default pitch angle 0.5 deg) and Kp0 can be increaced to make the board tighter around the setpoint
+  * Current 1 (default pitch angle 0.5 deg) and Kp0 can be increased to make the board tighter around the setpoint
   * Increase or decrease Pitch Rate Kp to adjust nose stiffness
 * Roll Tune - The default roll tune is very loose and moderate for easy, deep carving.
   * To make the roll tighter and more race-like, decrease Level 2 and Level 3 Roll Angle.
@@ -56,19 +58,31 @@ For more instructions on setting up your board please refer to the [Set Up Guide
 ### 1.7
 * **This version requires 6.05+ firmware minimum, 7.0+ optimal**
 * _Features_
+  * Yaw
+    * Changed yaw calculation to use gyros only instead of yaw angle. This takes yaw out of the Mahoney filter, but provides better response and accuracy.
+    * Yaw tunes will need lower yaw change to produce the same results
+    * Fixed a bug causing yaw gain to not be applied, even though debug values were reading correctly
   * Dynamic Stability
-    * Pitch Rate Stability no longer affects pitch rate for braking currents
+    * Pitch Rate Stability no longer affects Braking Pitch Rate Kp
   * Acceleration
     * Added new filter Gyro Notch Filter under Acceleration->Filter
-    * The parameter defines the center frequency of the stop band to exclude gyro IMU noise
+    * The new parameter defines the center frequency of the stop band to exclude gyro IMU noise.
+  * Braking
+    * Changed the way Braking Pitch Rate Kp is applied to make it more impactful to the board tune
+  * FOC Tones
+    * Added triple descending tone if the TNT Cfg does not match the App Cfg IMU sample rate
+    * Last beep reason "Write Cfg" added to AppUI indicating user needs to write package config  
 * _Fixes/Improvements_
-   * Fixed a bug causing yaw gain to not be applied, but debug values were reading correctly
-   * Changed the way Braking Pitch Rate Kp is applied to make it more impactful to the board tune
-   * Changed EMA Filter Factor calculation for higher IMU sample rates
-   * Change the yaw calculation for higher IMU sample rates
-   * Improved efficiency of the function that calculates pitch, roll, and yaw gain
-   * Improved efficiency of the debug calculations by only calculating values displayed on AppUI
-* ### 1.6
+  * Changed the main control loop so the IMU and lower priority functions operate at the IMU sample rate. Other functions continue to operate at the package loop rate.
+  * Optimized the function that calculates pitch, roll, and yaw gain
+  * Optimized the debug calculations by only calculating values currently displayed on AppUI
+  * Organized debug values for control math to one function
+  * Optimized traction control functions
+  * Optimized the function that engages FOC tones
+  * Removed legacy Kalman filter as it is no longer required with low Mahoney kp.
+  * Refactored control math
+
+### 1.6
 * **This version requires 6.05+ firmware to function properly**
 * _Features_
   * New Feature - Yaw Rate Kp in the Yaw menu

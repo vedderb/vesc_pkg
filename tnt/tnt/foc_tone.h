@@ -42,7 +42,8 @@ typedef enum {
 	BEEP_LW = 14,
 	BEEP_FETREC = 15,
 	BEEP_MOTREC = 16,
-	BEEP_CHARGED = 17
+	BEEP_CHARGED = 17,
+	WRITE_CFG =18
 } BeepReason;
 
 typedef struct {
@@ -79,6 +80,8 @@ typedef struct {
 	int shutdown_mode;
 	float charged_voltage;
 	float charged_timer;
+	int write_error_count;
+	bool write_error;
 } ToneData;
 
 typedef struct {
@@ -112,13 +115,13 @@ typedef struct {
 	ToneConfig currenttone;
 } ToneConfigs;
 
-void tone_update(ToneData *tone, RuntimeData *rt, State *state);
+void tone_update(ToneData *tone, const RuntimeData *rt, const State *state);
 void play_tone(ToneData *tone, ToneConfig *toneconfig, int beep_reason);
 void end_tone(ToneData *tone);
 void tone_reset_on_configure(ToneData *tone);
-void tone_reset(ToneData *tone);
+void tone_reset(ToneData *tone, int imu_sample_rate);
 void tone_configure(ToneConfig *toneconfig, float freq1, float freq2, float freq3, float voltage, float duration, int times, float delay, int priority);
-void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *tone);
+void tone_configure_all(ToneConfigs *toneconfig, tnt_config *config, ToneData *tone, int loop_rate);
 void idle_tone(ToneData *tone, ToneConfig *toneconfig, RuntimeData *rt, MotorData *m);
 void temp_recovery_tone(ToneData *tone, ToneConfig *toneconfig, MotorData *motor);
 void check_tone(ToneData *tone, ToneConfigs *toneconfig, MotorData *motor);

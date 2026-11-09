@@ -90,7 +90,7 @@ void check_current(MotorData *m, SurgeData *surge, State *state, tnt_config *con
 }
 
 void configure_surge(SurgeData *surge, tnt_config *config, SurgeDebug *surge_dbg){
-	surge->ramp_rate = 1.0 * config->surge_duty / 100.0 / config->hertz;
+	surge->ramp_rate = 1.0 * config->surge_duty / 100.0f / VESC_IF->get_cfg_int(CFG_PARAM_IMU_sample_rate);
 	surge->maxangle = config->surge_maxangle;
 	if (config->is_surgedebug_enabled)
 		surge_dbg->enabled = true;

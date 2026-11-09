@@ -85,27 +85,12 @@
 
 // Gyro Notch Filter
 #ifndef APPCONF_TNT_GYRO_FILTER
-#define APPCONF_TNT_GYRO_FILTER 500
+#define APPCONF_TNT_GYRO_FILTER 0
 #endif
 
 // Pitch LP Filter
 #ifndef APPCONF_TNT_PITCH_FILTER
 #define APPCONF_TNT_PITCH_FILTER 35
-#endif
-
-// Kalman Factor 1
-#ifndef APPCONF_TNT_KALMAN1
-#define APPCONF_TNT_KALMAN1 0
-#endif
-
-// Kalman Factor 2
-#ifndef APPCONF_TNT_KALMAN2
-#define APPCONF_TNT_KALMAN2 0
-#endif
-
-// Kalman Factor 3
-#ifndef APPCONF_TNT_KALMAN3
-#define APPCONF_TNT_KALMAN3 0.5
 #endif
 
 // Enable Brake Curve
@@ -195,7 +180,7 @@
 
 // Level 2 Roll Kp
 #ifndef APPCONF_TNT_ROLL_KP2
-#define APPCONF_TNT_ROLL_KP2 0.3
+#define APPCONF_TNT_ROLL_KP2 0.1
 #endif
 
 // Level 3 Roll Kp
@@ -210,7 +195,7 @@
 
 // Level 2 Roll Angle
 #ifndef APPCONF_TNT_ROLL2
-#define APPCONF_TNT_ROLL2 35
+#define APPCONF_TNT_ROLL2 15
 #endif
 
 // Level 3 Roll Angle
@@ -225,7 +210,7 @@
 
 // Level 2 Roll Kp Braking
 #ifndef APPCONF_TNT_BRKROLL_KP2
-#define APPCONF_TNT_BRKROLL_KP2 0.2
+#define APPCONF_TNT_BRKROLL_KP2 0.05
 #endif
 
 // Level 3 Roll Kp Braking
@@ -240,7 +225,7 @@
 
 // Level 2 Roll Angle Braking
 #ifndef APPCONF_TNT_BRKROLL2
-#define APPCONF_TNT_BRKROLL2 35
+#define APPCONF_TNT_BRKROLL2 15
 #endif
 
 // Level 3 Roll Angle Braking
@@ -250,7 +235,7 @@
 
 // Roll High ERPM Scale
 #ifndef APPCONF_TNT_ROLLKP_HIGHERPM
-#define APPCONF_TNT_ROLLKP_HIGHERPM 2500
+#define APPCONF_TNT_ROLLKP_HIGHERPM 4000
 #endif
 
 // Roll High ERPM Scale
@@ -260,7 +245,7 @@
 
 // Roll Low ERPM Scale
 #ifndef APPCONF_TNT_ROLLKP_LOWERPM
-#define APPCONF_TNT_ROLLKP_LOWERPM 750
+#define APPCONF_TNT_ROLLKP_LOWERPM 2000
 #endif
 
 // Roll Low ERPM Scale
@@ -290,7 +275,7 @@
 
 // Level 2 Yaw Kp
 #ifndef APPCONF_TNT_YAW_KP2
-#define APPCONF_TNT_YAW_KP2 0.02
+#define APPCONF_TNT_YAW_KP2 0
 #endif
 
 // Level 3 Yaw Kp
@@ -300,17 +285,17 @@
 
 // Level 1 Yaw Angle Change
 #ifndef APPCONF_TNT_YAW1
-#define APPCONF_TNT_YAW1 60
+#define APPCONF_TNT_YAW1 30
 #endif
 
 // Level 2 Yaw Angle Change
 #ifndef APPCONF_TNT_YAW2
-#define APPCONF_TNT_YAW2 500
+#define APPCONF_TNT_YAW2 50
 #endif
 
 // Level 3 Yaw Angle Change
 #ifndef APPCONF_TNT_YAW3
-#define APPCONF_TNT_YAW3 750
+#define APPCONF_TNT_YAW3 100
 #endif
 
 // Yaw Rate Brake Kp
@@ -325,7 +310,7 @@
 
 // Level 2 Yaw Kp Braking
 #ifndef APPCONF_TNT_BRKYAW_KP2
-#define APPCONF_TNT_BRKYAW_KP2 0.02
+#define APPCONF_TNT_BRKYAW_KP2 0
 #endif
 
 // Level 3 Yaw Kp Braking
@@ -335,17 +320,17 @@
 
 // Level 1 Yaw Angle Braking
 #ifndef APPCONF_TNT_BRKYAW1
-#define APPCONF_TNT_BRKYAW1 60
+#define APPCONF_TNT_BRKYAW1 30
 #endif
 
 // Level 2 Yaw Angle Braking
 #ifndef APPCONF_TNT_BRKYAW2
-#define APPCONF_TNT_BRKYAW2 500
+#define APPCONF_TNT_BRKYAW2 50
 #endif
 
 // Level 3 Yaw Angle Braking
 #ifndef APPCONF_TNT_BRKYAW3
-#define APPCONF_TNT_BRKYAW3 750
+#define APPCONF_TNT_BRKYAW3 100
 #endif
 
 // Yaw Minimum ERPM
@@ -365,7 +350,7 @@
 
 // High Current Threshold, Max Duty
 #ifndef APPCONF_TNT_SURGE_START_HD_CURRENT
-#define APPCONF_TNT_SURGE_START_HD_CURRENT 40
+#define APPCONF_TNT_SURGE_START_HD_CURRENT 45
 #endif
 
 // Duty to Start Current Scaling
@@ -885,7 +870,7 @@
 
 // Package Version
 #ifndef APPCONF_TNT_VERSION
-#define APPCONF_TNT_VERSION 1.6
+#define APPCONF_TNT_VERSION 1.7
 #endif
 
 // CONF_DEFAULT_H_
