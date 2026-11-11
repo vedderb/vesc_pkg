@@ -1,0 +1,283 @@
+(import "eeprom.lbm" 'code-eeprom)
+(read-eval-program code-eeprom)
+(import "utils.lbm" 'code-utils)
+(read-eval-program code-utils)
+
+; Variables (EEPROM)
+(def assist-type    (read-setting 'assist-type))
+(def assist-scale   0.0)
+(def brake-mode     (read-setting 'brake-mode))
+(def pdl-trq-offset (read-setting 'pdl-trq-offset))
+(def pdl-trq-const  (read-setting 'pdl-trq-const))
+(def unlock-mode    (read-setting 'unlock-mode))
+(def spd-lmt-pdl    (read-setting 'spd-lmt-pdl))
+(def spd-lmt-thr    (read-setting 'spd-lmt-thr))
+(def spd-snr-detect (read-setting 'spd-snr-detect))
+(def time-pwr-off   (read-setting 'time-pwr-off))
+(def time-unlock    (read-setting 'time-unlock))
+(def temp-snr-mot   (read-setting 'm-motor-temp-sens-type))
+;(def gear-ratio     (read-setting 'si-gear-ratio)) ; relying on external speed sensor instead
+(def wheel-diam     (read-setting 'si-wheel-diameter))
+(def battery-cells  (read-setting 'si-battery-cells))
+(def battery-ah     (read-setting 'si-battery-ah))
+(def in-current-max (read-setting 'l-in-current-max))
+
+
+; Variables (temp)
+(def pas-pulses 0)          ; PAS pulse counter
+(def pas-ppr 32)            ; PAS-pulses per revolution
+(def pas-last-pulse-time 0) ; Last time a PAS-pulse was received
+(def pdl-rpm 0.0)           ; Calculated pedal RPM
+(def pdl-trq 0.0)
+(def trq-out 0.0)
+(def trq-filter 0.0)
+(def trq-sample-len 8) ; Number of torque samples to average over
+(def trq-samples (map (fn (x) 0) (range trq-sample-len)))
+(def trq-sample-ind 0)
+(def thr-zero-time (systime))
+(def boot-zero-time (systime))
+(def wheel-kmh 0.0)
+(def wheel-rpm 0.0)
+(def speed-lim-now 20.0)
+
+(def assist-mode-duty 0.1)
+(def assist-duty-rate 0.05) ; Duty ramp rate, 0.0 to 1.0, lower is slower
+(def assist-duty-state 0.0)
+
+(def pwr-out 1.0)
+(def pwr-out-thr 1.0)
+
+@const-start
+
+(import "disp_bf_uart.lbm" 'code-disp)
+(read-eval-program code-disp)
+;(import "logger.lbm" 'code-logger)
+;(read-eval-program code-logger)
+
+(defun proc-icu (period) { ; Called when PAS-pulses are received. ; The timer counts at 10000 Hz
+        (var rpm (/ (/ 600000.0 pas-ppr) period))
+        (if (> rpm 120.0) (setq rpm 120.0))
+        (setq pdl-rpm (lpf pdl-rpm rpm 0.5))
+        (setq pas-pulses (+ pas-pulses 1))
+        (setq pas-last-pulse-time (systime))
+
+        (setix trq-samples trq-sample-ind pdl-trq)
+        (setq trq-sample-ind (mod (+ trq-sample-ind 1) (length trq-samples)))
+})
+
+(defun update-vt () {
+        (def vt-disp-pas-mode disp-pas-mode)
+        (def vt-disp-pas-set disp-pas-set)
+        (def vt-disp-type disp-type)
+        (def vt-disp-nolimit-rx disp-nolimit-rx)
+        (def vt-unlock-mode unlock-mode)
+        (def vt-spd-lmt-pdl spd-lmt-pdl)
+        (def vt-assist-scale assist-scale)
+        (def vt-disp-light disp-light)
+        (def vt-disp-walkmode disp-walkmode)
+        (def vt-disp-thr-follow disp-thr-follow)
+        (def vt-battery-curr in-current-max)
+
+        (def vt-pdl-rpm pdl-rpm)
+        (def vt-wheel-rpm wheel-rpm)
+        (def vt-trq-out trq-out)
+        (def vt-trq-pedal pdl-trq)
+})
+
+(defun event-handler ()
+    (loopwhile t
+        (recv
+            ((event-icu-period . ((? width) . (? period))) (proc-icu period))
+            ((event-data-rx . (? data)) (eval (read data)))
+            (event-shutdown (stop-log last-can-id))
+            (_ nil)
+)))
+
+
+(defun main () {
+        (icu-start 10000 1)
+        (event-register-handler (spawn event-handler))
+        (event-enable 'event-icu-period)
+        (event-enable 'event-data-rx)
+        (event-enable 'event-shutdown)
+
+        (var pas-last disp-pas-set)
+        (loopwhile-thd ("worker" 120) t {
+                ; Update PAS RPM while no new pulses are coming. From the last
+                ; pulse we can always calculate an upper bound on the RPM.
+                (var elapsed (secs-since pas-last-pulse-time))
+                (if (> elapsed 0.1) {
+                        (var rpm (/ 60.0 pas-ppr elapsed))
+                        (if (< rpm pdl-rpm) (setq pdl-rpm rpm))
+                })
+                (sleep 0.02)
+        })
+
+        (loopwhile-thd ("SpeedTorque" 150) t {
+                (var wheel-age (speed-age))
+                (var wheel-last (speed-last-time))
+
+                (if (and (> wheel-last 0.0) (> wheel-age 0.0)) {
+                        (var rpm (/ 60.0 wheel-last))
+                        (var rpm-max (/ 60.0 wheel-age))
+                        (var wheel-rpm (if (> rpm rpm-max) rpm-max rpm))
+                        (if (> wheel-rpm 10)
+                            (setq disp-wheel-rpm wheel-rpm)
+                            (setq disp-wheel-rpm 0.0)
+                        )
+                        (setq wheel-kmh (* 3.6 wheel-diam 3.14159 (/ wheel-rpm 60.0)))
+                        (override-speed 1 (/ wheel-kmh 3.6))
+                })
+
+                ; Read trq from ADC
+                (var trq (* pdl-trq-const (- (get-adc 1) pdl-trq-offset)))
+                (setq pdl-trq (if (> trq 0.0) trq 0.0))
+                (def vt-trq-raw (get-adc 1))
+
+                ; Lights
+                (if (= disp-light 1)
+                    { (set-aux 1 1) (set-aux 2 1) }
+                    { (set-aux 1 0) (set-aux 2 0) }
+                )
+
+                ; Unlock if mode=2, walk-mode visited and within time-unlock
+                ;(if (and (> time-unlock (secs-since boot-zero-time)) (= ;disp-pas-set -1) (= disp-nolimit-rx 0) (= unlock-mode 2)) {
+                ;        (setq disp-nolimit-rx 1)
+                ;        (print "Speedlimit removed")
+                ;})
+
+                ; Shut off after display stops responding
+                ;(if (and (> (secs-since disp-update-time) time-pwr-off) (!= time-pwr-off -1)) (pwr-hold 0))
+
+                (sleep 0.02)
+        })
+
+        (loopwhile-thd 120 t { ; Update speed limits for throttle and PAS
+                (if (< wheel-kmh spd-lmt-pdl)
+                    (setq pwr-out (lpf pwr-out 1.0 0.1))
+                    (setq pwr-out (lpf pwr-out 0.0 0.1))
+                )
+
+                (if (< wheel-kmh spd-lmt-thr)
+                    (setq pwr-out-thr (lpf pwr-out-thr 1.0 0.1))
+                    (setq pwr-out-thr (lpf pwr-out-thr 0.0 0.1))
+                )
+
+                (sleep 0.04)
+        })
+
+        (loopwhile-thd 120 t { ; PAS and brake-ramp thread
+                (if (or (if brake-mode (not (> (read-brake) 0)) (> (read-brake) 0)) (= disp-pas-set 0))
+                    { ; Brake is pressed
+                        (app-disable-output -1)
+
+                        (set-current-rel 0.0)
+
+                        (setq trq-out 0.0)
+                        (setq trq-filter 0.0)
+                        (setq disp-error-code 0x3) ; info for disp, that braking
+
+                        ; Prevent current spike when releasing the brake
+                        (app-adc-detach 1 1)
+                        (app-adc-override 0 (conf-get 'adc-v1-start))
+                    }
+                    { ; No brake is pressed
+                        (app-adc-detach 0 0)
+
+                        (setq trq-filter (lpf trq-filter pdl-trq 0.1))
+                        ;(setq trq-filter pdl-trq)
+
+                        (if (< pdl-rpm 6)
+                            (setq trq-out 0.0)
+                            (if (< pdl-rpm 25)
+                                {
+                                    (setq trq-out trq-filter)
+                                    (map (fn (x) (setix trq-samples x trq-out)) (range (length trq-samples)))
+                                }
+                                {
+                                    (setq trq-out (/ (apply + trq-samples) (length trq-samples)))
+                                }
+                        ))
+
+                        (var trq01 (trunc (/ trq-out 60.0) 0.0 1.0))
+
+                        (if (and
+                                (< wheel-kmh 10.0)
+                                (= disp-pas-set -1)
+                                (< (secs-since disp-update-time) 2)
+                            )
+                            { ; walk-mode
+                                (setq assist-duty-state (lpf assist-duty-state assist-mode-duty assist-duty-rate))
+                                (app-disable-output -1)
+                                (set-duty assist-duty-state)
+                            }
+                            {
+                                (setq assist-duty-state 0.0)
+                                (if (> (+ trq-out 0.02) (get-adc-decoded 0)) ; torque vs throttle
+                                    {
+                                        (if (= disp-nolimit-rx 1)
+                                            (conf-set 'l-current-max-scale pwr-out)
+                                            (conf-set 'l-current-max-scale 1.0)
+                                        )
+
+                                        (app-disable-output -1)
+                                        (set-current-rel (* trq01 assist-scale))
+                                        (app-adc-override 0 (conf-get 'adc-v1-start))
+                                    }
+                                    {
+                                        (if (= disp-nolimit-rx 1)
+                                            (conf-set 'l-current-max-scale pwr-out-thr)
+                                            (conf-set 'l-current-max-scale 1.0)
+                                        )
+
+                                        ; Avoid glitches when holding full throttle
+                                        (if (< (conf-get 'l-current-max-scale) 0.01)
+                                            {
+                                                (app-disable-output -1)
+                                                (set-current-rel 0.0)
+                                                (app-adc-override 0 (conf-get 'adc-v1-start))
+                                            }
+                                            {
+                                                (app-disable-output 0)
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        )
+                    }
+                )
+
+                (sleep 0.02)
+        })
+
+        (loopwhile-thd ("BafangUart" 200) t { ; Thread for communication to Bafang UART displays
+            (print "Starting BafangUart-thread")
+
+            (match (trap (disp-bafang-uart))
+                ((exit-ok (? a)) (print "BafangUart-thread exit"))
+                (_ (print "BafangUart-thread crashed"))
+            )
+
+            (sleep 5.0)
+        })
+
+        (loopwhile-thd ("BafangFault" 200) t { ; Mapping VESC and Bafang error codes
+                (print "Starting BafangFault-thread")
+
+                (match (trap (bafang-fault-thread))
+                    ((exit-ok (? a)) (print "BafangFault-thread exit"))
+                    (_ (print "BafangFault-thread crashed"))
+                )
+
+                (sleep 5.0)
+        })
+
+        (loopwhile-thd 120 t { ; Thread to update VT-* variables (for debugging)
+                (update-vt)
+                (sleep 0.1)
+        })
+})
+
+(image-save)
+(main)
