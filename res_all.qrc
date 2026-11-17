@@ -42,6 +42,7 @@
         <file>vesc_x3_bridge/vesc_x3_bridge_stm.vescpkg</file>
         <file>vesc_x3_bridge/vesc_x3_bridge_stm_slave.vescpkg</file>
         <file>dash_vdisp/dash_vdisp.vescpkg</file>
+        <file>slcan_adapter/slcan_adapter.vescpkg</file>
    </qresource>
 </RCC>
 
