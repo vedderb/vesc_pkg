@@ -76,7 +76,7 @@ $(STRIPPED_LISP): blacktip_dpv.lisp $(LISP_STRIPPER)
 ifeq ($(PKG_MODE),stripped)
 blacktip_dpv.vescpkg: README.dist.md $(LUT_BINARY) $(MODE_STAMP) $(STRIPPED_LISP)
 	@mkdir -p $(STAGE_DIR)/generated
-	cp README.dist.md ui.dist.qml pkgdesc.qml $(STAGE_DIR)/
+	cp README.dist.md ui.dist.qml pkgdesc.qml icon.svg icon_light.svg $(STAGE_DIR)/
 	cp $(LUT_BINARY) $(STAGE_DIR)/generated/
 	cd $(STAGE_DIR) && $(VESC_TOOL) --buildPkgFromDesc pkgdesc.qml --testPkgDesc 'vesc:test'
 	mv -f $(STAGE_DIR)/blacktip_dpv.vescpkg blacktip_dpv.vescpkg
