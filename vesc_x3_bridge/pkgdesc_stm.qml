@@ -7,6 +7,8 @@ Item {
     property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vesc_x3_bridge_stm.vescpkg"
+    property string icon: "icon_stm.svg"
+    property string iconLight: "icon_stm_light.svg"
 
     // Unlike the Express-side package, this has no board-specific hardware
     // to check for -- it runs on any real VESC motor controller (identifies

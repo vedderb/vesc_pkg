@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "UCLights.vescpkg"
+    property string icon: "icon.svg"
+    property string iconLight: "icon_light.svg"
 
     // Return true only when this package is compatible
     // with the connected device running VESC(R) software.

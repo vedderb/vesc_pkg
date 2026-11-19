@@ -7,6 +7,8 @@ Item {
     property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "slcan_adapter.vescpkg"
+    property string icon: "icon.svg"
+    property string iconLight: "icon_light.svg"
 
     function isCompatible (fwRxParams) {
         return fwRxParams.hwTypeStr().toLowerCase() == "custom module"

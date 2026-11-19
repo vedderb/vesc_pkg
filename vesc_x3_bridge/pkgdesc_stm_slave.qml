@@ -7,6 +7,8 @@ Item {
     property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vesc_x3_bridge_stm_slave.vescpkg"
+    property string icon: "icon_stm_slave.svg"
+    property string iconLight: "icon_stm_slave_light.svg"
 
     // Same hardware requirement as the master variant -- any real VESC,
     // identified over CAN via conf-get 'controller-id, not a fixed hw

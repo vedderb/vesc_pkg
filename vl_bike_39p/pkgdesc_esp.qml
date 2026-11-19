@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui_esp.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vl_bike_39p_esp.vescpkg"
+    property string icon: "icon_esp.svg"
+    property string iconLight: "icon_esp_light.svg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device

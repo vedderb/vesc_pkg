@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "refloat.vescpkg"
+    property string icon: "icon.svg"
+    property string iconLight: "icon_light.svg"
 
     function isCompatible (fwRxParams) {
         if (fwRxParams.hwTypeStr().toLowerCase() != "vesc") {

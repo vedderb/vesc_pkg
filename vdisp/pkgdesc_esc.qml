@@ -7,6 +7,8 @@ Item {
     property string pkgQml: ""
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vdisp_esc.vescpkg"
+    property string icon: "icon_esc.svg"
+    property string iconLight: "icon_esc_light.svg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device
