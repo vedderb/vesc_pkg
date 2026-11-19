@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui_esp.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "vesc_x3_bridge_esp.vescpkg"
+    property string icon: "icon_esp.svg"
+    property string iconLight: "icon_esp_light.svg"
 
     // Verified against vesc_express's own COMM_FW_VERSION handler
     // (main/commands.c in vedderb/vesc_express, release_7_00) rather than

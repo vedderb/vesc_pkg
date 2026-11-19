@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "dash_vdisp.vescpkg"
+    property string icon: "icon.svg"
+    property string iconLight: "icon_light.svg"
 
     // This function should return true when this package is compatible
     // with the connected vesc-based device

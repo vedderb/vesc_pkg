@@ -7,6 +7,8 @@ Item {
     property string pkgQml: "ui.qml"
     property bool pkgQmlIsFullscreen: false
     property string pkgOutput: "wheelie_limiter.vescpkg"
+    property string icon: "icon.svg"
+    property string iconLight: "icon_light.svg"
 
     // Return true when this package is compatible with the connected
     // VESC-based device. This package drives the motor and needs an IMU and
