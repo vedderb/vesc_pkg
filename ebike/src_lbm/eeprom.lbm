@@ -1,0 +1,172 @@
+; -- tables
+(def eeprom-addrs '( (ver-code . (0 i)) (assist-w . (1 f))
+    (assist-1 . (2 f)) (assist-2 . (3 f)) (assist-3 . (4 f)) (assist-4 . (5 f)) (assist-5 . (6 f))
+    (assist-6 . (7 f)) (assist-7 . (8 f)) (assist-8 . (9 f)) (assist-9 . (10 f)) (assist-10 . (11 f))
+    (assist-type . (12 i)) (brake-mode . (13 b)) (pdl-trq-offset . (14 f)) (pdl-trq-const . (15 f))
+    (unlock-mode . (16 i)) (spd-lmt-pdl . (17 f)) (spd-lmt-thr . (18 f)) (spd-snr-detect . (19 b)) (time-pwr-off . (20 f)) (time-unlock . (21 f))
+))
+
+; -- vars
+(def settings-version 41i32)
+(def conf-auto-store t)
+
+; -- helpers
+(defun eep-spec (name) (assoc eeprom-addrs name))
+
+; -- read eeprom/conf
+(defun read-setting (name)
+  (let ((spec (eep-spec name)))
+        (if spec
+            (let ((addr (first spec))
+                (type (second spec)))
+            (cond
+                ((eq type 'i) (eeprom-read-i addr))
+                ((eq type 'f) (eeprom-read-f addr))
+                ((eq type 'b)
+                (let ((x (eeprom-read-i addr)))
+                    (if x (!= x 0) nil)))
+                (t nil)))
+            (conf-get name))))
+
+; -- write eeprom/conf
+(defun write-setting (name val)
+  (let ((spec (eep-spec name)))
+    (if spec
+        (let ((addr (first spec))
+              (type (second spec)))
+            (cond
+                ((eq type 'i) (eeprom-store-i addr val))
+                ((eq type 'f) (eeprom-store-f addr val))
+                ((eq type 'b) (eeprom-store-i addr (if val 1 0)))
+                (t nil))) {
+            (conf-set name val) ; (if (or (eq val t) (eq val 'true)) 1 (if (eq val nil) 0 val)
+            (if conf-auto-store (conf-store))})))   ; persist, stops motor
+
+; -- send config to QML
+(defun send-settings ()
+    (let* ((assist-idx (trunc disp-pas-set 1 10))
+           (assist-sym (str2sym (str-from-n assist-idx "assist-%d")))
+           (assist-val (read-setting assist-sym)))
+        (send-data
+            (str-merge
+                "settings "
+                ; what level and its value
+                (str-from-n assist-idx "%d ")                 ; current PAS index [1..10]
+                (str-from-n assist-val "%.3f ")               ; current assist value
+
+                ; core eeprom/conf (order stable for QML)
+                (str-from-n (read-setting 'assist-w) "%.3f ")
+                (str-from-n (read-setting 'assist-type) "%d ")
+                (b->s       (read-setting 'brake-mode))
+                (str-from-n (read-setting 'pdl-trq-offset) "%.3f ")
+                (str-from-n (read-setting 'pdl-trq-const) "%.3f ")
+                (str-from-n (read-setting 'unlock-mode) "%d ")
+                (str-from-n (read-setting 'spd-lmt-pdl) "%.2f ")
+                (str-from-n (read-setting 'spd-lmt-thr) "%.2f ")
+                (b->s       (read-setting 'spd-snr-detect))
+                (str-from-n (read-setting 'time-pwr-off) "%.2f ")
+                (str-from-n (read-setting 'time-unlock) "%d ")
+
+                ; VESC conf-backed items (read-setting falls back to conf-get)
+                ;(str-from-n (read-setting 'm-motor-temp-sens-type) "%d ")
+                ;(str-from-n (read-setting 'si-wheel-diameter) "%.3f ")
+                ;(str-from-n (read-setting 'si-battery-cells) "%d ")
+                ;(str-from-n (read-setting 'si-battery-ah) "%.2f ")
+                ;(str-from-n (read-setting 'l-battery-cut-start) "%.2f ")
+                ;(str-from-n (read-setting 'l-battery-cut-end) "%.2f ")
+                ;(str-from-n (read-setting 'l-in-current-max) "%.2f ")
+                ;(str-from-n (read-setting 'l-current-max) "%.2f ")
+                ;(str-from-n (read-setting 'l-watt-max) "%d ")
+                ))))
+
+; -- ouput all settings
+(defun print-settings ()
+    (loopforeach it eeprom-addrs
+        (print (list (first it) (read-setting (first it))))))
+
+; -- write all settings
+(defun save-settings (  ver-code assist-w
+                        assist-1 assist-2 assist-3 assist-4 assist-5
+                        assist-6 assist-7 assist-8 assist-9 assist-10
+                        assist-type brake-mode pdl-trq-offset pdl-trq-const
+                        unlock-mode spd-lmt-pdl spd-lmt-thr spd-snr-detect time-pwr-off time-unlock) {
+                        ;temp-snr-mot wheel-diam battery-cells battery-ah battery-cut-start battery-cut-end
+                        ;in-current-max current-max watt-max ) {
+        (write-setting 'assist-1 assist-w)
+        (write-setting 'assist-1 assist-1)
+        (write-setting 'assist-2 assist-2)
+        (write-setting 'assist-3 assist-3)
+        (write-setting 'assist-4 assist-4)
+        (write-setting 'assist-5 assist-5)
+        (write-setting 'assist-6 assist-6)
+        (write-setting 'assist-7 assist-7)
+        (write-setting 'assist-8 assist-8)
+        (write-setting 'assist-9 assist-9)
+        (write-setting 'assist-10 assist-10)
+        (write-setting 'assist-type assist-type)
+        (write-setting 'brake-mode brake-mode)
+        (write-setting 'pdl-trq-offset pdl-trq-offset)
+        (write-setting 'pdl-trq-const pdl-trq-const)
+        (write-setting 'unlock-mode unlock-mode)
+        (write-setting 'spd-lmt-pdl spd-lmt-pdl)
+        (write-setting 'spd-lmt-thr spd-lmt-thr)
+        (write-setting 'spd-snr-detect spd-snr-detect)
+        (write-setting 'time-pwr-off time-pwr-off)
+        (write-setting 'time-unlock time-unlock)
+        ;(setq conf-auto-store nil)
+        ;(write-setting 'm-motor-temp-sens-type temp-snr-mot)
+        ;;(write-setting 'si-gear-ratio gear-ratio)
+        ;(write-setting 'si-wheel-diameter wheel-diam)
+        ;(write-setting 'si-battery-cells battery-cells)
+        ;(write-setting 'si-battery-ah battery-ah)
+        ;(write-setting 'l-battery-cut-start battery-cut-start)
+        ;(write-setting 'l-battery-cut-end battery-cut-end)
+        ;(write-setting 'l-in-current-max in-current-max)
+        ;(write-setting 'l-current-max current-max)
+        ;(setq conf-auto-store t)
+        ;(write-setting 'l-watt-max watt-max)
+        (print "Settings Saved!")
+})
+
+; -- restore default settings values
+(defun restore-settings () {
+        (write-setting 'ver-code settings-version)
+        (write-setting 'assist-w    0.05)      ; scale for walkmode, 0=disabled
+        (write-setting 'assist-1    0.1)
+        (write-setting 'assist-2    0.2)
+        (write-setting 'assist-3    0.3)
+        (write-setting 'assist-4    0.4)
+        (write-setting 'assist-5    0.5)
+        (write-setting 'assist-6    0.6)
+        (write-setting 'assist-7    0.7)
+        (write-setting 'assist-8    0.8)
+        (write-setting 'assist-9    0.9)
+        (write-setting 'assist-10   1.0)
+        (write-setting 'assist-type     0)      ; 0=9lvl [1-2-3-4-5-6-7-8-9], 1=5lvl [3-5-7-9-10], 2=5+5lvl [3-5-7-9-10-3-5-7-9-10]
+        (write-setting 'brake-mode      nil)    ; 0=NO (closer), 1=NC (opener)
+        (write-setting 'pdl-trq-offset  0.8)    ; TODO: implement calibration (measure, median, subtract & apply)
+        (write-setting 'pdl-trq-const   32.0)   ; Nm/V ; TB33=472Nm/V 07.9=320Nm/V ; 1800Nm/V
+        (write-setting 'unlock-mode     1)      ; 0=unlocked, 1=0x6E, (TODO: 2=walk-mode, 3=assist-combo)
+        (write-setting 'spd-lmt-pdl     26.0)   ; speed limit for pedal
+        (write-setting 'spd-lmt-thr     6.0)    ; speed limit for throttle
+        (write-setting 'spd-snr-detect  nil)    ; detect missing speedsensor
+        (write-setting 'time-pwr-off    2.0)    ; time to release pwr-hold (-1=disabled, controller stays on)
+        (write-setting 'time-unlock     10)     ; time to unlock after boot (only unlock-mode 2+3)
+        ;(setq conf-auto-store nil)
+        ;(write-setting 'm-motor-temp-sens-type  2)      ; Motor temp sensor type
+        ;;(write-setting 'si-gear-ratio          3.0)    ; relying on external speed sensor instead
+        ;(write-setting 'si-wheel-diameter       0.748)  ; 0.748=circumference of 2350mm
+        ;(write-setting 'si-battery-cells        14)     ; 14=52V, 13=48V, 12=43V, ..
+        ;(write-setting 'si-battery-ah           17.5)   ; battery capacity in Ah
+        ;(write-setting 'l-battery-cut-start     10)     ; start cutting out in A
+        ;(write-setting 'l-battery-cut-end       8)      ; end cutting out in A
+        ;(write-setting 'l-in-current-max        45)     ; max battery current in A
+        ;(write-setting 'l-current-max           90)     ; max motor current in A
+        ;(setq conf-auto-store t)
+        ;(write-setting 'l-watt-max              3000)   ; max wattage in A
+        (print "Settings Restored!")
+})
+
+; Restore settings if version number does not match
+; as that probably means something else is in eeprom
+(if (not-eq (read-setting 'ver-code) settings-version) (restore-settings))
