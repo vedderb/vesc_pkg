@@ -1,0 +1,132 @@
+// Copyright 2025 Lukas Hrazky
+//
+// This file is part of the Refloat VESC package.
+//
+// Refloat VESC package is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// Refloat VESC package is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+// or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along with
+// this program. If not, see <http://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "alert_tracker.h"
+#include "atr.h"
+#include "bms.h"
+#include "booster.h"
+#include "brake_tilt.h"
+#include "charging.h"
+#include "data_record.h"
+#include "filters/ema.h"
+#include "footpad_sensor.h"
+#include "frequency_tracker.h"
+#include "haptic_feedback.h"
+#include "imu.h"
+#include "konami.h"
+#include "latency_tracker.h"
+#include "lcm.h"
+#include "leds.h"
+#include "motor_control.h"
+#include "motor_data.h"
+#include "pid.h"
+#include "remote.h"
+#include "reverse_stop.h"
+#include "state.h"
+#include "time.h"
+#include "torque_tilt.h"
+#include "turn_tilt.h"
+
+#include <vesc_c_if.h>
+
+typedef struct {
+    lib_thread main_thread;
+    lib_thread aux_thread;
+
+    RefloatConfig float_conf;
+
+    // Firmware version, passed in from Lisp
+    int fw_version_major, fw_version_minor, fw_version_beta;
+
+    // IMU data for the balancing filter
+    BalanceFilterData balance_filter;
+
+    Time time;
+    MotorData motor;
+    IMU imu;
+    PID pid;
+    MotorControl motor_control;
+
+    TorqueTilt torque_tilt;
+    ATR atr;
+    BrakeTilt brake_tilt;
+    TurnTilt turn_tilt;
+    Booster booster;
+    Remote remote;
+
+    State state;
+    FootpadSensor footpad;
+    HapticFeedback haptic_feedback;
+    AlertTracker alert_tracker;
+    ReverseStop reverse_stop;
+
+    Leds leds;
+    LcmData lcm;
+    Charging charging;
+    BMS bms;
+
+    DataRecord data_record;
+
+    Konami flywheel_konami;
+    Konami headlights_on_konami;
+    Konami headlights_off_konami;
+
+    // Beeper
+    int beep_num_left;
+    float beep_duration;
+    time_t beeper_timer;
+    int beep_reason;
+    bool beeper_enabled;
+
+    int32_t main_loop_ticks;
+
+    FrequencyTracker main_freq_tracker;
+    FrequencyTracker imu_freq_tracker;
+    LatencyTracker imu_latency_tracker;
+
+    float startup_pitch_trickmargin, startup_pitch_tolerance;
+    float tiltback_variable, tiltback_variable_max_erpm;
+    bool duty_beeping;
+
+    EMA balance_current;
+
+    float setpoint, setpoint_target, setpoint_target_interpolated;
+    float noseangling_interpolated;
+    time_t alert_timer;
+    time_t nag_timer;
+    float idle_voltage;
+    time_t fault_angle_pitch_timer, fault_angle_roll_timer, fault_switch_timer,
+        fault_switch_half_timer;
+    time_t wheelslip_timer, tb_highvoltage_timer;
+    float switch_warn_beep_erpm;
+    bool traction_control;
+
+    // Darkride aka upside down mode:
+    bool is_upside_down_started;  // dark ride has been engaged
+    bool enable_upside_down;  // dark ride mode is enabled (10 seconds after fault)
+    time_t upside_down_fault_timer;
+
+    // Feature: Flywheel
+    bool flywheel_abort;
+
+    // Feature: Soft Start
+    float softstart_pid_limit;
+
+    uint64_t odometer;
+} Data;

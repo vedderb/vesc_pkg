@@ -1,0 +1,67 @@
+// Copyright 2024 Lukas Hrazky
+//
+// This file is part of the Refloat VESC package.
+//
+// Refloat VESC package is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// Refloat VESC package is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+// or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along with
+// this program. If not, see <http://www.gnu.org/licenses/>.
+
+#include "footpad_sensor.h"
+
+#include "vesc_c_if.h"
+
+void footpad_sensor_init(FootpadSensor *fs) {
+    fs->adc_left = 0.0f;
+    fs->adc_right = 0.0f;
+    fs->state = FS_NONE;
+}
+
+void footpad_sensor_update(FootpadSensor *fs, const RefloatConfig *config) {
+    // io_read_analog() returns -1.0 if the pin is missing on the hardware
+    float adc1 = VESC_IF->io_read_analog(VESC_PIN_ADC1);
+    float adc2 = VESC_IF->io_read_analog(VESC_PIN_ADC2);
+
+    bool adc1_on = config->fault_adc1 == 0.0f || adc1 > config->fault_adc1;
+    bool adc2_on = config->fault_adc2 == 0.0f || adc2 > config->fault_adc2;
+
+    if (config->hardware.swap_footpad_adcs) {
+        fs->adc_left = adc2;
+        fs->adc_right = adc1;
+    } else {
+        fs->adc_left = adc1;
+        fs->adc_right = adc2;
+    }
+
+    if (config->fault_adc1 == 0.0f || config->fault_adc2 == 0.0f) {
+        // No or single sensor: report FS_BOTH when the (single) sensor is on, FS_NONE otherwise
+        fs->state = (adc1_on && adc2_on) ? FS_BOTH : FS_NONE;
+    } else if (config->hardware.swap_footpad_adcs) {
+        fs->state = adc1_on ? FS_RIGHT : FS_NONE;
+        fs->state |= adc2_on ? FS_LEFT : FS_NONE;
+    } else {
+        fs->state = adc1_on ? FS_LEFT : FS_NONE;
+        fs->state |= adc2_on ? FS_RIGHT : FS_NONE;
+    }
+}
+
+int footpad_sensor_state_to_switch_compat(FootpadSensorState v) {
+    switch (v) {
+    case FS_BOTH:
+        return 2;
+    case FS_LEFT:
+    case FS_RIGHT:
+        return 1;
+    case FS_NONE:
+    default:
+        return 0;
+    }
+}

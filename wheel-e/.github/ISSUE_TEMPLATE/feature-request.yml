@@ -1,0 +1,14 @@
+name: Feature request
+description: Only after discussing your idea on Discord.
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests need to be discussed, best place to do so is the [Refloat Discord server](https://discord.gg/vu7s84Fzb). If you don't have Discord, you can also make a post on [pev.dev](https://pev.dev/c/package-development/20) (tag riddimrider).
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature description
+    validations:
+      required: true
