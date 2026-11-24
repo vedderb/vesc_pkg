@@ -24,7 +24,9 @@ typedef enum {
     STATE_DISABLED = 0,
     STATE_STARTUP = 1,
     STATE_READY = 2,
-    STATE_RUNNING = 3
+    STATE_RUNNING = 3,
+    STATE_THROTTLE = 4,
+    STATE_CRUISE = 5
 } RunState;
 
 typedef enum {
@@ -81,6 +83,10 @@ void state_engage(State *state);
 void state_flywheel_off(State *state);
 
 void state_set_disabled(State *state, bool disabled);
+
+void state_throttle(State *state);
+
+void state_cruise(State *state);
 
 /**
  * Compatibility function for the Float State enum for the app data commands.

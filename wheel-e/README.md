@@ -1,39 +1,36 @@
-# Refloat - VESC Package
-Refloat is a VESC Package for self-balancing skateboards. It aims to:
-- Provide a polished and full-featured user experience
-- Maintain a clean and reliable codebase that is easy to extend
-- Make it easy for anyone to use Refloat as a base for experimentation
-- Standardize interfaces so that package clones can interact with other parts of the ecosystem (3rd party apps, light modules, VESC Express addons etc.) in a compatible way
+# Wheel-E - VESC Package
+Wheel-E is a VESC Package for electric mini-bikes with a wheelie mode. The package is a fork of [ReFloat](https://github.com/lukash/refloat) used in self-balancing skateboards.
 
-_**If you're looking for README of the actual package, you can find it [here](package_README.md).**_
+## Functionality summary
+* A "THROTTLE" state used when riding on two wheels. Using ADC1 for throttle and ADC2 for brake.
+* A "WHEELIE" state which is the same as "RUNNING" state on onewheels, but with a different angle setpoint.
+    * This mode is triggered when the pitch value gets close to the angle setpoint, or the optional button is pressed.
+    * It exits back to "THROTTLE" when pressing the brake, or or the optional button is pressed or released
+* The IU displays a mini-bike and throttle/brake gauge instead of footpads.
+* Configurable parameters for the angle setpoint, throttle/brake current, and state transition thresholds.
 
-## Contributing
-Contributions are welcome and appreciated, please refer to [Contributing](CONTRIBUTING.md).
+## Hardware requirements
+* VESC with IMU and ADC inputs
+* Motor with hall sensors
+* Analog trottle
+* Analog or digital brake
+* _Optional: Button between TX and GND which can be used to enter and/or exit wheelie mode._
+* _Optional: Button between RX and GND which can be used for cruise control._
 
-## Building
-### Requirements
-- `gcc-arm-embedded` version 13 or higher
-- `make`
-- `vesc_tool`
+## Configuration
+* Configure as a onewheel (Use tutorials for onewheels, not bikes. IMU and Motor calibration is required before installing/enabling Wheel-E!)
+* Put the bike on a stable surfce, wheel off the groung before installing/enabling Wheel-E.
+* Configure parameters under Wheel-E Cfg -> Bike.
+* Disable the foot sensors by setting ADC Switch voltage to 0v (Wheel-E Cfg -> Spec -> ADC1&2 Switch voltage: `0.0v`)
+* Make sure that the built in ADC app is not enabled. (App Cfg -> General -> App to Use: `No App` or `UART`)
+* To be safe, start with low motor current setting! (Motor Cfg -> General -> Current -> Motor Current Max)
 
-To build the package, run:
-```sh
-make
-```
+## Full code documentation
+[Wheel-E code modifications](doc/wheel-e_mods.md) This document describes the code changes made to ReFloat to implement the Wheel-E functionality. It includes explanations of the new state machine logic, parameter handling, and UI changes.
 
-Note a new beta (as of writing this, unreleased) version of `vesc_tool` is needed for the above to work. To build the package with the current / old `vesc_tool` version, use:
-```sh
-make OLDVT=1
-```
+[ReFloat README](https://github.com/lukash/refloat/blob/main/README.md) This is the original README for the ReFloat project, which provides an overview of the base code that Wheel-E is built upon. It includes setup instructions, functionality summaries, and documentation links for ReFloat itself.
 
-If you don't have `vesc_tool` in your `$PATH` (but you have, for example, a downloaded `vesc_tool` binary), you can specify the `vesc_tool` to use:
-```sh
-make VESC_TOOL=/path/to/vesc_tool
-```
-For macOS, the path to VESC Tool when installed using the official installer is as follows:
-```sh
-make VESC_TOOL="/Applications/VESC Tool.app/Contents/MacOS/VESC Tool"
-```
+## Project status
+As of 01.11.2026: Code tested by author and a few other users. The bikes used for testing are custom DIY mini-bikes.
+Special thanks to the members of the project discussion channel on Discord: [Vescify / Projects / Wheel-E](https://discord.com/channels/846794200308908065/1494378063352561704)
 
-## Documentation
-[Development Documentation](doc/index.md)

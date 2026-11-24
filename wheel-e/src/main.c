@@ -1,15 +1,16 @@
 // Copyright 2019 - 2022 Mitch Lustig
 // Copyright 2022 Benjamin Vedder <benjamin@vedder.se>
 // Copyright 2024 Lukas Hrazky
+// Copyright 2026 Henrik Buestad
 //
-// This file is part of the Refloat VESC package.
+// This file is part of the Wheel-E VESC package which is a fork of the Refloat VESC package.
 //
-// Refloat VESC package is free software: you can redistribute it and/or modify
+// Wheel-E VESC package is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by the
 // Free Software Foundation, either version 3 of the License, or (at your
 // option) any later version.
 //
-// Refloat VESC package is distributed in the hope that it will be useful, but
+// Wheel-E VESC package is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 // or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
@@ -31,6 +32,7 @@
 #include "footpad_sensor.h"
 #include "haptic_feedback.h"
 #include "imu.h"
+#include "io_buttons.h"
 #include "lcm.h"
 #include "leds.h"
 #include "lib/utils.h"
@@ -59,6 +61,11 @@
 HEADER
 
 #define MAIN_THREAD_FREQ 500
+// Wheelie entry pitch-lead margin: how far the setpoint may run ahead of the
+// rider's actual pitch, derived from the rider's own tolerance/target settings
+// rather than a fixed value, so it scales with how the bike is already tuned.
+#define WHEELIE_LEAD_TOLERANCE_MULT 2.0f
+#define WHEELIE_LEAD_MAX_FRACTION 0.4f
 
 typedef enum {
     BEEP_NONE = 0,
@@ -202,6 +209,18 @@ static void configure(Data *d) {
 
     d->main_loop_ticks = SYSTEM_TICK_RATE_HZ / MAIN_THREAD_FREQ;
 
+    // Wheelie exit ramp: precompute step size used to gate whether exit ramp is active.
+    // Enforce a minimum of 20 deg/s to prevent dangerously slow exits from misconfigured
+    // or stale (pre-rate) values.
+    if (d->float_conf.wheelie_exit_rate > 0.0f) {
+        float exit_rate = fmaxf(d->float_conf.wheelie_exit_rate, 20.0f);
+        d->wheelie_exit_step_size = exit_rate / MAIN_THREAD_FREQ;
+    } else {
+        d->wheelie_exit_step_size = 0.0f;
+    }
+
+    io_buttons_init(&d->float_conf);
+
     // Backwards compatibility hack:
     // If mahony kp from the firmware internal filter is higher than 1, it's
     // the old setup with it being the main balancing filter. In that case, set
@@ -246,6 +265,12 @@ static void reset_runtime_vars(Data *d) {
     booster_reset(&d->booster);
     reverse_stop_reset(&d->reverse_stop, d->motor.distance);
 
+    d->wheelie_entry_armed = true;
+    d->wheelie_exiting = false;
+    d->wheelie_entering = false;
+    d->wheelie_lead_clamped = false;
+    d->wheelie_throttle_locked = true;
+    d->cruise_pid_i = 0;
     ema_reset(&d->balance_current, 0.0f);
 
     // Set values for startup
@@ -646,6 +671,17 @@ static void calculate_setpoint_target(Data *d) {
     } else {
         // Normal running
         d->state.sat = SAT_NONE;
+        // During wheelie exit ramp, keep setpoint_target at 0 (set by exit trigger)
+        if (!d->wheelie_exiting) {
+            d->setpoint_target = d->float_conf.wheelie_target_pitch;
+        }
+    }
+
+    // Wheelie exit takes priority over all tiltback conditions: the exit ramp target of 0
+    // must not be overwritten, otherwise setpoint_target_interpolated never reaches the
+    // startup_pitch_tolerance threshold, the exit completion check never fires, and
+    // wheelie_exiting stays true — which also blocks subsequent adc2 presses.
+    if (d->wheelie_exiting) {
         d->setpoint_target = 0;
     }
 
@@ -760,9 +796,14 @@ static void imu_ref_callback(float *acc, float *gyro, float *mag, float dt) {
         );
     }
 
-    motor_control_apply(
-        &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
-    );
+    // Throttle/Cruise set their current request in the main loop, not here; applying it
+    // from this (IMU-rate) callback would consume/reset stale requests between main loop
+    // ticks and cause spurious braking. The main loop applies it synchronously for those.
+    if (d->state.state != STATE_THROTTLE && d->state.state != STATE_CRUISE) {
+        motor_control_apply(
+            &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
+        );
+    }
 
     data_recorder_sample(&d->data_record, d, time);
 }
@@ -845,9 +886,12 @@ static void refloat_thd(void *arg) {
             // The IMU callback which normally applies motor control is dead,
             // apply it from here. When the callback resumes, both threads may
             // call this concurrently for up to one loop tick (benign).
-            motor_control_apply(
-                &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
-            );
+            // Throttle/Cruise are applied at the end of this loop already
+            if (d->state.state != STATE_THROTTLE && d->state.state != STATE_CRUISE) {
+                motor_control_apply(
+                    &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
+                );
+            }
             alert_tracker_add(&d->alert_tracker, &d->time, ALERT_IMU_TIMEOUT, 0);
         }
 
@@ -858,13 +902,22 @@ static void refloat_thd(void *arg) {
             d->beep_reason = BEEP_ERROR;
         }
 
+        footpad_sensor_filter_and_map(&d->footpad, &d->float_conf, dt);
+
+        io_buttons_update(&d->wheelie_btn, &d->cruise_btn, &d->float_conf);
+
+        // throttle_val is only computed in STATE_THROTTLE; don't leave a stale value elsewhere
+        if (d->state.state != STATE_THROTTLE) {
+            d->throttle_val = 0.0f;
+        }
+
         // Control Loop State Logic
         switch (d->state.state) {
         case (STATE_STARTUP):
             if (VESC_IF->imu_startup_done()) {
                 reset_runtime_vars(d);
-                // set state to READY so we need to meet start conditions to start
-                d->state.state = STATE_READY;
+                // set state to THROTTLE (normal bike riding mode)
+                d->state.state = STATE_THROTTLE;
 
                 // if within 5V of LV tiltback threshold, issue 1 beep for each volt below that
                 float threshold = d->motor.lv_threshold + 5;
@@ -902,6 +955,14 @@ static void refloat_thd(void *arg) {
                         d->float_conf.startup_pitch_tolerance + d->startup_pitch_trickmargin;
                     timer_refresh(&d->time, &d->fault_angle_pitch_timer);
                 }
+                // Bike mode: return to throttle riding after a balance fault
+                if (d->state.state == STATE_READY) {
+                    state_throttle(&d->state);
+                    d->throttle_current = 0;
+                    d->wheelie_entry_armed = false;
+                    d->wheelie_exiting = false;
+                    d->wheelie_entering = false;
+                }
                 motor_control_play_click(&d->motor_control);
                 data_recorder_trigger(&d->data_record, false);
                 break;
@@ -909,15 +970,168 @@ static void refloat_thd(void *arg) {
 
             d->enable_upside_down = true;
 
+            // If wheelie mode gets disabled while a wheelie is already in progress,
+            // bail out immediately instead of waiting for a brake/button exit that
+            // may never come.
+            if (!d->float_conf.wheelie_enabled) {
+                state_throttle(&d->state);
+                d->throttle_current = d->balance_current.value;
+                d->wheelie_entry_armed = false;
+                d->wheelie_entering = false;
+                d->wheelie_exiting = false;
+                break;
+            }
+
+            // Wheelie exit: brake pressed on ADC2 -> begin exit sequence.
+            // DOWN and HOLD modes always exit instantly on brake regardless of exit rate.
+            // NONE mode respects the exit ramp if configured.
+            if (d->footpad.adc2_mapped > 0.0f && !d->wheelie_exiting) {
+                bool instant_brake_exit = d->float_conf.wheelie_button_mode == WHEELIE_BTN_DOWN ||
+                    d->float_conf.wheelie_button_mode == WHEELIE_BTN_HOLD;
+                if (d->wheelie_exit_step_size > 0.0f && !instant_brake_exit) {
+                    // Start ramping the setpoint down to 0
+                    d->wheelie_entering = false;
+                    d->wheelie_exiting = true;
+                    d->setpoint_target = 0;
+                    if (d->wheelie_lead_clamped) {
+                        d->pid.i = 0;
+                    }
+                } else {
+                    // Instant exit
+                    state_throttle(&d->state);
+                    d->throttle_current = d->balance_current.value;
+                    d->wheelie_entry_armed = false;
+                    d->wheelie_entering = false;
+                    break;
+                }
+            }
+            if (!d->wheelie_exiting) {
+                bool btn_exit = false;
+                if (d->float_conf.wheelie_button_mode == WHEELIE_BTN_DOWN) {
+                    // Rising edge: button was just pressed
+                    btn_exit = d->wheelie_btn.pressed && !d->wheelie_btn.prev;
+                } else if (d->float_conf.wheelie_button_mode == WHEELIE_BTN_HOLD) {
+                    // Button released while in wheelie mode
+                    btn_exit = !d->wheelie_btn.pressed;
+                }
+                if (btn_exit) {
+                    if (d->wheelie_exit_step_size > 0.0f) {
+                        d->wheelie_entering = false;
+                        d->wheelie_exiting = true;
+                        d->setpoint_target = 0;
+                        if (d->wheelie_lead_clamped) {
+                            d->pid.i = 0;
+                        }
+                    } else {
+                        state_throttle(&d->state);
+                        d->throttle_current = d->balance_current.value;
+                        d->wheelie_entry_armed = false;
+                        d->wheelie_entering = false;
+                        break;
+                    }
+                }
+            }
+
+            // Wheelie auto-exit (NONE mode only): there is no button or required brake
+            // tap to end a wheelie in this mode, so if the rider lets the nose drop back
+            // down near level on their own (without braking), mirror the pitch-based
+            // auto-entry and return to throttle instead of continuing to chase
+            // wheelie_target_pitch, which would otherwise keep driving the motor forward.
+            if (!d->wheelie_exiting && !d->wheelie_entering &&
+                d->float_conf.wheelie_button_mode == WHEELIE_BTN_NONE &&
+                d->imu.balance_pitch < d->float_conf.startup_pitch_tolerance) {
+                state_throttle(&d->state);
+                d->throttle_current = d->balance_current.value;
+                d->wheelie_entry_armed = false;
+                break;
+            }
+
+            // Wheelie exit ramp: once setpoint has reached entry threshold, transition to throttle
+            if (d->wheelie_exiting &&
+                d->setpoint_target_interpolated <= d->float_conf.startup_pitch_tolerance) {
+                state_throttle(&d->state);
+                d->throttle_current = d->balance_current.value;
+                d->wheelie_entry_armed = false;
+                d->wheelie_exiting = false;
+                break;
+            }
+
+            // Wheelie entry ramp complete: clear flag once setpoint reaches target
+            if (d->wheelie_entering &&
+                d->setpoint_target_interpolated >=
+                    d->float_conf.wheelie_target_pitch - d->float_conf.startup_pitch_tolerance) {
+                d->wheelie_entering = false;
+            }
+
             // Calculate setpoint and interpolation
             calculate_setpoint_target(d);
-            rate_limitf(
-                &d->setpoint_target_interpolated,
-                d->setpoint_target,
-                get_setpoint_adjustment_speed(d) * dt
-            );
-
+            float step_size;
+            if (d->wheelie_entering) {
+                if (d->float_conf.wheelie_entry_rate > 0.0f) {
+                    float ramp_rate = d->float_conf.wheelie_entry_rate +
+                        fabsf(d->motor.speed) * d->float_conf.wheelie_entry_rate_factor;
+                    if (ramp_rate > 0.0f) {
+                        ramp_rate = fmaxf(ramp_rate, 20.0f);
+                    } else if (ramp_rate < 0.0f) {
+                        ramp_rate = 0.0f;
+                    }
+                    step_size = ramp_rate * dt;
+                } else {
+                    // 0 = instant: take an uncapped step, the pitch-lead clamp below still
+                    // prevents the setpoint from running away from the actual pitch.
+                    step_size = INFINITY;
+                }
+            } else if (d->wheelie_exiting) {
+                float ramp_rate = d->float_conf.wheelie_exit_rate +
+                    fabsf(d->motor.speed) * d->float_conf.wheelie_exit_rate_factor;
+                if (ramp_rate < 0.0f) {
+                    ramp_rate = 0.0f;
+                }
+                step_size = ramp_rate * dt;
+            } else {
+                step_size = get_setpoint_adjustment_speed(d) * dt;
+            }
+            rate_limitf(&d->setpoint_target_interpolated, d->setpoint_target, step_size);
+            if (d->wheelie_entering) {
+                // Don't let the setpoint outrun the rider's actual pitch while entering.
+                float max_lead = clampf(
+                    d->float_conf.startup_pitch_tolerance * WHEELIE_LEAD_TOLERANCE_MULT,
+                    0.0f,
+                    d->float_conf.wheelie_target_pitch * WHEELIE_LEAD_MAX_FRACTION
+                );
+                float max_setpoint = d->imu.balance_pitch + max_lead;
+                if (d->setpoint_target_interpolated > max_setpoint) {
+                    d->setpoint_target_interpolated = max_setpoint;
+                    d->wheelie_lead_clamped = true;
+                }
+            }
             float setpoint = d->setpoint_target_interpolated;
+
+            // Throttle twist adds a runtime offset on top of the configured (stored)
+            // wheelie target pitch. Applied directly to `setpoint` (like the remote
+            // input-tilt offset below) rather than through `setpoint_target`, so it
+            // responds instantly instead of being throttled by tiltback_return_speed.
+            // adc1_mapped is 0..1 and scales linearly up to wheelie_throttle_angle.
+            // Skipped during the exit ramp so it doesn't fight the ramp back to 0.
+            if (!d->wheelie_exiting) {
+                // Don't let the throttle correction through immediately on wheelie entry:
+                // require the rider to first let the throttle down below 10% so entering a
+                // wheelie (which can happen with throttle still applied) doesn't instantly
+                // kick the setpoint by wheelie_throttle_angle. Stays unlocked for the rest
+                // of the wheelie once that has happened.
+                if (d->wheelie_throttle_locked && d->footpad.adc1_mapped < 0.1f) {
+                    d->wheelie_throttle_locked = false;
+                }
+                if (d->wheelie_throttle_locked) {
+                    d->wheelie_throttle_offset = 0.0f;
+                } else {
+                    d->wheelie_throttle_offset =
+                        d->float_conf.wheelie_throttle_angle * d->footpad.adc1_mapped;
+                }
+                setpoint += d->wheelie_throttle_offset;
+            } else {
+                d->wheelie_throttle_offset = 0.0f;
+            }
 
             remote_update(&d->remote, &d->state, &d->float_conf, dt);
             setpoint += d->remote.setpoint.value;
@@ -1075,8 +1289,159 @@ static void refloat_thd(void *arg) {
             }
 
             break;
-        case (STATE_DISABLED):
+        case STATE_THROTTLE: {
+            // Normal two-wheel riding: ADC1 = throttle, ADC2 = brake
+            // ADC filtering and mapping is done before the switch.
+
+            float deadband = d->float_conf.throttle_current_deadband;
+            float brake_current_max =
+                (d->float_conf.throttle_brake_percent / 100.0f) * d->motor.current_min;
+            bool brake_active = d->footpad.adc2_mapped * brake_current_max > deadband;
+
+            // Combine into a single -1..1 value: brake wins if non-zero.
+            // adc2_mapped is the ramped brake lever value (see footpad_sensor.c).
+            if (brake_active) {
+                d->throttle_val = -d->footpad.adc2_mapped;
+            } else {
+                d->throttle_val = clampf(d->footpad.adc1_mapped, 0.0f, 1.0f);
+            }
+            float current = 0.0f;
+            if (d->throttle_val < 0) {
+                // Only apply brake current while spinning to avoid heating a stationary motor
+                if (d->motor.abs_erpm > 100) {
+                    current = d->throttle_val * (d->float_conf.throttle_brake_percent / 100.0f) *
+                        d->motor.current_min;
+                }
+            } else if (d->throttle_val > 0) {
+                current = d->throttle_val * d->motor.current_max;
+
+                // Soft speed limit: fade throttle current out over the last fade km/h
+                float limit = d->float_conf.throttle_speed_limit;
+                if (limit > 0.0f) {
+                    float fade = fmaxf(d->float_conf.throttle_speed_fade, 0.1f);
+                    current *= clampf((limit - fabsf(d->motor.speed)) / fade, 0.0f, 1.0f);
+                }
+            }
+
+            // set current request. Ignore current below deadband
+            if (current < -deadband) {
+                motor_control_request_brake_current(&d->motor_control, -current);
+                d->throttle_current = 0;
+            } else if (current > deadband) {
+                motor_control_request_current(&d->motor_control, current);
+                d->throttle_current = current;
+            } else if (d->float_conf.throttle_regen_percent > 0 && d->motor.abs_erpm > 100) {
+                // Regen brake when throttle is at zero and wheel is still spinning
+                float regen_current =
+                    d->motor.current_min * (d->float_conf.throttle_regen_percent / 100.0f);
+                motor_control_request_brake_current(&d->motor_control, regen_current);
+            } else {
+                // We need to request current every cycle to prevent breaking
+                motor_control_request_current(&d->motor_control, 0.0f);
+            }
+
+            // Wheelie re-entry hysteresis: pitch must drop below threshold before
+            // we allow re-entering wheelie, preventing immediate re-engage after
+            // a brief brake tap.
+            if (!d->wheelie_entry_armed) {
+                if (d->imu.balance_pitch < d->float_conf.startup_pitch_tolerance) {
+                    d->wheelie_entry_armed = true;
+                }
+            }
+
+            // Wheelie entry: Hold mode triggers immediately on button press (rising edge),
+            // regardless of current pitch. None and Down use pitch-based auto-entry.
+            // Brake active always blocks entry. Requiring the wheel to already be rolling
+            // prevents an accidental button press while stationary from engaging a wheelie.
+            if (d->float_conf.wheelie_enabled && d->footpad.adc2_mapped == 0.0f &&
+                d->wheelie_entry_armed && d->float_conf.wheelie_button_mode == WHEELIE_BTN_HOLD &&
+                d->wheelie_btn.pressed && !d->wheelie_btn.prev && d->motor.abs_erpm > 100) {
+                engage(d);
+                d->setpoint_target = d->float_conf.wheelie_target_pitch;
+                d->balance_current.value = d->throttle_current;
+                // Always ramp (rate 0 is treated as an uncapped/instant rate below), so the
+                // pitch-lead clamp in STATE_RUNNING applies uniformly regardless of rate.
+                d->wheelie_entering = true;
+            } else if (d->float_conf.wheelie_enabled && d->footpad.adc2_mapped == 0.0f &&
+                       d->wheelie_entry_armed &&
+                       (d->float_conf.wheelie_button_mode == WHEELIE_BTN_NONE ||
+                        d->float_conf.wheelie_button_mode == WHEELIE_BTN_DOWN) &&
+                       d->imu.balance_pitch >= (d->float_conf.wheelie_target_pitch -
+                                                d->float_conf.startup_pitch_tolerance)) {
+                engage(d);
+                d->setpoint_target = d->float_conf.wheelie_target_pitch;
+                d->balance_current.value = d->throttle_current;
+            }
+
+            // Cruise control entry: rising edge of cruise button, only while rolling
+            if (d->float_conf.cruise_enabled && d->cruise_btn.pressed && !d->cruise_btn.prev &&
+                d->motor.abs_erpm > 100) {
+                d->cruise_target_speed = d->motor.speed;
+                float limit = d->float_conf.throttle_speed_limit;
+                if (limit > 0.0f) {
+                    d->cruise_target_speed = clampf(d->cruise_target_speed, -limit, limit);
+                }
+                d->cruise_pid_i = 0;
+                state_cruise(&d->state);
+                break;
+            }
             break;
+        }
+        case STATE_CRUISE: {
+            // Exit cruise on brake tap
+            if (d->footpad.adc2_mapped > 0.0f) {
+                state_throttle(&d->state);
+                d->throttle_current = 0;
+                break;
+            }
+
+            // Exit cruise on rising edge of cruise button
+            if (d->cruise_btn.pressed && !d->cruise_btn.prev) {
+                state_throttle(&d->state);
+                d->throttle_current = 0;
+                break;
+            }
+
+            // Speed PID: error in km/h, output in amps
+            float cruise_error = d->cruise_target_speed - d->motor.speed;
+            d->cruise_pid_i += cruise_error * d->float_conf.cruise_ki * dt;
+
+            // Integral windup clamp: limit to motor current max
+            float i_max = d->motor.current_max;
+            if (d->cruise_pid_i > i_max) {
+                d->cruise_pid_i = i_max;
+            } else if (d->cruise_pid_i < -i_max) {
+                d->cruise_pid_i = -i_max;
+            }
+
+            float cruise_current = cruise_error * d->float_conf.cruise_kp + d->cruise_pid_i;
+
+            // Clamp to motor current max
+            if (cruise_current > d->motor.current_max) {
+                cruise_current = d->motor.current_max;
+            } else if (cruise_current < -d->motor.current_max) {
+                cruise_current = -d->motor.current_max;
+            }
+
+            if (cruise_current < -d->float_conf.throttle_current_deadband) {
+                motor_control_request_brake_current(&d->motor_control, -cruise_current);
+            } else if (cruise_current > d->float_conf.throttle_current_deadband) {
+                motor_control_request_current(&d->motor_control, cruise_current);
+            } else {
+                motor_control_request_current(&d->motor_control, 0.0f);
+            }
+            break;
+        }
+        case STATE_DISABLED:
+            break;
+        }
+
+        // Throttle/Cruise request their current here in the main loop, so apply it here too,
+        // synchronously, instead of relying on the (differently clocked) IMU callback.
+        if (d->state.state == STATE_THROTTLE || d->state.state == STATE_CRUISE) {
+            motor_control_apply(
+                &d->motor_control, d->motor.abs_erpm_smooth.value, d->state.state, &d->time
+            );
         }
 
         int32_t ticks =
@@ -1159,8 +1524,10 @@ static void aux_thd(void *arg) {
 
         leds_update(&d->leds, &d->state, &d->motor, d->footpad.state);
 
-        // store odometer if we've gone more than 200m
-        if (!running && VESC_IF->mc_get_odometer() > d->odometer + 200) {
+        // store odometer if we've gone more than 200m. Only while the motor is nearly stopped,
+        // since the flash write can disturb motor control while spinning.
+        if (!running && d->motor.abs_erpm <= 100 &&
+            VESC_IF->mc_get_odometer() > d->odometer + 200) {
             VESC_IF->store_backup_data();
             d->odometer = VESC_IF->mc_get_odometer();
         }
@@ -2667,7 +3034,7 @@ static int get_cfg(uint8_t *buffer, bool is_default) {
 static bool set_cfg(uint8_t *buffer) {
     Data *d = (Data *) ARG;
 
-    // don't let users use the Refloat Cfg "write" button in special modes
+    // don't let users use the Wheel-E Cfg "write" button in special modes
     if (d->state.mode != MODE_NORMAL) {
         return false;
     }

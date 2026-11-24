@@ -1,13 +1,14 @@
 // Copyright 2025 Lukas Hrazky
+// Copyright 2026 Henrik Buestad
 //
-// This file is part of the Refloat VESC package.
+// This file is part of the Wheel-E VESC package which is a fork of the Refloat VESC package.
 //
-// Refloat VESC package is free software: you can redistribute it and/or modify
+// Wheel-E VESC package is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by the
 // Free Software Foundation, either version 3 of the License, or (at your
 // option) any later version.
 //
-// Refloat VESC package is distributed in the hope that it will be useful, but
+// Wheel-E VESC package is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 // or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
@@ -29,6 +30,7 @@
 #include "frequency_tracker.h"
 #include "haptic_feedback.h"
 #include "imu.h"
+#include "io_buttons.h"
 #include "konami.h"
 #include "latency_tracker.h"
 #include "lcm.h"
@@ -105,6 +107,30 @@ typedef struct {
     bool duty_beeping;
 
     EMA balance_current;
+
+    // Bike throttle mode: combined throttle value (-1 to 1)
+    float throttle_current;
+    float throttle_val;
+    bool wheelie_entry_armed;
+    bool wheelie_exiting;
+    bool wheelie_entering;
+    // Runtime offset currently added to the wheelie setpoint by throttle twist
+    // (wheelie_throttle_angle * adc1_mapped), 0 when not wheelieing / not twisted.
+    float wheelie_throttle_offset;
+    // True once the pitch-lead clamp has had to hold the setpoint back during this
+    // wheelie attempt, meaning the rider's pitch never tracked the setpoint properly.
+    bool wheelie_lead_clamped;
+    // True from wheelie entry until the throttle has been let down below 10%,
+    // blocking the throttle correction angle from being applied the instant a
+    // wheelie is entered (e.g. while the rider is still holding throttle from entry).
+    bool wheelie_throttle_locked;
+    float wheelie_exit_step_size;
+    IoButton wheelie_btn;
+
+    // Cruise control
+    IoButton cruise_btn;
+    float cruise_target_speed;
+    float cruise_pid_i;
 
     float setpoint, setpoint_target, setpoint_target_interpolated;
     float noseangling_interpolated;

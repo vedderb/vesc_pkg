@@ -39,6 +39,20 @@ void state_engage(State *state) {
     state->stop_condition = STOP_NONE;
 }
 
+void state_throttle(State *state) {
+    state->state = STATE_THROTTLE;
+    state->sat = SAT_NONE;
+    state->stop_condition = STOP_NONE;
+    state->wheelslip = false;
+}
+
+void state_cruise(State *state) {
+    state->state = STATE_CRUISE;
+    state->sat = SAT_NONE;
+    state->stop_condition = STOP_NONE;
+    state->wheelslip = false;
+}
+
 void state_flywheel_off(State *state) {
     if (state->mode == MODE_FLYWHEEL) {
         state->state = STATE_READY;
@@ -94,6 +108,11 @@ uint8_t state_compat(const State *state) {
         } else if (state->mode == MODE_FLYWHEEL) {
             return 5;  // RUNNING_FLYWHEEL
         }
+        return 1;  // RUNNING
+    // The legacy Float state is only 4 bits wide, the bike riding modes have
+    // no code of their own and are reported as RUNNING.
+    case STATE_THROTTLE:
+    case STATE_CRUISE:
         return 1;  // RUNNING
     }
     return 0;  // STARTUP

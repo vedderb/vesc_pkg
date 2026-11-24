@@ -99,8 +99,8 @@ The state flags are encoded as a 32-bit unsigned integer with the following bit 
 |-------|------------------|-------------|
 | 31-30 | (reserved)       | Reserved, always 0. |
 | 29-28 | `package_mode`   | The mode of the package. |
-| 27-26 | (reserved)       | Reserved, always 0. |
-| 25-24 | `package_state`  | The state of the package. |
+| 27    | (reserved)       | Reserved, always 0. |
+| 26-24 | `package_state`  | The state of the package. |
 | 23-22 | `footpad_state`  | The footpad sensor state. |
 | 21    | `charging`       | Whether the board is charging. |
 | 20    | `fatal_error`    | Fatal error occurred (as of now only a firmware fault can cause this). |
@@ -121,6 +121,8 @@ The state flags are encoded as a 32-bit unsigned integer with the following bit 
 - `1: STARTUP`
 - `2: READY`
 - `3: RUNNING`
+- `4: THROTTLE`
+- `5: CRUISE`
 
 **`footpad_state`**:
 - `0: NONE`

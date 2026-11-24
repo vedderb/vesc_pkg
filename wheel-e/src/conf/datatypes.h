@@ -1,13 +1,14 @@
 // Copyright 2022 Benjamin Vedder <benjamin@vedder.se>
+// Copyright 2026 Henrik Buestad
 //
-// This file is part of the Refloat VESC package.
+// This file is part of the Wheel-E VESC package which is a fork of the Refloat VESC package.
 //
-// Refloat VESC package is free software: you can redistribute it and/or modify
+// Wheel-E VESC package is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by the
 // Free Software Foundation, either version 3 of the License, or (at your
 // option) any later version.
 //
-// Refloat VESC package is distributed in the hope that it will be useful, but
+// Wheel-E VESC package is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 // or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
@@ -32,6 +33,12 @@ typedef enum {
     PARKING_BRAKE_IDLE,
     PARKING_BRAKE_NEVER
 } ParkingBrakeMode;
+
+typedef enum {
+    WHEELIE_BTN_NONE = 0,
+    WHEELIE_BTN_DOWN,
+    WHEELIE_BTN_HOLD,
+} WheelieButtonMode;
 
 typedef enum {
     LED_MODE_OFF = 0,
@@ -333,6 +340,41 @@ typedef struct {
     CfgBMS bms;
     CfgLeds leds;
     CfgHardware hardware;
+
+    // Bike Throttle mode
+    float throttle_current_deadband;
+    float throttle_adc1_voltage_min;
+    float throttle_adc1_voltage_center;
+    float throttle_adc1_voltage_max;
+    bool throttle_adc1_invert;
+    float throttle_adc2_voltage_min;
+    float throttle_adc2_voltage_max;
+    bool throttle_adc2_invert;
+    float throttle_adc_filter;
+    float throttle_brake_percent;
+    float throttle_brake_ramp_time;
+    float throttle_ramp_time;
+    float throttle_speed_limit;
+    float throttle_speed_fade;
+    float throttle_regen_percent;
+
+    // Bike Wheelie mode
+    bool wheelie_enabled;
+    float wheelie_target_pitch;
+    float wheelie_entry_rate;
+    float wheelie_entry_rate_factor;
+    float wheelie_exit_rate;
+    float wheelie_exit_rate_factor;
+    WheelieButtonMode wheelie_button_mode;
+    float wheelie_throttle_angle;
+
+    // Bike Cruise control
+    bool cruise_enabled;
+    float cruise_kp;
+    float cruise_ki;
+
+    // CAN motor cmd forwarding
+    uint8_t can_forward_id;
 
     CfgMeta meta;
 } RefloatConfig;

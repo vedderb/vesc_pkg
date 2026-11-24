@@ -1,14 +1,15 @@
 // Copyright 2022 Benjamin Vedder <benjamin@vedder.se>
 // Copyright 2024 Lukas Hrazky
+// Copyright 2026 Henrik Buestad
 //
-// This file is part of the Refloat VESC package.
+// This file is part of the Wheel-E VESC package which is a fork of the Refloat VESC package.
 //
-// Refloat VESC package is free software: you can redistribute it and/or modify
+// Wheel-E VESC package is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by the
 // Free Software Foundation, either version 3 of the License, or (at your
 // option) any later version.
 //
-// Refloat VESC package is distributed in the hope that it will be useful, but
+// Wheel-E VESC package is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 // or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 // more details.
@@ -33,7 +34,7 @@ import QtQuick.Controls.Material 2.2
 
 Item {
     id: mainItem
-    property string tabTitle: "Refloat"
+    property string tabTitle: "Wheel-E"
     property Commands vescCommands: VescIf.commands()
 
     function round(num) {
@@ -374,7 +375,7 @@ Item {
             }
         }
 
-        // Called explicitly after the Write button in Refloat Cfg qml page is pressed
+        // Called explicitly after the Write button in Wheel-E Cfg qml page is pressed
         function configWritten() {
             disarmDueUpdate();
             unsetDefault();
@@ -487,6 +488,21 @@ Item {
                 "tiltback_hv",
                 "tiltback_lv",
                 "tiltback_speed",
+                
+                // Wheel-E specific tune parameters which should no be "tunable"
+                 "throttle_current_deadband",
+                 "throttle_adc1_voltage_min",
+                 "throttle_adc1_voltage_center",
+                 "throttle_adc1_voltage_max",
+                 "throttle_adc1_invert",
+                 "throttle_adc2_voltage_min",
+                 "throttle_adc2_voltage_max",
+                 "throttle_adc2_invert",
+                 "wheelie_button_mode",
+                 "wheelie_enabled",
+                 "wheelie_target_pitch",
+                 "cruise_enabled",
+                 "can_forward_id",
             ];
 
             return !name.startsWith("haptic.") && !name.startsWith("hardware.") && !tuneBlacklist.includes(name);
@@ -846,7 +862,8 @@ Item {
 
                 var stateFlags = dv.getUint32(ind); ind += 4;
                 state.pkgMode = (stateFlags >> 28) & 0b11;
-                state.pkgState = (stateFlags >> 24) & 0b11;
+                // Wheel-E uses 3 bits: states go up to CRUISE (5)
+                state.pkgState = (stateFlags >> 24) & 0b111;
 
                 var fpState = (stateFlags >> 22) & 0b11;
                 state.fpState = fpState;
@@ -1172,7 +1189,7 @@ Item {
             UIHintText {
                 anchors.horizontalCenter: statusTextSubject.horizontalCenter
                 anchors.bottom: statusTextSubject.top
-                text: "Tap the state text to show more board state details like Stop Condition, Last Beep Reason, errors and faults."
+                text: "Tap the state text to show more bike state details like Stop Condition, Last Beep Reason, errors and faults."
             }
         }
     }
@@ -1279,14 +1296,14 @@ Item {
             UIHintText {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
-                text: "You have the Data Record firmware installed.\n\nYour board has the ability to store a short detailed data \"log\" by itself, you don't need to be connected.\n\nIt's controlled by these two buttons."
+                text: "You have the Data Record firmware installed.\n\nYour bike has the ability to store a short detailed data \"log\" by itself, you don't need to be connected.\n\nIt's controlled by these two buttons."
                 visible: hintId === "drGeneral"
             }
 
             UIHintText {
                 anchors.horizontalCenter: subject.horizontalCenter
                 anchors.bottom: subject.top
-                text: "This button indicates whether the board is recording. You can use it to start and stop the recording manually.\n\nThe board automatically starts recording when engaged and stops recording on disengage. Control this and the recording duration by long-pressing the button.\n\nIf you nosedive, check the recording before engaging again!"
+                text: "This button indicates whether the bike is recording. You can use it to start and stop the recording manually.\n\nThe bike automatically starts recording when engaged and stops recording on disengage. Control this and the recording duration by long-pressing the button.\n\nIf you nosedive, check the recording before engaging again!"
                 visible: hintId === "drStartStop"
             }
 
@@ -1685,15 +1702,15 @@ Item {
             if (packageConfig.isDefault()) {
                 var backup = loadBackup("auto_backup_" + board.getId());
                 if (!backup) {
-                    print("Refloat: No automatic backup to restore.");
+                    print("Wheel-E: No automatic backup to restore.");
                 } else if (packageConfig.diffConfig(backup).differs.length === 0) {
-                    print("Refloat: Automatic backup matches defaults, skipping.");
+                    print("Wheel-E: Automatic backup matches defaults, skipping.");
                 } else {
-                    print("Refloat: Automatic backup restore.");
+                    print("Wheel-E: Automatic backup restore.");
                     applyConfigDialog.show(backup, true, false);
                 }
             } else {
-                print("Refloat: Automatic config backup.");
+                print("Wheel-E: Automatic config backup.");
                 autoBackup();
             }
         }
@@ -1756,7 +1773,7 @@ Item {
         }
 
         function parseCsv(csv) {
-            var lines = csv.split("\r\n");
+            var lines = csv.split(/\r?\n/);
             var tuneCount = lines[0].split(",").length - 1;
 
             var result = [];
@@ -1862,6 +1879,8 @@ Item {
         readonly property int s_Startup: 1
         readonly property int s_Ready: 2
         readonly property int s_Running: 3
+        readonly property int s_Throttle: 4
+        readonly property int s_Cruise: 5
         readonly property int s_Connecting: 254
         readonly property int s_Disconnected: 255
 
@@ -1869,7 +1888,9 @@ Item {
             [s_Disabled, "DISABLED"],
             [s_Startup, "STARTUP"],
             [s_Ready, "READY"],
-            [s_Running, "RUNNING"],
+            [s_Running, "WHEELIE"],
+            [s_Throttle, "THROTTLE"],
+            [s_Cruise, "CRUISE"],
             [s_Connecting, "CONNECTING..."],
             [s_Disconnected, "DISCONNECTED"],
         ])
@@ -1903,19 +1924,6 @@ Item {
         readonly property int fs_Both: 3
 
         property int fpState: fs_None
-
-        onFpStateChanged: {
-            leftSensor.on = false;
-            rightSensor.on = false;
-
-            if (fpState & fs_Left) {
-                leftSensor.on = true;
-            }
-
-            if (fpState & fs_Right) {
-                rightSensor.on = true;
-            }
-        }
 
         // setpoint adjustment type
         readonly property int sat_None: 0
@@ -2008,7 +2016,7 @@ Item {
         property int beepReason: 0
         property string beepReasonString: beepReasonToString.get(beepReason) ?? "unknown (%1)".arg(beepReason)
 
-        property bool pkgStateIsError: ![s_Startup, s_Ready, s_Running, s_Connecting].includes(pkgState)
+        property bool pkgStateIsError: ![s_Startup, s_Ready, s_Running, s_Throttle, s_Cruise, s_Connecting].includes(pkgState)
         property bool configLoadingError: false
         property bool fatalError: false
 
@@ -2277,6 +2285,9 @@ Item {
     // "#788554",
     // "#734828"
     property var plotSeriesMetaData: [
+
+        ["throttle_val", {"name": "Bike Throttle/Brake", "color": "#0088bb", "visible": true}],
+
         ["erpm", {"name": "ERPM", "color": "#469138", "visible": true}],
         ["duty_cycle", {"name": "Duty Cycle", "color": "#e3ac34", "visible": true}],
         ["current", {"name": "Motor Current", "color": "#e33421", "visible": true, "scalingGroup": "current"}],
@@ -2292,6 +2303,7 @@ Item {
         ["turn_tilt.setpoint", {"name": "Turn Tilt Setpoint", "color": "#e095af", "visible": false, "scalingGroup": "pitch"}],
         ["remote.setpoint", {"name": "Remote Setpoint", "color": "#803a4d", "visible": false, "scalingGroup": "pitch"}],
         ["setpoint", {"name": "Setpoint", "color": "#e57e20", "visible": true, "scalingGroup": "pitch"}],
+        ["wheelie_throttle_offset", {"name": "Wheelie Throttle Offset", "color": "#a2678e", "visible": false, "scalingGroup": "pitch"}],
 
         ["speed", {"name": "Speed", "color": "#3f9469", "visible": false}],
         ["batt_voltage", {"name": "Battery Voltage", "color": "#6e6ee0", "visible": false}],
@@ -4758,12 +4770,12 @@ Item {
             // There is no reliable "config updated" signal, we have to hook onto
             // the VESC Tool custom config buttons (works for QML only, not
             // for the desktop app config page).
-            print("Refloat: Hooking custom config Write button...");
+            print("Wheel-E: Hooking custom config Write button...");
             customConfigWriteButton = locateButton(confCustomLoader.item, "Write");
             if (customConfigWriteButton) {
                 customConfigWriteButton.clicked.connect(packageConfig.configWritten);
             } else {
-                print("Refloat: Failed to locate Write button.");
+                print("Wheel-E: Failed to locate Write button.");
             }
         }
 
@@ -4776,11 +4788,11 @@ Item {
 
     Component.onDestruction: {
         if (typeof confCustomLoader !== typeof undefined) {
-            print("Refloat: Unhooking custom config Write button...");
+            print("Wheel-E: Unhooking custom config Write button...");
             if (customConfigWriteButton) {
                 customConfigWriteButton.clicked.disconnect(packageConfig.configWritten);
             } else {
-                print("Refloat: Write button was not set.");
+                print("Wheel-E: Write button was not set.");
             }
         }
     }
@@ -5024,13 +5036,13 @@ Item {
                         }
 
                         SetupDescription {
-                            text: "Before running the motor wizard, you need to disable the package to prevent the two fighting over the motor. After configuring your motor, you can re-enable the package."
+                            text: "Before running the motor wizard, you need to disable the Wheel-E package to prevent the two fighting over the motor. After configuring your motor, you can re-enable the package."
                         }
 
                         Button {
                             Layout.alignment: Qt.AlignHCenter
 
-                            text: state.pkgState === state.s_Disabled ? "Enable Refloat" : "Disable Refloat"
+                            text: state.pkgState === state.s_Disabled ? "Enable Wheel-E" : "Disable Wheel-E"
 
                             onClicked: {
                                 packageConfig.setDisabled(state.pkgState !== state.s_Disabled);
@@ -5042,7 +5054,7 @@ Item {
                         }
 
                         SetupDescription {
-                            text: "After finishing setup, you can turn on the Handtest mode and engage your board by hand to verify that it balances in the correct direction. Motor currents will be limited to a safe level."
+                            text: "After finishing setup, you can turn on the Handtest mode and engage your bike by hand to verify that it balances in the correct direction. Motor currents will be limited to a safe level."
                         }
 
                         Button {
@@ -5059,7 +5071,7 @@ Item {
 
                         SetupDescription {
                             visible: state.pkgMode === state.m_Handtest
-                            text: "If your board balances in reverse (shoots off), your Imu Rotation Yaw is off by 180°. If it moves erratically, your Imu Rotation Yaw is likely off by 90°.\nNote: When Handtest is on, any configuration writing is disabled."
+                            text: "If your bike balances in reverse (shoots off), your Imu Rotation Yaw is off by 180°. If it moves erratically, your Imu Rotation Yaw is likely off by 90°.\nNote: When Handtest is on, any configuration writing is disabled."
                         }
 
                         Heading {
@@ -5071,7 +5083,7 @@ Item {
                         }
 
                         SubHeading {
-                            text: "Automatic Board Backup"
+                            text: "Automatic Bike Backup"
                         }
 
                         SetupDescription {
@@ -5102,7 +5114,7 @@ Item {
                         }
 
                         SubHeading {
-                            text: "Board Backup"
+                            text: "Bike Backup"
                         }
 
                         SetupDescription {
@@ -5367,7 +5379,7 @@ Item {
     BaseDialog {
         id: editBoardNameDialog
 
-        title: "Set Board Name"
+        title: "Set Bike Name"
         standardButtons: Dialog.Save | Dialog.Cancel
 
         onAccepted: {
@@ -5550,7 +5562,7 @@ Item {
                 Layout.fillWidth: true
                 font.pointSize: 12
                 wrapMode: TextEdit.WordWrap
-                text: "Tune \"%1\" will be converted from version 1.2 or lower to 1.3.\n\nThe conversion uses the motor parameters of the connected board. Make sure this is the board the tune is made for.".arg(convertTuneDialog.tune ? convertTuneDialog.tune.name : "")
+                text: "Tune \"%1\" will be converted from version 1.2 or lower to 1.3.\n\nThe conversion uses the motor parameters of the connected bike. Make sure this is the bike the tune is made for.".arg(convertTuneDialog.tune ? convertTuneDialog.tune.name : "")
             }
 
             Column {
@@ -5619,7 +5631,7 @@ Item {
         function download() {
             tuneArchiveDownloadStatus.text = "Downloading tunes...";
             var http = new XMLHttpRequest();
-            var url = "http://us-central1-mimetic-union-377520.cloudfunctions.net/float_package_tunes_via_http";
+            var url = "http://vesc.buestad.net/wheel-e_tunes.csv";
             http.open("GET", url, true);
             http.onreadystatechange = function() {
                 if (http.readyState === XMLHttpRequest.DONE) {
@@ -5771,14 +5783,14 @@ Item {
                 }
 
                 ErrDesc {
-                    text: "Refloat package is disabled. After you're done with board setup, re-enable it."
+                    text: "Wheel-E package is disabled. After you're done with bike setup, re-enable it."
                     visible: state.pkgState === state.s_Disabled
                 }
 
                 Button {
                     Layout.alignment: Qt.AlignHCenter
 
-                    text: "Enable Refloat"
+                    text: "Enable Wheel-E"
                     visible: state.pkgState === state.s_Disabled
 
                     onClicked: {
@@ -5792,12 +5804,12 @@ Item {
                 }
 
                 ErrText {
-                    text: "Refloat Cfg failed to load"
+                    text: "Wheel-E Cfg failed to load"
                     visible: state.configLoadingError
                 }
 
                 ErrDesc {
-                    text: "Reconnecting to the board usually fixes this. If problem persists, try reinstalling the package."
+                    text: "Reconnecting to the bike usually fixes this. If problem persists, try reinstalling the package."
                     visible: state.configLoadingError
                 }
 
@@ -5807,7 +5819,7 @@ Item {
                 }
 
                 ErrDesc {
-                    text: "Package is not responding. May occur temporarily with spotty connection. If board doesn't engage, the package is dead. Restart the board, if problem persists, try reinstalling the package.";
+                    text: "Package is not responding. May occur temporarily with spotty connection. If bike doesn't engage, the package is dead. Restart the bike, if problem persists, try reinstalling the package.";
                     visible: state.pkgState === state.s_Disconnected
                 }
 
@@ -6343,7 +6355,7 @@ Item {
         }
 
         Page {
-            title: "Welcome to Refloat"
+            title: "Welcome to Wheel-E"
             anchors.centerIn: parent
             width: parent.width - 20
             padding: 10
@@ -6378,7 +6390,7 @@ Item {
                     id: welcomeMessage
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: "If you haven't configured your board yet, make sure to configure your motor and IMU before you try to ride the board.\n\nTo run the motor wizard, you need to disable the Refloat package first. You can do so in Refloat Settings > Setup, which you can access using the cog button in the top right corner of the main Refloat screen.\n\nAfter the setup, you can safely verify your board balances correctly using the Handtest mode.\n\nTo configure Refloat, you need to set the High and Low Voltage Thresholds in Refloat Cfg > Specs according to your battery voltage. The rest of the configuration options has defaults that should provide you with a well-behaving, rideable board.\n\nHappy shredding!\n\nGo to Settings > Setup now?"
+                    text: "If you haven't configured your bike yet, make sure to configure your motor and IMU before you try to ride the bike.\n\nTo run the motor wizard, you need to disable the Wheel-E package first. You can do so in Settings > Setup, which you can access using the cog button in the top right corner of the main Wheel-E screen.\n\nAfter the setup, you can safely verify your bike balances correctly using the Handtest mode.\n\nTo configure Wheel-E, you need to set the High and Low Voltage Thresholds in Wheel-E Cfg > Specs according to your battery voltage. The rest of the configuration options has defaults that should provide you with a well-behaving, rideable bike.\n\nHappy shredding!\n\nGo to Settings > Setup now?"
                 }
 
                 CheckBox {
@@ -7219,133 +7231,46 @@ Item {
                         property real sidePadding: (width - 2 * height) / 4
 
                         Item {
-                            id: footpad
+                            id: throttleGauge
                             anchors.left: parent.left
                             anchors.leftMargin: parent.sidePadding
                             width: parent.height
                             height: width
 
-                            property real leftVoltage: state.rtData["adc_left"]
-                            property real rightVoltage: state.rtData["adc_right"]
+                            // Positive = throttle (ADC1), negative = brake (ADC2)
+                            property real throttlePct: (state.rtData["throttle_val"] || 0) * 100
+                            // property real leftVoltage: state.rtData["adc_left"]
+                            // property real rightVoltage: state.rtData["adc_right"]
 
-                            property real canvasWidth: width * 0.85
-                            property real scale: canvasWidth / footpadPath.width
+                            // In wheelie mode, show the throttle-twist offset currently added to
+                            // the wheelie target pitch (0 = throttle not twisted), instead of the
+                            // (frozen) two-wheel throttle value. Range matches the fixed
+                            // Wheelie Throttle Angle setting bounds (-10..10 degrees).
+                            property bool wheelieMode: state.pkgState === state.s_Running
+                            property real wheelieThrottleOffsetDeg: state.rtData["wheelie_throttle_offset"] || 0
 
-                            Path {
-                                id: footpadPath
-
-                                property int width: 100
-                                property int height: 80
-                                property real aspect: height / width
-                                scale: Qt.size(footpad.scale, footpad.scale)
-
-                                PathSvg {path: "M 62 2 L 38 2 A 36 15 180 0 0 2 17 L 2 78 L 98 78 L 98 17 A 36 15 0 0 0 62 2 M 50 11 L 50 69"}
-                            }
-
-                            Path {
-                                id: footpadLeftSensorPath
-                                scale: Qt.size(footpad.scale, footpad.scale)
-                                PathSvg {path: "M 44 8 L 44 72 L 8 72 L 8 18.4 A 30 10.4 180 0 1 38 8 L 44 8"}
-                            }
-
-                            Path {
-                                id: footpadRightSensorPath
-                                scale: Qt.size(footpad.scale, footpad.scale)
-                                PathSvg {path: "M 56 72 L 92 72 L 92 18.4 A 30 10.4 0 0 0 62 8L 56 8 L 56 72"}
-                            }
-
-                            component FpCanvas : Canvas {
+                            NText {
+                                id: throttleDialLabel
+                                anchors.bottom: parent.bottom
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                anchors.bottom: footpadLeftAdc.top
-                                anchors.bottomMargin: footpadLeftAdc.font.pixelSize * 0.32
-                                width: parent.canvasWidth
-                                height: width * footpadPath.aspect
-                                contextType: "2d"
-                            }
-
-                            component SensorCanvas : FpCanvas {
-                                property Path path
-                                property bool on: false
-                                opacity: on ? 1 : 0
-
-                                onOnChanged: requestPaint();
-
-                                Behavior on opacity {
-                                    NumberAnimation {
-                                        easing.type: Easing.OutCubic
-                                        duration: 60
-                                    }
-                                }
-
-                                onPaint: {
-                                    var context = getContext("2d");
-                                    context.reset();
-                                    context.fillStyle = Utility.getAppHexColor("lightAccent")
-                                    context.path = path
-                                    context.fill()
-                                }
-                            }
-
-                            FpCanvas {
-                                id: footpadCanvas
-                                onPaint: {
-                                    var context = getContext("2d");
-                                    context.reset();
-                                    context.strokeStyle = Utility.getAppHexColor("lightText")
-                                    context.lineWidth = 2
-                                    context.path = footpadPath
-                                    context.stroke()
-                                }
-                            }
-
-                            SensorCanvas {
-                                id: leftSensor
-                                path: footpadLeftSensorPath
-                            }
-
-                            Glow {
-                                anchors.fill: leftSensor
-                                radius: Math.round(0.08 * unit)
-                                samples: radius * 2 + 1
-                                spread: 0.6
-                                opacity: leftSensor.opacity * 0.4
-                                color: Utility.getAppHexColor("lightAccent")
-                                source: leftSensor
-                            }
-
-                            SensorCanvas {
-                                id: rightSensor
-                                path: footpadRightSensorPath
-                            }
-
-                            Glow {
-                                anchors.fill: rightSensor
-                                radius: Math.round(0.08 * unit)
-                                samples: radius * 2 + 1
-                                spread: 0.6
-                                opacity: rightSensor.opacity * 0.4
-                                color: Utility.getAppHexColor("lightAccent")
-                                source: rightSensor
-                            }
-
-                            NText {
-                                id: footpadLeftAdc
-                                anchors.bottom: parent.bottom
-                                anchors.horizontalCenter: footpadCanvas.horizontalCenter
-                                anchors.horizontalCenterOffset: -footpadCanvas.width / 4
 
                                 font.pixelSize: fontSizeSmall
-                                text: "%1V".arg(toFixed1Zero(parent.leftVoltage))
+                                horizontalAlignment: Text.AlignHCenter
+                                text: parent.wheelieMode ? "tilt mod" : "throttle"
                             }
 
-                            NText {
-                                id: footpadRightAdc
-                                anchors.bottom: parent.bottom
-                                anchors.horizontalCenter: footpadCanvas.horizontalCenter
-                                anchors.horizontalCenterOffset: footpadCanvas.width / 4
+                            Dial {
+                                anchors.bottom: throttleDialLabel.top
+                                anchors.bottomMargin: -0.15 * unit
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width
+                                height: width
 
-                                font.pixelSize: fontSizeSmall
-                                text: "%1V".arg(toFixed1Zero(parent.rightVoltage))
+                                value: parent.wheelieMode ? parent.wheelieThrottleOffsetDeg : parent.throttlePct
+                                allowNegative: true
+                                minValue: parent.wheelieMode ? -10 : -100
+                                maxValue: parent.wheelieMode ? 10 : 100
+                                valueUnit: parent.wheelieMode ? "°" : "%"
                             }
                         }
 
@@ -7484,7 +7409,7 @@ Item {
                             height: parent.height
                             contextType: "2d"
 
-                            property real scale: width * 0.88 / pitchBoardPath.width
+                            property real scale: width * 0.88 / pitchBikeFramePath.width
 
                             Path {
                                 id: pitchBoardPath
@@ -7509,10 +7434,42 @@ Item {
                                 PathSvg {path: "M -86 0 L -43 0 M 43 0 L 86 0"}
                             }
 
-                            function paintPath(context, paths, rotation, color) {
+                            Path {
+                                id: pitchBikeFramePath
+                                property int width: 200
+                                scale: Qt.size(pitchCanvas.scale, pitchCanvas.scale)
+                                PathSvg {path: "M -3.3169971,30.139553 80.034825,27.917444 C 85.366264,27.775311 88.54999,14.617677 85.770991,6.747347 L 69.646934,-30.667221 C 67.820267,-35.6805539 62.018119,-38.3664497 56.684825,-38.3459427 l -82.558212,0.3174442 c -5.333293,0.020507 -10.102386,4.0938875 -8.275719,9.1072205 L -16.59655,20.08 c 1.826667,5.013333 7.9481138,10.201686 13.2795529,10.059553 z"}
+                            }
+                            Path {
+                                id: pitchBikeForkPath
+                                scale: Qt.size(pitchCanvas.scale, pitchCanvas.scale)
+                                PathSvg {path: "m -70.856997,28.531438 41.186897,-80.3909656 3.346491,-44.1176404 7.362443,-0.358073"}
+                            }
+                            Path {
+                                id: pitchBikeSeatPath
+                                scale: Qt.size(pitchCanvas.scale, pitchCanvas.scale)
+                                PathSvg {path: "m 7.4288153,-47.5370563 c 1.8002245,-2.9898989 56.9126287,-6.021954 58.8139377,-6.1685679 2.029326,-0.2258232 11.85563,-1.3043264 12.610738,0.3186795 1.096611,2.3570225 1.338832,10.6018686 0.567059,11.6372636 -0.663582,0.7343959 -1.584731,0.6126158 -3.549207,0.5719373 -1.936571,-0.040101 -60.700178,0.2974389 -69.4979273,0.2959781 -0.00534,-2.0638957 0.046174,-4.96019625 1.0553996,-6.6552906 z"}
+                            }
+                            Path {
+                                id: pitchBikeWheel1Path
+                                scale: Qt.size(pitchCanvas.scale, pitchCanvas.scale)
+                                PathSvg {path: "m 51.973285,28.372716 a 21.978792,22.138835 0 1 0 43.957582,0 21.978792,22.138835 0 1 0 -43.957582,0 z"}
+                            }
+                            Path {
+                                id: pitchBikeWheel2Path
+                                scale: Qt.size(pitchCanvas.scale, pitchCanvas.scale)
+                                PathSvg {path: "m -94.467655,27.344768 a 21.978792,22.138835 0 1 0 43.957582,0 21.978792,22.138835 0 1 0 -43.957582,0 z"}
+                            }
+
+
+                            function paintPath(context, paths, rotation, origoX, origoY, color) {
+                                origoX *= pitchCanvas.scale;
+                                origoY *= pitchCanvas.scale;
                                 context.save();
                                 context.translate(width / 2, height / 2);
+                                context.translate(origoX, origoY);
                                 context.rotate(Math.PI / 180 * rotation);
+                                context.translate(-origoX, -origoY);
                                 context.lineWidth = 2;
                                 context.strokeStyle = Utility.getAppHexColor(color);
                                 for (let path of paths) {
@@ -7525,10 +7482,11 @@ Item {
                             onPaint: {
                                 var context = getContext("2d");
                                 context.reset()
-                                paintPath(context, [pitchBoardPath], parent.balancePitchValue, "lightAccent");
-                                paintPath(context, [pitchBoardPath, pitchWheelPath], parent.pitchValue, "lightText");
-                                context.globalAlpha = parent.runtimeOpacity;
-                                paintPath(context, [pitchSetpointPath], parent.setpointValue, "orange");
+                                paintPath(context, [pitchBikeFramePath, pitchBikeForkPath, pitchBikeSeatPath, pitchBikeWheel1Path, pitchBikeWheel2Path], parent.setpointValue, 73.95, 28.37, "orange");
+                                paintPath(context, [pitchBikeFramePath, pitchBikeForkPath, pitchBikeSeatPath, pitchBikeWheel1Path, pitchBikeWheel2Path], parent.balancePitchValue, 73.95, 28.37, "lightAccent");
+                                paintPath(context, [pitchBikeFramePath, pitchBikeForkPath, pitchBikeSeatPath, pitchBikeWheel1Path, pitchBikeWheel2Path], parent.pitchValue, 73.95, 28.37, "lightText");
+                                //paintPath(context, [pitchBoardPath], parent.balancePitchValue, "lightAccent");
+                                //paintPath(context, [pitchBoardPath, pitchWheelPath], parent.pitchValue, "lightText");
                             }
                         }
 
@@ -7759,7 +7717,10 @@ Item {
 
                 GridLayout {
                     property int spacing: 0.6 * unit
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
                     anchors.topMargin: spacing
                     anchors.leftMargin: spacing
                     anchors.rightMargin: spacing
@@ -7920,6 +7881,109 @@ Item {
                         height: 0.1 * unit
                     }
 
+                    Item {
+                        id: wheelieAngleControl
+                        width: parent.width
+                        height: wheelieSwitchColumn.height + 0.2 * unit
+                        readonly property real wheelieLabelHeight: 0.5 * unit
+
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 2 * unit
+                            spacing: 0.25 * unit
+
+                            Column {
+                                id: wheelieSwitchColumn
+
+                                LText {
+                                    text: "Enable wheelie"
+                                    height: wheelieAngleControl.wheelieLabelHeight
+                                    verticalAlignment: Text.AlignVCenter
+                                    opacity: wheelieEnabledSwitch.checked ? 1.0 : 0.5
+                                }
+
+                                Switch {
+                                    id: wheelieEnabledSwitch
+                                    checked: packageConfig.checkConfig() ? packageConfig.getParamValue("wheelie_enabled") : true
+
+                                    onToggled: {
+                                        if (!packageConfig.checkConfig()) return;
+
+                                        packageConfig.pkgConfig.updateParamBool("wheelie_enabled", checked);
+                                        packageConfig.writeConfig();
+                                    }
+                                }
+                            }
+
+                            Column {
+                                width: parent.width - wheelieSwitchColumn.width - parent.spacing
+
+                                LText {
+                                    text: "Wheelie angle"
+                                    height: wheelieAngleControl.wheelieLabelHeight
+                                    verticalAlignment: Text.AlignVCenter
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    opacity: wheelieEnabledSwitch.checked ? 1.0 : 0.5
+                                }
+
+                                Row {
+                                    width: parent.width
+                                    height: wheelieEnabledSwitch.height
+                                    spacing: 0.25 * unit
+
+                                    TapSlider {
+                                        id: wheelieAngleSlider
+                                        width: parent.width - wheelieAngleValue.width - parent.spacing
+                                        height: 0.6 * unit
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        from: 18
+                                        to: 45
+                                        stepSize: 0.5
+                                        sliderEnabled: wheelieEnabledSwitch.checked
+                                        value: packageConfig.checkConfig() ? packageConfig.getParamValue("wheelie_target_pitch") : 25
+
+                                        onMoved: {
+                                            if (!packageConfig.checkConfig() || !wheelieEnabledSwitch.checked) return;
+
+                                            packageConfig.pkgConfig.updateParamDouble("wheelie_target_pitch", value);
+                                            wheelieAngleWriteTimer.restart();
+                                        }
+                                    }
+
+                                    LText {
+                                        id: wheelieAngleValue
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        font.pixelSize: fontSizeBig
+                                        text: wheelieAngleSlider.value.toFixed(1) + "°"
+                                        opacity: wheelieEnabledSwitch.checked ? 1.0 : 0.5
+                                    }
+                                }
+                            }
+                        }
+
+                        function reloadFromConfig() {
+                            if (!packageConfig.checkConfig()) return;
+
+                            wheelieEnabledSwitch.checked = packageConfig.getParamValue("wheelie_enabled");
+                            wheelieAngleSlider.value = packageConfig.getParamValue("wheelie_target_pitch");
+                        }
+
+                        Component.onCompleted: reloadFromConfig()
+
+                        Connections {
+                            target: packageConfig
+                            function onUpdate() { wheelieAngleControl.reloadFromConfig(); }
+                        }
+
+                        Timer {
+                            id: wheelieAngleWriteTimer
+                            interval: 250
+                            onTriggered: packageConfig.writeConfig()
+                        }
+                    }
+
                     LText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: lights.enabled
@@ -7953,6 +8017,7 @@ Item {
                         }
                     }
 
+                    /*
                     LText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         font.pixelSize: fontSizeBig
@@ -8022,6 +8087,7 @@ Item {
                             commands.sendFlywheel(state.pkgMode === state.m_Normal);
                         }
                     }
+                    */
 
                     Item {
                         width: parent.width
@@ -8170,7 +8236,7 @@ Item {
             Layout.fillWidth: true
             font.pixelSize: 0.2 * unit
             horizontalAlignment: Text.AlignHCenter
-            text: "Refloat {{VERSION}}"
+            text: "Wheel-E {{VERSION}}"
         }
     }
 }

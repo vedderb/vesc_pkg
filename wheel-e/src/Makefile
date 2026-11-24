@@ -1,5 +1,5 @@
 # WARNING: If you use this Makefile to build, you need to generate config files
-# from settings.xml using this file as well, otherwise Refloat Cfg will not
+# from settings.xml using this file as well, otherwise Wheel-E Cfg will not
 # load in vesc_tool, see comment below.
 
 VESC_TOOL ?= vesc_tool

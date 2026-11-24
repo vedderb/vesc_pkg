@@ -30,10 +30,14 @@ typedef struct {
     float adc_left;
     float adc_right;
     FootpadSensorState state;
+    float adc1_filtered, adc2_filtered;
+    float adc1_mapped, adc2_mapped;
 } FootpadSensor;
 
 void footpad_sensor_init(FootpadSensor *fs);
 
 void footpad_sensor_update(FootpadSensor *fs, const RefloatConfig *config);
+
+void footpad_sensor_filter_and_map(FootpadSensor *fs, const RefloatConfig *config, float dt);
 
 int footpad_sensor_state_to_switch_compat(FootpadSensorState v);
