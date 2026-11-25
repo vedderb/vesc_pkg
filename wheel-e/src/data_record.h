@@ -1,0 +1,49 @@
+// Copyright 2024 Lukas Hrazky
+//
+// This file is part of the Refloat VESC package.
+//
+// Refloat VESC package is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// Refloat VESC package is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+// or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along with
+// this program. If not, see <http://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "lib/circular_buffer.h"
+#include "rt_data.h"
+#include "time.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+typedef struct {
+    time_t time;
+    uint8_t flags;
+    uint16_t values[ITEMS_COUNT_REC(RT_DATA_ALL_ITEMS)];  // values encoded as float16
+} Sample;
+
+typedef struct {
+    bool enabled;
+    bool recording;
+    bool autostart;
+    bool autostop;
+    // recompute decimation on sample rate change; cleared by a manual decimation set
+    bool decimation_auto;
+    uint8_t decimation;
+    uint8_t decimation_counter;
+    uint16_t sample_rate;
+    uint16_t sample_count;
+    // timestamp of the last recorded sample, used to keep timestamps strictly
+    // increasing (the system tick is too coarse to distinguish samples at high
+    // IMU rates, where several samples can share a tick)
+    time_t last_time;
+    CircularBuffer buffer;
+} DataRecord;
